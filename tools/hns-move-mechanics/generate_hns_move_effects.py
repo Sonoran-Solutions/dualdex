@@ -359,6 +359,54 @@ def parse_drain_metadata(text, heal_blocking_latest=False, updated_move_data_lat
     return result
 
 
+def parse_earthquake_metadata(text, updated_move_flags_latest=False):
+    """Frozen two-move contract. Any changed or unresolved operand removes admission."""
+    result = {}
+    _, _, sheer, unknown = parse_contact_and_sheer_force(text)
+    for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())):
+        if symbol not in ("MOVE_EARTHQUAKE", "MOVE_BULLDOZE"):
+            continue
+        joined = "\n".join(body)
+        def values(field):
+            return re.findall(rf"\.{field}\s*=\s*([^,\n}}]+)", joined)
+        effect, _, target, _, _, priority = classify_body(body, include_immunity_metadata=True)
+        if (effect != "EFFECT_EARTHQUAKE" or target != "TARGET_FOES_AND_ALLY" or priority != 0
+                or any(line.lstrip().startswith("#") for line in body)
+                or values("power") != (["100"] if symbol == "MOVE_EARTHQUAKE" else ["60"])
+                or values("type") != ["TYPE_GROUND"] or values("category") != ["DAMAGE_CATEGORY_PHYSICAL"]
+                or values("strikeCount") not in ([], ["1"])):
+            continue
+        if any(values(flag) for flag in (*[f for f in STATE_DEPENDENT_FLAGS if f != "damagesUnderground"],
+                "multiHit", "explosion", "ignoresTargetAbility", "gravityBanned", "thawsUser",
+                "cantUseTwice", "noAffectOnSameTypeTarget", "ignoresSubstitute", "dampBanned")):
+            continue
+        if any(values(flag) not in ([], ["FALSE"]) for flag in
+               (*ABILITY_MOVE_FLAGS, *CONTACT_FLAGS, *IMMUNITY_FLAGS)):
+            continue
+        # Freeze all initializer fields: an added damage/execution flag cannot hide in metadata.
+        allowed = {"name", "description", "effect", "power", "type", "accuracy", "pp", "target",
+                   "priority", "category", "ignoresKingsRock", "damagesUnderground", "skyBattleBanned",
+                   "contestEffect", "contestCategory", "contestComboStarterId", "contestComboMoves",
+                   "battleAnimScript", "validApprenticeMove", "additionalEffects", "moveEffect", "chance"}
+        if set(re.findall(r"\.([A-Za-z]\w*)\s*=", joined)) - allowed:
+            continue
+        underground = values("damagesUnderground")
+        if symbol == "MOVE_EARTHQUAKE":
+            if not updated_move_flags_latest or underground != ["B_UPDATED_MOVE_FLAGS >= GEN_2"]:
+                continue
+        elif underground:
+            continue
+        if symbol == "MOVE_BULLDOZE":
+            if values("moveEffect") != ["MOVE_EFFECT_SPD_MINUS_1"] or values("chance") != ["100"]:
+                continue
+        elif values("additionalEffects"):
+            continue
+        if symbol in unknown or sheer.get(symbol) != (symbol == "MOVE_BULLDOZE"):
+            continue
+        result[symbol] = symbol == "MOVE_EARTHQUAKE"
+    return result
+
+
 def parse_move_table(text):
     """Return source-derived effect/target/ordinary/flag/priority maps by move symbol."""
     lines = text.splitlines()
@@ -638,7 +686,7 @@ def build_maps(upstream_dir):
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
                     priority_by_id, unknown_priority_ids, ability_flags_by_id,
                     unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
-                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None):
+                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -757,6 +805,8 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    val fixedSingleHitDrainMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(drain_percentages or {}))) + ")")
     lines.append("    val absorbPercentageById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((drain_percentages or {}).items())) + ")")
     lines.append("")
+    lines.append("    val fixedSingleHitEarthquakeMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(earthquake_flags or {}))) + ")")
+    lines.append("    val earthquakeDamagesUndergroundById: Map<Int, Boolean> = mapOf(" + ", ".join(f"{i} to {str(v).lower()}" for i, v in sorted((earthquake_flags or {}).items())) + ")")
     lines.append("    /** Recoil moves which clear Freeze/Frostbite before the selected hit. */")
     lines.append("    val recoilThawsUserMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(recoil_thaws))) + ")")
     lines.append("")
@@ -814,7 +864,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
 
 
 def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_ability_flags_by_id,
-                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None):
+                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None):
     """Render a compact source-derived move metadata map for the ROM-free oracle harness."""
     result = {}
     for move_id, effect in sorted(effect_by_id.items()):
@@ -835,6 +885,11 @@ def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_
     for move_id, percentage in (drain_percentages or {}).items():
         result[str(move_id)].update(absorbPercentage=percentage, fixedSingleHitDrain=True,
             healingMove=True, target=target_by_id[move_id], priority=priority_by_id[move_id],
+            abilityFlags=sorted(ability_flags_by_id.get(move_id, set())),
+            immunityFlags=sorted(flags_by_id.get(move_id, set())))
+    for move_id, underground in (earthquake_flags or {}).items():
+        result[str(move_id)].update(fixedSingleHitEarthquake=True, damagesUnderground=underground,
+            target=target_by_id[move_id], priority=priority_by_id[move_id],
             abilityFlags=sorted(ability_flags_by_id.get(move_id, set())),
             immunityFlags=sorted(flags_by_id.get(move_id, set())))
     return json.dumps({"pinnedCommit": PINNED_COMMIT, "moves": result}, indent=2) + "\n"
@@ -861,6 +916,11 @@ def main():
     if not re.search(r"#define B_HEAL_BLOCKING\s+GEN_LATEST", config):
         raise ValueError("Drain healing flag requires reviewed GEN_LATEST Heal Block configuration")
     drain_percentages = {ids[s]: p for s, p in parse_drain_metadata(move_text, True, True).items()}
+    if not re.search(r"#define B_UPDATED_MOVE_FLAGS\s+GEN_LATEST", config):
+        raise ValueError("Earthquake underground flag requires reviewed GEN_LATEST configuration")
+    earthquake_flags = {ids[s]: v for s, v in parse_earthquake_metadata(move_text, True).items()}
+    if set(earthquake_flags) != {89, 523}:
+        raise ValueError("Frozen Earthquake family contract changed")
     for move_id in drain_percentages:
         flags_by_id.setdefault(move_id, set()).add("healingMove")
         unknown_flags_by_id.get(move_id, set()).discard("healingMove")
@@ -895,15 +955,17 @@ def main():
         raise ValueError("Recoil no longer uses the selected-hit script; review source contract")
     if not re.search(r"\[EFFECT_ABSORB\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
         raise ValueError("Drain selected-hit script changed")
+    if not re.search(r"\[EFFECT_EARTHQUAKE\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
+        raise ValueError("Earthquake selected-hit script changed")
     verify_helper_contract(upstream_dir, ordinary)
     generated = generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id,
                                 unknown_flags_by_id, priority_by_id, unknown_priority_ids,
                                 ability_flags_by_id, unknown_ability_flags_by_id,
                                 contact_by_id, unknown_contact_by_id,
-                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages)
+                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags)
     generated_json = generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id,
                                             unknown_ability_flags_by_id, contact_by_id,
-                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id)
+                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags)
 
     if args.verify:
         if not os.path.isfile(args.output):

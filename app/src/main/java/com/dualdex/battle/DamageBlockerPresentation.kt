@@ -329,6 +329,10 @@ sealed interface DamageBlockerPresentation {
                     CalcLimitation.HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED
                 )
             ).takeIf { it.isNotEmpty() }?.let { mechanics += Mechanic("Move effect not modelled", it) }
+            take(setOf(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN))
+                .takeIf { it.isNotEmpty() }?.let { mechanics += Mechanic("Semi-invulnerable state unknown", it) }
+            take(setOf(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED))
+                .takeIf { it.isNotEmpty() }?.let { mechanics += Mechanic("Semi-invulnerable target not supported", it) }
             if (blocking.isNotEmpty()) {
                 mechanics += Mechanic("Damage interaction not modelled", blocking.toList())
             }

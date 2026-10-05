@@ -3349,6 +3349,7 @@ bool pokemon_read_battler_runtime_state_gba(
     }
     out_state->status = (out_state->ability_invalid || out_state->types_invalid ||
                          out_state->item_invalid || out_state->stages_invalid ||
+                         (out_state->volatiles_observed && out_state->volatile_semi_invulnerable >= HNS_LIVE_SEMI_INVULNERABLE_COUNT) ||
                          (out_state->volatiles_observed &&
                           out_state->volatile_paradox_boosted_stat >= HNS_LIVE_NUM_STATS) ||
                          (out_state->volatiles_observed &&

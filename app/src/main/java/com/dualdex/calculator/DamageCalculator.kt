@@ -324,6 +324,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 })
             }
             request.hnsLiveBattleState?.let { live ->
+                live.defenderSemiInvulnerableState?.let { put("hnsSemiInvulnerableState", it) }
                 live.defenderHp?.let { put("hpAtHit", it) }
                 live.defenderMaxHp?.let { put("maxHpAtHit", it) }
                 live.defenderStatus1?.let { put("status1", it) }
@@ -402,6 +403,8 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("hnsMoveEffect", com.dualdex.pokemon.hns.Hns205MoveEffects.effectById[moveId])
                     put("hnsIsOrdinary", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.ordinaryMoveIds)
                     put("hnsFixedSingleHit", hnsFixedSingleHitMove == true)
+                    put("hnsIsEarthquake", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEarthquakeMoveIds)
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.earthquakeDamagesUndergroundById[moveId]?.let { put("hnsDamagesUnderground", it) }
                     put("hnsIsDrain", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitDrainMoveIds)
                     put("hnsMoveFlags", JSONArray(
                         hnsMoveFlags.sorted()

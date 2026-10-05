@@ -343,7 +343,8 @@ function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
   if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
-        input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true)) ||
+        input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true ||
+        input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE' && input.move?.hnsIsEarthquake === true)) ||
       input.move?.hnsUnknownContact === true || typeof input.move?.hnsMakesContact !== 'boolean') return null;
   if (!input.move.hnsMakesContact) return false;
   const flags = new Set(input.move?.hnsMoveAbilityFlags || []);
@@ -813,6 +814,17 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // CalcMoveBasePowerAfterModifiers has a separate fixed-point accumulator from the two stat
   // stages. Preserve the Group C Dry Skin × Wise Glasses composition correction.
   const basePowerModifier = createHnsModifierAccumulator(halfUp);
+  const gameType = normalizeGameType(field.gameType || input.field?.gameType);
+  const earthquakeFamily = input.move?.hnsIsEarthquake === true && input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE';
+  const semiState = input.defender?.hnsSemiInvulnerableState;
+  if (earthquakeFamily) {
+    if (gameType !== 'Singles' || ![89, 523].includes(input.move?.hnsMoveId) ||
+        input.move?.hnsDamagesUnderground !== (input.move?.hnsMoveId === 89) ||
+        !(semiState === 0 || semiState === 1 && input.move.hnsDamagesUnderground))
+      throw new Error('H&S Earthquake execution authority missing or unsupported');
+    // EFFECT_EARTHQUAKE precedes Gems/terrain/abilities. Raw field bit, never groundedness.
+    if ((hnsFieldStatuses & 0x40) !== 0 && semiState === 0) basePowerModifier.addHalfUp(2048);
+  }
   for (let i = 0; i < (doubles?.helpingHand || 0); i++) basePowerModifier.addHalfUp(6144);
   // The pinned Gem boost is recorded before terrain and ability modifiers in the early
   // CalcMoveBasePowerAfterModifiers "various effects" block (src/battle_util.c:6633-6634).
@@ -1040,7 +1052,6 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const level = attacker.level || 50;
   let dmg = calculateHnsBaseDamage(bp, userFinalAttack, targetFinalDefense, level);
 
-  const gameType = normalizeGameType(field.gameType || input.field?.gameType);
   // H&S applies the Gen-III spread reduction only when GetMoveTargetCount(ctx) == 2, i.e. when
   // the move actually hits both present opposing battlers. The move's static target class alone
   // is NOT sufficient: Rock Slide against a single remaining foe has target count 1 and is not
@@ -1142,6 +1153,8 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     }
   }
   otherFinalModifier.add(targetStateFinalModifier);
+  // GetUndergroundModifier: after Minimize, before Dive/Airborne/screens and ability/item slots.
+  if (earthquakeFamily && input.move.hnsDamagesUnderground && semiState === 1) otherFinalModifier.add(8192);
   otherFinalModifier.add(screenModifier);
   otherFinalModifier.add(collisionCourseFinalModifier);
   const rawAttackerSpeed = input.attacker?.rawStats?.speed !== undefined

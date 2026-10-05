@@ -714,8 +714,8 @@ object CalcRequestBoundary {
             // Transient damage state. Glaive Rush (`GetGlaiveRushModifier`) doubles any incoming
             // move; Charge's non-zero `chargeTimer` doubles an Electric move and Tar Shot doubles
             // a Fire move (`src/battle_util.c`). Minimize and the semi-invulnerable states are
-            // reachable only through move flags the ordinary allow-list excludes
-            // (tools/hns-move-mechanics STATE_DEPENDENT_FLAGS), so no reader is needed for them.
+            // handled separately for the frozen Earthquake family; other move flags remain excluded
+            // by tools/hns-move-mechanics STATE_DEPENDENT_FLAGS. Semi state has its own bound operand.
             // The boolean is true only when all three damage-relevant volatiles were read from the
             // same window; a positive value is refused precisely by the policy.
             transientStateObserved = defenderGlaiveRush != null &&
@@ -766,6 +766,8 @@ object CalcRequestBoundary {
             ),
             attackerElectrified = attackerElectrified,
             defenderGlaiveRush = defenderGlaiveRush,
+            defenderSemiInvulnerableState = defenderRuntime?.takeIf { it.volatilesObserved &&
+                it.volatileSemiInvulnerable in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.SEMI_INVULNERABLE_COUNT }?.volatileSemiInvulnerable,
             attackerHealBlock = attackerRuntime?.takeIf { it.healBlockObserved }?.volatileHealBlock,
             attackerChargeTimer = attackerChargeTimer,
             defenderTarShot = defenderTarShot,

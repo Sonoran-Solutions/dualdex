@@ -10,7 +10,8 @@
     "attacker_ability": "The boundary-owned effective attacker ability ID from the live battler.",
     "defender_ability": "The boundary-owned effective defender ability ID from the live battler.",
     "attacker_item": "The boundary-owned live battle-effective attacker item ID (in domain).",
-    "defender_item": "The boundary-owned live battle-effective defender item ID (in domain)."
+    "defender_item": "The boundary-owned live battle-effective defender item ID (in domain).",
+    "defender_semi_state": "Exact-trusted slot-matched volatile read, validated against source enum; never caller state or clamping."
   },
   "compositions": {
     "STATUS_FIELD_TERRAIN_ANY": [
@@ -832,6 +833,22 @@
             {
               "source": "src/battle_util.c:7296",
               "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && usesDefStat)"
+            }
+          ]
+        },
+        {
+          "rule": "grassy_terrain_earthquake_semi_state",
+          "relevance": "MODELLED",
+          "operands": [
+            "ordinary_move",
+            "move_id",
+            "defender_semi_state"
+          ],
+          "predicate": "Frozen Earthquake/Bulldoze fixed hit; raw Grassy bit halves BP only when observed semi-state is NONE, independent of groundedness. Underground Earthquake skips it. Execution is independently gated.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:6616",
+              "contains": "if (ctx->fieldStatuses & STATUS_FIELD_GRASSY_TERRAIN && !IsSemiInvulnerable(battlerDef, CHECK_ALL))"
             }
           ]
         }

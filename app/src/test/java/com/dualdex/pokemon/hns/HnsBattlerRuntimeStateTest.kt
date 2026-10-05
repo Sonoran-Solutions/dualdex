@@ -842,4 +842,13 @@ class HnsBattlerRuntimeStateTest {
         }
     }
 
+    @Test fun `semi state preserves exact source domain and never clamps seven to Commander`() {
+        for (semi in 0..7) {
+            val decoded = HnsBattlerRuntimeState.fromNativeArray(c4eObservedTuple(semiInvulnerable=semi))
+            assertEquals(semi, decoded.volatileSemiInvulnerable)
+            if(semi==7) assertEquals(HnsBattlerRuntimeStatus.OBSERVED_INVALID,decoded.status)
+            else assertEquals(HnsBattlerRuntimeStatus.OBSERVED,decoded.status)
+        }
+    }
+
 }

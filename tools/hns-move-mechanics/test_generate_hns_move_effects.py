@@ -349,6 +349,39 @@ class FixedSingleHitRecoilTest(unittest.TestCase):
         self.assertEqual({36,38,66,344,394,413,452,457,528,543,617,762}, set(map(int,re.findall(r"\d+",body))))
 
 
+class EarthquakeContractTest(unittest.TestCase):
+    def body(self, bulldoze=False):
+        return _table("""    [MOVE_%s] =
+    {
+        .effect = EFFECT_EARTHQUAKE,
+        .power = %s,
+        .type = TYPE_GROUND,
+        .target = TARGET_FOES_AND_ALLY,
+        .priority = 0,
+        .category = DAMAGE_CATEGORY_PHYSICAL,
+        %s
+    },""" % ("BULLDOZE" if bulldoze else "EARTHQUAKE", 60 if bulldoze else 100,
+        ".additionalEffects = ADDITIONAL_EFFECTS({ .moveEffect = MOVE_EFFECT_SPD_MINUS_1, .chance = 100, })," if bulldoze else
+        ".damagesUnderground = B_UPDATED_MOVE_FLAGS >= GEN_2,"))
+    def test_exact_frozen_contract_and_mutations(self):
+        for bulldoze in (False,True):
+            original=self.body(bulldoze)
+            self.assertEqual({"MOVE_BULLDOZE" if bulldoze else "MOVE_EARTHQUAKE": not bulldoze},gen.parse_earthquake_metadata(original,True))
+            for old,new in (("EFFECT_EARTHQUAKE","EFFECT_MAGNITUDE"),("TARGET_FOES_AND_ALLY","TARGET_SELECTED"),
+                            (".priority = 0",".priority = 1"),("TYPE_GROUND","TYPE_NORMAL"),
+                            ("DAMAGE_CATEGORY_PHYSICAL","DAMAGE_CATEGORY_SPECIAL")):
+                self.assertFalse(gen.parse_earthquake_metadata(original.replace(old,new),True))
+            for flag in ("multiHit = TRUE", "strikeCount = 2", "explosion = TRUE", "damagesUnderwater = TRUE",
+                         "unreviewedDamageFlag = TRUE", "alwaysCriticalHit = TRUE", "makesContact = TRUE", "punchingMove = unresolved"):
+                self.assertFalse(gen.parse_earthquake_metadata(original.replace('.priority = 0,',f'.priority = 0,\n        .{flag},'),True),flag)
+            if bulldoze:
+                self.assertFalse(gen.parse_earthquake_metadata(original.replace('.priority = 0,','.priority = 0,\n        .damagesUnderground = TRUE,'),True))
+            else:
+                for replacement in ("FALSE","TRUE","unresolved"):
+                    self.assertFalse(gen.parse_earthquake_metadata(original.replace('B_UPDATED_MOVE_FLAGS >= GEN_2',replacement),True))
+                self.assertFalse(gen.parse_earthquake_metadata(original,False))
+
+
 if __name__ == "__main__":
     unittest.main()
 

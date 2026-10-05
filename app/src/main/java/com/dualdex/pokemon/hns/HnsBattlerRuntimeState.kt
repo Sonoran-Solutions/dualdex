@@ -665,7 +665,7 @@ data class HnsBattlerRuntimeState(
                 volatileElectrified = volatilesObserved && raw[48] != 0,
                 volatileGlaiveRush = volatilesObserved && raw[49] != 0,
                 volatileMinimize = volatilesObserved && raw[50] != 0,
-                volatileSemiInvulnerable = if (volatilesObserved) raw[51].coerceIn(0, 6) else 0,
+                volatileSemiInvulnerable = if (volatilesObserved) raw[51] else 0,
                 transientVolatilesObserved = transientVolatilesObserved,
                 volatileChargeTimer = if (transientVolatilesObserved) {
                     raw[60]
@@ -728,6 +728,7 @@ data class HnsBattlerRuntimeState(
             // value while the status claims clean must degrade honestly rather than pass.
             return if (decoded.status == HnsBattlerRuntimeStatus.OBSERVED &&
                 (decoded.abilityOutOfDomain || decoded.typesOutOfDomain || decoded.itemOutOfDomain ||
+                    (volatilesObserved && decoded.volatileSemiInvulnerable !in 0 until HnsGroupDLayout.SEMI_INVULNERABLE_COUNT) ||
                     (raw.size >= ITEM_VOLATILES_TUPLE_LEN && !itemVolatilesObserved && volatilesObserved))
             ) {
                 decoded.copy(status = HnsBattlerRuntimeStatus.OBSERVED_INVALID)

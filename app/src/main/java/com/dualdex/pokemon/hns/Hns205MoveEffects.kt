@@ -3302,6 +3302,8 @@ internal object Hns205MoveEffects {
     val fixedSingleHitDrainMoveIds: Set<Int> = setOf(71, 72, 141, 202, 409, 532, 577)
     val absorbPercentageById: Map<Int, Int> = mapOf(71 to 50, 72 to 50, 141 to 50, 202 to 50, 409 to 50, 532 to 50, 577 to 75)
 
+    val fixedSingleHitEarthquakeMoveIds: Set<Int> = setOf(89, 523)
+    val earthquakeDamagesUndergroundById: Map<Int, Boolean> = mapOf(89 to true, 523 to false)
     /** Recoil moves which clear Freeze/Frostbite before the selected hit. */
     val recoilThawsUserMoveIds: Set<Int> = setOf(394)
 

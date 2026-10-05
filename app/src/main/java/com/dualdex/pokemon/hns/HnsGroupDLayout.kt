@@ -12,4 +12,12 @@ object HnsGroupDLayout {
     const val SPECIES_COUNT = 1573
     const val SLOW_START_MAX = 7
     const val FIRST_TURN_MAX = 3
+    const val STATE_NONE = 0
+    const val STATE_UNDERGROUND = 1
+    const val STATE_UNDERWATER = 2
+    const val STATE_ON_AIR = 3
+    const val STATE_PHANTOM_FORCE = 4
+    const val STATE_SKY_DROP = 5
+    const val STATE_COMMANDER = 6
+    const val SEMI_INVULNERABLE_COUNT = 7
 }

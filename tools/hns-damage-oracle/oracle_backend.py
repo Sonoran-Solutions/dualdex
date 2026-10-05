@@ -536,6 +536,8 @@ def render_scenario(s: dict) -> str:
         hit = hit[:-2] + f", target: {def_ref});"
     if assault_vest_defender:
         hit += f" MOVE({def_ref}, MOVE_TACKLE);"
+    if state_setup.get("underground"):
+        hit = f"MOVE({def_ref}, MOVE_DIG); " + hit
     turns.append("TURN { " + hit + " }")
 
     ticking = s["attacker"]["status"] in ("burn", "poison", "toxic")
@@ -603,11 +605,18 @@ def render_scenario(s: dict) -> str:
         "}",
         "",
     ]
+    if "move-coverage-slice-3" in s["tags"] and s["expect"] == "immune":
+        # Immunity can return before the crit callback. Capture actual state separately there.
+        lines.insert(lines.index("    } THEN {") + 1, ind + f'Test_MgbaPrintf("DDXO|{sid}|%d|Q|%d", i, gBattleMons[{def_pos}].volatiles.semiInvulnerable);')
     if s["expect"] == "damage":
         lines.insert(lines.index("    } THEN {") + 1, ind + "EXPECT_EQ(sDdxoSetupCalls, 1);")
+    if "move-coverage-slice-3" in s["tags"]:
+        lines.insert(lines.index("    } THEN {") + 1, ind + f"EXPECT_EQ(BreaksThroughSemiInvulnerablity((enum BattlerId){atk_pos}, (enum BattlerId){def_pos}, {s['attacker']['ability']}, {s['defender']['ability']}, {move}), TRUE);")
     setup = [f"static void {callback_name}(void)", "{",
              f"    if (gCurrentMove != {move} || gBattlerAttacker != (enum BattlerId){atk_pos}",
              f"        || gBattleResults.battleTurnCounter != {setup_turns}) return;"]
+    if "move-coverage-slice-3" in s["tags"] and s["expect"] == "damage":
+        setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|Q|%d", sDdxoRoll, gBattleMons[{def_pos}].volatiles.semiInvulnerable);')
     for role, pos in (("attackerSpeciesForm", atk_pos), ("defenderSpeciesForm", def_pos)):
         form = state_setup.get(role)
         if form is not None:
@@ -691,12 +700,14 @@ def _is_spread_capable(s: dict) -> bool:
                                   "Earthquake", "Surf", "Petal Blizzard"}
 
 
-EXECUTION_NAMES = ("execution-heal-block", "execution-triage")
+EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi")
 EXECUTION_SOURCE = r'''#include "global.h"
 #include "test/battle.h"
 #include "battle.h"
 #include "battle_util.h"
 #include "constants/battle_move_effects.h"
+#include "move.h"
+extern void (*gDdxoBeforeCriticalHit)(void);
 
 SINGLE_BATTLE_TEST("DDXO execution-heal-block")
 {
@@ -712,6 +723,7 @@ SINGLE_BATTLE_TEST("DDXO execution-heal-block")
         PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_INSOMNIA); Speed(40); HP(30000); MaxHP(60000); }
         OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); Speed(100); HP(60000); MaxHP(60000); }
         gFieldStatuses = 0;
+        gDdxoBeforeCriticalHit = NULL;
     } WHEN {
         TURN { MOVE(opponent, MOVE_HEAL_BLOCK); MOVE(player, move); }
     } SCENE {
@@ -730,6 +742,7 @@ SINGLE_BATTLE_TEST("DDXO execution-triage")
         PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_TRIAGE); Speed(40); HP(30000); MaxHP(60000); }
         OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); Speed(100); HP(60000); MaxHP(60000); }
         gFieldStatuses = 0;
+        gDdxoBeforeCriticalHit = NULL;
     } WHEN {
         TURN { MOVE(player, MOVE_DRAIN_PUNCH); MOVE(opponent, MOVE_TACKLE); }
     } SCENE {
@@ -742,6 +755,34 @@ SINGLE_BATTLE_TEST("DDXO execution-triage")
         EXPECT_EQ(GetBattleMovePriority(0, ABILITY_TRIAGE, MOVE_DRAIN_PUNCH), 3);
     }
 }
+SINGLE_BATTLE_TEST("DDXO execution-earthquake-semi")
+{
+    u32 move, setupMove, state;
+    bool32 hits;
+    PARAMETRIZE { move = MOVE_EARTHQUAKE; setupMove = MOVE_DIG; state = STATE_UNDERGROUND; hits = TRUE; }
+    PARAMETRIZE { move = MOVE_BULLDOZE; setupMove = MOVE_DIG; state = STATE_UNDERGROUND; hits = FALSE; }
+    PARAMETRIZE { move = MOVE_EARTHQUAKE; setupMove = MOVE_DIVE; state = STATE_UNDERWATER; hits = FALSE; }
+    PARAMETRIZE { move = MOVE_EARTHQUAKE; setupMove = MOVE_FLY; state = STATE_ON_AIR; hits = FALSE; }
+    PARAMETRIZE { move = MOVE_EARTHQUAKE; setupMove = MOVE_PHANTOM_FORCE; state = STATE_PHANTOM_FORCE; hits = FALSE; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_INSOMNIA); Speed(40); HP(60000); MaxHP(60000); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); Speed(100); HP(60000); MaxHP(60000); }
+        gFieldStatuses = 0;
+        gDdxoBeforeCriticalHit = NULL;
+    } WHEN {
+        TURN { MOVE(opponent, setupMove); MOVE(player, move); }
+    } SCENE {
+        if (hits) { HP_BAR(opponent); }
+        else { NONE_OF { HP_BAR(opponent); } }
+    } THEN {
+        EXPECT_EQ((u32)gBattleMons[1].volatiles.semiInvulnerable, state);
+        EXPECT_EQ(BreaksThroughSemiInvulnerablity(0, 1, ABILITY_INSOMNIA, ABILITY_INSOMNIA, move), hits);
+        EXPECT_EQ(MoveDamagesUnderground(move), move == MOVE_EARTHQUAKE);
+        if (hits) EXPECT_LT(gBattleMons[1].hp, 60000);
+        else EXPECT_EQ(gBattleMons[1].hp, 60000);
+    }
+}
+
 '''
 
 
@@ -815,9 +856,9 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
         roll = _int(roll_text, f"{sid} roll index")
         if not 0 <= roll < ROLL_COUNT:
             raise OracleError(f"{sid}: roll index {roll} out of range")
-        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K"):
+        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K", "Q"):
             raise OracleError(f"{sid}: unknown oracle line kind {kind!r}")
-        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else LINE_FIELDS[kind]
+        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else 1 if kind == "Q" else LINE_FIELDS[kind]
         if len(fields) != expected_length:
             raise OracleError(f"{sid}: {kind} line has {len(fields)} fields, expected {expected_length}")
         slot = records[sid].setdefault(roll, {})
@@ -835,7 +876,7 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
             missing = sorted(set(range(ROLL_COUNT)) - set(rolls))
             raise OracleError(f"{sid}: missing oracle output for rng value(s) {missing}")
         for roll, slot in rolls.items():
-            if set(slot) - {"AG", "DG", "K"} != set(LINE_FIELDS):
+            if set(slot) - {"AG", "DG", "K", "Q"} != set(LINE_FIELDS):
                 raise OracleError(f"{sid}: roll {roll} is missing line(s) {sorted(set(LINE_FIELDS) - set(slot))}")
     unexpected = sorted(set(statuses) - wanted)
     if unexpected:
@@ -936,7 +977,14 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         f = slot["F"]
         r = slot["R"]
         damage, delta, hp_at_hit = (_int(x, f"{sid} R") for x in r)
-        if scenario["expect"] == "damage" and damage != delta:
+        expected_delta = damage
+        if ("move-coverage-slice-3" in scenario["tags"] and scenario["field"]["terrain"] == "grassy"
+                and dfn["terrainAffected"] and scenario["expect"] == "damage"):
+            # FIRST_EVENT_BLOCK_GRASSY_TERRAIN_HEAL (battle_end_turn.c:353-361).
+            # Validate end-turn recovery from the measured hit; never calculate an expected roll.
+            recovered = min(damage, max(1, scenario["defender"]["stats"]["maxHp"] // 16))
+            expected_delta -= recovered
+        if scenario["expect"] == "damage" and expected_delta != delta:
             raise OracleError(f"{sid} rng {rng}: HP-bar damage {damage} != defender HP delta {delta}")
         if scenario["expect"] == "immune" and (damage != 0 or delta != 0):
             raise OracleError(f"{sid} rng {rng}: immune hit changed defender HP by {delta}")
@@ -1105,6 +1153,12 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             observed["doubles"] = dict(zip(("helpingHand", "attackerPartnerAbility", "defenderPartnerAbility", "attackerPartnerSpecies", "defenderPartnerSpecies"), k[:5]))
             observed["doubles"].update(fieldAbilities=[a for i, a in enumerate((13,76,186,187,188)) if k[5] & (1 << i)], ruinFlags=k[6])
         elif "K" in slot: raise OracleError(f"{sid}: unexpected live Doubles operands")
+        if "move-coverage-slice-3" in scenario["tags"]:
+            if "Q" not in slot: raise OracleError(f"{sid}: missing actual semi-state at hit")
+            semi = _int(slot["Q"][0], f"{sid} semi state")
+            if semi != int(bool(state_setup.get("underground"))): raise OracleError(f"{sid}: wrong actual semi state {semi}")
+            observed["defenderSemiInvulnerableState"] = semi
+        elif "Q" in slot: raise OracleError(f"{sid}: unexpected semi state")
         if canonical is None:
             canonical = observed
         elif observed != canonical:

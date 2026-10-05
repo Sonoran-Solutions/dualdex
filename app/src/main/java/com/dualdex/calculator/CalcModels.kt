@@ -265,6 +265,7 @@ data class CalcHnsLiveBattleState(
      */
     /** Observed pre-hit execution operand, never defaulted from a missing tuple. */
     val attackerHealBlock: Boolean? = null,
+    val defenderSemiInvulnerableState: Int? = null,
     val attackerChargeTimer: Int? = null,
     /**
      * `gBattleMons[defender].volatiles.tarShot`, or null when unread. Tar Shot doubles the

@@ -123,7 +123,7 @@ minimum roll, 15 the maximum. The generator then verifies, per roll and fail-clo
 
 Any violation aborts regeneration with the scenario ID. Nothing is defaulted or turned into zero.
 
-## Corpus schema (v9)
+## Corpus schema (v10)
 
 Defined and validated by `oracle_schema.py`. Each scenario names only authoritative operands:
 
@@ -343,3 +343,23 @@ Post-hit checks derive recovery from measured damage and source-generated absorb
 percentages, separately applying Big Root, Liquid Ooze and Life Orb residuals.
 Minimum recovery and suppression controls are included. See the
 [slice 2 authority audit](../../docs/HNS_MOVE_COVERAGE_SLICE_2.md).
+
+
+## Move coverage slice 3 (#126)
+
+The frozen Singles Earthquake/Bulldoze matrix adds 27 scenarios. The additive v10
+`stateSetup.underground` flag schedules actual Dig by the faster defender on the
+measured turn; it cannot request an expected damage value or write semi-state.
+Slice-3 `observed.defenderSemiInvulnerableState` is mandatory and source-domain
+validated for every roll. Damaging hits capture it at the existing critical-hit
+hook; neutral immunity controls capture it after the turn. Missing, duplicate,
+wrong or out-of-domain records fail closed. Historical scenario/entry objects stay
+unchanged.
+
+Separate execution parameters use actual Dig/Dive/Fly/Phantom Force and enforce
+runner PASS for the underground Earthquake hit, underground Bulldoze miss and
+other Earthquake misses. Grassy neutral defender end-turn recovery is validated
+separately against measured hit damage and the pinned maxHP/16 predicate; it never
+replaces the selected-hit damage measurement. See [slice 3](../../docs/HNS_MOVE_COVERAGE_SLICE_3.md)
+for the live domain/clamp correction, exact two modifier slots, boundary tests,
+census and final validation results.

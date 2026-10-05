@@ -79,6 +79,7 @@ internal object HnsFieldStatusData {
         "grassy_terrain_attacker_analytic",
         "grassy_terrain_grass_pelt_physical_composition",
         "grassy_terrain_grass_pelt_special_no_effect",
+        "grassy_terrain_earthquake_semi_state",
         "misty_terrain_non_dragon_move",
         "misty_terrain_grounded_defender_dragon",
         "misty_terrain_ungrounded_defender_dragon",

@@ -299,7 +299,7 @@ static const char* capitalised_category(const char* c) {
 
 /* One battler of the production H&S request. `role` is "attacker" or "defender". */
 static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b, const char* role,
-                        const jl_value* opposing_obs, const jl_value* move_obs, const char* format, err_t* err) {
+                        const jl_value* opposing_obs, const jl_value* move_obs, const char* format, long semi_state, err_t* err) {
     long level, max_hp, hp_at_hit, atk, def, spa, spd, spe, species_id, item_id;
     long atk_stage = 0, spa_stage = 0, def_stage = 0, spd_stage = 0;
     const jl_value* stats = get_obj(scen_b, "stats", err);
@@ -430,6 +430,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
             last ? "LAST_TO_MOVE" : "NOT_LAST_TO_MOVE");
         sb_append(sb, ",\"hnsTransformed\":%s", transformed ? "true" : "false");
     }
+    if (strcmp(role, "defender") == 0) sb_append(sb, ",\"hnsSemiInvulnerableState\":%ld", semi_state);
     sb_append(sb, ",\"rawStats\":{\"attack\":%ld,\"defense\":%ld,\"speed\":%ld,\"spAttack\":%ld,\"spDefense\":%ld}",
               atk, def, spe, spa, spd);
     /* gBattleMons statStages order: HP, Atk, Def, Speed, SpAtk, SpDef, Acc, Evasion (relative). */
@@ -481,10 +482,22 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     int doubles = strcmp(format, "doubles") == 0;
     if (!doubles && strcmp(format, "singles") != 0) return set_err(err, "unknown format %s", format);
 
+    long semi_state = 0;
+    const jl_value* observed_semi = jl_get(obs, "defenderSemiInvulnerableState");
+    if (observed_semi && !get_int(obs, "defenderSemiInvulnerableState", 0, 6, &semi_state, err)) return 0;
+    const jl_value* tags = jl_get(scen, "tags");
+    for (size_t t = 0; t < jl_len(tags); t++) {
+        const char* tag = jl_str(jl_at(tags, t));
+        if (tag && !strcmp(tag, "move-coverage-slice-3") && !observed_semi)
+            return set_err(err, "Earthquake scenario missing hit-time semi-state");
+    }
+    /* ponytail: pre-slice-3 neutral fixture vectors lack this observation; preserve their
+     * historical operands. All new family vectors require captured state above. This host
+     * adapter cannot authorize production; the Kotlin boundary never substitutes neutral. */
     sb_append(sb, "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\",");
-    if (!emit_battler(sb, s_atk, o_atk, "attacker", o_def, o_move, format, err)) return 0;
+    if (!emit_battler(sb, s_atk, o_atk, "attacker", o_def, o_move, format, 0, err)) return 0;
     sb_append(sb, ",");
-    if (!emit_battler(sb, s_def, o_def, "defender", o_atk, o_move, format, err)) return 0;
+    if (!emit_battler(sb, s_def, o_def, "defender", o_atk, o_move, format, semi_state, err)) return 0;
     sb_append(sb, ",\"move\":{\"name\":");
     sb_json_string(sb, move_label);
     sb_append(sb, ",\"isCrit\":%s,\"hnsMoveFlags\":[", crit ? "true" : "false");
@@ -511,9 +524,14 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     if (!source_effect || !jl_is_bool(ordinary)) return set_err(err, "oracle source move metadata is malformed");
     sb_append(sb, "],\"hnsMoveId\":%ld,\"hnsMoveEffect\":", (long)jl_num(jl_get(o_move, "id")));
     sb_json_string(sb, source_effect);
+    const int earthquake = !strcmp(source_effect, "EFFECT_EARTHQUAKE") &&
+        (jl_num(jl_get(o_move, "id")) == 89 || jl_num(jl_get(o_move, "id")) == 523) &&
+        strcmp(jl_str(jl_get(scen, "format")), "singles") == 0;
+    sb_append(sb, ",\"hnsIsEarthquake\":%s,\"hnsDamagesUnderground\":%s",
+        earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              (earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");

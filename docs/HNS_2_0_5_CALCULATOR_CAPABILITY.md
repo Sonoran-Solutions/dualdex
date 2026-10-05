@@ -3422,3 +3422,22 @@ no healing or attacker survival is displayed. Old runtime tuples cannot authoriz
 this family. H&S remains ESTIMATED. See [slice 2 evidence](HNS_MOVE_COVERAGE_SLICE_2.md)
 for source contracts, consumer audit, oracle execution/damage proofs, regressions,
 unchanged-population census and hardware NOT_RUN checklist.
+
+
+## Move coverage slice 3 — authoritative semi-state
+
+Earthquake (89) and Bulldoze (523) have a separate fixed-single-hit category in
+observed Singles. Both admit source `STATE_NONE`; Earthquake additionally admits
+`STATE_UNDERGROUND`. JNI's existing index 51 is preserved raw and checked against
+the generated 0..6 domain. Raw 7 makes the observation invalid; unread never means
+neutral. Exact trust, current OBSERVED battler, matching slot and observed volatile
+window bind `defenderSemiInvulnerableState` through `CalcRequestBoundary`.
+Caller state cannot override it. Other positive states and Bulldoze underground
+are hard execution refusals; Doubles and adjacent flag-sharing families stay out.
+
+The raw Grassy Terrain bit halves this family's BP only for a neutral semi-state,
+before Gems/ordinary terrain/abilities, independently of groundedness. Underground
+Earthquake skips that reduction and adds Q12 ×2 in the ordered other-modifier
+accumulator before screens/abilities/items. Bulldoze uses the existing source-backed
+Sheer Force slot. Ground immunity remains independent. H&S remains ESTIMATED;
+hardware NOT_RUN. See [slice 3 source, authority and evidence](HNS_MOVE_COVERAGE_SLICE_3.md).

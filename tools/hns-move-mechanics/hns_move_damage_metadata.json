@@ -682,7 +682,13 @@
         "damagesUnderground": [
           "B_UPDATED_MOVE_FLAGS >= GEN_2"
         ]
-      }
+      },
+      "fixedSingleHitEarthquake": true,
+      "damagesUnderground": true,
+      "target": "TARGET_FOES_AND_ALLY",
+      "priority": 0,
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "90": {
       "effect": "EFFECT_OHKO",
@@ -3893,7 +3899,13 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "fixedSingleHitEarthquake": true,
+      "damagesUnderground": false,
+      "target": "TARGET_FOES_AND_ALLY",
+      "priority": 0,
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "524": {
       "effect": "EFFECT_HIT",

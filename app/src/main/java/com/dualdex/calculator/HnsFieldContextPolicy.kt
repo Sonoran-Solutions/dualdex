@@ -67,7 +67,8 @@ object HnsFieldContextPolicy {
         val attackerTerrainApplicability: HnsTerrainApplicability? = null,
         val defenderTerrainApplicability: HnsTerrainApplicability? = null,
         val attackerHoldEffectResolution: HnsHoldEffectResolution? = null,
-        val defenderHoldEffectResolution: HnsHoldEffectResolution? = null
+        val defenderHoldEffectResolution: HnsHoldEffectResolution? = null,
+        val defenderSemiInvulnerableState: Int? = null
     )
 
     fun assess(state: HnsFieldState, context: Context?): List<HnsFieldRequestDecision> {
@@ -98,6 +99,7 @@ object HnsFieldContextPolicy {
             effectiveMoveType = authority.effectiveType,
             moveCategory = authority.category,
             fieldStatuses = request.hnsLiveBattleState?.fieldStatuses,
+            defenderSemiInvulnerableState = request.hnsLiveBattleState?.defenderSemiInvulnerableState,
             attackerTerrainApplicability = request.hnsLiveBattleState?.attackerTerrainApplicability,
             defenderTerrainApplicability = request.hnsLiveBattleState?.defenderTerrainApplicability,
             attackerAbilityId = liveAbility(request.attacker),
@@ -360,6 +362,11 @@ object HnsFieldContextPolicy {
                 "src/battle_util.c:6639,7296",
                 "The direct Grass move modifier (when terrain affects the attacker) and Grass Pelt's Defense-stage branch are both evaluated exactly with Wonder Room inactive."
             )
+        }
+        if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEarthquakeMoveIds) {
+            if (c.defenderSemiInvulnerableState !in setOf(com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_NONE, com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_UNDERGROUND)) return null
+            return modelled("grassy_terrain_earthquake_semi_state", "src/battle_util.c:6616",
+                "EFFECT_EARTHQUAKE halves BP from the raw Grassy bit only for neutral semi-state; underground skips it. Groundedness is independent.")
         }
         return modelled(
             if (directApplies && c.attackerTerrainApplicability == HnsTerrainApplicability.AFFECTED)

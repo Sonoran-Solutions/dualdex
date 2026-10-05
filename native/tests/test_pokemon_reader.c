@@ -6047,6 +6047,17 @@ static void test_hns_battler_state_c4e_live_operands(void) {
     TEST_ASSERT(st.volatiles_observed && !st.volatile_glaive_rush, "enemy Glaive Rush false");
     TEST_ASSERT(st.gimmick_observed && st.active_gimmick == 0, "enemy gimmick NONE");
 
+    for (unsigned semi = 0; semi <= HNS_LIVE_SEMI_INVULNERABLE_COUNT; semi++) {
+        hns_battle_set_volatile_field(&fx, 1, HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT,
+                                      HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH, semi);
+        TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st), "semi state read");
+        TEST_ASSERT(st.volatile_semi_invulnerable == semi, "semi raw value preserved");
+        TEST_ASSERT(st.status == (semi == HNS_LIVE_SEMI_INVULNERABLE_COUNT
+            ? BATTLER_RUNTIME_STATE_OBSERVED_INVALID : BATTLER_RUNTIME_STATE_OBSERVED), "semi enum domain validation");
+    }
+    hns_battle_set_volatile_field(&fx, 1, HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_BIT,
+                                  HNS_LIVE_BP_VOLATILE_SEMI_INVULNERABLE_WIDTH, 0);
+
     /* Positive transitions: each bit is independently readable. */
     hns_battle_set_volatile_bit(&fx, 0, HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT, true);
     hns_battle_set_volatile_bit(&fx, 1, HNS_LIVE_BP_VOLATILE_GLAIVE_RUSH_BIT, true);

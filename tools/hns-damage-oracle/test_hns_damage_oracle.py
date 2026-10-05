@@ -561,7 +561,7 @@ class RunnerOutputTest(unittest.TestCase):
             ([f"DDXO|{self.sid}|x|R|1|1|200"], "malformed integer"),
             ([f"DDXO|{self.sid}|16|R|1|1|200"], "out of range"),
             (["DDXO|someone-else|0|R|1|1|200"], "unknown scenario"),
-            ([f"DDXO|{self.sid}|0|Q|1"], "unknown oracle line kind"),
+            ([f"DDXO|{self.sid}|0|Z|1"], "unknown oracle line kind"),
         ]
         for extra, message in cases:
             with self.subTest(message=message), self.assertRaisesRegex(backend.OracleError, message):
@@ -984,6 +984,25 @@ class RecoilSuppressionSetupTest(unittest.TestCase):
         del bad["stateSetup"]["attacker"]["gastroAcid"]
         with self.assertRaises(schema.SchemaError):
             schema.validate_scenario(bad)
+
+
+class EarthquakeHitStateTest(unittest.TestCase):
+    def test_real_hit_state_is_required_and_cannot_be_defaulted(self):
+        corpus = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        entries = {e["scenario"]["id"]:e for e in corpus["entries"]}
+        for sid in ("earthquake-earthquake-player", "earthquake-underground-grassy"):
+            entry = entries[sid]
+            self.assertEqual(int(bool((entry["scenario"]["stateSetup"] or {}).get("underground"))),
+                             entry["observed"]["defenderSemiInvulnerableState"])
+            for raw in (None, -1, 7, 1 - entry["observed"]["defenderSemiInvulnerableState"]):
+                bad = copy.deepcopy(entry["observed"])
+                bad["defenderSemiInvulnerableState"] = raw
+                with self.assertRaises(schema.SchemaError):
+                    schema.validate_observed(bad,entry["scenario"],sid)
+            bad = copy.deepcopy(entry["observed"])
+            del bad["defenderSemiInvulnerableState"]
+            with self.assertRaises(schema.SchemaError):
+                schema.validate_observed(bad,entry["scenario"],sid)
 
 
 if __name__ == "__main__":

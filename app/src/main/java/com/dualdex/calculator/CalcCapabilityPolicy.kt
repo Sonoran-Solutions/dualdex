@@ -235,6 +235,8 @@ enum class CalcLimitation {
      * the engine compute a confident but wrong number.
      */
     HNS_PRIORITY_BLOCKED,
+    HNS_SEMI_INVULNERABLE_STATE_UNKNOWN,
+    HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED,
     HNS_HEAL_BLOCK_ACTIVE,
     HNS_HEAL_BLOCK_STATE_UNKNOWN,
     HNS_MOVE_MECHANICS_NOT_MODELLED,
@@ -594,6 +596,8 @@ enum class CalcLimitation {
             HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
             HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
             HNS_PRIORITY_BLOCKED,
+            HNS_SEMI_INVULNERABLE_STATE_UNKNOWN,
+            HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED,
             HNS_HEAL_BLOCK_ACTIVE,
             HNS_HEAL_BLOCK_STATE_UNKNOWN,
             HNS_MOVE_MECHANICS_NOT_MODELLED,
@@ -913,6 +917,10 @@ data class CalcCapabilityVerdict(
                 "this battle has the Random Moves challenge active, so the selected move is not proven to be the current learned move"
             CalcLimitation.HNS_PRIORITY_BLOCKED ->
                 "a priority-sensitive ability or terrain prevents the selected draining move"
+            CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN ->
+                "Earthquake/Bulldoze requires a valid observed defender semi-invulnerable state"
+            CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED ->
+                "the selected move cannot execute against this semi-invulnerable state within the supported scope"
             CalcLimitation.HNS_HEAL_BLOCK_ACTIVE ->
                 "observed Heal Block prevents the selected draining move from executing"
             CalcLimitation.HNS_HEAL_BLOCK_STATE_UNKNOWN ->
@@ -1842,9 +1850,20 @@ object CalcCapabilityPolicy {
                 false -> Unit
             }
         }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EARTHQUAKE) {
+            when (request.hnsLiveBattleState?.defenderSemiInvulnerableState) {
+                com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_NONE -> Unit
+                com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_UNDERGROUND -> if (
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.earthquakeDamagesUndergroundById[move.id] != true)
+                    limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+                null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
+                else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+            }
+        }
         if (mechanics.requiresBlock || (mechanics.category in setOf(
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL,
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN) &&
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN,
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EARTHQUAKE) &&
                 (request.field.gameType != "Singles" || request.hnsLiveBattleState?.observedBattlersCount != 2))) {
             limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
         }

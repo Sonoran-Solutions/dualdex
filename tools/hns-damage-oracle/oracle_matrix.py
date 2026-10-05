@@ -84,7 +84,7 @@ MOVES = {
     "Air Slash": ("Flying", "special", 75), "Gust": ("Flying", "special", 40),
     "Poison Jab": ("Poison", "physical", 80), "Sludge Bomb": ("Poison", "special", 90),
     "Sludge": ("Poison", "special", 65),
-    "Bone Club": ("Ground", "physical", 65), "Earthquake": ("Ground", "physical", 100),
+    "Bone Club": ("Ground", "physical", 65), "Earthquake": ("Ground", "physical", 100), "Bulldoze": ("Ground", "physical", 60),
     "Earth Power": ("Ground", "special", 90), "Mud-Slap": ("Ground", "special", 20),
     "Rock Slide": ("Rock", "physical", 75), "Rock Throw": ("Rock", "physical", 50),
     "Power Gem": ("Rock", "special", 80),
@@ -2263,12 +2263,57 @@ def _fixed_single_hit_drain():
     return out
 
 
+def _fixed_single_hit_earthquake():
+    out = []
+    def case(name, move="Earthquake", ability="Insomnia", item=None, underground=False, **kw):
+        a = attacker("Machamp", atk=151, spa=151, spe=40,
+                     ability=(symbol("ABILITY", ability), ability),
+                     item=(symbol("ITEM", item), item) if item else None)
+        d = defender("Snorlax", dfn=109, spd=109, spe=100)
+        out.append(scenario("earthquake-"+name, ["move-coverage-slice-3"], a, d, move,
+                            state_setup={"capture":True, "underground":True} if underground else None, **kw))
+    for move in ("Earthquake", "Bulldoze"):
+        for side in ("player", "opponent"):
+            case(slug(move)+"-"+side, move, side=side)
+        case(slug(move)+"-grassy", move, terrain="grassy")
+        case(slug(move)+"-sheer-force", move, ability="Sheer Force")
+        case(slug(move)+"-flying-grassy", move, ability="Normalize", terrain="grassy")
+        out[-1]["defender"].update(species="SPECIES_PIDGEOT",speciesLabel="Pidgeot")
+    case("grassy-technician", ability="Technician", terrain="grassy")
+    case("grassy-sheer-force", "Bulldoze", ability="Sheer Force", terrain="grassy")
+    case("underground", underground=True)
+    case("underground-opponent", underground=True, side="opponent")
+    case("underground-grassy", underground=True, terrain="grassy")
+    case("underground-reflect", underground=True, reflect=True)
+    case("underground-life-orb", underground=True, item="Life Orb")
+    case("underground-crit", underground=True, crit=True)
+    case("underground-stages", underground=True)
+    out[-1]["attacker"]["stages"]["attack"] = 1
+    out[-1]["defender"]["stages"]["defense"] = -1
+    case("underground-type", underground=True)
+    out[-1]["defender"].update(species="SPECIES_ARCANINE",speciesLabel="Arcanine")
+    case("underground-rounding", underground=True, item="Life Orb", reflect=True)
+    out[-1]["attacker"]["stats"]["attack"] = 153
+    out[-1]["defender"].update(ability="ABILITY_FILTER",abilityLabel="Filter",species="SPECIES_ARCANINE",speciesLabel="Arcanine")
+    for ability in ("Levitate", "Earth Eater"):
+        case(slug(ability), expect="immune")
+        out[-1]["defender"].update(ability=symbol("ABILITY",ability),abilityLabel=ability)
+    case("flying", expect="immune")
+    out[-1]["defender"].update(species="SPECIES_PIDGEOT",speciesLabel="Pidgeot")
+    case("air-balloon", expect="immune")
+    out[-1]["defender"].update(item="ITEM_AIR_BALLOON",itemLabel="Air Balloon")
+    case("iron-ball-flying")
+    out[-1]["defender"].update(species="SPECIES_PIDGEOT",speciesLabel="Pidgeot",item="ITEM_IRON_BALL",itemLabel="Iron Ball")
+    case("gravity-neutral", gravity=True, surface="engine-only")
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

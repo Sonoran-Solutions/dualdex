@@ -252,6 +252,7 @@ class HnsFieldContextPolicyTest {
     fun `every implemented rule is reviewed in the generated audit`() {
         val produced = mutableSetOf<String>()
         val contexts = listOf(
+            ctx(moveId=89,effective=PokemonType.GROUND).copy(defenderSemiInvulnerableState=0),
             ctx(), ctx(effective = PokemonType.ELECTRIC), ctx(effective = PokemonType.FIRE),
             ctx(effective = PokemonType.GROUND), ctx(moveId = floatyFall), ctx(effective = PokemonType.GRASS),
             ctx(defenderAbility = HnsFieldStatusData.ABILITY_GRASS_PELT),
@@ -276,4 +277,13 @@ class HnsFieldContextPolicyTest {
         }
         assertEquals(HnsFieldStatusData.contextRuleNames, produced)
     }
+    @Test fun `Earthquake Grassy effect uses observed semi state independent of terrain grounding`() {
+        val base=ctx(moveId=89,effective=PokemonType.GROUND,defenderTerrain=HnsTerrainApplicability.UNKNOWN)
+        for (semi in listOf(0,1)) {
+            assertRule(modelled,"grassy_terrain_earthquake_semi_state",
+                decide(HnsFieldStatus.GRASSY_TERRAIN,base.copy(defenderSemiInvulnerableState=semi)))
+        }
+        assertRule(unknown,null,decide(HnsFieldStatus.GRASSY_TERRAIN,base))
+    }
+
 }

@@ -2,6 +2,7 @@ import { calculate, Generations, Pokemon, Move, Field, Side } from '@smogon/calc
 import hnsStatusContract from '../hns-move-mechanics/hns_status_contract.json';
 const hnsStatus = hnsStatusContract.statuses;
 import hnsMoveMetadata from '../hns-move-mechanics/hns_move_damage_metadata.json';
+import hnsSpeedContract from '../hns-move-mechanics/hns_speed_contract.json';
 import hnsGroupDDomains from '../hns-layout/group_d_domains.json';
 
 // @smogon/calc compares field.gameType against the canonical capitalised
@@ -346,6 +347,7 @@ function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
   if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
+        input.move?.hnsMoveEffect === 'EFFECT_GYRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_GYRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitGyroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_BRINE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_BRINE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitBrine === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true ||
         input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE' && input.move?.hnsIsEarthquake === true ||
@@ -400,6 +402,21 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const statusMetadata = hnsStatusContract.moves[String(input.move?.hnsMoveId)];
   const statusFamily = statusMetadata?.fixedSingleHitStatusDouble === true;
   let moveBasePower = move.bp;
+  const gyroMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
+  const gyroFamily = gyroMetadata?.fixedSingleHitGyroBall === true;
+  if (gyroFamily || input.move?.hnsMoveEffect === 'EFFECT_GYRO_BALL' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_GYRO_BALL') {
+    if (!gyroFamily || input.move.hnsMoveFamily !== 'FIXED_SINGLE_HIT_GYRO_BALL' ||
+        input.move.hnsMoveEffect !== gyroMetadata.effect || input.move.hnsFixedSingleHit !== true ||
+        input.move.hnsIsOrdinary !== false || gameType !== 'Singles' || semiState !== 0 ||
+        input.defender?.hnsSubstitute !== false || input.move.overrides?.basePower !== 1 || move.bp !== 1 ||
+        input.move.hnsMakesContact !== true || input.move.hnsSheerForceAffected !== false ||
+        JSON.stringify(input.move.hnsMoveFlags) !== JSON.stringify(gyroMetadata.immunityFlags) ||
+        JSON.stringify(input.move.hnsMoveAbilityFlags) !== JSON.stringify(gyroMetadata.abilityFlags))
+      throw new Error('H&S Gyro Ball move or execution authority invalid');
+    const attackerSpeed = hnsEffectiveSpeedAuthority(input.attacker, input, attacker, defender);
+    const defenderSpeed = hnsEffectiveSpeedAuthority(input.defender, input, attacker, defender);
+    moveBasePower = attackerSpeed === 0 ? 1 : Math.min(Number(25n * BigInt(defenderSpeed) / BigInt(attackerSpeed)) + 1, 150);
+  }
   if (statusFamily || input.move?.hnsIsStatusDouble === true || input.move?.hnsStatusDoubleMask !== undefined ||
       input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_STATUS_DOUBLE') {
     const raw = input.defender?.status1;
@@ -1389,6 +1406,64 @@ function hnsRuinActive(input, volatileName) {
     if (!gas || b.ability === 'Neutralizing Gas' || b.hnsAbilityShield === true) return true;
     return false;
   });
+}
+
+
+// Pinned GetBattlerTotalSpeedStat. Consumes boundary operands; action order is never read.
+function hnsEffectiveSpeedAuthority(b, input, attacker, defender) {
+  const fail = () => { throw new Error('H&S effective-Speed operands unread or unsupported'); };
+  const raw = b?.rawStats?.speed, stage = b?.statStages?.[3];
+  const side = b?.hnsSideStatuses, weather = input.field?.hnsWeatherWord, field = input.field?.hnsFieldStatuses;
+  if (!Number.isInteger(raw) || raw < 1 || raw > 65535 || !Number.isInteger(stage) || stage < -6 || stage > 6 ||
+      ![0, 64].includes(b.status1) || !Number.isInteger(side) || side < 0 || side > 0xffffffff ||
+      !Number.isInteger(weather) || (weather & ~0x19) !== 0 || !Number.isInteger(field) ||
+      typeof b.badgeBoosts?.spe !== 'boolean' || !Number.isInteger(b.hnsEffectiveAbilityId) ||
+      !['ACTIVE_EXACT', 'SUPPRESSED_NONE'].includes(b.hnsHoldEffectState) ||
+      typeof b.hnsEffectiveHoldEffect !== 'string' ||
+      hnsSpeedContract.abilities[String(b.hnsEffectiveAbilityId)] !== b.ability ||
+      !Number.isInteger(b.hnsRawItemId) || hnsSpeedContract.holdEffects[String(b.hnsRawItemId)] === undefined ||
+      (b.hnsHoldEffectState === 'ACTIVE_EXACT' ? hnsSpeedContract.holdEffects[String(b.hnsRawItemId)] !== b.hnsEffectiveHoldEffect :
+        b.hnsEffectiveHoldEffect !== 'HOLD_EFFECT_NONE')) fail();
+  const activeWeather = hnsGlobalWeatherEffect(attacker, defender, input);
+  if (typeof activeWeather !== 'boolean') fail();
+  const ratio = HNS_STAT_STAGE_RATIOS[stage + 6];
+  let speed = Math.floor(raw * ratio[0] / ratio[1]);
+  const ability = b.hnsEffectiveAbilityId, hold = hnsItemHoldEffect(b);
+  if (activeWeather && hold !== 'HOLD_EFFECT_UTILITY_UMBRELLA' &&
+      (ability === 33 && (weather & 1) || ability === 34 && (weather & 0x18))) speed *= 2;
+  if (ability === 95 && b.status1 !== 0) speed = Math.floor(speed * 150 / 100);
+  else if (ability === 207 && (field & 0x100)) speed *= 2;
+  else if (ability === 112) {
+    if (!Number.isInteger(b.hnsSlowStartTimer) || b.hnsSlowStartTimer < 0 || b.hnsSlowStartTimer > 7) fail();
+    if (b.hnsSlowStartTimer !== 0) speed = Math.floor(speed / 2);
+  } else if (ability === 281 || ability === 282) {
+    if (typeof b.hnsTransformed !== 'boolean' || typeof b.hnsBoosterEnergyActivated !== 'boolean') fail();
+    if (!b.hnsTransformed && (b.hnsBoosterEnergyActivated || ability === 281 && activeWeather && (weather & 0x18) ||
+        ability === 282 && (field & 0x100))) {
+      if (!Number.isInteger(b.hnsParadoxBoostedStat) || b.hnsParadoxBoostedStat < 1 || b.hnsParadoxBoostedStat > 5) fail();
+      if (b.hnsParadoxBoostedStat === 3) speed = Math.floor(speed * 150 / 100);
+    }
+  } else if (ability === 84) {
+    // Oracle-only operand: production boundary never transports Unburden activation.
+    if (typeof b.hnsUnburdenActive !== 'boolean') fail();
+    if (b.hnsUnburdenActive) speed *= 2;
+  }
+  if (b.badgeBoosts.spe) speed = halfDown(4506, speed);
+  if (['HOLD_EFFECT_MACHO_BRACE', 'HOLD_EFFECT_POWER_ITEM', 'HOLD_EFFECT_IRON_BALL'].includes(hold)) speed = Math.floor(speed / 2);
+  else if (hold === 'HOLD_EFFECT_CHOICE_SCARF') {
+    if (!Number.isInteger(b.hnsActiveGimmick)) fail();
+    if (b.hnsActiveGimmick !== 4) speed = Math.floor(speed * 150 / 100);
+  } else if (hold === 'HOLD_EFFECT_QUICK_POWDER') {
+    if (!Number.isInteger(b.hnsSpeciesId)) fail();
+    if (b.hnsSpeciesId === 132) {
+      if (typeof b.hnsTransformed !== 'boolean') fail();
+      if (!b.hnsTransformed) speed *= 2;
+    }
+  }
+  if (side & 0x10) speed *= 2;
+  if (b.status1 === 64 && ability !== 95) speed = Math.floor(speed / 4);
+  if (side & 0x400) speed = Math.floor(speed / 4);
+  return speed;
 }
 
 function hnsParadoxHighestStat(battler, wonderRoom) {

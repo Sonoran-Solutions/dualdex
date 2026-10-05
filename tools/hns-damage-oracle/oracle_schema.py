@@ -99,7 +99,7 @@ DOUBLES_KEYS = ("defenderPartner",)
 STATE_SETUP_KEYS = (
     "attackerSpeciesForm", "defenderSpeciesForm", "attackerTransformedMonSpecies",
     "defenderTransformedMonSpecies", "attacker", "defender", "attackerStatStages",
-    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "underground", "underwater", "wonderRoom", "magicRoom", "laterAction", "statusDoubleStatus1",
+    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "underground", "underwater", "wonderRoom", "magicRoom", "gyroSpeed", "laterAction", "statusDoubleStatus1",
 )
 RUNTIME_DOMAINS = {
     "personality": (0, 0xffffffff), "gender": (0, 255), "slowStartTimer": (0, 7),
@@ -177,8 +177,12 @@ def _require_bool(value: Any, path: str) -> None:
         _fail(path, f"expected a boolean, got {value!r}")
 
 
-def expected_item_secondary_id(item_record: dict[str, Any]) -> int:
+def expected_item_secondary_id(item_record: dict[str, Any], item_id: int | None = None) -> int:
     """Pinned gItemsInfo.secondaryId; resist-berry types live in holdEffectParam instead."""
+    if item_record["holdEffect"] == "HOLD_EFFECT_POWER_ITEM":
+        # Selected oracle representative: pinned ITEM_POWER_ANKLET 424 has secondaryId STAT_SPEED 3.
+        if item_id != 424: raise SchemaError("Unreviewed Power Item secondary ID")
+        return 3
     item_type = item_record["itemType"]
     if item_type is None or item_record["holdEffect"] not in ITEM_SECONDARY_TYPE_EFFECTS:
         return 0
@@ -290,7 +294,23 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
             _fail(f"{path}.stateSetup", f"expected a non-empty subset of {STATE_SETUP_KEYS}")
         for role, value in s["stateSetup"].items():
             loc = f"{path}.stateSetup.{role}"
-            if role == "statusDoubleStatus1":
+            if role == "gyroSpeed":
+                if "move-coverage-slice-8" not in s["tags"] or not isinstance(value, dict) or not set(value) <= {"attacker", "defender", "trickRoom", "quickClawProc"}:
+                    _fail(loc, "requires Gyro Ball Speed setup")
+                for key, operands in value.items():
+                    if key in ("trickRoom", "quickClawProc"): _require_bool(operands, loc)
+                    else:
+                        if not isinstance(operands, dict) or not set(operands) <= {"stage", "sideStatuses", "unburdenActive", "status1"}: _fail(loc, "unknown Speed setup")
+                        for name, operand in operands.items():
+                            if name == "status1":
+                                _require_int(operand,loc,64,64)
+                                if s["surface"] != "engine-only": _fail(loc,"status isolation is engine-only")
+                                continue
+                            if name == "unburdenActive":
+                                _require_bool(operand, loc)
+                                continue
+                            _require_int(operand, loc, -6 if name == "stage" else 0, 6 if name == "stage" else 0x410)
+            elif role == "statusDoubleStatus1":
                 _require_int(value, loc, 0, 8191)
                 if "move-coverage-slice-6" not in s["tags"]: _fail(loc, "requires status-double slice")
             elif role == "underground":
@@ -390,7 +410,7 @@ def _validate_observed_battler(b: Any, path: str) -> None:
         _require_int(b["runtime"][key], f"{path}.runtime.{key}", *limits)
     if item_record["holdEffectParam"] != b["runtime"]["holdEffectParam"]:
         _fail(f"{path}.itemRecord.holdEffectParam", "does not match the pre-damage source runtime operand")
-    expected_secondary_id = expected_item_secondary_id(item_record)
+    expected_secondary_id = expected_item_secondary_id(item_record, b["runtime"]["itemIdAtHit"])
     if b["runtime"]["itemSecondaryId"] != expected_secondary_id:
         _fail(f"{path}.runtime.itemSecondaryId", "does not match the generated item type operand")
     if item_record["holdEffect"] == "HOLD_EFFECT_RESIST_BERRY" and item_record["itemType"] is not None:
@@ -403,7 +423,17 @@ def _validate_observed_battler(b: Any, path: str) -> None:
 
 def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     extended = "doubles" in (scenario.get("stateSetup") or {})
-    _require_keys(observed, OBSERVED_KEYS + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
+    _require_keys(observed, OBSERVED_KEYS + (("effectiveSpeeds",) if "move-coverage-slice-8" in scenario["tags"] else ()) + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
+    if "move-coverage-slice-8" in scenario["tags"]:
+        speeds = observed["effectiveSpeeds"]
+        _require_keys(speeds, ("attacker", "defender", "basePower"), path + ".effectiveSpeeds")
+        for role in ("attacker", "defender"):
+            _require_keys(speeds[role], ("raw", "stage", "total", "sideStatuses", "badge", "unburdenActive"), path)
+            for key, low, high in (("raw",1,65535),("stage",-6,6),("total",0,0xffffffff),("sideStatuses",0,0xffffffff),("badge",0,1),("unburdenActive",0,1)):
+                _require_int(speeds[role][key], path, low, high)
+            if speeds[role]["raw"] != scenario[role]["stats"]["speed"]: _fail(path, "raw Speed differs")
+        a, d = speeds["attacker"]["total"], speeds["defender"]["total"]
+        if speeds["basePower"] != (1 if a == 0 else min(25*d//a+1,150)): _fail(path, "Gyro Ball power differs")
     if "move-coverage-slice-4" in scenario["tags"]:
         _require_int(observed["explosionUserHpAtDamage"], path + ".explosionUserHpAtDamage", 0, 0)
     if extended:
@@ -465,6 +495,8 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     state_setup = scenario.get("stateSetup") or {}
     if state_setup.get("wonderRoom"):
         expected_terrain |= 4
+    if (state_setup.get("gyroSpeed") or {}).get("trickRoom"):
+        expected_terrain |= 2
     if state_setup.get("magicRoom"):
         expected_terrain |= 1
     if observed["fieldStatuses"] != expected_terrain:

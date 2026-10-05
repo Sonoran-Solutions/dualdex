@@ -1,0 +1,1463 @@
+{
+  "effectiveSpeeds": {
+    "gyro-ball-ability-shield": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-above-cap": {
+      "attacker": {
+        "badge": 0,
+        "raw": 40,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 40,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 500,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 500,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-choice-scarf": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 150,
+        "unburdenActive": 0
+      },
+      "basePower": 17,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-iron-ball": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      },
+      "basePower": 51,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-macho-brace": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      },
+      "basePower": 51,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-power-anklet": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      },
+      "basePower": 51,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-stage-minus": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": -1,
+        "total": 66,
+        "unburdenActive": 0
+      },
+      "basePower": 38,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-stage-plus": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 1,
+        "total": 150,
+        "unburdenActive": 0
+      },
+      "basePower": 17,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-swamp": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 1024,
+        "stage": 0,
+        "total": 25,
+        "unburdenActive": 0
+      },
+      "basePower": 101,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-tailwind": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 16,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-tailwind-swamp": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 1040,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      },
+      "basePower": 51,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-attacker-zero": {
+      "attacker": {
+        "badge": 0,
+        "raw": 1,
+        "sideStatuses": 0,
+        "stage": -6,
+        "total": 0,
+        "unburdenActive": 0
+      },
+      "basePower": 1,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-badge-opponent": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 28,
+      "defender": {
+        "badge": 1,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 110,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-badge-player": {
+      "attacker": {
+        "badge": 1,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 110,
+        "unburdenActive": 0
+      },
+      "basePower": 23,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-bp60": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 236,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 236,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-bp61": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 61,
+      "defender": {
+        "badge": 0,
+        "raw": 240,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 240,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-bulletproof": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-cap": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 596,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 596,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-chlorophyll": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-chlorophyll-air-lock": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-chlorophyll-cloud-nine": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-chlorophyll-umbrella": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-choice-scarf-embargo": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-choice-scarf-klutz": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-choice-scarf-magic-room": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-crit": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-choice-scarf": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 38,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 150,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-iron-ball": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-macho-brace": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-power-anklet": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-stage-minus": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 17,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": -1,
+        "total": 66,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-stage-plus": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 38,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 1,
+        "total": 150,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-swamp": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 7,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 1024,
+        "stage": 0,
+        "total": 25,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-tailwind": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 51,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 16,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-tailwind-swamp": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 1040,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-defender-zero": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 1,
+      "defender": {
+        "badge": 0,
+        "raw": 1,
+        "sideStatuses": 0,
+        "stage": -6,
+        "total": 0,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-equal": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-fast": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 11,
+      "defender": {
+        "badge": 0,
+        "raw": 40,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 40,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-fluffy": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-fractional": {
+      "attacker": {
+        "badge": 0,
+        "raw": 103,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 103,
+        "unburdenActive": 0
+      },
+      "basePower": 58,
+      "defender": {
+        "badge": 0,
+        "raw": 237,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 237,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-full-incense": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-lagging-tail": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-life-orb": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-long-reach": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-metal-coat": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-mold-breaker": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-paralysis": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 25,
+        "unburdenActive": 0
+      },
+      "basePower": 101,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-protosynthesis": {
+      "attacker": {
+        "badge": 0,
+        "raw": 300,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 450,
+        "unburdenActive": 0
+      },
+      "basePower": 6,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quark-drive": {
+      "attacker": {
+        "badge": 0,
+        "raw": 300,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 450,
+        "unburdenActive": 0
+      },
+      "basePower": 6,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quick-claw": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quick-claw-no-proc": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quick-claw-proc": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quick-draw": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quick-feet-paralysis": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 150,
+        "unburdenActive": 0
+      },
+      "basePower": 17,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quick-powder-ditto": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quick-powder-non-ditto": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-quick-powder-transformed": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-reflect": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 1,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-slow": {
+      "attacker": {
+        "badge": 0,
+        "raw": 40,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 40,
+        "unburdenActive": 0
+      },
+      "basePower": 63,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-slow-start-0": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-slow-start-1": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      },
+      "basePower": 51,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-stages": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-stall": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-steelworker": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-steely-spirit": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-surge-surfer": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-swift-swim": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-swift-swim-air-lock": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-swift-swim-cloud-nine": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-swift-swim-umbrella": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-tailwind-before-swamp-rounding": {
+      "attacker": {
+        "badge": 0,
+        "raw": 103,
+        "sideStatuses": 1040,
+        "stage": 0,
+        "total": 51,
+        "unburdenActive": 0
+      },
+      "basePower": 50,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-technician-60": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 236,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 236,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-technician-61": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 61,
+      "defender": {
+        "badge": 0,
+        "raw": 240,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 240,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-tough-claws": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-trick-room": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 26,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "gyro-ball-unburden-active": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 1
+      },
+      "basePower": 13,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    }
+  },
+  "engineOnly": 117,
+  "engineReplay": {
+    "byteIdentical": true,
+    "canonicalEntries": 2341,
+    "corpusSha256": "09cde8b5b12457e5cc8027234de49779726c2db913065043cc25d51499e4ef62",
+    "reversedEntries": 2341
+  },
+  "historicalCount": 2265,
+  "historicalEntryLinesUnchanged": true,
+  "modelled": 2224,
+  "negativeControlVerified": true,
+  "newScenarios": 76,
+  "registeredDivergences": 0,
+  "startingSha": "0c821f012b0e73e8cc50a7a8074e8aa2dcb623cc",
+  "total": 2341
+}

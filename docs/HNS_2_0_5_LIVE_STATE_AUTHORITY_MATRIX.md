@@ -191,3 +191,14 @@ Undefined bits, mutually exclusive statuses and orphan toxic counters refuse.
 Effective Comatose contributes source sleep bits locally while raw status stays
 unchanged. Existing attacker status policy and Substitute/Doubles gates remain.
 See [slice 6](HNS_MOVE_COVERAGE_SLICE_6.md) for masks, ordering and engine evidence.
+
+## Slice 8 effective-Speed authority
+
+Singles Gyro Ball binds both raw live Speeds/stages, both side-status words and
+both Slow Start timers from existing exact slot-matched observations. The ABI
+is unchanged. HnsEffectiveSpeedAuthority reuses effective ability/item, global
+weather suppression and observed badge results; QuickJS independently calculates
+from the original operands. Raw Electric Terrain is retained for Surge Surfer/
+Quark Drive independently of groundedness. Opponent badge exclusion uses exact
+live battler ID, never UI side. Positive/unknown status and unobserved Unburden
+activation refuse. See [operand table and evidence](HNS_MOVE_COVERAGE_SLICE_8.md).

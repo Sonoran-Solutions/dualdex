@@ -610,6 +610,12 @@ class RunnerOutputTest(unittest.TestCase):
 
 
 class SetupPlannerTest(unittest.TestCase):
+    def test_quick_claw_weighted_rng_boolean_matches_scenario(self):
+        # RandomPercentage weights {100-t, t}: index 0 is FALSE, index 1 is TRUE.
+        for suffix, mode in (("proc", 2), ("no-proc", 1)):
+            scenario = next(s for s in SCENARIOS if s['id'] == 'gyro-ball-quick-claw-' + suffix)
+            self.assertIn(f'gDdxoQuickClawMode = {mode};', backend.render_scenario(scenario))
+
     DELTAS = {"MOVE_SWORDS_DANCE": 2, "MOVE_MEDITATE": 1, "MOVE_FEATHER_DANCE": -2, "MOVE_GROWL": -1,
               "MOVE_NASTY_PLOT": 2, "MOVE_EERIE_IMPULSE": -2, "MOVE_CONFIDE": -1, "MOVE_IRON_DEFENSE": 2,
               "MOVE_HARDEN": 1, "MOVE_SCREECH": -2, "MOVE_LEER": -1, "MOVE_AMNESIA": 2, "MOVE_FAKE_TEARS": -2}
@@ -719,7 +725,12 @@ class HarnessGuardTest(unittest.TestCase):
         for name in backend.HARNESS_PATCHES:
             text = (backend.PATCH_DIR / name).read_text()
             targets = [line[6:] for line in text.splitlines() if line.startswith("+++ b/")]
-            expected = "test/test_runner.c" if name.startswith("0001") else "test/test_runner_battle.c"
+            expected = "src/battle_util.c" if name.startswith("0004") else "test/test_runner.c" if name.startswith("0001") else "test/test_runner_battle.c"
+            if name.startswith("0004"):
+                added = "\n".join(line[1:] for line in text.splitlines() if line.startswith("+") and not line.startswith("+++"))
+                self.assertIn("#if TESTING", added)
+                self.assertIn("return CalcMoveBasePower(&ctx);", added)
+                self.assertNotIn("gBattleMons[", added)
             self.assertEqual(targets, [expected])
 
     def test_export_replaces_a_modified_cached_source_tree(self):
@@ -847,6 +858,8 @@ class CommittedCorpusTest(unittest.TestCase):
                 status = scenario[role]["status"]
                 if role == "defender" and "move-coverage-slice-6" in scenario["tags"]:
                     self.assertEqual(raw_status,scenario["stateSetup"]["statusDoubleStatus1"])
+                elif (scenario.get("stateSetup") or {}).get("gyroSpeed", {}).get(role, {}).get("status1") is not None:
+                    self.assertEqual(raw_status, scenario["stateSetup"]["gyroSpeed"][role]["status1"])
                 elif status == "toxic":
                     self.assertEqual(raw_status & 0x80, 0x80, f"{scenario['id']} {role} toxic bit")
                     self.assertEqual(raw_status & ~(0x80 | 0x0f00), 0,

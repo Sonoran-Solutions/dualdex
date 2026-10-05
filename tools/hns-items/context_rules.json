@@ -988,6 +988,19 @@
               "contains": "if (IsLastMonToMove(battlerAtk)"
             }
           ]
+        },
+        {
+          "rule": "gyro_ball_speed_item_exact",
+          "side": "EITHER",
+          "families": [],
+          "predicate": "Singles Gyro Ball; shared effective hold effect and every required effective-Speed operand exact.",
+          "rationale": "The source Speed item slot runs after badges and before Tailwind; suppressed hold effects remain NONE.",
+          "evidence": [
+            {
+              "source": "src/battle_main.c:4983",
+              "contains": "HOLD_EFFECT_CHOICE_SCARF"
+            }
+          ]
         }
       ],
       "always_blocking": [

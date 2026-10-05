@@ -381,6 +381,12 @@ object HnsAbilityContextPolicy {
         val doublesExact = c.liveBattleState?.doubles != null && c.observedBattlersCount == 4 &&
             c.fixedSingleHitMove == true && abilityObserved(c)
         val proof: Proof? = when {
+            c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitGyroBallMoveIds &&
+                abilityId in setOf(33, 34, 95, 100, 146, 202, 207, 259) ->
+                if (HnsEffectiveSpeedAuthority.resolve(c).speed != null) proof("gyro_ball_speed_ability_exact",
+                    "src/battle_main.c:4935-5008", "The source-ordered effective-Speed authority models this holder for Gyro Ball.")
+                else unknownProof("gyro_ball_speed_ability_unknown", "src/battle_main.c:4935-5008",
+                    "A required effective-Speed operand is unread or unsupported.")
             abilityId == 213 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitStatusDoubleMoveIds &&
                 c.fixedSingleHitMove == true && c.observedBattlersCount == 2 && abilityObserved(c) ->
                 if (side == HnsAbilitySide.DEFENDER) relevant("status_double_comatose_sleep", "src/battle_util.c:6398-6403",

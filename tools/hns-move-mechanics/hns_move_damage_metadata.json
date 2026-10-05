@@ -2791,7 +2791,22 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "fixedSingleHitGyroBall": true,
+      "power": 1,
+      "type": "TYPE_STEEL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 100,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "ballisticMove": true,
+      "additionalEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [
+        "ballisticMove"
+      ]
     },
     "361": {
       "effect": "EFFECT_HEALING_WISH",

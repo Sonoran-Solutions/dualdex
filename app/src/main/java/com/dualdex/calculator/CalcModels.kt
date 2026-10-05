@@ -307,6 +307,8 @@ data class CalcHnsLiveBattleState(
     val defenderPersonality: Int? = null,
     val attackerGender: HnsBattlerGender = HnsBattlerGender.UNKNOWN,
     val defenderGender: HnsBattlerGender = HnsBattlerGender.UNKNOWN,
+    val attackerSideStatuses: Int? = null,
+    val defenderSlowStartTimer: Int? = null,
     val attackerSlowStartTimer: Int? = null,
     val attackerFlashFireBoosted: Boolean? = null,
     val attackerTransformed: Boolean? = null,

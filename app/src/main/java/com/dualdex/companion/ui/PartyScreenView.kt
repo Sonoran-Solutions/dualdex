@@ -546,7 +546,7 @@ class PartyScreenView(
                 return@forEachIndexed
             }
             val move = pack.resolveMove(moveId)
-            val pwrText = if (move.power > 0) move.power.toString() else "—"
+            val pwrText = move.powerDisplay
             val accText = if (move.accuracy > 0) "${move.accuracy}%" else "—"
             val ppMax = if (move.pp > 0) move.pp.toString() else "—"
             moveHolder.row.visibility = View.VISIBLE

@@ -288,6 +288,7 @@ internal object HnsItemAuditData {
         "whirlpool_binding_band_post_hit_only",
         "booster_energy_boost_payload_unobserved",
         "turn_order_item_ordinary_move",
+        "gyro_ball_speed_item_exact",
         "turn_order_item_attacker_analytic",
         "weight_item_ordinary_move",
         "grounding_item_attacker_no_terrain",

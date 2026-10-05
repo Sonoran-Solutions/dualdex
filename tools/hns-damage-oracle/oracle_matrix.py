@@ -72,6 +72,7 @@ SPECIES = {
 # label -> (planning type, planning per-move category, planning power)
 MOVES = {
     "Brine": ("Water", "special", 65),
+    "Gyro Ball": ("Steel", "physical", 1),
     "Smelling Salts": ("Normal", "physical", 70), "Wake-Up Slap": ("Fighting", "physical", 70),
     "Venoshock": ("Poison", "special", 65), "Hex": ("Ghost", "special", 65),
     "Barb Barrage": ("Poison", "physical", 60), "Infernal Parade": ("Ghost", "special", 60),
@@ -140,6 +141,7 @@ IMMUNITIES = {
 # One physical and one special representative move per type.
 TYPE_MOVES = {
     "Brine": ("Water", "special", 65),
+    "Gyro Ball": ("Steel", "physical", 1),
     "Normal": ("Strength", "Swift"), "Fighting": ("Karate Chop", "Aura Sphere"),
     "Flying": ("Drill Peck", "Air Slash"), "Poison": ("Poison Jab", "Sludge Bomb"),
     "Ground": ("Bone Club", "Earth Power"), "Rock": ("Rock Slide", "Power Gem"),
@@ -2473,12 +2475,82 @@ def _fixed_single_hit_brine():
     return out
 
 
+
+def _gyro_ball():
+    out = []
+    def case(name, a_speed=100, d_speed=100, ability="Insomnia", defender_ability="Insomnia", item=None, defender_item=None, a_species="Machamp", setup=None, surface="modelled", expect="damage", **kw):
+        a = attacker(a_species, atk=151, spa=151, spe=a_speed, ability=(symbol("ABILITY",ability),ability), item=(symbol("ITEM",item),item) if item else None)
+        d = defender("Blastoise", dfn=109, spd=109, spe=d_speed, ability=(symbol("ABILITY",defender_ability),defender_ability), item=(symbol("ITEM",defender_item),defender_item) if defender_item else None)
+        out.append(scenario("gyro-ball-"+name, ["move-coverage-slice-8"], a, d, "Gyro Ball", surface=surface, expect=expect, **kw))
+        out[-1]["stateSetup"] = setup or {"capture":True}
+    for name,a,d in (("equal",100,100),("slow",40,100),("fast",100,40),("fractional",103,237),
+            ("cap",100,596),("above-cap",40,500),("bp60",100,236),("bp61",100,240)):
+        case(name,a,d)
+    for power,speed in ((60,236),(61,240)):
+        case("technician-"+str(power),100,speed,ability="Technician")
+    for role in ("attacker","defender"):
+        for stage in (-1,1):
+            case(role+"-stage-"+("minus" if stage < 0 else "plus"),setup={"gyroSpeed":{role:{"stage":stage}}})
+        case(role+"-zero",1 if role=="attacker" else 100,1 if role=="defender" else 100,
+             setup={"gyroSpeed":{role:{"stage":-6}}})
+    for ability,weather in (("Swift Swim","rain"),("Chlorophyll","sun")):
+        case(slug(ability),ability=ability,weather=weather)
+        case(slug(ability)+"-umbrella",ability=ability,weather=weather,item="Utility Umbrella")
+        for suppressor in ("Cloud Nine","Air Lock"):
+            case(slug(ability)+"-"+slug(suppressor),ability=ability,weather=weather,defender_ability=suppressor)
+    for active in (0,1):
+        case("slow-start-"+str(active),ability="Slow Start",setup={"attacker":{"slowStartTimer":active}})
+    case("surge-surfer",ability="Surge Surfer",terrain="electric")
+    for ability,kw in (("Protosynthesis",{"weather":"sun"}),("Quark Drive",{"terrain":"electric"})):
+        case(slug(ability),ability=ability,a_speed=300,setup={"attacker":{"paradoxBoostedStat":3}},**kw)
+    for role in ("attacker","defender"):
+        for item in ("Iron Ball","Choice Scarf","Macho Brace","Power Anklet"):
+            case(role+"-"+slug(item),item=item if role=="attacker" else None,defender_item=item if role=="defender" else None)
+        for name,mask in (("tailwind",0x10),("swamp",0x400),("tailwind-swamp",0x410)):
+            case(role+"-"+name,setup={"gyroSpeed":{role:{"sideStatuses":mask}}})
+    case("quick-powder-ditto",item="Quick Powder",a_species="Ditto")
+    case("tailwind-before-swamp-rounding",a_speed=103,
+         setup={"gyroSpeed":{"attacker":{"sideStatuses":0x410}}})
+    case("quick-powder-non-ditto",item="Quick Powder")
+    case("quick-powder-transformed",item="Quick Powder",a_species="Ditto",setup={"attacker":{"transformed":1}})
+    case("trick-room",setup={"gyroSpeed":{"trickRoom":True}})
+    for item in ("Quick Claw","Lagging Tail","Full Incense"):
+        case(slug(item),item=item)
+    for ability in ("Stall","Quick Draw"):
+        case(slug(ability),ability=ability)
+    for ability in ("Tough Claws","Steelworker","Steely Spirit","Long Reach"):
+        case(slug(ability),ability=ability,surface="engine-only" if ability=="Long Reach" else "modelled")
+    case("fluffy",defender_ability="Fluffy")
+    case("bulletproof",defender_ability="Bulletproof",expect="immune")
+    case("mold-breaker",ability="Mold Breaker",defender_ability="Bulletproof",surface="engine-only")
+    case("ability-shield",ability="Mold Breaker",defender_ability="Bulletproof",defender_item="Ability Shield",expect="immune")
+    case("reflect",reflect=True)
+    for item in ("Metal Coat","Life Orb"):
+        case(slug(item),item=item)
+    case("crit",crit=True)
+    case("stages",setup={"attackerStatStages":{"attack":1},"defenderStatStages":{"defense":-1}})
+    out[-1]["attacker"]["stages"]["attack"] = 1
+    out[-1]["defender"]["stages"]["defense"] = -1
+    case("unburden-active",ability="Unburden",surface="engine-only",setup={"gyroSpeed":{"attacker":{"unburdenActive":True}}})
+    case("paralysis",surface="engine-only")
+    out[-1]["stateSetup"] = {"gyroSpeed":{"attacker":{"status1":64}}}
+    case("quick-feet-paralysis",ability="Quick Feet",surface="engine-only")
+    out[-1]["stateSetup"] = {"gyroSpeed":{"attacker":{"status1":64}}}
+    case("quick-claw-proc",item="Quick Claw",setup={"gyroSpeed":{"quickClawProc":True}})
+    case("quick-claw-no-proc",item="Quick Claw",setup={"gyroSpeed":{"quickClawProc":False}})
+    case("choice-scarf-magic-room",item="Choice Scarf",setup={"magicRoom":True})
+    case("choice-scarf-embargo",item="Choice Scarf",setup={"attacker":{"embargo":1}})
+    case("choice-scarf-klutz",item="Choice Scarf",ability="Klutz",surface="engine-only")
+    for side in ("player","opponent"):
+        case("badge-"+side,badges=(3,),side=side)
+    return out
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine, _gyro_ball)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

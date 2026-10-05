@@ -196,6 +196,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             request.hnsLiveBattleState?.let { live ->
                 live.attackerHp?.let { put("hp", it) }
                 live.attackerMaxHp?.let { put("maxHP", it) }
+                request.attacker.abilityId?.let { put("hnsEffectiveAbilityId", it) }
                 live.attackerStatus1?.let { put("status1", it) }
                 live.attackerSpeciesId?.let { put("hnsSpeciesId", it) }
                 live.attackerNeutralizingGas?.let { put("hnsNeutralizingGas", it) }
@@ -204,6 +205,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 if (live.attackerGender != com.dualdex.pokemon.hns.HnsBattlerGender.UNKNOWN) {
                     put("hnsGender", live.attackerGender.name)
                 }
+                live.attackerSideStatuses?.let { put("hnsSideStatuses", it) }
                 live.attackerSlowStartTimer?.let { put("hnsSlowStartTimer", it) }
                 live.attackerChargeTimer?.let { put("hnsChargeTimer", it) }
                 live.attackerFlashFireBoosted?.let { put("hnsFlashFireBoosted", it) }
@@ -347,6 +349,9 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.defenderSwordOfRuin?.let { put("hnsSwordOfRuin", it) }
                 live.defenderTabletsOfRuin?.let { put("hnsTabletsOfRuin", it) }
                 live.defenderBeadsOfRuin?.let { put("hnsBeadsOfRuin", it) }
+                if (live.defenderScreensObserved) put("hnsSideStatuses", live.defenderSideStatuses)
+                live.defenderGimmick?.let { put("hnsActiveGimmick", it) }
+                live.defenderSlowStartTimer?.let { put("hnsSlowStartTimer", it) }
                 live.defenderIsFirstTurn?.let { put("hnsIsFirstTurn", it) }
             }
             if (request.typeSystem == "hns_2_0_5") {
@@ -417,6 +422,8 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("hnsIsStatusDouble", true)
                         put("hnsStatusDoubleMask", mask)
                     }
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitGyroBallMoveIds)
+                        put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_GYRO_BALL.name)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitBrineMoveIds) {
                         put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE.name)
                     }

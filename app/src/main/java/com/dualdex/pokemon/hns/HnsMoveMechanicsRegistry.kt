@@ -37,6 +37,9 @@ enum class HnsMoveMechanicsCategory {
     /** Singles live defender floor-half predicate in the Q12 base-power accumulator. */
     FIXED_SINGLE_HIT_BRINE,
 
+    /** Singles dynamic base power from exact effective Speeds. */
+    FIXED_SINGLE_HIT_GYRO_BALL,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -64,7 +67,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -226,6 +229,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_BRINE",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE,
                 "Pinned Singles live defender floor-half Q12 base-power modifier.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitGyroBallMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_GYRO_BALL",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_GYRO_BALL,
+                "Pinned Singles dynamic power from source effective Speeds.")
         }
         val effect = Hns205MoveEffects.effectById[moveId]
         if (effect == null) {

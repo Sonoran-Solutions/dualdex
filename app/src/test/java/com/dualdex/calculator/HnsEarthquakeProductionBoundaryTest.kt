@@ -109,7 +109,7 @@ class HnsEarthquakeProductionBoundaryTest {
         }
         assertTrue(CalcRequestBoundary.build(Baseline.profile,null,request(),Baseline.challengeSettings,
             observation(true),observation(false),activeBattle=true) is CalcRequestOutcome.Refused)
-        for(move in listOf("Magnitude","Fissure","Dig","Surf","Whirlpool")) {
+        for(move in listOf("Magnitude","Fissure","Dig","Dive","Fly")) {
             assertTrue(move,build(request(move)) is CalcRequestOutcome.Refused)
         }
         assertEquals(HnsMoveMechanicsCategory.ORDINARY_PROVEN_EQUIVALENT,HnsMoveMechanicsRegistry.classify(125).category)

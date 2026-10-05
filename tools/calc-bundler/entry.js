@@ -345,6 +345,7 @@ function hnsContactAuthority(move, attacker, input) {
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
         input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true ||
         input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE' && input.move?.hnsIsEarthquake === true ||
+        input.move?.hnsMoveEffect === 'EFFECT_HIT' && input.move?.hnsIsUnderwater === true && [57,250].includes(id) ||
         input.move?.hnsMoveEffect === 'EFFECT_HIT' && input.move?.hnsIsExplosion === true && [120,153].includes(input.move?.hnsMoveId))) ||
       input.move?.hnsUnknownContact === true || typeof input.move?.hnsMakesContact !== 'boolean') return null;
   if (!input.move.hnsMakesContact) return false;
@@ -365,6 +366,17 @@ function hnsContactAuthority(move, attacker, input) {
 }
 
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
+  const gameType = normalizeGameType(field.gameType || input.field?.gameType);
+  const semiState = input.defender?.hnsSemiInvulnerableState;
+  const underwaterFamily = input.move?.hnsIsUnderwater === true;
+  if (underwaterFamily || input.move?.hnsMoveFamily !== undefined || input.move?.hnsDamagesUnderwater === true ||
+      gameType === 'Singles' && [57, 250].includes(input.move?.hnsMoveId)) {
+    if (!underwaterFamily || input.move?.hnsMoveFamily !== 'FIXED_SINGLE_HIT_UNDERWATER' ||
+        input.move?.hnsDamagesUnderwater !== true ||
+        input.move?.hnsMoveEffect !== 'EFFECT_HIT' || ![57, 250].includes(input.move?.hnsMoveId) ||
+        input.move?.hnsFixedSingleHit !== true || gameType !== 'Singles' || ![0, 2].includes(semiState))
+      throw new Error('H&S Surf/Whirlpool execution authority missing or unsupported');
+  }
   // The H&S request adapter supplies the already-authorized effective type here. Keep the
   // stage operand named explicitly so every type-sensitive modifier reads the same value.
   const effectiveMoveType = move.type;
@@ -817,9 +829,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // CalcMoveBasePowerAfterModifiers has a separate fixed-point accumulator from the two stat
   // stages. Preserve the Group C Dry Skin × Wise Glasses composition correction.
   const basePowerModifier = createHnsModifierAccumulator(halfUp);
-  const gameType = normalizeGameType(field.gameType || input.field?.gameType);
   const earthquakeFamily = input.move?.hnsIsEarthquake === true && input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE';
-  const semiState = input.defender?.hnsSemiInvulnerableState;
   if (earthquakeFamily) {
     if (gameType !== 'Singles' || ![89, 523].includes(input.move?.hnsMoveId) ||
         input.move?.hnsDamagesUnderground !== (input.move?.hnsMoveId === 89) ||
@@ -1158,6 +1168,8 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   otherFinalModifier.add(targetStateFinalModifier);
   // GetUndergroundModifier: after Minimize, before Dive/Airborne/screens and ability/item slots.
   if (earthquakeFamily && input.move.hnsDamagesUnderground && semiState === 1) otherFinalModifier.add(8192);
+  // GetOtherModifiers: Dive follows Underground and precedes Airborne/screens.
+  if (underwaterFamily && semiState === 2) otherFinalModifier.add(8192);
   otherFinalModifier.add(screenModifier);
   otherFinalModifier.add(collisionCourseFinalModifier);
   const rawAttackerSpeed = input.attacker?.rawStats?.speed !== undefined

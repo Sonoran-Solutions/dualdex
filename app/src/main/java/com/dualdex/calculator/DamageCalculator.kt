@@ -405,6 +405,11 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("hnsFixedSingleHit", hnsFixedSingleHitMove == true)
                     put("hnsIsExplosion", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds) put("hnsExplosionUserHpAtDamage", 0)
+                    put("hnsIsUnderwater", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitUnderwaterMoveIds)
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitUnderwaterMoveIds) {
+                        put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER.name)
+                        put("hnsDamagesUnderwater", true)
+                    }
                     put("hnsIsEarthquake", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEarthquakeMoveIds)
                     com.dualdex.pokemon.hns.Hns205MoveEffects.earthquakeDamagesUndergroundById[moveId]?.let { put("hnsDamagesUnderground", it) }
                     put("hnsIsDrain", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitDrainMoveIds)

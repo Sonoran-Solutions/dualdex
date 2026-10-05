@@ -156,6 +156,10 @@ object HnsItemContextPolicy {
                     if (c.fixedSingleHitMove == true) proof("drain_big_root_post_hit_only",
                         "src/battle_util.c:1837-1845; src/battle_move_resolution.c:2167-2240",
                         "Big Root scales recovery after measured damage and before Liquid Ooze; no healing or attacker survival is displayed.") else null
+                holdEffect == "HOLD_EFFECT_BINDING_BAND" && c.moveId == 250 ->
+                    if (c.fixedSingleHitMove == true) proof("whirlpool_binding_band_post_hit_only",
+                        "src/battle_end_turn.c:620; src/battle_script_commands.c:2650",
+                        "Binding Band changes only later wrap residual, outside Whirlpool's selected hit.") else null
                 // A held item can still be waiting to execute in an active but unsettled
                 // switch-in frame. Successful activation consumes it, so its live stage and
                 // matching terrain cannot prove a still-held item irrelevant.

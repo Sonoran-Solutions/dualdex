@@ -314,10 +314,11 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     const char* status = get_str(scen_b, "status", err);
     const char* item_label = jl_str(jl_get(scen_b, "itemLabel"));
     if (!stats || !stages || !base || !badges || !runtime || !item_record || !species || !ability || !status) return 0;
-    /* Recoil controls install Gastro Acid on an earlier real turn, before cached ctx ability.
+    /* Special-family controls install Gastro Acid on an earlier real turn, before cached ctx ability.
      * Bind the captured suppression exactly as production effectiveAbilityId does. */
     const char* source_effect = jl_str(jl_get(move_obs, "effect"));
-    if (source_effect && (!strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) && jl_num(jl_get(runtime, "gastroAcid")) == 1)
+    if (source_effect && (!strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB") ||
+        (!strcmp(source_effect, "EFFECT_HIT") && (jl_num(jl_get(move_obs, "id")) == 57 || jl_num(jl_get(move_obs, "id")) == 250))) && jl_num(jl_get(runtime, "gastroAcid")) == 1)
         ability = "None";
     if (!jl_is_arr(types) || jl_len(types) < 1 || jl_len(types) > 2) return set_err(err, "%s types malformed", role);
     if (!get_int(obs_b, "speciesId", 1, 65535, &species_id, err) ||
@@ -488,8 +489,8 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     const jl_value* tags = jl_get(scen, "tags");
     for (size_t t = 0; t < jl_len(tags); t++) {
         const char* tag = jl_str(jl_at(tags, t));
-        if (tag && !strcmp(tag, "move-coverage-slice-3") && !observed_semi)
-            return set_err(err, "Earthquake scenario missing hit-time semi-state");
+        if (tag && (!strcmp(tag, "move-coverage-slice-3") || !strcmp(tag, "move-coverage-slice-5")) && !observed_semi)
+            return set_err(err, "semi-state family scenario missing hit-time semi-state");
     }
     /* ponytail: pre-slice-3 neutral fixture vectors lack this observation; preserve their
      * historical operands. All new family vectors require captured state above. This host
@@ -532,6 +533,11 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         if (strcmp(jl_str(jl_get(scen, "expect")), "immune") && (!jl_is_num(hp) || jl_num(hp) != 0)) return set_err(err, "explosion damage-time HP missing");
         sb_append(sb, ",\"hnsExplosionUserHpAtDamage\":0");
     }
+    const int underwater = !strcmp(source_effect, "EFFECT_HIT") &&
+        (jl_num(jl_get(o_move, "id")) == 57 || jl_num(jl_get(o_move, "id")) == 250) &&
+        strcmp(jl_str(jl_get(scen, "format")), "singles") == 0;
+    sb_append(sb, ",\"hnsIsUnderwater\":%s", underwater ? "true" : "false");
+    if (underwater) sb_append(sb, ",\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_UNDERWATER\",\"hnsDamagesUnderwater\":true");
     const int earthquake = !strcmp(source_effect, "EFFECT_EARTHQUAKE") &&
         (jl_num(jl_get(o_move, "id")) == 89 || jl_num(jl_get(o_move, "id")) == 523) &&
         strcmp(jl_str(jl_get(scen, "format")), "singles") == 0;
@@ -539,7 +545,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              (underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");

@@ -450,7 +450,21 @@
         "damagesUnderwater": [
           "TRUE"
         ]
-      }
+      },
+      "fixedSingleHitUnderwater": true,
+      "damagesUnderwater": true,
+      "power": 90,
+      "type": "TYPE_WATER",
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "accuracy": 100,
+      "target": "TARGET_FOES_AND_ALLY",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "skyBattleBanned": true,
+      "additionalEffects": []
     },
     "58": {
       "effect": "EFFECT_HIT",
@@ -1915,7 +1929,29 @@
         "damagesUnderwater": [
           "TRUE"
         ]
-      }
+      },
+      "fixedSingleHitUnderwater": true,
+      "damagesUnderwater": true,
+      "power": 35,
+      "type": "TYPE_WATER",
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "accuracy": 85,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "skyBattleBanned": false,
+      "additionalEffects": [
+        {
+          "moveEffect": "MOVE_EFFECT_WRAP",
+          "chance": 0,
+          "sheerForceOverride": false,
+          "preAttackEffect": false,
+          "multistring": "B_MSG_WRAPPED_WHIRLPOOL"
+        }
+      ]
     },
     "251": {
       "effect": "EFFECT_BEAT_UP",

@@ -102,7 +102,7 @@ MOVES = {
     "Fire Blast": ("Fire", "special", 110), "Scald": ("Water", "special", 80), "Pay Day": ("Normal", "physical", 40),
     "Heat Wave": ("Fire", "special", 95),
     "Waterfall": ("Water", "physical", 80), "Crabhammer": ("Water", "physical", 100),
-    "Surf": ("Water", "special", 90), "Water Gun": ("Water", "special", 40),
+    "Whirlpool": ("Water", "special", 35), "Surf": ("Water", "special", 90), "Water Gun": ("Water", "special", 40),
     "Hydro Pump": ("Water", "special", 110), "Bubble Beam": ("Water", "special", 65),
     "Leaf Blade": ("Grass", "physical", 90), "Razor Leaf": ("Grass", "physical", 55),
     "Vine Whip": ("Grass", "physical", 45),
@@ -2347,12 +2347,59 @@ def _fixed_single_hit_explosion():
     return out
 
 
+def _fixed_single_hit_underwater():
+    out = []
+    def case(name, move="Surf", ability="Insomnia", item=None, underwater=False, defender_ability="Insomnia", **kw):
+        a = attacker("Machamp", atk=151, spa=151, spe=40, hp=200, maxhp=200,
+                     ability=(symbol("ABILITY", ability), ability),
+                     item=(symbol("ITEM", item), item) if item else None)
+        d = defender("Snorlax", dfn=109, spd=109, spe=100,
+                     ability=(symbol("ABILITY", defender_ability), defender_ability))
+        out.append(scenario("underwater-"+name, ["move-coverage-slice-5"], a, d, move,
+            state_setup={"capture":True, "underwater":True} if underwater else None, **kw))
+    for move in ("Surf", "Whirlpool"):
+        for side in ("player", "opponent"):
+            case(slug(move)+"-"+side, move, side=side)
+            case(slug(move)+"-dive-"+side, move, underwater=True, side=side)
+        case(slug(move)+"-sheer-force", move, ability="Sheer Force")
+        for name, kwargs in (("light-screen", {"light_screen":True}), ("rain", {"weather":"rain"}),
+                ("sun", {"weather":"sun"}), ("life-orb", {"item":"Life Orb"}), ("crit", {"crit":True}),
+                ("water-bubble", {"ability":"Water Bubble"}), ("mystic-water", {"item":"Mystic Water"}),
+                ("rain-umbrella", {"weather":"rain", "item":"Utility Umbrella"})):
+            case(slug(move)+"-dive-"+name, move, underwater=True, **kwargs)
+        case(slug(move)+"-dive-stages", move, underwater=True)
+        out[-1]["attacker"]["stages"]["spAttack"] = 1
+        out[-1]["defender"]["stages"]["spDefense"] = -1
+        case(slug(move)+"-dive-crit-stages", move, underwater=True, crit=True)
+        out[-1]["attacker"]["stages"]["spAttack"] = -1
+        out[-1]["defender"]["stages"]["spDefense"] = 1
+        case(slug(move)+"-dive-rounding", move, underwater=True, item="Life Orb", light_screen=True, defender_ability="Filter")
+        out[-1]["attacker"]["stats"]["spAttack"] = 153
+        out[-1]["defender"].update(species="SPECIES_ARCANINE", speciesLabel="Arcanine")
+        for ability in ("Water Absorb", "Dry Skin", "Storm Drain"):
+            for dive in (False, True):
+                case(slug(move)+"-"+slug(ability)+("-dive" if dive else ""), move,
+                     underwater=dive, defender_ability=ability, expect="immune")
+        case(slug(move)+"-mold-breaker-dive", move, underwater=True, ability="Mold Breaker", defender_ability="Water Absorb")
+        case(slug(move)+"-shield-dive", move, underwater=True, ability="Mold Breaker", defender_ability="Water Absorb", expect="immune")
+        out[-1]["defender"].update(item="ITEM_ABILITY_SHIELD",itemLabel="Ability Shield")
+    for item in ("Binding Band", "Grip Claw"):
+        case("whirlpool-"+slug(item), "Whirlpool", item=item)
+        case("whirlpool-"+slug(item)+"-dive", "Whirlpool", item=item, underwater=True)
+    case("whirlpool-magic-guard", "Whirlpool", defender_ability="Magic Guard")
+    case("whirlpool-magic-guard-dive", "Whirlpool", defender_ability="Magic Guard", underwater=True)
+    case("surf-dive-grassy", underwater=True, terrain="grassy")
+    case("surf-gastro-water-absorb", defender_ability="Water Absorb", surface="engine-only")
+    out[-1]["stateSetup"]={"capture":True,"gastroAcidBeforeHit":"defender","defender":{"gastroAcid":1}}
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

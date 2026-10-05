@@ -116,7 +116,7 @@ class HnsExplosionProductionBoundaryTest {
     }
     @Test fun `Damp has no current hit modifier for supported ordinary attacks`() {
         assertTrue(build(request("Tackle"),a=observation(true,"Damp"),d=observation(false,"Damp")) is CalcRequestOutcome.Ready)
-        for (move in listOf("Surf","Fury Swipes")) {
+        for (move in listOf("Dive","Fury Swipes")) {
             val out=build(request(move),a=observation(true,"Damp")) as CalcRequestOutcome.Refused
             assertTrue(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED in out.verdict.blockingLimitations)
             assertFalse(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED in out.verdict.blockingLimitations)

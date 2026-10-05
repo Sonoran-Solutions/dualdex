@@ -922,7 +922,7 @@ data class CalcCapabilityVerdict(
             CalcLimitation.HNS_PRIORITY_BLOCKED ->
                 "a priority-sensitive ability or terrain prevents the selected draining move"
             CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN ->
-                "Earthquake/Bulldoze requires a valid observed defender semi-invulnerable state"
+                "the selected move requires a valid observed defender semi-invulnerable state"
             CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED ->
                 "the selected move cannot execute against this semi-invulnerable state within the supported scope"
             CalcLimitation.HNS_DAMP_BLOCKS_EXPLOSION ->
@@ -1868,6 +1868,14 @@ object CalcCapabilityPolicy {
                 else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
             }
         }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER) {
+            when (request.hnsLiveBattleState?.defenderSemiInvulnerableState) {
+                com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_NONE,
+                com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_UNDERWATER -> Unit
+                null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
+                else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+            }
+        }
         if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION) {
             val c = HnsAbilityContextPolicy.contextForRequest(request, HnsAbilitySide.ATTACKER, true)
             when (if (c.switchInEventsSettled == true) HnsFieldAbilityAuthority(c).present(6) else null) {
@@ -1880,7 +1888,8 @@ object CalcCapabilityPolicy {
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EARTHQUAKE,
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION) &&
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION,
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER) &&
                 (request.field.gameType != "Singles" || request.hnsLiveBattleState?.observedBattlersCount != 2))) {
             limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
         }

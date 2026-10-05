@@ -617,6 +617,8 @@ class HnsItemContextPolicyTest {
             .rule?.let(produced::add)
         assessForTest(HnsItemRegistry.resolveIdByName("Big Root")!!,
             ctx(HnsItemSide.ATTACKER).copy(moveId=409)).rule?.let(produced::add)
+        assessForTest(HnsItemRegistry.resolveIdByName("Binding Band")!!,
+            ctx(HnsItemSide.ATTACKER).copy(moveId=250, fixedSingleHitMove=true)).rule?.let(produced::add)
         assertEquals(HnsItemAuditData.contextRuleNames, produced.filterNot { it.startsWith("group_e_") }.toSet())
         assertTrue(produced.size >= 30)
     }

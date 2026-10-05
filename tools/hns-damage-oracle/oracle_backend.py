@@ -541,6 +541,10 @@ def render_scenario(s: dict) -> str:
         hit += f" MOVE({def_ref}, MOVE_TACKLE);"
     if state_setup.get("underground"):
         hit = f"MOVE({def_ref}, MOVE_DIG); " + hit
+    if state_setup.get("underwater"):
+        hit = f"MOVE({def_ref}, MOVE_DIVE); " + hit
+    if "move-coverage-slice-5" in s["tags"]:
+        hit = hit.replace("secondaryEffect: FALSE", "secondaryEffect: FALSE, hit: TRUE")
     turns.append("TURN { " + hit + " }")
 
     ticking = s["attacker"]["status"] in ("burn", "poison", "toxic")
@@ -555,6 +559,9 @@ def render_scenario(s: dict) -> str:
         scene.append(f"NONE_OF {{ HP_BAR({def_ref}); }}")
     else:
         scene.append(f"HP_BAR({def_ref}, captureDamage: &results[i].damage);")
+    wrap = "move-coverage-slice-5" in s["tags"] and move == "MOVE_WHIRLPOOL" and s["expect"] == "damage"
+    if wrap and s["defender"]["ability"] != "ABILITY_MAGIC_GUARD":
+        scene.append(f"HP_BAR({def_ref}, captureDamage: &results[i].residual);")
     hp0 = s["attacker"]["stats"]["hp"]
     hp_expr = "results[i].hpAtHit" if hp_capture_events else str(hp0)
     def_hp = s["defender"]["stats"]["hp"]
@@ -610,19 +617,23 @@ def render_scenario(s: dict) -> str:
         "}",
         "",
     ]
+    if wrap:
+        lines.insert(lines.index("    } THEN {") + 1, ind + f'Test_MgbaPrintf("DDXO|{sid}|%d|W|%d|%d|%d|%d", i, results[i].residual, gBattleMons[{def_pos}].volatiles.wrapped, gBattleMons[{def_pos}].volatiles.wrapTurns, gBattleMons[{def_pos}].volatiles.wrappedMove);')
+    if "move-coverage-slice-5" in s["tags"]:
+        lines[0] = lines[0].replace("u16 hpAtHit)", "u16 hpAtHit, s16 residual)")
     if "move-coverage-slice-4" in s["tags"]:
         lines.insert(lines.index("    } THEN {") + 1, ind + f"EXPECT_EQ(gBattleMons[{atk_pos}].hp, 0);")
-    if "move-coverage-slice-3" in s["tags"] and s["expect"] == "immune":
+    if any(t in s["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) and s["expect"] == "immune":
         # Immunity can return before the crit callback. Capture actual state separately there.
         lines.insert(lines.index("    } THEN {") + 1, ind + f'Test_MgbaPrintf("DDXO|{sid}|%d|Q|%d", i, gBattleMons[{def_pos}].volatiles.semiInvulnerable);')
     if s["expect"] == "damage":
         lines.insert(lines.index("    } THEN {") + 1, ind + "EXPECT_EQ(sDdxoSetupCalls, 1);")
-    if "move-coverage-slice-3" in s["tags"]:
+    if any(t in s["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")):
         lines.insert(lines.index("    } THEN {") + 1, ind + f"EXPECT_EQ(BreaksThroughSemiInvulnerablity((enum BattlerId){atk_pos}, (enum BattlerId){def_pos}, {s['attacker']['ability']}, {s['defender']['ability']}, {move}), TRUE);")
     setup = [f"static void {callback_name}(void)", "{",
              f"    if (gCurrentMove != {move} || gBattlerAttacker != (enum BattlerId){atk_pos}",
              f"        || gBattleResults.battleTurnCounter != {setup_turns}) return;"]
-    if "move-coverage-slice-3" in s["tags"] and s["expect"] == "damage":
+    if any(t in s["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) and s["expect"] == "damage":
         setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|Q|%d", sDdxoRoll, gBattleMons[{def_pos}].volatiles.semiInvulnerable);')
     if "move-coverage-slice-4" in s["tags"]:
         setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|E|%d", sDdxoRoll, gBattleMons[{atk_pos}].hp);')
@@ -713,7 +724,7 @@ def _is_spread_capable(s: dict) -> bool:
                                   "Earthquake", "Surf", "Petal Blizzard"}
 
 
-EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi", "execution-explosion")
+EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi", "execution-explosion", "execution-underwater", "execution-whirlpool-wrap")
 EXECUTION_SOURCE = r'''#include "global.h"
 #include "test/battle.h"
 #include "battle.h"
@@ -838,6 +849,80 @@ SINGLE_BATTLE_TEST("DDXO execution-explosion")
     }
 }
 
+
+static u32 sUnderwaterCalls;
+static void DdxoUnderwaterBoundary(void)
+{
+    if (gCurrentMove != MOVE_SURF && gCurrentMove != MOVE_WHIRLPOOL) return;
+    EXPECT_EQ((u32)gBattleMons[1].volatiles.semiInvulnerable, STATE_UNDERWATER);
+    EXPECT_EQ((u32)gBattleMons[1].volatiles.wrapped, FALSE);
+    sUnderwaterCalls++;
+}
+SINGLE_BATTLE_TEST("DDXO execution-underwater")
+{
+    u32 move, setupMove, state, accuracy;
+    bool32 reaches, hits;
+    PARAMETRIZE { move=MOVE_SURF; setupMove=MOVE_DIVE; state=STATE_UNDERWATER; reaches=TRUE; hits=TRUE; accuracy=1; }
+    PARAMETRIZE { move=MOVE_WHIRLPOOL; setupMove=MOVE_DIVE; state=STATE_UNDERWATER; reaches=TRUE; hits=TRUE; accuracy=1; }
+    PARAMETRIZE { move=MOVE_WHIRLPOOL; setupMove=MOVE_DIVE; state=STATE_UNDERWATER; reaches=TRUE; hits=FALSE; accuracy=0; }
+    PARAMETRIZE { move=MOVE_WATER_GUN; setupMove=MOVE_DIVE; state=STATE_UNDERWATER; reaches=FALSE; hits=FALSE; accuracy=1; }
+    PARAMETRIZE { move=MOVE_SURF; setupMove=MOVE_DIG; state=STATE_UNDERGROUND; reaches=FALSE; hits=FALSE; accuracy=1; }
+    PARAMETRIZE { move=MOVE_SURF; setupMove=MOVE_FLY; state=STATE_ON_AIR; reaches=FALSE; hits=FALSE; accuracy=1; }
+    PARAMETRIZE { move=MOVE_WHIRLPOOL; setupMove=MOVE_DIG; state=STATE_UNDERGROUND; reaches=FALSE; hits=FALSE; accuracy=1; }
+    PARAMETRIZE { move=MOVE_WHIRLPOOL; setupMove=MOVE_FLY; state=STATE_ON_AIR; reaches=FALSE; hits=FALSE; accuracy=1; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_INSOMNIA); Speed(40); HP(60000); MaxHP(60000); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); Speed(100); HP(60000); MaxHP(60000); }
+        gFieldStatuses=0; sUnderwaterCalls=0; gDdxoBeforeCriticalHit=DdxoUnderwaterBoundary;
+    } WHEN {
+        TURN { MOVE(opponent, setupMove); MOVE(player, move, WITH_RNG(RNG_ACCURACY, accuracy)); }
+    } SCENE {
+        if (hits) { HP_BAR(opponent); if(move==MOVE_WHIRLPOOL) HP_BAR(opponent); }
+        else { NONE_OF { HP_BAR(opponent); } }
+    } THEN {
+        EXPECT_EQ((u32)gBattleMons[1].volatiles.semiInvulnerable, state);
+        EXPECT_EQ(BreaksThroughSemiInvulnerablity(0,1,ABILITY_INSOMNIA,ABILITY_INSOMNIA,move), reaches);
+        EXPECT_EQ(MoveDamagesUnderWater(move), move==MOVE_SURF || move==MOVE_WHIRLPOOL);
+        if(hits) { EXPECT_LT(gBattleMons[1].hp,60000); EXPECT_EQ(sUnderwaterCalls,1); }
+        else { EXPECT_EQ(gBattleMons[1].hp,60000); EXPECT_EQ(sUnderwaterCalls,0); }
+    }
+}
+
+static u32 sWrapCalls;
+static void DdxoWrapBoundary(void)
+{
+    if (gCurrentMove != MOVE_WHIRLPOOL) return;
+    EXPECT_EQ((u32)gBattleMons[1].volatiles.wrapped, FALSE);
+    sWrapCalls++;
+}
+SINGLE_BATTLE_TEST("DDXO execution-whirlpool-wrap", s16 hit, s16 residual)
+{
+    u32 item, ability;
+    PARAMETRIZE { item=ITEM_NONE; ability=ABILITY_INSOMNIA; }
+    PARAMETRIZE { item=ITEM_GRIP_CLAW; ability=ABILITY_INSOMNIA; }
+    PARAMETRIZE { item=ITEM_BINDING_BAND; ability=ABILITY_INSOMNIA; }
+    PARAMETRIZE { item=ITEM_NONE; ability=ABILITY_MAGIC_GUARD; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_INSOMNIA); Item(item); Speed(40); Level(50); SpAttack(151); HP(200); MaxHP(200); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(ability); Speed(100); Level(50); SpDefense(109); HP(60000); MaxHP(60000); }
+        gFieldStatuses=0; sWrapCalls=0; gDdxoBeforeCriticalHit=DdxoWrapBoundary;
+    } WHEN {
+        TURN { MOVE(opponent, MOVE_CELEBRATE); MOVE(player, MOVE_WHIRLPOOL, hit: TRUE, WITH_RNG(RNG_WRAP,4), criticalHit: FALSE, secondaryEffect: FALSE); }
+    } SCENE {
+        HP_BAR(opponent, captureDamage: &results[i].hit);
+        if(ability!=ABILITY_MAGIC_GUARD) HP_BAR(opponent, captureDamage: &results[i].residual);
+    } THEN {
+        EXPECT_EQ(sWrapCalls,1);
+        EXPECT_GT(results[i].hit,0);
+        EXPECT_EQ((u32)gBattleMons[1].volatiles.wrapped,TRUE);
+        EXPECT_EQ((u32)gBattleMons[1].volatiles.wrappedMove,MOVE_WHIRLPOOL);
+        EXPECT_EQ((u32)gBattleMons[1].volatiles.wrappedBy,0);
+        EXPECT_EQ((u32)gBattleMons[1].volatiles.wrapTurns,item==ITEM_GRIP_CLAW ? 6 : 3);
+        EXPECT_EQ(results[i].residual,ability==ABILITY_MAGIC_GUARD ? 0 : 60000 / (item==ITEM_BINDING_BAND ? 6 : 8));
+        EXPECT_EQ(60000-gBattleMons[1].hp,results[i].hit+results[i].residual);
+        if(i) EXPECT_EQ(results[i].hit,results[0].hit);
+    }
+}
 '''
 
 
@@ -911,9 +996,9 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
         roll = _int(roll_text, f"{sid} roll index")
         if not 0 <= roll < ROLL_COUNT:
             raise OracleError(f"{sid}: roll index {roll} out of range")
-        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K", "Q", "E"):
+        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K", "Q", "E", "W"):
             raise OracleError(f"{sid}: unknown oracle line kind {kind!r}")
-        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else 1 if kind in ("Q", "E") else LINE_FIELDS[kind]
+        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else 1 if kind in ("Q", "E") else 4 if kind == "W" else LINE_FIELDS[kind]
         if len(fields) != expected_length:
             raise OracleError(f"{sid}: {kind} line has {len(fields)} fields, expected {expected_length}")
         slot = records[sid].setdefault(roll, {})
@@ -931,7 +1016,7 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
             missing = sorted(set(range(ROLL_COUNT)) - set(rolls))
             raise OracleError(f"{sid}: missing oracle output for rng value(s) {missing}")
         for roll, slot in rolls.items():
-            if set(slot) - {"AG", "DG", "K", "Q", "E"} != set(LINE_FIELDS):
+            if set(slot) - {"AG", "DG", "K", "Q", "E", "W"} != set(LINE_FIELDS):
                 raise OracleError(f"{sid}: roll {roll} is missing line(s) {sorted(set(LINE_FIELDS) - set(slot))}")
     unexpected = sorted(set(statuses) - wanted)
     if unexpected:
@@ -1033,6 +1118,15 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         r = slot["R"]
         damage, delta, hp_at_hit = (_int(x, f"{sid} R") for x in r)
         expected_delta = damage
+        if "move-coverage-slice-5" in scenario["tags"] and scenario["move"]["symbol"] == "MOVE_WHIRLPOOL" and scenario["expect"] == "damage":
+            if "W" not in slot: raise OracleError(f"{sid}: missing separate wrap observation")
+            residual, wrapped, turns, wrapped_move = map(int, slot["W"])
+            source_residual = 0 if scenario["defender"]["ability"] == "ABILITY_MAGIC_GUARD" else scenario["defender"]["stats"]["maxHp"] // (6 if scenario["attacker"]["item"] == "ITEM_BINDING_BAND" else 8)
+            if residual != source_residual or wrapped != 1 or not 2 <= turns <= 6 or wrapped_move != 250:
+                raise OracleError(f"{sid}: wrap/residual does not match source: {slot['W']}")
+            expected_delta += residual
+        elif "W" in slot:
+            raise OracleError(f"{sid}: unexpected wrap observation")
         if ("move-coverage-slice-3" in scenario["tags"] and scenario["field"]["terrain"] == "grassy"
                 and dfn["terrainAffected"] and scenario["expect"] == "damage"):
             # FIRST_EVENT_BLOCK_GRASSY_TERRAIN_HEAL (battle_end_turn.c:353-361).
@@ -1214,10 +1308,10 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             observed["doubles"] = dict(zip(("helpingHand", "attackerPartnerAbility", "defenderPartnerAbility", "attackerPartnerSpecies", "defenderPartnerSpecies"), k[:5]))
             observed["doubles"].update(fieldAbilities=[a for i, a in enumerate((13,76,186,187,188)) if k[5] & (1 << i)], ruinFlags=k[6])
         elif "K" in slot: raise OracleError(f"{sid}: unexpected live Doubles operands")
-        if "move-coverage-slice-3" in scenario["tags"]:
+        if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")):
             if "Q" not in slot: raise OracleError(f"{sid}: missing actual semi-state at hit")
             semi = _int(slot["Q"][0], f"{sid} semi state")
-            if semi != int(bool(state_setup.get("underground"))): raise OracleError(f"{sid}: wrong actual semi state {semi}")
+            if semi != (2 if state_setup.get("underwater") else int(bool(state_setup.get("underground")))): raise OracleError(f"{sid}: wrong actual semi state {semi}")
             observed["defenderSemiInvulnerableState"] = semi
         elif "Q" in slot: raise OracleError(f"{sid}: unexpected semi state")
         if canonical is None:

@@ -164,3 +164,19 @@ attacker HP=0 while preserving the live observation/max HP. Modern Defense has n
 halving; Parental Bond is source-banned. Gastro Acid/Neutralizing Gas retain their
 independent suppression refusals. Damp is request-local MODELLED_HNS_CONDITIONAL,
 not a blanket no-execution-effect claim; Aftermath remains excluded. H&S stays ESTIMATED.
+
+## Surf/Whirlpool Singles execution and underwater damage (#130)
+
+The index-51 semiInvulnerable operand described above is reused without changing
+the 165-word JNI tuple. Only exact-trusted observed current defender slots in
+the generated domain bind defenderSemiInvulnerableState. The separate frozen
+Surf (57)/Whirlpool (250) family admits STATE_NONE=0 and STATE_UNDERWATER=2 in
+authoritative two-participant Singles. States 1/3/4/5/6 are refused; unread,
+unknown, invalid and stale states cannot authorize. Caller observations and
+chosen Dive moves do not substitute for the current volatile.
+
+Execution, Water immunity and the Q12 ×2 Dive slot remain separate. Observed
+underwater gives IsBattlerTerrainAffected=false without inventing ungroundedness;
+terrain applicability is never a breakthrough predicate. Accuracy, generic
+No Guard/sure-hit paths and Whirlpool future residual remain outside this
+selected-hit product. See [slice 5](HNS_MOVE_COVERAGE_SLICE_5.md).

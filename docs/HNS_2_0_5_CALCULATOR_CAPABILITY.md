@@ -1,6 +1,20 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
-## Current move coverage — #128
+## Current move coverage — #130
+
+Authoritative Singles admits exactly Surf (57) and Whirlpool (250) in the separate
+source-generated FIXED_SINGLE_HIT_UNDERWATER family. Defender neutral (0) and
+underwater (2) states use the existing trusted JNI index-51 observation. Other
+positive states, unknown/invalid state and Doubles remain refused. The source
+underwater flag permits Dive-state breakthrough without guaranteeing accuracy;
+×2 enters the ordered Dive final-modifier slot, after Underground and before
+Airborne/screens. Water immunity remains independent. Whirlpool wrap, duration,
+residual and escape are outside the selected-hit result; Binding Band receives
+only the named Whirlpool proof, with its global damage-relevant category intact.
+H&S remains **ESTIMATED**, one selected hit × sixteen damage rolls.
+See [slice 5 evidence](HNS_MOVE_COVERAGE_SLICE_5.md).
+
+## Move coverage slice 4 — #128
 
 Authoritative Singles admits exactly Self-Destruct (120) and Explosion (153) in a
 separate source-generated family. Effective Damp is a hard execution refusal,

@@ -915,6 +915,22 @@
               "contains": "GetDrainedBigRootHp"
             }
           ]
+        },
+        {
+          "rule": "whirlpool_binding_band_post_hit_only",
+          "side": "EITHER",
+          "predicate": "Source-generated frozen Whirlpool ID 250, supported fixed selected hit; no future-turn output.",
+          "rationale": "Wrap is established after damage. Binding Band alters only later end-turn residual; globally damage-relevant classification remains.",
+          "evidence": [
+            {
+              "source": "src/battle_end_turn.c:620",
+              "contains": "HOLD_EFFECT_BINDING_BAND"
+            },
+            {
+              "source": "src/battle_script_commands.c:2650",
+              "contains": "case MOVE_EFFECT_WRAP:"
+            }
+          ]
         }
       ],
       "always_blocking": [

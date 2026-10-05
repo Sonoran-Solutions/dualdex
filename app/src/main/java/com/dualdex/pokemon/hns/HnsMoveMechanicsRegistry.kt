@@ -28,6 +28,9 @@ enum class HnsMoveMechanicsCategory {
     /** Singles explosion with independent execution and damage-time operands. */
     FIXED_SINGLE_HIT_EXPLOSION,
 
+    /** Singles Surf/Whirlpool, with separately authorized underwater execution and damage. */
+    FIXED_SINGLE_HIT_UNDERWATER,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -55,7 +58,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -202,6 +205,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION,
                 "Pinned Singles explosion; Damp gate precedes HP=0 and modern selected-hit damage.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitUnderwaterMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER,
+                "Pinned Singles Surf/Whirlpool hit; neutral or underwater execution, post-hit wrap excluded.")
         }
         val effect = Hns205MoveEffects.effectById[moveId]
         if (effect == null) {

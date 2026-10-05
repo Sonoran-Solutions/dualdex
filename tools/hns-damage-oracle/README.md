@@ -208,7 +208,7 @@ minimise the case and investigate.
 
 ## Current result and known divergences
 
-The current corpus has **1,894 scenarios: 1,793 modelled and 101 engine-only**,
+The current corpus has **2,088 scenarios: 1,979 modelled and 109 engine-only**,
 with all 16 rolls compared against the shipped bundle. PR #119 adds 49 ordinary-hit
 Doubles cases covering spread counts 1/2/3 (including ally-inclusive Petal Blizzard),
 screens, Helping Hand, partner BP/Attack/Defense/Other modifiers, field holders,
@@ -376,3 +376,24 @@ Damp-banned moves, own Damp, Mold Breaker, Ability Shield, neutral damage and Gh
 immunity. The Ghost hit also reaches the boundary with HP=0. Production suppression
 refusals remain independent; the Gastro Acid arithmetic witness is engine-only.
 See [slice 4](../../docs/HNS_MOVE_COVERAGE_SLICE_4.md) for final counts and validation.
+
+## Move coverage slice 5 (#130)
+
+56 scenarios (55 modelled, one engine-only real Gastro Acid control) add to the
+unchanged 2,032 historical entries. Additive stateSetup.underwater schedules real
+Dive by the faster defender on the measured turn; only Surf/Whirlpool may request
+that setup. Each new entry requires captured defenderSemiInvulnerableState=0 or 2,
+with no default or hook write. Successful selected hits use the test runner's
+hit control. Neutral/underwater, both directions, screens/weather/crit/stages,
+Water modifiers, final rounding, Water immunities, Mold Breaker/Ability Shield,
+Sheer Force and wrap-related controls are included.
+
+Whirlpool records the initial HP-bar damage separately from end-turn residual.
+A W record validates residual, wrap state/duration/move and total HP delta against
+source residual arithmetic; residual never enters the sixteen selected-hit rolls.
+Separate execution suites require eight underwater parameters (including an
+ordinary accuracy miss after breakthrough, plus Dig/Fly exclusions with successful
+accuracy rigging) and four wrap parameters (normal, Grip Claw, Binding Band,
+Magic Guard). Their runner PASS results are mandatory for regeneration/verification
+and their generated source contributes to corpus provenance.
+See [slice 5](../../docs/HNS_MOVE_COVERAGE_SLICE_5.md) for production and census evidence.

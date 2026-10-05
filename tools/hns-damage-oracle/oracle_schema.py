@@ -392,7 +392,9 @@ def _validate_observed_battler(b: Any, path: str) -> None:
 
 def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     extended = "doubles" in (scenario.get("stateSetup") or {})
-    _require_keys(observed, OBSERVED_KEYS + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if "move-coverage-slice-3" in scenario["tags"] else ()), path)
+    _require_keys(observed, OBSERVED_KEYS + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if "move-coverage-slice-3" in scenario["tags"] else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
+    if "move-coverage-slice-4" in scenario["tags"]:
+        _require_int(observed["explosionUserHpAtDamage"], path + ".explosionUserHpAtDamage", 0, 0)
     if extended:
         d = observed["doubles"]
         _require_keys(d, ("helpingHand", "attackerPartnerAbility", "defenderPartnerAbility",

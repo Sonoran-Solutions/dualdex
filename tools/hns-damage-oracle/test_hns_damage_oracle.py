@@ -87,6 +87,22 @@ def good_corpus() -> dict:
 
 
 class ScenarioSchemaTest(unittest.TestCase):
+    def test_explosion_requires_actual_zero_hp_at_damage(self):
+        scenario = next(s for s in SCENARIOS if s["id"] == "explosion-defeatist")
+        observed = observed_for(scenario)
+        with self.assertRaises(schema.SchemaError):
+            schema.validate_observed(observed, scenario, "explosion")
+        observed["explosionUserHpAtDamage"] = 1
+        with self.assertRaises(schema.SchemaError):
+            schema.validate_observed(observed, scenario, "explosion")
+        observed["explosionUserHpAtDamage"] = 0
+        schema.validate_observed(observed, scenario, "explosion")
+        ordinary = a_scenario()
+        unexpected = observed_for(ordinary)
+        unexpected["explosionUserHpAtDamage"] = 0
+        with self.assertRaises(schema.SchemaError):
+            schema.validate_observed(unexpected, ordinary, "ordinary")
+
     def test_observed_field_status_includes_magic_room_and_wonder_room(self):
         for scenario_id, expected_bits in (
             ("group-d-item-charcoal-magic-room-suppressed", 1),

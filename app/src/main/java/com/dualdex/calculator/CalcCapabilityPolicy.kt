@@ -237,6 +237,8 @@ enum class CalcLimitation {
     HNS_PRIORITY_BLOCKED,
     HNS_SEMI_INVULNERABLE_STATE_UNKNOWN,
     HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED,
+    HNS_DAMP_BLOCKS_EXPLOSION,
+    HNS_EXPLOSION_EXECUTION_UNKNOWN,
     HNS_HEAL_BLOCK_ACTIVE,
     HNS_HEAL_BLOCK_STATE_UNKNOWN,
     HNS_MOVE_MECHANICS_NOT_MODELLED,
@@ -598,6 +600,8 @@ enum class CalcLimitation {
             HNS_PRIORITY_BLOCKED,
             HNS_SEMI_INVULNERABLE_STATE_UNKNOWN,
             HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED,
+            HNS_DAMP_BLOCKS_EXPLOSION,
+            HNS_EXPLOSION_EXECUTION_UNKNOWN,
             HNS_HEAL_BLOCK_ACTIVE,
             HNS_HEAL_BLOCK_STATE_UNKNOWN,
             HNS_MOVE_MECHANICS_NOT_MODELLED,
@@ -921,6 +925,10 @@ data class CalcCapabilityVerdict(
                 "Earthquake/Bulldoze requires a valid observed defender semi-invulnerable state"
             CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED ->
                 "the selected move cannot execute against this semi-invulnerable state within the supported scope"
+            CalcLimitation.HNS_DAMP_BLOCKS_EXPLOSION ->
+                "Damp prevents Explosion/Self-Destruct from executing"
+            CalcLimitation.HNS_EXPLOSION_EXECUTION_UNKNOWN ->
+                "effective field ability or participant state is unknown for explosion execution"
             CalcLimitation.HNS_HEAL_BLOCK_ACTIVE ->
                 "observed Heal Block prevents the selected draining move from executing"
             CalcLimitation.HNS_HEAL_BLOCK_STATE_UNKNOWN ->
@@ -1860,10 +1868,19 @@ object CalcCapabilityPolicy {
                 else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
             }
         }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION) {
+            val c = HnsAbilityContextPolicy.contextForRequest(request, HnsAbilitySide.ATTACKER, true)
+            when (if (c.switchInEventsSettled == true) HnsFieldAbilityAuthority(c).present(6) else null) {
+                true -> limitations.add(CalcLimitation.HNS_DAMP_BLOCKS_EXPLOSION)
+                null -> limitations.add(CalcLimitation.HNS_EXPLOSION_EXECUTION_UNKNOWN)
+                false -> Unit
+            }
+        }
         if (mechanics.requiresBlock || (mechanics.category in setOf(
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN,
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EARTHQUAKE) &&
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EARTHQUAKE,
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION) &&
                 (request.field.gameType != "Singles" || request.hnsLiveBattleState?.observedBattlersCount != 2))) {
             limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
         }

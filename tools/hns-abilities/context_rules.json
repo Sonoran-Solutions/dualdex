@@ -5730,5 +5730,41 @@
     ],
     "always_blocking": [],
     "fallback": "Unrelated healing moves, missing authority or unsupported move shapes remain unknown."
+  },
+  "6": {
+    "global": "MODELLED_HNS_CONDITIONAL",
+    "context_rules": [
+      {
+        "rule": "damp_selected_hit_execution",
+        "predicate": "Supported selected hit with independent explosion gate, or source-proven non-Damp-banned move with known effective ability.",
+        "rationale": "Damp forbids execution; Aftermath is separate.",
+        "evidence": [
+          {
+            "source": "src/battle_move_resolution.c:1461",
+            "contains": "IsAbilityOnField(ABILITY_DAMP)"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown execution or move authority remains a hard refusal."
+  },
+  "185": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "parental_bond_explosion_banned",
+        "predicate": "Exact frozen Explosion/Self-Destruct family.",
+        "rationale": "Both source moves forbid a second hit.",
+        "evidence": [
+          {
+            "source": "src/data/moves_info.h:3299",
+            "contains": "parentalBondBanned = TRUE"
+          }
+        ]
+      }
+    ],
+    "always_blocking": [],
+    "fallback": "Unknown execution or move authority remains a hard refusal."
   }
 }

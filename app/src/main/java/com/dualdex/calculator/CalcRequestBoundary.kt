@@ -846,7 +846,9 @@ object CalcRequestBoundary {
         if (live == null) return request
         val ids = com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds
         val weatherSuppressed =
-            ((live.attackerHp?.let { it > 0 } == true && request.attacker.abilityId in setOf(13, 76)) ||
+            ((com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id !in
+                com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds &&
+                live.attackerHp?.let { it > 0 } == true && request.attacker.abilityId in setOf(13, 76)) ||
                 (live.defenderHp?.let { it > 0 } == true && request.defender.abilityId in setOf(13, 76)))
         val weatherName = when {
             !live.weatherObserved || live.weatherWord == 0 || weatherSuppressed -> null

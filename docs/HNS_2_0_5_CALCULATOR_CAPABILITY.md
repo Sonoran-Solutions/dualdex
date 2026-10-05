@@ -1,6 +1,16 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
-## Current move coverage addition — #122
+## Current move coverage — #128
+
+Authoritative Singles admits exactly Self-Destruct (120) and Explosion (153) in a
+separate source-generated family. Effective Damp is a hard execution refusal,
+self-KO derives attacker HP=0 before damage, Defense follows pinned GEN_LATEST,
+and Parental Bond is banned. The displayed result remains one defender hit ×
+sixteen rolls; H&S remains ESTIMATED. Gastro Acid/Neutralizing Gas and Wonder Room
+retain their existing independent refusal/caveat contracts. See
+[the slice 4 evidence](HNS_MOVE_COVERAGE_SLICE_4.md).
+
+## Move coverage slice 1 — #122
 
 The separately classified fixed single-hit recoil family is admitted in authoritative
 Singles contexts: Take Down, Double-Edge, Submission, Volt Tackle, Flare Blitz, Brave Bird,

@@ -49,7 +49,7 @@ class HnsMoveMechanicsRegistryTest {
     }
 
     @Test
-    fun `multihit and explosion hidden behind EFFECT_HIT are blocked`() {
+    fun `multihit is blocked and explosion has a separate proven family`() {
         // Bullet Seed is EFFECT_HIT with multiHit = TRUE.
         val bulletSeed = HnsMoveMechanicsRegistry.classify(331)
         assertTrue(bulletSeed.requiresBlock)
@@ -57,10 +57,9 @@ class HnsMoveMechanicsRegistryTest {
         // Double Kick is EFFECT_HIT with strikeCount = 2.
         assertTrue(HnsMoveMechanicsRegistry.classify(24).requiresBlock)
 
-        // Explosion is EFFECT_HIT but H&S keeps B_EXPLOSION_DEFENSE at GEN_LATEST while ADV
-        // halves Defence.
-        assertTrue(HnsMoveMechanicsRegistry.classify(153).requiresBlock)
-        assertTrue(HnsMoveMechanicsRegistry.classify(120).requiresBlock)
+        // Explosion has its separate modern-Defense family, with independent execution gates.
+        assertFalse(HnsMoveMechanicsRegistry.classify(153).requiresBlock)
+        assertFalse(HnsMoveMechanicsRegistry.classify(120).requiresBlock)
     }
 
     @Test

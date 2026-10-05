@@ -344,7 +344,8 @@ function hnsContactAuthority(move, attacker, input) {
   if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
         input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true ||
-        input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE' && input.move?.hnsIsEarthquake === true)) ||
+        input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE' && input.move?.hnsIsEarthquake === true ||
+        input.move?.hnsMoveEffect === 'EFFECT_HIT' && input.move?.hnsIsExplosion === true && [120,153].includes(input.move?.hnsMoveId))) ||
       input.move?.hnsUnknownContact === true || typeof input.move?.hnsMakesContact !== 'boolean') return null;
   if (!input.move.hnsMakesContact) return false;
   const flags = new Set(input.move?.hnsMoveAbilityFlags || []);
@@ -584,7 +585,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       isBattlerWeatherAffected(attacker, 'Sun', field, attacker, defender, input)) {
     attackModifier.addHalfDown(6144);
   }
-  const attackerHp = input.attacker?.hp;
+  const explosionFamily = input.move?.hnsIsExplosion === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' && [120,153].includes(input.move?.hnsMoveId);
+  if (explosionFamily && input.move?.hnsExplosionUserHpAtDamage !== 0) throw new Error('Explosion damage-time HP missing');
+  const attackerHp = explosionFamily ? 0 : input.attacker?.hp;
   const attackerMaxHp = input.attacker?.maxHP;
   if (attacker.ability === 'Defeatist' && Number.isInteger(attackerHp) &&
       Number.isInteger(attackerMaxHp) && attackerMaxHp > 0 && attackerHp >= 0 &&
@@ -649,7 +652,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // of letting it be computed as inactive.
   const HNS_PINCH_TYPES = { Overgrow: 'Grass', Blaze: 'Fire', Torrent: 'Water', Swarm: 'Bug' };
   const pinchType = HNS_PINCH_TYPES[attacker.ability];
-  const pinchHp = input.attacker?.hp;
+  const pinchHp = explosionFamily ? 0 : input.attacker?.hp;
   const pinchMaxHp = input.attacker?.maxHP;
   if (pinchType && effectiveMoveType === pinchType && Number.isInteger(pinchHp) && Number.isInteger(pinchMaxHp) &&
       pinchMaxHp > 0 && pinchHp <= Math.floor(pinchMaxHp / 3)) {
@@ -971,7 +974,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   }
   const auraActive = (name) => doubles ? doubles.fieldAbilities.includes(
     {'Dark Aura': 186, 'Fairy Aura': 187, 'Aura Break': 188}[name]) : [
-    [attacker, input.attacker], [defender, input.defender],
+    [attacker, explosionFamily ? {...input.attacker, hpAtHit: 0, hp: 0} : input.attacker], [defender, input.defender],
   ].some(([b, source]) => {
     const hp = [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
     return b.ability === name && !(b === defender && bypassTargetAbility) &&
@@ -1304,7 +1307,7 @@ function hnsGlobalWeatherEffect(attacker, defender, input) {
   if (input.field?.hnsDoubles) return !input.field.hnsDoubles.fieldAbilities.some(id => id === 13 || id === 76);
   for (const [battler, source] of [[attacker, input.attacker], [defender, input.defender]]) {
     if (!['Cloud Nine', 'Air Lock'].includes(battler?.ability)) continue;
-    const hp = [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
+    const hp = battler === attacker && input.move?.hnsIsExplosion === true ? 0 : [source?.hpAtHit, source?.hp, source?.curHP].find(Number.isInteger);
     if (!Number.isInteger(hp)) return null;
     if (hp > 0 && source?.hnsGastroAcid !== true) return false;
   }

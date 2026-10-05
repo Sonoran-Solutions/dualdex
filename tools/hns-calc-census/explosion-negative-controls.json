@@ -1,0 +1,12 @@
+{
+  "startingSha": "5c2242e90a6c511c307ba304ebda38a63f21336f",
+  "command": "./ci.sh test",
+  "exitStatus": 1,
+  "compiled": true,
+  "tests": 1,
+  "failures": 1,
+  "failureMessage": "java.lang.AssertionError: Self-Destruct: Refused(verdict=CalcCapabilityVerdict(support=UNSUPPORTED, capability=CalcCapability(ruleset=HNS_2_0_5, mechanicsGeneration=3, contentSource=hns_2_0_5, ceiling=ESTIMATED, alwaysLimitations=[], label=Pokemon Heart & Soul 2.0.5 (Release-v2.0.5, 1f42b74dff0e9fe942419845d040663dd829a973)), limitations=[HNS_MOVE_MECHANICS_NOT_MODELLED], request=null, unsupportedReason=, hnsAbilityDecisions=[], hnsItemDecisions=[], hnsFieldDecisions=[], hnsFieldDiagnostics=CalcHnsFieldDiagnostics(fieldState=HnsFieldState(raw=0, active=[], unknownMask=0), weatherWord=0, defenderSideStatuses=0, attackerElectrified=false), ignoredMechanics=[]))\nExplosion: Refused(verdict=CalcCapabilityVerdict(support=UNSUPPORTED, capability=CalcCapability(ruleset=HNS_2_0_5, mechanicsGeneration=3, contentSource=hns_2_0_5, ceiling=ESTIMATED, alwaysLimitations=[], label=Pokemon Heart & Soul 2.0.5 (Release-v2.0.5, 1f42b74dff0e9fe942419845d040663dd829a973)), limitations=[HNS_MOVE_MECHANICS_NOT_MODELLED], request=null, unsupportedReason=, hnsAbilityDecisions=[], hnsItemDecisions=[], hnsFieldDecisions=[], hnsFieldDiagnostics=CalcHnsFieldDiagnostics(fieldState=HnsFieldState(raw=0, active=[], unknownMask=0), weatherWord=0, defenderSideStatuses=0, attackerElectrified=false), ignoredMechanics=[]))",
+  "totalKotlinTests": 1129,
+  "allOtherKotlinTestsPassed": true,
+  "testSourceSha256": "d3729c8b4297c2434b7b09661d6220853e83a712d20f74041ebd01ba6a2bc4c5"
+}

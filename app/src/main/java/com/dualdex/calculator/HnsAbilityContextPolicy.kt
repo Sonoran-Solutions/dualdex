@@ -64,6 +64,7 @@ object HnsAbilityContextPolicy {
     private const val HNS_STATUS1_TOXIC_POISON_MASK = 0x80
     private const val HNS_STATUS1_TOXIC_COUNTER_MASK = 0x0f00
     private val MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS = setOf(
+        6, // Damp execution authority
         120, // Fixed single-hit recoil: exact Reckless base-power slot
         277, 280, // Group E: source-proven shared Charge volatile
         18, 55, 62, 79, 112, 148, 198, 255, 281, 282, 284, 285, 286, 287, 293,
@@ -374,6 +375,15 @@ object HnsAbilityContextPolicy {
                 proof("doubles_partner_holder_opposing_hit", "src/battle_util.c:6763-6784; src/battle_util.c:7640; src/battle_util.c:8422",
                     "The selected hit targets an opposing battler; these holder identities modify an ally's hit or ally-target execution. The observed partner slots are handled separately.")
             else -> when (abilityId) {
+            6 -> if (abilityObserved(c) && (c.fixedSingleHitMove == true ||
+                c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.effectById &&
+                c.moveId !in com.dualdex.pokemon.hns.Hns205MoveEffects.dampBannedMoveIds &&
+                c.moveId !in com.dualdex.pokemon.hns.Hns205MoveEffects.unknownDampBanMoveIds)) proof(
+                "damp_selected_hit_execution", "src/battle_move_resolution.c:1459",
+                "Explosion execution is independently gated by effective field Damp; other selected hits have no Damp damage modifier. Aftermath remains outside the result.") else null
+            185 -> if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds && abilityObserved(c)) proof(
+                "parental_bond_explosion_banned", "src/data/moves_info.h:3299",
+                "Both frozen explosion moves are parentalBondBanned; no second hit exists.") else null
             5 -> when {
                 c.fixedSingleHitMove != true || !abilityObserved(c) -> null
                 c.side == HnsAbilitySide.ATTACKER -> proof("group_e_sturdy_attacker",
@@ -1458,7 +1468,7 @@ object HnsAbilityContextPolicy {
             defenderStatStages = live?.defenderStatStages,
             attackerAbilityObserved = hasAuthoritativeLiveAbility(request.attacker),
             defenderAbilityObserved = hasAuthoritativeLiveAbility(request.defender),
-            attackerHp = live?.attackerHp,
+            attackerHp = if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds) 0 else live?.attackerHp,
             attackerMaxHp = live?.attackerMaxHp,
             defenderAbilityId = request.defender.abilityId,
             attackerItemId = request.attacker.itemId ?: when {

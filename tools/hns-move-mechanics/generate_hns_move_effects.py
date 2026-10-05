@@ -407,6 +407,46 @@ def parse_earthquake_metadata(text, updated_move_flags_latest=False):
     return result
 
 
+def parse_explosion_metadata(text, updated_move_data_latest=False, modern_defense=False):
+    """Only the reviewed two-move contract; unknown/new initializers cannot authorize."""
+    result = {}
+    allowed = {"name", "description", "effect", "power", "type", "accuracy", "pp", "target",
+               "priority", "category", "explosion", "parentalBondBanned", "dampBanned",
+               "contestEffect", "contestCategory", "contestComboStarterId", "contestComboMoves",
+               "battleAnimScript", "validApprenticeMove"}
+    if not updated_move_data_latest or not modern_defense:
+        return result
+    for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())):
+        power = {"MOVE_SELF_DESTRUCT": 200, "MOVE_EXPLOSION": 250}.get(symbol)
+        if power is None:
+            continue
+        joined = "\n".join(body)
+        expected = {"effect": "EFFECT_HIT", "power": f"B_UPDATED_MOVE_DATA >= GEN_2 ? {power} : {130 if power == 200 else 170}",
+                    "type": "TYPE_NORMAL", "category": "DAMAGE_CATEGORY_PHYSICAL",
+                    "target": "TARGET_FOES_AND_ALLY", "priority": "0", "explosion": "TRUE",
+                    "parentalBondBanned": "TRUE", "dampBanned": "TRUE"}
+        if (any(line.lstrip().startswith("#") for line in body)
+                or set(re.findall(r"\.([A-Za-z]\w*)\s*=", joined)) - allowed
+                or any(re.findall(rf"\.{field}\s*=\s*([^,\n}}]+)", joined) != [value]
+                       for field, value in expected.items())):
+            continue
+        result[symbol] = power
+    return result
+
+
+def parse_damp_bans(text):
+    banned, unknown = set(), set()
+    for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())):
+        values = re.findall(r"\.dampBanned\s*=\s*([^,\n}]+)", "\n".join(body))
+        if not values:
+            continue
+        if values not in (["TRUE"], ["FALSE"]) or any(line.lstrip().startswith("#") for line in body):
+            unknown.add(symbol)
+        elif values == ["TRUE"]:
+            banned.add(symbol)
+    return banned, unknown
+
+
 def parse_move_table(text):
     """Return source-derived effect/target/ordinary/flag/priority maps by move symbol."""
     lines = text.splitlines()
@@ -686,7 +726,7 @@ def build_maps(upstream_dir):
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
                     priority_by_id, unknown_priority_ids, ability_flags_by_id,
                     unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
-                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None):
+                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=()):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -807,6 +847,11 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("")
     lines.append("    val fixedSingleHitEarthquakeMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(earthquake_flags or {}))) + ")")
     lines.append("    val earthquakeDamagesUndergroundById: Map<Int, Boolean> = mapOf(" + ", ".join(f"{i} to {str(v).lower()}" for i, v in sorted((earthquake_flags or {}).items())) + ")")
+    lines.append("    /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */")
+    lines.append("    val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(explosion_powers or {}))) + ")")
+    lines.append("    val explosionPowerById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((explosion_powers or {}).items())) + ")")
+    lines.append("    val dampBannedMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(damp_bans))) + ")")
+    lines.append("    val unknownDampBanMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(unknown_damp_bans))) + ")")
     lines.append("    /** Recoil moves which clear Freeze/Frostbite before the selected hit. */")
     lines.append("    val recoilThawsUserMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(recoil_thaws))) + ")")
     lines.append("")
@@ -864,7 +909,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
 
 
 def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_ability_flags_by_id,
-                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None):
+                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None):
     """Render a compact source-derived move metadata map for the ROM-free oracle harness."""
     result = {}
     for move_id, effect in sorted(effect_by_id.items()):
@@ -892,6 +937,11 @@ def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_
             target=target_by_id[move_id], priority=priority_by_id[move_id],
             abilityFlags=sorted(ability_flags_by_id.get(move_id, set())),
             immunityFlags=sorted(flags_by_id.get(move_id, set())))
+    for move_id, power in (explosion_powers or {}).items():
+        result[str(move_id)].update(fixedSingleHitExplosion=True, power=power, type="TYPE_NORMAL",
+            category="DAMAGE_CATEGORY_PHYSICAL", target=target_by_id[move_id], priority=priority_by_id[move_id],
+            explosion=True, dampBanned=True, parentalBondBanned=True, strikeCount=1,
+            abilityFlags=[], immunityFlags=[], explosionDefense="GEN_LATEST")
     return json.dumps({"pinnedCommit": PINNED_COMMIT, "moves": result}, indent=2) + "\n"
 
 
@@ -921,6 +971,11 @@ def main():
     earthquake_flags = {ids[s]: v for s, v in parse_earthquake_metadata(move_text, True).items()}
     if set(earthquake_flags) != {89, 523}:
         raise ValueError("Frozen Earthquake family contract changed")
+    explosion_powers = {ids[s]: p for s, p in parse_explosion_metadata(move_text,
+        bool(re.search(r"#define B_UPDATED_MOVE_DATA\s+GEN_LATEST", config)),
+        bool(re.search(r"#define B_EXPLOSION_DEFENSE\s+GEN_LATEST", config))).items()}
+    if set(explosion_powers) != {120, 153}:
+        raise ValueError("Frozen Explosion family/config contract changed")
     for move_id in drain_percentages:
         flags_by_id.setdefault(move_id, set()).add("healingMove")
         unknown_flags_by_id.get(move_id, set()).discard("healingMove")
@@ -958,14 +1013,15 @@ def main():
     if not re.search(r"\[EFFECT_EARTHQUAKE\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
         raise ValueError("Earthquake selected-hit script changed")
     verify_helper_contract(upstream_dir, ordinary)
+    damp_bans, unknown_damp_bans = parse_damp_bans(move_text)
     generated = generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id,
                                 unknown_flags_by_id, priority_by_id, unknown_priority_ids,
                                 ability_flags_by_id, unknown_ability_flags_by_id,
                                 contact_by_id, unknown_contact_by_id,
-                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags)
+                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans})
     generated_json = generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id,
                                             unknown_ability_flags_by_id, contact_by_id,
-                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags)
+                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers)
 
     if args.verify:
         if not os.path.isfile(args.output):

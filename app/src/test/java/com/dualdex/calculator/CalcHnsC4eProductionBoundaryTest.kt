@@ -572,7 +572,7 @@ class CalcHnsC4eProductionBoundaryTest {
     fun `settled stage writer does not duplicate an unsupported move blocker`() {
         val trust = trustFor(exactSha)
         val refused = refusedOf(
-            build(trust, goldenARequest(move = "Explosion"), playerObservation(),
+            build(trust, goldenARequest(move = "Misty Explosion"), playerObservation(),
                 enemyObservation(abilityId = 22, abilityName = "Intimidate"), randomAbilities = true),
             "the unsupported move remains independently refused"
         )
@@ -609,7 +609,7 @@ class CalcHnsC4eProductionBoundaryTest {
     @Test
     fun `weather speed ability does not duplicate unsupported move refusal`() {
         val refused = refusedOf(
-            build(trustFor(exactSha), goldenARequest(move = "Explosion"), playerObservation(),
+            build(trustFor(exactSha), goldenARequest(move = "Misty Explosion"), playerObservation(),
                 enemyObservation(abilityId = 34, abilityName = "Chlorophyll"), randomAbilities = true),
             "the unsupported move remains independently refused"
         )
@@ -1877,12 +1877,12 @@ class CalcHnsC4eProductionBoundaryTest {
 
     @Test
     fun `unsupported move is refused`() {
-        // Explosion is EFFECT_HIT but carries the `explosion` damage flag the generator excludes
+        // Misty Explosion remains outside the frozen two-move explosion family
         // from the ordinary set (H&S keeps B_EXPLOSION_DEFENSE at GEN_LATEST while ADV halves
         // Defense), so it must fail closed rather than be computed through the ADV pipeline.
         refusedWith(
             expected = CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED,
-            request = goldenARequest(move = "Explosion")
+            request = goldenARequest(move = "Misty Explosion")
         )
     }
 
@@ -3190,7 +3190,7 @@ class CalcHnsC4eProductionBoundaryTest {
         assertEquals(HnsItemRequestRelevance.UNKNOWN, scarf.verdict.hnsItemDecisions.single().relevance)
 
         val postHitItem = refusedOf(
-            build(trustFor(exactSha), goldenARequest(move = "Explosion"),
+            build(trustFor(exactSha), goldenARequest(move = "Misty Explosion"),
                 playerObservation(itemId = 502), enemyObservation()),
             "an after-hit Weakness Policy cannot change the unsupported selected hit"
         )
@@ -3258,7 +3258,7 @@ class CalcHnsC4eProductionBoundaryTest {
             ordinary.verdict.hnsAbilityDecisions.single().relevance)
 
         val nonordinary = refusedOf(
-            build(trustFor(exactSha), goldenARequest(move = "Explosion"), playerObservation(),
+            build(trustFor(exactSha), goldenARequest(move = "Misty Explosion"), playerObservation(),
                 enemyObservation(abilityId = 24, abilityName = "Rough Skin"), randomAbilities = true),
             "unsupported move shape remains refused"
         )
@@ -4030,7 +4030,7 @@ class CalcHnsC4eProductionBoundaryTest {
         val refused = refusedOf(
             build(
                 trustFor(exactSha),
-                goldenARequest(move = "Explosion"),
+                goldenARequest(move = "Misty Explosion"),
                 playerObservation(abilityId = 105, abilityName = "Super Luck"),
                 enemyObservation()
             ),

@@ -154,3 +154,13 @@ Earthquake skips that reduction and adds Q12 ×2 in the ordered other-modifier
 accumulator before screens/abilities/items. Bulldoze uses the existing source-backed
 Sheer Force slot. Ground immunity remains independent. H&S remains ESTIMATED;
 hardware NOT_RUN. See [slice 3 source, authority and evidence](HNS_MOVE_COVERAGE_SLICE_3.md).
+
+## Explosion/Self-Destruct Singles execution and damage-time operands
+
+See [move coverage slice 4](HNS_MOVE_COVERAGE_SLICE_4.md). The frozen source-generated
+family (IDs 120/153) is separate from ordinary hits. Effective field Damp hard-refuses
+execution before self-KO; unknown authority fails closed. Damage contexts derive
+attacker HP=0 while preserving the live observation/max HP. Modern Defense has no
+halving; Parental Bond is source-banned. Gastro Acid/Neutralizing Gas retain their
+independent suppression refusals. Damp is request-local MODELLED_HNS_CONDITIONAL,
+not a blanket no-execution-effect claim; Aftermath remains excluded. H&S stays ESTIMATED.

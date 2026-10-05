@@ -1,0 +1,288 @@
+{
+  "engineOnly": 111,
+  "engineReplay": {
+    "byteIdentical": true,
+    "callbackOnlyBrineHp": true,
+    "canonicalEntries": 2265,
+    "corpusSha256": "6224ec791ac5250f571e3535685ee977111e5a3b4ceb17a9d247f98782a67e6f",
+    "reversedEntries": 2265
+  },
+  "historicalCount": 2214,
+  "historicalEntryLinesUnchanged": true,
+  "hitBoundaryHp": {
+    "brine-ability-shield": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-above-opponent": {
+      "boost": false,
+      "hp": 51,
+      "maxHp": 100
+    },
+    "brine-above-player": {
+      "boost": false,
+      "hp": 51,
+      "maxHp": 100
+    },
+    "brine-adaptability": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-below-opponent": {
+      "boost": true,
+      "hp": 49,
+      "maxHp": 100
+    },
+    "brine-below-player": {
+      "boost": true,
+      "hp": 49,
+      "maxHp": 100
+    },
+    "brine-dry-skin": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-full-crit": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-life-orb": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-multiscale": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-mystic-water": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-normalize": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-opponent": {
+      "boost": false,
+      "hp": 100,
+      "maxHp": 100
+    },
+    "brine-full-player": {
+      "boost": false,
+      "hp": 100,
+      "maxHp": 100
+    },
+    "brine-full-rain": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-rain-umbrella": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-screen": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-shadow-shield": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-sheer-force": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-splash-plate": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-stages": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-sun": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-technician": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-full-water-bubble": {
+      "boost": false,
+      "hp": 60000,
+      "maxHp": 60000
+    },
+    "brine-gastro-acid": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-crit": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-life-orb": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-multiscale": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-mystic-water": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-normalize": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-opponent": {
+      "boost": true,
+      "hp": 50,
+      "maxHp": 100
+    },
+    "brine-half-player": {
+      "boost": true,
+      "hp": 50,
+      "maxHp": 100
+    },
+    "brine-half-rain": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-rain-umbrella": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-screen": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-shadow-shield": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-sheer-force": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-splash-plate": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-stages": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-sun": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-technician": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-half-water-bubble": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-mold-breaker": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-odd-above-opponent": {
+      "boost": false,
+      "hp": 51,
+      "maxHp": 101
+    },
+    "brine-odd-above-player": {
+      "boost": false,
+      "hp": 51,
+      "maxHp": 101
+    },
+    "brine-odd-half-opponent": {
+      "boost": true,
+      "hp": 50,
+      "maxHp": 101
+    },
+    "brine-odd-half-player": {
+      "boost": true,
+      "hp": 50,
+      "maxHp": 101
+    },
+    "brine-rounding": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-storm-drain": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-torrent": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    },
+    "brine-water-absorb": {
+      "boost": true,
+      "hp": 30000,
+      "maxHp": 60000
+    }
+  },
+  "modelled": 2154,
+  "negativeControlVerified": true,
+  "newScenarios": 51,
+  "q12Modifier": 8192,
+  "registeredDivergences": 0,
+  "shortcutProbe": {
+    "brineCases": 51,
+    "exactMatches": 2265,
+    "logSha256": "107dd15de5b0323f54e04b75c132169cb30879fe3aab11cf8f69a5e3324879fb",
+    "numericalDifferences": 0,
+    "productionSourceSha256": "0344f4f84d845e2710b01af9b049a25e6d37325dff150dab6ba03b3ead3f9cce",
+    "shortcutSourceSha256": "6cc5ad697a972e12b7ac6388ec241c4ed51657ab71b6b3df24262e63fd58c581"
+  },
+  "sourceBasePower": 65,
+  "sourceStage": "CalcMoveBasePowerAfterModifiers: move-effect accumulator before Helping Hand/Gems/abilities/items",
+  "sourceStageRegression": true,
+  "startingSha": "9f9405c919b98dde000b349724b15ec2f3f2366d",
+  "testSourceSha256": "a6b81de3d5e6ced510650b13307de7141f176f97d2bf159031a2e80af57548dc",
+  "total": 2265
+}

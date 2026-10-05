@@ -417,6 +417,9 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("hnsIsStatusDouble", true)
                         put("hnsStatusDoubleMask", mask)
                     }
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitBrineMoveIds) {
+                        put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE.name)
+                    }
                     put("hnsIsEarthquake", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEarthquakeMoveIds)
                     com.dualdex.pokemon.hns.Hns205MoveEffects.earthquakeDamagesUndergroundById[moveId]?.let { put("hnsDamagesUnderground", it) }
                     put("hnsIsDrain", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitDrainMoveIds)

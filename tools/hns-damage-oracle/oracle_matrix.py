@@ -71,6 +71,7 @@ SPECIES = {
 
 # label -> (planning type, planning per-move category, planning power)
 MOVES = {
+    "Brine": ("Water", "special", 65),
     "Smelling Salts": ("Normal", "physical", 70), "Wake-Up Slap": ("Fighting", "physical", 70),
     "Venoshock": ("Poison", "special", 65), "Hex": ("Ghost", "special", 65),
     "Barb Barrage": ("Poison", "physical", 60), "Infernal Parade": ("Ghost", "special", 60),
@@ -138,6 +139,7 @@ IMMUNITIES = {
 
 # One physical and one special representative move per type.
 TYPE_MOVES = {
+    "Brine": ("Water", "special", 65),
     "Normal": ("Strength", "Swift"), "Fighting": ("Karate Chop", "Aura Sphere"),
     "Flying": ("Drill Peck", "Air Slash"), "Poison": ("Poison Jab", "Sludge Bomb"),
     "Ground": ("Bone Club", "Earth Power"), "Rock": ("Rock Slide", "Power Gem"),
@@ -2427,12 +2429,56 @@ def _fixed_single_hit_underwater():
     return out
 
 
+def _fixed_single_hit_brine():
+    out = []
+    def case(name, hp=30000, maxhp=60000, ability="Insomnia", defender_ability="Insomnia", item=None, **kw):
+        a = attacker("Machamp", atk=151, spa=151, spe=40, hp=200, maxhp=200,
+            ability=(symbol("ABILITY", ability), ability), item=(symbol("ITEM", item), item) if item else None)
+        d = defender("Blastoise", dfn=109, spd=109, spe=100,
+            ability=(symbol("ABILITY", defender_ability), defender_ability))
+        d["stats"].update(hp=hp, maxHp=maxhp)
+        out.append(scenario("brine-"+name, ["move-coverage-slice-7"], a, d, "Brine", **kw))
+    for side in ("player", "opponent"):
+        for name,hp,maxhp in (("full",100,100),("above",51,100),("half",50,100),("below",49,100),
+                ("odd-above",51,101),("odd-half",50,101)):
+            case(name+"-"+side,hp,maxhp,side=side)
+    for threshold,hp in (("full",60000),("half",30000)):
+        for name,kw in (("rain",dict(weather="rain")),("sun",dict(weather="sun")),
+            ("rain-umbrella",dict(weather="rain",item="Utility Umbrella")),
+            ("water-bubble",dict(ability="Water Bubble")),("mystic-water",dict(item="Mystic Water")),
+            ("splash-plate",dict(item="Splash Plate")),("screen",dict(light_screen=True)),
+            ("life-orb",dict(item="Life Orb")),("crit",dict(crit=True)),
+            ("normalize",dict(ability="Normalize")),("technician",dict(ability="Technician")),
+            ("sheer-force",dict(ability="Sheer Force"))):
+            case(threshold+"-"+name,hp,**kw)
+        for ability in ("Multiscale","Shadow Shield"):
+            case(threshold+"-"+slug(ability),hp,defender_ability=ability)
+        case(threshold+"-stages",hp)
+        out[-1]["attacker"]["stages"]["spAttack"]=1
+        out[-1]["defender"]["stages"]["spDefense"]=-1
+    for ability in ("Water Absorb","Dry Skin","Storm Drain"):
+        case(slug(ability),defender_ability=ability,expect="immune")
+    case("mold-breaker",ability="Mold Breaker",defender_ability="Water Absorb",surface="engine-only")
+    case("ability-shield",ability="Mold Breaker",defender_ability="Water Absorb",expect="immune")
+    out[-1]["defender"].update(item="ITEM_ABILITY_SHIELD",itemLabel="Ability Shield")
+    case("gastro-acid",defender_ability="Water Absorb",surface="engine-only")
+    out[-1]["stateSetup"]={"capture":True,"gastroAcidBeforeHit":"defender","defender":{"gastroAcid":1}}
+    for ability in ("Torrent","Adaptability"):
+        case(slug(ability),ability=ability)
+        out[-1]["attacker"].update(species="SPECIES_BLASTOISE",speciesLabel="Blastoise")
+        if ability=="Torrent": out[-1]["attacker"]["stats"]["hp"]=66
+    case("rounding",ability="Normalize",item="Life Orb",light_screen=True)
+    out[-1]["attacker"]["stats"]["spAttack"]=153
+    out[-1]["defender"]["stages"]["spDefense"]=1
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

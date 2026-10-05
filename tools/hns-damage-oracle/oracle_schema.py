@@ -338,7 +338,9 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
                 for key, operand in value.items():
                     _require_int(operand, f"{loc}.{key}", *RUNTIME_SETUP_DOMAINS[key])
     _require_enum(s["expect"], EXPECTS, f"{path}.expect")
-    if s["defender"]["stats"]["hp"] <= MAX_MEASURABLE_DAMAGE:
+    if "move-coverage-slice-7" in s["tags"] and (s["move"]["symbol"] != "MOVE_BRINE" or s["format"] != "singles"):
+        _fail(path, "Brine small-HP exception is Singles Brine only")
+    if "move-coverage-slice-7" not in s["tags"] and s["defender"]["stats"]["hp"] <= MAX_MEASURABLE_DAMAGE:
         _fail(f"{path}.defender.stats.hp", f"defender HP must exceed {MAX_MEASURABLE_DAMAGE} so no roll is capped by fainting")
 
 
@@ -355,7 +357,7 @@ def validate_scenarios(scenarios: Any) -> None:
 
 
 def _validate_observed_battler(b: Any, path: str) -> None:
-    _require_keys(b, OBSERVED_BATTLER_KEYS, path)
+    _require_keys(b, OBSERVED_BATTLER_KEYS + (("maxHpAtHit",) if "maxHpAtHit" in b else ()), path)
     _require_int(b["speciesId"], f"{path}.speciesId", 1, 65535)
     types = b["types"]
     if not isinstance(types, list) or not 1 <= len(types) <= 2:
@@ -378,6 +380,8 @@ def _validate_observed_battler(b: Any, path: str) -> None:
     _require_int(item_record["holdEffectParam"], f"{path}.itemRecord.holdEffectParam", 0, 65535)
     if item_record["itemType"] is not None:
         _require_enum(item_record["itemType"], TYPE_NAMES, f"{path}.itemRecord.itemType")
+    if "maxHpAtHit" in b:
+        _require_int(b["maxHpAtHit"], f"{path}.maxHpAtHit", 1, 65535)
     _require_int(b["hpAtHit"], f"{path}.hpAtHit", 1, 65535)
     _require_int(b["status1"], f"{path}.status1", 0, 65535)
     _require_bool(b["terrainAffected"], f"{path}.terrainAffected")
@@ -467,6 +471,9 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
         _fail(f"{path}.fieldStatuses", f"observed field word {observed['fieldStatuses']:#x} != scenario terrain {expected_terrain:#x}")
     if observed["attacker"]["hpAtHit"] > scenario["attacker"]["stats"]["hp"]:
         _fail(f"{path}.attacker.hpAtHit", "attacker HP cannot rise before the measured hit")
+    if "move-coverage-slice-7" in scenario["tags"]:
+        if observed["defender"].get("maxHpAtHit") != scenario["defender"]["stats"]["maxHp"]:
+            _fail(path, "Brine hit-boundary maxHP missing or changed")
     if observed["defender"]["hpAtHit"] != scenario["defender"]["stats"]["hp"]:
         _fail(f"{path}.defender.hpAtHit", "defender HP must be untouched before the measured hit")
 
@@ -478,6 +485,8 @@ def validate_rolls(rolls: Any, scenario: dict, path: str) -> None:
         _require_int(roll, f"{path}[{index}]", 0, MAX_MEASURABLE_DAMAGE - 1)
     if rolls != sorted(rolls):
         _fail(path, "rolls must be non-decreasing in roll order (85%..100%)")
+    if "move-coverage-slice-7" in scenario["tags"] and scenario["expect"] == "damage" and max(rolls) >= scenario["defender"]["stats"]["hp"]:
+        _fail(path, "Brine damage might be capped by fainting")
     if scenario["expect"] == "immune":
         if any(rolls):
             _fail(path, "an immune scenario must record sixteen zero rolls")

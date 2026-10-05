@@ -475,6 +475,35 @@ class StatusDoubleContractTest(unittest.TestCase):
         with self.assertRaises(ValueError): gen.parse_status_double_metadata(source,constants,False)
 
 
+
+class BrineContractTest(unittest.TestCase):
+    ENTRY = '    [MOVE_BRINE] =\n    {\n        .name = COMPOUND_STRING("BRINE"),\n        .description = COMPOUND_STRING(\n            "Does double damage to foes\\n"\n            "with half HP or less."),\n        .effect = EFFECT_BRINE,\n        .power = 65,\n        .type = TYPE_WATER,\n        .accuracy = 100,\n        .pp = 10,\n        .target = TARGET_SELECTED,\n        .priority = 0,\n        .category = DAMAGE_CATEGORY_SPECIAL,\n        .contestEffect = CONTEST_EFFECT_APPEAL_AS_GOOD_AS_PREV_ONE,\n        .contestCategory = C_UPDATED_MOVE_CATEGORIES >= GEN_6 ? CONTEST_CATEGORY_TOUGH : CONTEST_CATEGORY_SMART,\n        .contestComboStarterId = 0,\n        .contestComboMoves = {COMBO_STARTER_RAIN_DANCE},\n        .battleAnimScript = gBattleAnimMove_Brine,\n    },'
+    def test_frozen_move_and_every_damage_field(self):
+        source=_table(self.ENTRY)
+        self.assertEqual(65,gen.parse_brine_metadata(source,{"MOVE_BRINE":362})[362]["power"])
+        for old,new in (("EFFECT_BRINE","EFFECT_HIT"),(".power = 65",".power = 130"),
+            ("TYPE_WATER","TYPE_FIRE"),("DAMAGE_CATEGORY_SPECIAL","DAMAGE_CATEGORY_PHYSICAL"),
+            ("TARGET_SELECTED","TARGET_BOTH"),(".priority = 0",".priority = 1"),
+            (".accuracy = 100",".accuracy = 99")):
+            with self.subTest(field=old), self.assertRaises(ValueError):
+                gen.parse_brine_metadata(source.replace(old,new),{"MOVE_BRINE":362})
+        for field in ("makesContact = TRUE","punchingMove = TRUE","multiHit = TRUE","strikeCount = 2",
+                "additionalEffects = ADDITIONAL_EFFECTS({.moveEffect = MOVE_EFFECT_POISON, .chance = 50})",
+                "ignoresTargetAbility = TRUE"):
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                gen.parse_brine_metadata(source.replace(".power = 65,", ".power = 65,\n        ."+field+","),{"MOVE_BRINE":362})
+        with self.assertRaises(ValueError): gen.parse_brine_metadata(source,{"MOVE_BRINE":363})
+    def test_pinned_accumulator_stage_and_predicate(self):
+        # The production generator pins the entire source function, including order and rounding.
+        source="u32 CalcMoveBasePowerAfterModifiers(struct BattleContext *ctx) { case EFFECT_BRINE: if (gBattleMons[battlerDef].hp <= (gBattleMons[battlerDef].maxHP / 2)) modifier = uq4_12_multiply(modifier, UQ_4_12(2.0)); }"
+        import hashlib
+        digest=hashlib.sha256(source[source.index("CalcMoveBasePowerAfterModifiers"):].encode()).hexdigest()
+        gen.verify_underwater_helper(source,"CalcMoveBasePowerAfterModifiers",digest)
+        for old,new in (("<=","<"),("maxHP / 2","maxHP / 2.0"),("2.0","1.5"),
+                ("CalcMoveBasePowerAfterModifiers","CalcMoveBasePower"),("uq4_12_multiply","uq4_12_multiply_half_down")):
+            with self.subTest(change=new), self.assertRaises(ValueError):
+                gen.verify_underwater_helper(source.replace(old,new),"CalcMoveBasePowerAfterModifiers",digest)
+
 if __name__ == "__main__":
     unittest.main()
 

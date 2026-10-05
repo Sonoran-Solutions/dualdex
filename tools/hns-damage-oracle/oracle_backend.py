@@ -58,7 +58,7 @@ ITEM_RECORDS = {
 
 TOOL_DIR = Path(__file__).resolve().parent
 PATCH_DIR = TOOL_DIR / "patches"
-HARNESS_PATCHES = ("0001-test-runner-include-order.patch", "0002-pre-damage-state-hook.patch")
+HARNESS_PATCHES = ("0001-test-runner-include-order.patch", "0002-pre-damage-state-hook.patch", "0003-immunity-observation-hook.patch")
 TEST_SUBDIR = "test/dualdex_oracle"
 TEST_PREFIX = "DDXO "
 SCENARIOS_PER_FILE = 100
@@ -248,6 +248,7 @@ u32 GetMoveTargetCount(struct BattleContext *ctx);
 // Test-runner hook reached inside IsCriticalHit, after CalculateMoveDamage cached its context.
 // State that changes cached hold effects is installed in GIVEN instead of this late hook.
 extern void (*gDdxoBeforeCriticalHit)(void);
+extern void (*gDdxoBeforeAbilityPopup)(void);
 static u16 sDdxoSpeciesAtHit[MAX_BATTLERS_COUNT];
 static u32 sDdxoSetupCalls;
 static bool32 sDdxoUseHitSpecies;
@@ -594,6 +595,9 @@ def render_scenario(s: dict) -> str:
     lines.append(ind + "sDdxoUseHitSpecies = FALSE; sDdxoDefenderAtHit = FALSE; sDdxoSetupCalls = 0; sDdxoRoll = i;")
     callback_name = "DdxoSetup_" + sid.replace("-", "_")
     lines.append(ind + f"gDdxoBeforeCriticalHit = {callback_name};")
+    lines.append(ind + "gDdxoBeforeAbilityPopup = NULL;")
+    if "move-coverage-slice-7" in s["tags"] and s["expect"] == "immune":
+        lines.append(ind + f"gDdxoBeforeAbilityPopup = {callback_name};")
     lines.append("    } WHEN {")
     for turn in turns:
         lines.append(ind + turn)
@@ -619,6 +623,8 @@ def render_scenario(s: dict) -> str:
         "}",
         "",
     ]
+    if "move-coverage-slice-7" in s["tags"] and s["expect"] == "immune" and s["defender"]["ability"] in ("ABILITY_WATER_ABSORB", "ABILITY_DRY_SKIN"):
+        lines[lines.index(ind + f"NONE_OF {{ HP_BAR({def_ref}); }}")] = ind + f"HP_BAR({def_ref});"
     if status_double:
         raw = state_setup["statusDoubleStatus1"]
         if raw & (8 | 16 | 128 | 4096):
@@ -715,6 +721,8 @@ def render_scenario(s: dict) -> str:
                   "        const struct Volatiles *v = &gBattleMons[i].volatiles;",
                   "        ruin |= v->vesselOfRuin | v->swordOfRuin << 1 | v->tabletsOfRuin << 2 | v->beadsOfRuin << 3;", "    }"]
         setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|K|%d|%d|%d|%d|%d|%d|%d", sDdxoRoll, gProtectStructs[{atk_pos}].helpingHand, IsBattlerAlive(BATTLE_PARTNER({atk_pos})) ? GetBattlerAbility(BATTLE_PARTNER({atk_pos})) : ABILITY_NONE, IsBattlerAlive(BATTLE_PARTNER({def_pos})) ? GetBattlerAbility(BATTLE_PARTNER({def_pos})) : ABILITY_NONE, gBattleMons[BATTLE_PARTNER({atk_pos})].species, gBattleMons[BATTLE_PARTNER({def_pos})].species, aura, ruin);')
+    if "move-coverage-slice-7" in s["tags"]:
+        setup += ["    sDdxoDefenderAtHit = TRUE;", f'    DdxoBattler("{sid}", sDdxoRoll, "D", {def_pos});']
     if status_double:
         lines = [line for line in lines if f'DdxoBattler("{sid}", i, "D"' not in line]
         setup += [f"    EXPECT_EQ(GetBattlerAbility((enum BattlerId){def_pos}), {s['defender']['ability']});", "    sDdxoDefenderAtHit = TRUE;", f"    gBattleMons[{def_pos}].status1 = {state_setup['statusDoubleStatus1']};",
@@ -722,6 +730,8 @@ def render_scenario(s: dict) -> str:
     setup += [f"    sDdxoBasePowerAtHit = GetActiveGimmick((enum BattlerId){atk_pos}) == GIMMICK_DYNAMAX ? GetMaxMovePower({move}) : GetMovePower({move});"]
     setup += [f'    DdxoRuntime("{sid}", "A", (enum BattlerId){atk_pos});',
               f'    DdxoRuntime("{sid}", "D", (enum BattlerId){def_pos});']
+    if "move-coverage-slice-7" in s["tags"]:
+        setup.append("    gDdxoBeforeAbilityPopup = NULL;")
     setup += ["    for (u32 b = 0; b < gBattlersCount; b++)",
               "        sDdxoSpeciesAtHit[b] = gBattleMons[b].species;",
               "    sDdxoUseHitSpecies = TRUE;", "    sDdxoSetupCalls++;",
@@ -745,6 +755,7 @@ EXECUTION_SOURCE = r'''#include "global.h"
 #include "constants/battle_move_effects.h"
 #include "move.h"
 extern void (*gDdxoBeforeCriticalHit)(void);
+extern void (*gDdxoBeforeAbilityPopup)(void);
 
 SINGLE_BATTLE_TEST("DDXO execution-heal-block")
 {
@@ -1205,6 +1216,12 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
     canonical = None
     for rng in range(ROLL_COUNT):
         slot = per_roll[rng]
+        if "move-coverage-slice-7" in scenario["tags"]:
+            # The callback emits D2 before DG. Post-turn fallback emits DG first;
+            # never accept that fallback as a hit-boundary HP observation.
+            keys = list(slot)
+            if "D2" not in slot or "DG" not in slot or keys.index("D2") >= keys.index("DG"):
+                raise OracleError(f"{sid}: missing actual hit-boundary defender HP capture")
         atk = _battler_view(slot, "A", sid)
         dfn = _battler_view(slot, "D", sid)
         m = slot["M"]
@@ -1243,7 +1260,10 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             expected_delta -= recovered
         if scenario["expect"] == "damage" and expected_delta != delta:
             raise OracleError(f"{sid} rng {rng}: HP-bar damage {damage} != defender HP delta {delta}")
-        if scenario["expect"] == "immune" and (damage != 0 or delta != 0):
+        immune_recovery = 0
+        if "move-coverage-slice-7" in scenario["tags"] and scenario["expect"] == "immune" and scenario["defender"]["ability"] in ("ABILITY_WATER_ABSORB", "ABILITY_DRY_SKIN"):
+            immune_recovery = min(dfn["maxHp"] - dfn["hp"], max(1, dfn["maxHp"] // 4))
+        if scenario["expect"] == "immune" and (damage != 0 or delta != -immune_recovery):
             raise OracleError(f"{sid} rng {rng}: immune hit changed defender HP by {delta}")
         if scenario["expect"] == "damage" and damage <= 0:
             raise OracleError(f"{sid} rng {rng}: damaging hit measured {damage}")
@@ -1254,7 +1274,7 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
         if "move-coverage-slice-6" in scenario["tags"]:
             defender_scenario = {**defender_scenario, "status": dfn["status"]}
         _check_battler(sid, "D", defender_scenario, dfn,
-                       _defender_post_hit_stage_deltas(scenario, m))
+                       {} if "move-coverage-slice-7" in scenario["tags"] else _defender_post_hit_stage_deltas(scenario, m))
         runtime = {}
         for role, prefix in (("attacker", "A"), ("defender", "D")):
             values = slot.get(prefix + "G")
@@ -1400,6 +1420,11 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             "targetCount": _int(m[5], f"{sid} M"),
             "fieldStatuses": observed_field_statuses,
         }
+        if "move-coverage-slice-7" in scenario["tags"]:
+            if dfn["hp"] != scenario["defender"]["stats"]["hp"] or dfn["maxHp"] != scenario["defender"]["stats"]["maxHp"]:
+                raise OracleError(f"{sid}: actual hit-boundary HP pair differs from intended threshold")
+            observed["defender"]["hpAtHit"] = dfn["hp"]
+            observed["defender"]["maxHpAtHit"] = dfn["maxHp"]
         if "move-coverage-slice-6" in scenario["tags"]:
             observed["move"]["statusDoubleMask"] = source_move["statusDoubleMask"]
         if "move-coverage-slice-4" in scenario["tags"]:

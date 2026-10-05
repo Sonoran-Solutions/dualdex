@@ -455,6 +455,9 @@ enum class CalcLimitation {
      */
     HNS_LIVE_STATUS_NOT_MODELLED,
 
+    /** Brine requires a positive, valid authoritative live defender HP/maxHP pair. */
+    HNS_DEFENDER_HP_UNKNOWN,
+
     /** Required defender status word is unread or outside the pinned status domain. */
     HNS_DEFENDER_STATUS_UNKNOWN,
 
@@ -632,6 +635,7 @@ enum class CalcLimitation {
             HNS_GIMMICK_STATE_UNREADABLE,
             HNS_GIMMICK_ACTIVE_NOT_MODELLED,
             HNS_LIVE_STATUS_NOT_MODELLED,
+            HNS_DEFENDER_HP_UNKNOWN,
             HNS_DEFENDER_STATUS_UNKNOWN,
             HNS_ABILITY_CONDITION_UNVERIFIED,
             HNS_LIVE_WEATHER_UNKNOWN,
@@ -987,6 +991,8 @@ data class CalcCapabilityVerdict(
                 "the battle's gimmick state (Tera/Dynamax/Z) could not be read"
             CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED ->
                 "a battle gimmick (Tera/Dynamax/Z) is active and is not modelled by this calculation"
+            CalcLimitation.HNS_DEFENDER_HP_UNKNOWN ->
+                "the active defender HP/maxHP required by Brine is unread or invalid"
             CalcLimitation.HNS_DEFENDER_STATUS_UNKNOWN ->
                 "the defender status required by this move is unread or invalid"
             CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED ->
@@ -1894,13 +1900,26 @@ object CalcCapabilityPolicy {
             !HnsDefenderStatus.isValid(request.hnsLiveBattleState?.defenderStatus1)) {
             limitations.add(CalcLimitation.HNS_DEFENDER_STATUS_UNKNOWN)
         }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE) {
+            val live = request.hnsLiveBattleState
+            val hp = live?.defenderHp
+            val maxHp = live?.defenderMaxHp
+            if (hp == null || maxHp == null || maxHp !in 1..65535 || hp !in 1..maxHp)
+                limitations.add(CalcLimitation.HNS_DEFENDER_HP_UNKNOWN)
+            when (live?.defenderSemiInvulnerableState) {
+                0 -> Unit
+                null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
+                else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+            }
+        }
         if (mechanics.requiresBlock || (mechanics.category in setOf(
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EARTHQUAKE,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER,
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE) &&
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE,
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE) &&
                 (request.field.gameType != "Singles" || request.hnsLiveBattleState?.observedBattlersCount != 2))) {
             limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
         }

@@ -317,7 +317,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     /* Special-family controls install Gastro Acid on an earlier real turn, before cached ctx ability.
      * Bind the captured suppression exactly as production effectiveAbilityId does. */
     const char* source_effect = jl_str(jl_get(move_obs, "effect"));
-    if (source_effect && (!strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB") ||
+    if (source_effect && (!strcmp(source_effect, "EFFECT_BRINE") || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB") ||
         (!strcmp(source_effect, "EFFECT_HIT") && (jl_num(jl_get(move_obs, "id")) == 57 || jl_num(jl_get(move_obs, "id")) == 250))) && jl_num(jl_get(runtime, "gastroAcid")) == 1)
         ability = "None";
     if (!jl_is_arr(types) || jl_len(types) < 1 || jl_len(types) > 2) return set_err(err, "%s types malformed", role);
@@ -328,6 +328,8 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
         !get_int(stats, "defense", 1, 65535, &def, err) || !get_int(stats, "spAttack", 1, 65535, &spa, err) ||
         !get_int(stats, "spDefense", 1, 65535, &spd, err) || !get_int(stats, "speed", 1, 65535, &spe, err))
         return 0;
+    if (source_effect && !strcmp(source_effect, "EFFECT_BRINE") && !strcmp(role, "defender") &&
+        !get_int(obs_b, "maxHpAtHit", 1, 65535, &max_hp, err)) return 0;
     if (strcmp(role, "attacker") == 0) {
         if (!get_int(stages, "attack", -6, 6, &atk_stage, err) || !get_int(stages, "spAttack", -6, 6, &spa_stage, err))
             return 0;
@@ -533,6 +535,8 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         if (strcmp(jl_str(jl_get(scen, "expect")), "immune") && (!jl_is_num(hp) || jl_num(hp) != 0)) return set_err(err, "explosion damage-time HP missing");
         sb_append(sb, ",\"hnsExplosionUserHpAtDamage\":0");
     }
+    const int brine = !strcmp(source_effect, "EFFECT_BRINE");
+    if (brine) sb_append(sb, ",\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_BRINE\"");
     const int status_double = !strcmp(source_effect, "EFFECT_DOUBLE_POWER_ON_ARG_STATUS");
     if (status_double) sb_append(sb, ",\"hnsIsStatusDouble\":true,\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_STATUS_DOUBLE\",\"hnsStatusDoubleMask\":%ld",
         (long)jl_num(jl_get(o_move, "statusDoubleMask")));
@@ -548,7 +552,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              (brine || status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");

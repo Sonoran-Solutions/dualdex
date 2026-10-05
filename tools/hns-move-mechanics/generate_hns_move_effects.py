@@ -546,6 +546,26 @@ def parse_status_double_metadata(text, statuses, updated_move_data_latest=False)
     return result
 
 
+
+def parse_brine_metadata(text, ids):
+    """Freeze the entire reviewed MoveInfo; omitted damage flags are source zeroes."""
+    if ids.get("MOVE_BRINE") != 362:
+        raise ValueError("Changed Brine ID")
+    bodies = ["\n".join(body) for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())) if symbol == "MOVE_BRINE"]
+    if len(bodies) != 1 or hashlib.sha256(re.sub(r"\s+", "", bodies[0]).encode()).hexdigest() != "3e98b9b2c851f7ae08057c181a1086179b68e0a09cf977c2a88d54350ccc4c2e":
+        raise ValueError("Changed Brine MoveInfo")
+    body = bodies[0]
+    def field(name):
+        return re.search(r"\." + name + r"\s*=\s*([^,\n}]+)", body).group(1).strip()
+    _, _, sheer, unknown = parse_contact_and_sheer_force(text)
+    if "MOVE_BRINE" in unknown or sheer.get("MOVE_BRINE") is not False:
+        raise ValueError("Changed Brine Sheer Force")
+    return {362: dict(fixedSingleHitBrine=True, effect=field("effect"), power=int(field("power")),
+        type=field("type"), category=field("category"), accuracy=int(field("accuracy")),
+        target=field("target"), priority=int(field("priority")), strikeCount=1, multiHit=False,
+        makesContact=False, punchingMove=False, sheerForceAffected=False, additionalEffects=[],
+        abilityFlags=[], immunityFlags=[])}
+
 def parse_damp_bans(text):
     banned, unknown = set(), set()
     for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())):
@@ -838,7 +858,7 @@ def build_maps(upstream_dir):
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
                     priority_by_id, unknown_priority_ids, ability_flags_by_id,
                     unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
-                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=(), underwater_powers=None, status_double=None, status_constants=None):
+                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=(), underwater_powers=None, status_double=None, status_constants=None, brine=None):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -962,6 +982,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */")
     lines.append("    val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(explosion_powers or {}))) + ")")
     lines.append("    val explosionPowerById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((explosion_powers or {}).items())) + ")")
+    lines.append("    val fixedSingleHitBrineMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(brine or {}))) + ")")
     lines.append("    val fixedSingleHitStatusDoubleMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(status_double or {}))) + ")")
     lines.append("    val statusDoublePowerMaskById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v['statusDoubleMask']}" for i, v in sorted((status_double or {}).items())) + ")")
     for name, value in (status_constants or {}).items():
@@ -1028,7 +1049,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
 
 
 def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_ability_flags_by_id,
-                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None, underwater_powers=None, status_double=None, status_constants=None):
+                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None, underwater_powers=None, status_double=None, status_constants=None, brine=None):
     """Render a compact source-derived move metadata map for the ROM-free oracle harness."""
     result = {}
     for move_id, effect in sorted(effect_by_id.items()):
@@ -1069,6 +1090,8 @@ def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_
             skyBattleBanned=move_id == 57,
             additionalEffects=[] if move_id == 57 else [{"moveEffect":"MOVE_EFFECT_WRAP", "chance":0,
                 "sheerForceOverride":False, "preAttackEffect":False, "multistring":"B_MSG_WRAPPED_WHIRLPOOL"}])
+    for move_id, metadata in (brine or {}).items():
+        result[str(move_id)].update(metadata)
     for move_id, metadata in (status_double or {}).items():
         result[str(move_id)].update(metadata)
     return json.dumps({"pinnedCommit": PINNED_COMMIT, "moves": result}, indent=2) + "\n"
@@ -1115,6 +1138,7 @@ def main():
         bool(re.search(r"#define B_UPDATED_MOVE_DATA\s+GEN_LATEST", config))).items()}
     if set(status_double) != {265,358,474,506,767,772}:
         raise ValueError("Changed status-double IDs")
+    brine = parse_brine_metadata(move_text, ids)
     target_by_id[57] = "TARGET_FOES_AND_ALLY"
     for move_id in drain_percentages:
         flags_by_id.setdefault(move_id, set()).add("healingMove")
@@ -1154,6 +1178,8 @@ def main():
         raise ValueError("Earthquake selected-hit script changed")
     if not re.search(r"\[EFFECT_DOUBLE_POWER_ON_ARG_STATUS\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
         raise ValueError("Status-double selected-hit script changed")
+    if not re.search(r"\[EFFECT_BRINE\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
+        raise ValueError("Brine selected-hit script changed")
     verify_helper_contract(upstream_dir, ordinary)
     scripts = open(os.path.join(upstream_dir, "data/battle_scripts_1.s"), encoding="utf-8").read()
     hit_script = scripts[scripts.index("BattleScript_EffectHit::"):scripts.index("BattleScript_MakeMoveMissed::")]
@@ -1181,10 +1207,10 @@ def main():
                                 unknown_flags_by_id, priority_by_id, unknown_priority_ids,
                                 ability_flags_by_id, unknown_ability_flags_by_id,
                                 contact_by_id, unknown_contact_by_id,
-                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans}, underwater_powers, status_double, status_constants)
+                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans}, underwater_powers, status_double, status_constants, brine)
     generated_json = generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id,
                                             unknown_ability_flags_by_id, contact_by_id,
-                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers, underwater_powers, status_double, status_constants)
+                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers, underwater_powers, status_double, status_constants, brine)
 
     status_path = os.path.join(DEFAULT_REPO_ROOT, "tools/hns-move-mechanics/hns_status_contract.json")
     status_json = json.dumps({"statuses": status_constants, "moves": status_double}, indent=2, sort_keys=True) + "\n"

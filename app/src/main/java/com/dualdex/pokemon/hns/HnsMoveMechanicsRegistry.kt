@@ -34,6 +34,9 @@ enum class HnsMoveMechanicsCategory {
     /** Singles source status predicate, before base-power modifiers. */
     FIXED_SINGLE_HIT_STATUS_DOUBLE,
 
+    /** Singles live defender floor-half predicate in the Q12 base-power accumulator. */
+    FIXED_SINGLE_HIT_BRINE,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -61,7 +64,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -218,6 +221,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE,
                 "Pinned Singles pre-hit status power; post-hit status effects excluded.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitBrineMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_BRINE",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE,
+                "Pinned Singles live defender floor-half Q12 base-power modifier.")
         }
         val effect = Hns205MoveEffects.effectById[moveId]
         if (effect == null) {

@@ -3298,6 +3298,10 @@ internal object Hns205MoveEffects {
         762,
     )
 
+    /** Fixed single-hit drain, requiring authoritative Heal Block execution state. */
+    val fixedSingleHitDrainMoveIds: Set<Int> = setOf(71, 72, 141, 202, 409, 532, 577)
+    val absorbPercentageById: Map<Int, Int> = mapOf(71 to 50, 72 to 50, 141 to 50, 202 to 50, 409 to 50, 532 to 50, 577 to 75)
+
     /** Recoil moves which clear Freeze/Frostbite before the selected hit. */
     val recoilThawsUserMoveIds: Set<Int> = setOf(394)
 
@@ -3310,11 +3314,14 @@ internal object Hns205MoveEffects {
         put(47, setOf("soundMove"))
         put(48, setOf("soundMove"))
         put(59, setOf("windMove"))
+        put(71, setOf("healingMove"))
+        put(72, setOf("healingMove"))
         put(103, setOf("soundMove"))
         put(105, setOf("healingMove"))
         put(121, setOf("ballisticMove"))
         put(135, setOf("healingMove"))
         put(140, setOf("ballisticMove"))
+        put(141, setOf("healingMove"))
         put(156, setOf("healingMove"))
         put(173, setOf("soundMove"))
         put(177, setOf("windMove"))
@@ -3324,6 +3331,7 @@ internal object Hns205MoveEffects {
         put(195, setOf("soundMove"))
         put(196, setOf("windMove"))
         put(201, setOf("windMove"))
+        put(202, setOf("healingMove"))
         put(208, setOf("healingMove"))
         put(215, setOf("soundMove"))
         put(234, setOf("healingMove"))
@@ -3351,6 +3359,7 @@ internal object Hns205MoveEffects {
         put(396, setOf("ballisticMove"))
         put(402, setOf("ballisticMove"))
         put(405, setOf("soundMove"))
+        put(409, setOf("healingMove"))
         put(411, setOf("ballisticMove"))
         put(412, setOf("ballisticMove"))
         put(426, setOf("ballisticMove"))
@@ -3364,6 +3373,7 @@ internal object Hns205MoveEffects {
         put(496, setOf("soundMove"))
         put(497, setOf("soundMove"))
         put(505, setOf("healingMove"))
+        put(532, setOf("healingMove"))
         put(542, setOf("windMove"))
         put(545, setOf("ballisticMove"))
         put(547, setOf("soundMove"))
@@ -3372,6 +3382,7 @@ internal object Hns205MoveEffects {
         put(572, setOf("windMove"))
         put(574, setOf("soundMove"))
         put(575, setOf("soundMove"))
+        put(577, setOf("healingMove"))
         put(584, setOf("windMove"))
         put(586, setOf("soundMove"))
         put(590, setOf("soundMove"))
@@ -3414,19 +3425,12 @@ internal object Hns205MoveEffects {
     /** Conditional/config-derived flag initializers fail closed here. */
     val unknownImmunityFlagsById: Map<Int, Set<String>> = buildMap {
         put(13, setOf("windMove"))
-        put(71, setOf("healingMove"))
-        put(72, setOf("healingMove"))
         put(138, setOf("healingMove"))
-        put(141, setOf("healingMove"))
-        put(202, setOf("healingMove"))
         put(318, setOf("windMove"))
         put(336, setOf("soundMove"))
         put(350, setOf("ballisticMove"))
-        put(409, setOf("healingMove"))
         put(466, setOf("windMove"))
-        put(532, setOf("healingMove"))
         put(570, setOf("healingMove"))
-        put(577, setOf("healingMove"))
         put(613, setOf("healingMove"))
         put(631, setOf("healingMove"))
         put(680, setOf("healingMove"))

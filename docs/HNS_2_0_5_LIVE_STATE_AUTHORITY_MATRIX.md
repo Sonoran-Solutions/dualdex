@@ -104,8 +104,10 @@ The Group B closure audit is in [`HNS_GROUP_B_CLOSURE.md`](HNS_GROUP_B_CLOSURE.m
 ## Ordinary-hit Doubles extension (PR #119)
 
 The earlier Singles-only rows describe their historical PR baselines. The current
-ordinary opposing-hit subset additionally consumes the version-1 **162-word**
-JNI tuple and minimal four-index packet documented in
+ordinary opposing-hit subset additionally consumes the current **165-word total**
+JNI participant tuple. Words `[0..161]` remain the unchanged legacy/Doubles
+prefix; `[162..164]` are the additive Heal Block extension. The minimal four-index
+Doubles packet remains version **1**, with no version bump, as documented in
 [HNS_DOUBLES_AUTHORITY.md](HNS_DOUBLES_AUTHORITY.md). Explicit native indices,
 observed position/party mapping, HP, absent flags and source battle-type flags
 establish topology; the coordinator reads the batch while emulation is frozen.

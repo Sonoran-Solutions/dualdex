@@ -234,6 +234,9 @@ enum class CalcLimitation {
      * times, deal fixed damage, or otherwise alter the base power must fail here rather than let
      * the engine compute a confident but wrong number.
      */
+    HNS_PRIORITY_BLOCKED,
+    HNS_HEAL_BLOCK_ACTIVE,
+    HNS_HEAL_BLOCK_STATE_UNKNOWN,
     HNS_MOVE_MECHANICS_NOT_MODELLED,
 
     /**
@@ -590,6 +593,9 @@ enum class CalcLimitation {
             BADGE_BOOST_NOT_MODELLED,
             HNS_BASE_STAT_EQUALIZER_NOT_MODELLED,
             HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED,
+            HNS_PRIORITY_BLOCKED,
+            HNS_HEAL_BLOCK_ACTIVE,
+            HNS_HEAL_BLOCK_STATE_UNKNOWN,
             HNS_MOVE_MECHANICS_NOT_MODELLED,
             HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED,
             HNS_LIVE_BATTLE_STATE_NOT_MODELLED,
@@ -905,6 +911,12 @@ data class CalcCapabilityVerdict(
                 "this battle has the Base Stat Equalizer challenge active, which the calculator does not model"
             CalcLimitation.HNS_RANDOM_MOVES_ACTIVE_NOT_MODELLED ->
                 "this battle has the Random Moves challenge active, so the selected move is not proven to be the current learned move"
+            CalcLimitation.HNS_PRIORITY_BLOCKED ->
+                "a priority-sensitive ability or terrain prevents the selected draining move"
+            CalcLimitation.HNS_HEAL_BLOCK_ACTIVE ->
+                "observed Heal Block prevents the selected draining move from executing"
+            CalcLimitation.HNS_HEAL_BLOCK_STATE_UNKNOWN ->
+                "the selected draining move requires authoritative pre-hit Heal Block state"
             CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED ->
                 "the selected move's damage mechanics are not proven equivalent to the generation III pipeline"
             CalcLimitation.HNS_DAMAGE_MODIFIER_ORDER_NOT_MODELLED ->
@@ -1816,8 +1828,23 @@ object CalcCapabilityPolicy {
     ) {
         val move = pack.getMoveByName(request.move.name) ?: return
         val mechanics = com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id)
-        if (mechanics.requiresBlock || (mechanics.category ==
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL &&
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN) {
+            val live = request.hnsLiveBattleState
+            if (live?.fieldStatuses?.let { com.dualdex.pokemon.hns.HnsFieldState.decode(it)
+                    .has(com.dualdex.pokemon.hns.HnsFieldStatus.PSYCHIC_TERRAIN) } == true &&
+                live.defenderTerrainApplicability == HnsTerrainApplicability.AFFECTED &&
+                HnsGroupCPolicy.effectivePriority(request, move.id)?.let { it > 0 } == true) {
+                limitations.add(CalcLimitation.HNS_PRIORITY_BLOCKED)
+            }
+            when (request.hnsLiveBattleState?.attackerHealBlock) {
+                true -> limitations.add(CalcLimitation.HNS_HEAL_BLOCK_ACTIVE)
+                null -> limitations.add(CalcLimitation.HNS_HEAL_BLOCK_STATE_UNKNOWN)
+                false -> Unit
+            }
+        }
+        if (mechanics.requiresBlock || (mechanics.category in setOf(
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL,
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN) &&
                 (request.field.gameType != "Singles" || request.hnsLiveBattleState?.observedBattlersCount != 2))) {
             limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
         }

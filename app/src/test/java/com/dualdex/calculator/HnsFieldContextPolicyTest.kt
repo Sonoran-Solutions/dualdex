@@ -268,6 +268,7 @@ class HnsFieldContextPolicyTest {
                 HnsFieldStatus.GRAVITY.mask),
             ctx(moveId = HnsFieldStatusData.GRASSY_GLIDE_MOVE_ID, attackerAbility = analytic),
             ctx(effective = PokemonType.PSYCHIC), ctx(moveId = quickAttack),
+            ctx(moveId = 409, attackerAbility = 205, defenderTerrain = HnsTerrainApplicability.NOT_AFFECTED),
             ctx(preField = PokemonType.WATER, effective = PokemonType.WATER)
         )
         for (context in contexts) {

@@ -691,6 +691,60 @@ def _is_spread_capable(s: dict) -> bool:
                                   "Earthquake", "Surf", "Petal Blizzard"}
 
 
+EXECUTION_NAMES = ("execution-heal-block", "execution-triage")
+EXECUTION_SOURCE = r'''#include "global.h"
+#include "test/battle.h"
+#include "battle.h"
+#include "battle_util.h"
+#include "constants/battle_move_effects.h"
+
+SINGLE_BATTLE_TEST("DDXO execution-heal-block")
+{
+    u32 move;
+    PARAMETRIZE { move = MOVE_ABSORB; }
+    PARAMETRIZE { move = MOVE_MEGA_DRAIN; }
+    PARAMETRIZE { move = MOVE_LEECH_LIFE; }
+    PARAMETRIZE { move = MOVE_GIGA_DRAIN; }
+    PARAMETRIZE { move = MOVE_DRAIN_PUNCH; }
+    PARAMETRIZE { move = MOVE_HORN_LEECH; }
+    PARAMETRIZE { move = MOVE_DRAINING_KISS; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_INSOMNIA); Speed(40); HP(30000); MaxHP(60000); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); Speed(100); HP(60000); MaxHP(60000); }
+        gFieldStatuses = 0;
+    } WHEN {
+        TURN { MOVE(opponent, MOVE_HEAL_BLOCK); MOVE(player, move); }
+    } SCENE {
+        ANIMATION(ANIM_TYPE_MOVE, MOVE_HEAL_BLOCK, opponent);
+        NONE_OF { ANIMATION(ANIM_TYPE_MOVE, move, player); HP_BAR(opponent); HP_BAR(player); }
+    } THEN {
+        EXPECT_EQ((u32)gBattleMons[0].volatiles.healBlock, TRUE);
+        EXPECT_EQ(IsHealBlockPreventingMove(0, move), TRUE);
+        EXPECT_EQ(gBattleMons[1].hp, 60000);
+    }
+}
+
+SINGLE_BATTLE_TEST("DDXO execution-triage")
+{
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_TRIAGE); Speed(40); HP(30000); MaxHP(60000); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); Speed(100); HP(60000); MaxHP(60000); }
+        gFieldStatuses = 0;
+    } WHEN {
+        TURN { MOVE(player, MOVE_DRAIN_PUNCH); MOVE(opponent, MOVE_TACKLE); }
+    } SCENE {
+        ANIMATION(ANIM_TYPE_MOVE, MOVE_DRAIN_PUNCH, player);
+        HP_BAR(opponent);
+        HP_BAR(player);
+        ANIMATION(ANIM_TYPE_MOVE, MOVE_TACKLE, opponent);
+        HP_BAR(player);
+    } THEN {
+        EXPECT_EQ(GetBattleMovePriority(0, ABILITY_TRIAGE, MOVE_DRAIN_PUNCH), 3);
+    }
+}
+'''
+
+
 def render_sources(scenarios: list[dict]) -> dict[str, str]:
     """Generated C sources, keyed by path relative to the pinned tree root. Deterministic."""
     type_table = "\n".join(f'    [{C_TYPE_TABLE[n]}] = "{n}",' for n in TYPE_NAMES)
@@ -700,6 +754,7 @@ def render_sources(scenarios: list[dict]) -> dict[str, str]:
         chunk = scenarios[index:index + SCENARIOS_PER_FILE]
         name = f"{TEST_SUBDIR}/oracle_{index // SCENARIOS_PER_FILE:03d}.c"
         files[name] = prelude + "\n" + "\n".join(render_scenario(s) for s in chunk)
+    files[f"{TEST_SUBDIR}/execution.c"] = EXECUTION_SOURCE
     return files
 
 
@@ -745,6 +800,8 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
         m = RESULT_RE.match(line)
         if m and m.group("name").startswith(TEST_PREFIX):
             sid = m.group("name")[len(TEST_PREFIX):]
+            if sid in EXECUTION_NAMES:
+                continue
             statuses.setdefault(sid, []).append(m.group("result"))
             continue
         if not line.startswith("DDXO|"):
@@ -910,7 +967,16 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             recoil_pct = MOVE_DAMAGE_METADATA.get(str(_int(m[0], f"{sid} M")), {}).get("recoilPercentage")
             if recoil_pct is not None and scenario["expect"] != "immune" and atk["abilityId"] not in (69, 98):
                 move_recoil = max(1, damage * recoil_pct // 100)
-            expected_hp = max(0, hp_at_hit - solar_residual - life_orb_recoil - move_recoil)
+            drain = 0
+            pct = MOVE_DAMAGE_METADATA.get(str(_int(m[0], f"{sid} M")), {}).get("absorbPercentage")
+            if pct is not None and damage > 0:
+                drain = damage * pct // 100
+                if runtime["attacker"]["itemIdAtHit"] == 491 and runtime["attacker"]["holdEffectActive"] == 1:
+                    drain = drain * 1300 // 1000
+                drain = max(1, drain)
+                if dfn["abilityId"] == 64 and runtime["defender"]["gastroAcid"] == 0:
+                    drain = -drain
+            expected_hp = max(0, min(atk["maxHp"], hp_at_hit + drain) - solar_residual - life_orb_recoil - move_recoil)
             if atk["hp"] != expected_hp:
                 raise OracleError(f"{sid}: attacker HP changed without exact post-hit residuals ({atk['hp']}, expected {expected_hp})")
         if hp_at_hit <= 0 or hp_at_hit > scenario["attacker"]["stats"]["hp"]:
@@ -1154,6 +1220,16 @@ def build_and_run(work: Path, toolchain_bin: Path, sources: dict[str, str], jobs
         tail = "\n".join(proc.stdout.splitlines()[-40:])
         detail = f"\n{tail}" if tail else ""
         raise OracleError(f"hydra runner exited with status {proc.returncode}; refusing its output{detail}")
+    statuses = {}
+    for line in ANSI_RE.sub("", proc.stdout).splitlines():
+        match = RESULT_RE.match(line.strip())
+        if match and match.group("name").startswith(TEST_PREFIX):
+            name = match.group("name")[len(TEST_PREFIX):]
+            if name in EXECUTION_NAMES:
+                statuses.setdefault(name, []).append(match.group("result"))
+    for name in EXECUTION_NAMES:
+        if not statuses.get(name) or any(v != "PASS" for v in statuses[name]):
+            raise OracleError(f"execution proof {name}: missing or failing runner result {statuses.get(name)}")
     return proc.stdout
 
 

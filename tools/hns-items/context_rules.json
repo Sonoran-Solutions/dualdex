@@ -896,6 +896,25 @@
               "contains": "gBattleMons[battler].volatiles.boosterEnergyActivated = TRUE"
             }
           ]
+        },
+        {
+          "rule": "drain_big_root_post_hit_only",
+          "side": "EITHER",
+          "families": [
+            "HOLD_EFFECT_BIG_ROOT"
+          ],
+          "predicate": "Exact generated single-hit drain family with independently authorized execution and observed effective item state.",
+          "rationale": "Big Root applies floor(healing*1300/1000) after floor(measuredDamage*absorbPercentage/100); zero healing becomes one. Liquid Ooze then converts recovery to passive attacker damage. Neither alters the selected defender hit. Other mechanics remain independently gated.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:1839",
+              "contains": "HOLD_EFFECT_BIG_ROOT"
+            },
+            {
+              "source": "src/battle_move_resolution.c:2169",
+              "contains": "GetDrainedBigRootHp"
+            }
+          ]
         }
       ],
       "always_blocking": [

@@ -284,6 +284,7 @@ internal object HnsItemAuditData {
         "post_hit_speed_item_current_hit",
         "booster_energy_non_paradox_ability",
         "booster_energy_payload_modelled",
+        "drain_big_root_post_hit_only",
         "booster_energy_boost_payload_unobserved",
         "turn_order_item_ordinary_move",
         "turn_order_item_attacker_analytic",

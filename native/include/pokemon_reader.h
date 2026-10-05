@@ -870,6 +870,8 @@ typedef struct {
     bool     volatile_tablets_of_ruin;
     bool     volatile_beads_of_ruin;
     bool     volatile_neutralizing_gas;
+    bool     heal_block_observed;
+    bool     volatile_heal_block;
     bool     volatile_embargo;
     uint8_t  volatile_metronome_item_counter;
     uint16_t volatile_transformed_mon_species;

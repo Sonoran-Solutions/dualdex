@@ -3334,8 +3334,10 @@ remaining no-result battles. The 1,845-case oracle retains only the two existing
 ## 21. Authoritative ordinary-hit Doubles subset (PR #119)
 
 The historical Singles-only format gates above are superseded for ordinary
-opposing hits with complete live authority. The version-1 162-word participant
-ABI appends the minimal four-index packet described in
+opposing hits with complete live authority. The current participant ABI has
+**165 words total**: `[0..161]` remain the unchanged legacy/Doubles prefix, and
+`[162..164]` are the additive Heal Block extension. The minimal four-index Doubles
+packet remains version **1**, with no version bump, as described in
 [HNS_DOUBLES_AUTHORITY.md](HNS_DOUBLES_AUTHORITY.md). Native indexed observations,
 actual position/party mapping, HP/presence, source battle-type flags and repeated
 matching partner/global reads replace the prior per-side ambiguity for explicit
@@ -3407,3 +3409,16 @@ Debug source sets supply a local atomic JSON store, per-battle deduplication, bl
 and a narrow share-sheet cache export. Release resolves directly to a no-op and contains none
 of that implementation or UI/provider configuration. See [contributor export instructions](../CONTRIBUTING.md#exporting-hs-calculator-playtest-coverage)
 for collection, schema/count semantics, caps, export and the automated release proof.
+
+## Fixed single-hit drain in Singles (slice 2, #124)
+
+The separate source-generated `FIXED_SINGLE_HIT_DRAIN` category admits Absorb,
+Mega Drain, Leech Life, Giga Drain, Drain Punch, Horn Leech and Draining Kiss only
+in authoritative Singles. The ordinary set stays unchanged. The existing fixed-hit
+arithmetic is reused, with an observed pre-hit Heal Block operand and exact Triage
++3 effective priority. Active/unread Heal Block and priority-prevented drain hits
+are hard refusals. Big Root and Liquid Ooze receive request-local post-hit proofs;
+no healing or attacker survival is displayed. Old runtime tuples cannot authorize
+this family. H&S remains ESTIMATED. See [slice 2 evidence](HNS_MOVE_COVERAGE_SLICE_2.md)
+for source contracts, consumer audit, oracle execution/damage proofs, regressions,
+unchanged-population census and hardware NOT_RUN checklist.

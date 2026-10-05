@@ -409,6 +409,8 @@ data class HnsBattlerRuntimeState(
     val analyticTurnOrderObserved: Boolean = false,
     val volatileNeutralizingGas: Boolean = false,
     /** True only when the added item-state payload is present alongside the volatile read window. */
+    val healBlockObserved: Boolean = false,
+    val volatileHealBlock: Boolean = false,
     val itemVolatilesObserved: Boolean = false,
     val volatileEmbargo: Boolean = false,
     val volatileMetronomeItemCounter: Int = 0,
@@ -710,6 +712,9 @@ data class HnsBattlerRuntimeState(
                 selectedGimmick = if (selectedGimmickObserved) raw[92] else 0,
                 analyticTurnOrderObserved = analyticTurnOrderObserved,
                 volatileNeutralizingGas = groupDVolatilesObserved && raw[95] == 1,
+                healBlockObserved = raw.size >= 165 && raw[162] == 1 && raw[163] == 1 &&
+                    volatilesObserved && raw[164] in 0..1,
+                volatileHealBlock = raw.size >= 165 && raw[164] == 1,
                 itemVolatilesObserved = itemVolatilesObserved,
                 volatileEmbargo = itemVolatilesObserved && raw[97] == 1,
                 volatileMetronomeItemCounter = if (itemVolatilesObserved) raw[98] else 0,

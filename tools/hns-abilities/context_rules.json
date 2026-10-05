@@ -2336,6 +2336,28 @@
             "contains": "switch (ctx->abilityAtk)"
           }
         ]
+      },
+      {
+        "rule": "technician_status_double_over_60",
+        "predicate": "Attacker Technician, frozen status-double family, matching validated pre-hit defender status.",
+        "rationale": "Integer source base power doubles before Technician tests the 60 threshold.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6402",
+            "contains": "basePower *= 2;"
+          }
+        ]
+      },
+      {
+        "rule": "technician_status_double_at_most_60",
+        "predicate": "Attacker Technician, frozen status-double family, nonmatching validated pre-hit status, source power at most 60.",
+        "rationale": "The source status predicate leaves base power at most 60 before Technician.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6400",
+            "contains": "GetMoveEffectArg_Status(move)"
+          }
+        ]
       }
     ],
     "always_blocking": [],
@@ -5766,5 +5788,33 @@
     ],
     "always_blocking": [],
     "fallback": "Unknown execution or move authority remains a hard refusal."
+  },
+  "213": {
+    "global": "UNSUPPORTED_DAMAGE_RELEVANT",
+    "context_rules": [
+      {
+        "rule": "status_double_comatose_sleep",
+        "predicate": "Defender effective Comatose, Singles frozen status-double family.",
+        "rationale": "Adds sleep bits only for the pre-hit status predicate; raw status is preserved.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6400",
+            "contains": "ctx->abilityDef == ABILITY_COMATOSE"
+          }
+        ]
+      },
+      {
+        "rule": "status_double_attacker_comatose",
+        "predicate": "Attacker effective Comatose, Singles frozen status-double family.",
+        "rationale": "The selected-hit power predicate reads defender ability; other Comatose behavior remains unsupported.",
+        "evidence": [
+          {
+            "source": "src/battle_util.c:6400",
+            "contains": "ctx->abilityDef == ABILITY_COMATOSE"
+          }
+        ]
+      }
+    ],
+    "fallback": "All other moves, formats, sides or unobserved effective ability remain UNKNOWN."
   }
 }

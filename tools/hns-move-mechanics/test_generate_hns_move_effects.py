@@ -446,6 +446,35 @@ class UnderwaterContractTest(unittest.TestCase):
                 self.assertNotEqual(expected,gen.parse_underwater_metadata(UNDERWATER.replace(".effect =", "."+added+",\n        .effect ="),True,True))
                 self.assertNotEqual(expected,gen.parse_underwater_metadata(UNDERWATER.replace(".moveEffect =", "."+added+",\n            .moveEffect ="),True,True))
 
+
+class StatusDoubleContractTest(unittest.TestCase):
+    def test_status_constants_reject_drift(self):
+        source = "\n".join("#define STATUS1_"+name+" "+str(value) for name,value in
+            zip(('SLEEP','POISON','BURN','FREEZE','PARALYSIS','TOXIC_POISON','TOXIC_COUNTER','FROSTBITE','PSN_ANY','ANY'), (7,8,16,32,64,128,3840,4096,136,4351)))
+        self.assertEqual(4351,gen.parse_status_constants(source)['ANY'])
+        for line in source.splitlines():
+            with self.subTest(line=line), self.assertRaises(ValueError):
+                gen.parse_status_constants(source.replace(line,line.rsplit(' ',1)[0]+' 0'))
+
+    def test_frozen_family_and_all_mechanic_mutations(self):
+        from pathlib import Path
+        source = Path(__file__).with_name("status_double_fixture.h").read_text()
+        constants = dict(zip(('SLEEP','POISON','BURN','FREEZE','PARALYSIS','TOXIC_POISON','TOXIC_COUNTER','FROSTBITE','PSN_ANY','ANY'), (7,8,16,32,64,128,3840,4096,136,4351)))
+        self.assertEqual(6,len(gen.parse_status_double_metadata(source,constants,True)))
+        for before, after in (("EFFECT_DOUBLE_POWER_ON_ARG_STATUS","EFFECT_HIT"),("? 70 : 60","? 71 : 60"),
+            ("TYPE_NORMAL","TYPE_GHOST"),("DAMAGE_CATEGORY_PHYSICAL","DAMAGE_CATEGORY_SPECIAL"),
+            ("TARGET_SELECTED","TARGET_BOTH"),(".priority = 0",".priority = 1"),
+            ("STATUS1_PARALYSIS","STATUS1_BURN"),(".argument =",".unresolvedArgument ="),
+            (".makesContact = TRUE",".makesContact = FALSE"),("MOVE_EFFECT_REMOVE_STATUS","MOVE_EFFECT_POISON"),
+            (".chance = 50",".chance = 49")):
+            with self.subTest(before=before), self.assertRaises(ValueError):
+                gen.parse_status_double_metadata(source.replace(before,after,1),constants,True)
+        for field in ("multiHit = TRUE","strikeCount = 2","damagesUnderwater = TRUE","punchingMove = TRUE", "preAttackEffect = TRUE","sheerForceOverride = TRUE"):
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                gen.parse_status_double_metadata(source.replace(".power =", "."+field+",\n.power =",1),constants,True)
+        with self.assertRaises(ValueError): gen.parse_status_double_metadata(source,constants,False)
+
+
 if __name__ == "__main__":
     unittest.main()
 

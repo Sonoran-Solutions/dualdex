@@ -2056,7 +2056,25 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "power": 70,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "statusDoubleMask": 64,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "preAttackEffect": false,
+      "additionalEffects": [
+        {
+          "moveEffect": "MOVE_EFFECT_REMOVE_STATUS",
+          "chance": 0,
+          "sheerForceOverride": false,
+          "preAttackEffect": false
+        }
+      ],
+      "fixedSingleHitStatusDouble": true
     },
     "266": {
       "effect": "EFFECT_FOLLOW_ME",
@@ -2741,7 +2759,25 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "power": 70,
+      "type": "TYPE_FIGHTING",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "statusDoubleMask": 7,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "preAttackEffect": false,
+      "additionalEffects": [
+        {
+          "moveEffect": "MOVE_EFFECT_REMOVE_STATUS",
+          "chance": 0,
+          "sheerForceOverride": false,
+          "preAttackEffect": false
+        }
+      ],
+      "fixedSingleHitStatusDouble": true
     },
     "359": {
       "effect": "EFFECT_HIT",
@@ -3588,7 +3624,18 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "power": 65,
+      "type": "TYPE_POISON",
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "statusDoubleMask": 136,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "preAttackEffect": false,
+      "additionalEffects": [],
+      "fixedSingleHitStatusDouble": true
     },
     "475": {
       "effect": "EFFECT_AUTOTOMIZE",
@@ -3837,7 +3884,18 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "power": 65,
+      "type": "TYPE_GHOST",
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "statusDoubleMask": 4351,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "preAttackEffect": false,
+      "additionalEffects": [],
+      "fixedSingleHitStatusDouble": true
     },
     "507": {
       "effect": "EFFECT_SKY_DROP",
@@ -5846,7 +5904,25 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "power": 60,
+      "type": "TYPE_POISON",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "statusDoubleMask": 136,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "preAttackEffect": false,
+      "additionalEffects": [
+        {
+          "moveEffect": "MOVE_EFFECT_POISON",
+          "chance": 50,
+          "sheerForceOverride": false,
+          "preAttackEffect": false
+        }
+      ],
+      "fixedSingleHitStatusDouble": true
     },
     "768": {
       "effect": "EFFECT_HIT",
@@ -5881,7 +5957,25 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": true
+      "sheerForceAffected": true,
+      "power": 60,
+      "type": "TYPE_GHOST",
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "statusDoubleMask": 4351,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "preAttackEffect": false,
+      "additionalEffects": [
+        {
+          "moveEffect": "MOVE_EFFECT_BURN",
+          "chance": 30,
+          "sheerForceOverride": false,
+          "preAttackEffect": false
+        }
+      ],
+      "fixedSingleHitStatusDouble": true
     },
     "773": {
       "effect": "EFFECT_CEASELESS_EDGE",

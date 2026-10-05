@@ -31,6 +31,9 @@ enum class HnsMoveMechanicsCategory {
     /** Singles Surf/Whirlpool, with separately authorized underwater execution and damage. */
     FIXED_SINGLE_HIT_UNDERWATER,
 
+    /** Singles source status predicate, before base-power modifiers. */
+    FIXED_SINGLE_HIT_STATUS_DOUBLE,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -58,7 +61,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -210,6 +213,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER,
                 "Pinned Singles Surf/Whirlpool hit; neutral or underwater execution, post-hit wrap excluded.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitStatusDoubleMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE,
+                "Pinned Singles pre-hit status power; post-hit status effects excluded.")
         }
         val effect = Hns205MoveEffects.effectById[moveId]
         if (effect == null) {

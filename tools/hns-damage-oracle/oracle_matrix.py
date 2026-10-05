@@ -71,6 +71,9 @@ SPECIES = {
 
 # label -> (planning type, planning per-move category, planning power)
 MOVES = {
+    "Smelling Salts": ("Normal", "physical", 70), "Wake-Up Slap": ("Fighting", "physical", 70),
+    "Venoshock": ("Poison", "special", 65), "Hex": ("Ghost", "special", 65),
+    "Barb Barrage": ("Poison", "physical", 60), "Infernal Parade": ("Ghost", "special", 60),
     "Self-Destruct": ("Normal", "physical", 200), "Explosion": ("Normal", "physical", 250),
     "Petal Blizzard": ("Grass", "physical", 90),
     "Tackle": ("Normal", "physical", 40), "Scratch": ("Normal", "physical", 40),
@@ -2347,6 +2350,36 @@ def _fixed_single_hit_explosion():
     return out
 
 
+def _fixed_single_hit_status_double():
+    out = []
+    def case(name, move, raw=0, ability="Insomnia", defender_ability="Run Away", item=None, **kw):
+        a = attacker("Machamp", atk=151, spa=151, spe=40, hp=200, maxhp=200,
+            ability=(symbol("ABILITY", ability), ability), item=(symbol("ITEM", item), item) if item else None)
+        d = defender("Blastoise", dfn=109, spd=109, spe=100,
+            ability=(symbol("ABILITY", defender_ability), defender_ability))
+        out.append(scenario("status-double-"+slug(move)+"-"+name, ["move-coverage-slice-6"], a, d, move,
+            state_setup={"capture":True, "statusDoubleStatus1":raw}, **kw))
+    moves = (("Smelling Salts",64),("Wake-Up Slap",3),("Venoshock",8),("Hex",16),("Barb Barrage",8),("Infernal Parade",16))
+    for move, matching in moves:
+        for side in ("player", "opponent"):
+            case("neutral-"+side,move,side=side)
+            case("matching-"+side,move,matching,side=side)
+        for label, word in (("sleep",3),("poison",8),("toxic",0x380),("burn",16),("freeze",32),("paralysis",64),("frostbite",4096)):
+            case(label,move,word)
+        case("comatose",move,defender_ability="Comatose")
+        for ability in ("Technician","Sheer Force"):
+            case(slug(ability)+"-neutral",move,ability=ability)
+            case(slug(ability)+"-matching",move,matching,ability=ability)
+        case("screen",move,matching,reflect=True,light_screen=True)
+        case("crit",move,matching,crit=True)
+        case("life-orb",move,matching,item="Life Orb")
+        case("normalize",move,matching,ability="Normalize")
+        case("rounding",move,matching,item="Life Orb",light_screen=True)
+        out[-1]["attacker"]["stages"].update(attack=1,spAttack=1)
+        out[-1]["defender"]["stages"].update(defense=1,spDefense=1)
+    return out
+
+
 def _fixed_single_hit_underwater():
     out = []
     def case(name, move="Surf", ability="Insomnia", item=None, underwater=False, defender_ability="Insomnia", **kw):
@@ -2400,6 +2433,6 @@ def build_scenarios() -> list[dict]:
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

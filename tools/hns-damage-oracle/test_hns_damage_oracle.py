@@ -845,7 +845,9 @@ class CommittedCorpusTest(unittest.TestCase):
             for role in ("attacker", "defender"):
                 raw_status = entry["observed"][role]["status1"]
                 status = scenario[role]["status"]
-                if status == "toxic":
+                if role == "defender" and "move-coverage-slice-6" in scenario["tags"]:
+                    self.assertEqual(raw_status,scenario["stateSetup"]["statusDoubleStatus1"])
+                elif status == "toxic":
                     self.assertEqual(raw_status & 0x80, 0x80, f"{scenario['id']} {role} toxic bit")
                     self.assertEqual(raw_status & ~(0x80 | 0x0f00), 0,
                                      f"{scenario['id']} {role} unrelated status bits")

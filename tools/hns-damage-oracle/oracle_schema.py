@@ -99,7 +99,7 @@ DOUBLES_KEYS = ("defenderPartner",)
 STATE_SETUP_KEYS = (
     "attackerSpeciesForm", "defenderSpeciesForm", "attackerTransformedMonSpecies",
     "defenderTransformedMonSpecies", "attacker", "defender", "attackerStatStages",
-    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "underground", "underwater", "wonderRoom", "magicRoom", "laterAction",
+    "defenderStatStages", "gastroAcidBeforeHit", "doubles", "capture", "underground", "underwater", "wonderRoom", "magicRoom", "laterAction", "statusDoubleStatus1",
 )
 RUNTIME_DOMAINS = {
     "personality": (0, 0xffffffff), "gender": (0, 255), "slowStartTimer": (0, 7),
@@ -290,7 +290,10 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
             _fail(f"{path}.stateSetup", f"expected a non-empty subset of {STATE_SETUP_KEYS}")
         for role, value in s["stateSetup"].items():
             loc = f"{path}.stateSetup.{role}"
-            if role == "underground":
+            if role == "statusDoubleStatus1":
+                _require_int(value, loc, 0, 8191)
+                if "move-coverage-slice-6" not in s["tags"]: _fail(loc, "requires status-double slice")
+            elif role == "underground":
                 _require_bool(value, loc)
                 if s["move"]["symbol"] != "MOVE_EARTHQUAKE": _fail(loc, "only Earthquake damage is admitted underground")
             elif role == "underwater":
@@ -418,7 +421,7 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
         if observed["defenderSemiInvulnerableState"] != (2 if (scenario.get("stateSetup") or {}).get("underwater") else int(bool((scenario.get("stateSetup") or {}).get("underground")))):
             _fail(path, "actual hit-time semi state disagrees with setup")
     move = observed["move"]
-    _require_keys(move, OBSERVED_MOVE_KEYS, f"{path}.move")
+    _require_keys(move, OBSERVED_MOVE_KEYS + (("statusDoubleMask",) if "move-coverage-slice-6" in scenario["tags"] else ()), f"{path}.move")
     _require_int(move["id"], f"{path}.move.id", 1, 65535)
     _require_enum(move["type"], TYPE_NAMES, f"{path}.move.type")
     _require_int(move["power"], f"{path}.move.power", 1, 255)

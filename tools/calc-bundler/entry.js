@@ -1,4 +1,6 @@
 import { calculate, Generations, Pokemon, Move, Field, Side } from '@smogon/calc';
+import hnsStatusContract from '../hns-move-mechanics/hns_status_contract.json';
+const hnsStatus = hnsStatusContract.statuses;
 import hnsGroupDDomains from '../hns-layout/group_d_domains.json';
 
 // @smogon/calc compares field.gameType against the canonical capitalised
@@ -369,13 +371,40 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const gameType = normalizeGameType(field.gameType || input.field?.gameType);
   const semiState = input.defender?.hnsSemiInvulnerableState;
   const underwaterFamily = input.move?.hnsIsUnderwater === true;
-  if (underwaterFamily || input.move?.hnsMoveFamily !== undefined || input.move?.hnsDamagesUnderwater === true ||
+  if (underwaterFamily || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_UNDERWATER' || input.move?.hnsDamagesUnderwater === true ||
       gameType === 'Singles' && [57, 250].includes(input.move?.hnsMoveId)) {
     if (!underwaterFamily || input.move?.hnsMoveFamily !== 'FIXED_SINGLE_HIT_UNDERWATER' ||
         input.move?.hnsDamagesUnderwater !== true ||
         input.move?.hnsMoveEffect !== 'EFFECT_HIT' || ![57, 250].includes(input.move?.hnsMoveId) ||
         input.move?.hnsFixedSingleHit !== true || gameType !== 'Singles' || ![0, 2].includes(semiState))
       throw new Error('H&S Surf/Whirlpool execution authority missing or unsupported');
+  }
+  const statusMetadata = hnsStatusContract.moves[String(input.move?.hnsMoveId)];
+  const statusFamily = statusMetadata?.fixedSingleHitStatusDouble === true;
+  let moveBasePower = move.bp;
+  if (statusFamily || input.move?.hnsIsStatusDouble === true || input.move?.hnsStatusDoubleMask !== undefined ||
+      input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_STATUS_DOUBLE') {
+    const raw = input.defender?.status1;
+    const primary = raw & hnsStatus.ANY;
+    const sleep = primary & hnsStatus.SLEEP;
+    const other = primary & ~hnsStatus.SLEEP;
+    const valid = Number.isInteger(raw) && raw >= 0 && raw <= 0xffff && (raw & ~(hnsStatus.ANY | hnsStatus.TOXIC_COUNTER)) === 0 &&
+      (!(raw & hnsStatus.TOXIC_COUNTER) || (raw & hnsStatus.TOXIC_POISON) !== 0) &&
+      (sleep ? other === 0 : (other & (other - 1)) === 0);
+    if (!statusFamily || input.move?.hnsIsStatusDouble !== true ||
+        input.move?.hnsMoveFamily !== 'FIXED_SINGLE_HIT_STATUS_DOUBLE' ||
+        input.move?.hnsMoveEffect !== 'EFFECT_DOUBLE_POWER_ON_ARG_STATUS' ||
+        input.move?.hnsStatusDoubleMask !== statusMetadata.statusDoubleMask ||
+        input.move?.hnsFixedSingleHit !== true || input.move?.hnsIsOrdinary !== false || gameType !== 'Singles' || !valid ||
+        !Number.isInteger(input.defender?.hnsEffectiveAbilityId) ||
+        input.defender.hnsEffectiveAbilityId < 0 || input.defender.hnsEffectiveAbilityId > 310 ||
+        (input.defender.hnsEffectiveAbilityId === 213) !== (defender.ability === 'Comatose') ||
+        input.move?.overrides?.basePower !== statusMetadata.power ||
+        input.defender?.hnsSubstitute !== false)
+      throw new Error('H&S status-double authority missing or invalid');
+    // CalcMoveBasePower: integer doubling precedes every base-power modifier.
+    if (((raw | (input.defender.hnsEffectiveAbilityId === 213 ? hnsStatus.SLEEP : 0)) & statusMetadata.statusDoubleMask) !== 0)
+      moveBasePower *= 2;
   }
   // The H&S request adapter supplies the already-authorized effective type here. Keep the
   // stage operand named explicitly so every type-sensitive modifier reads the same value.
@@ -915,7 +944,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       if (input.move?.hnsMoveEffect === 'EFFECT_RECOIL') basePowerModifier.add(4915);
       break;
     case 'Technician':
-      if (move.bp <= 60) basePowerModifier.add(6144);
+      if (moveBasePower <= 60) basePowerModifier.add(6144);
       break;
     case 'Sheer Force':
       if (input.move?.hnsSheerForceAffected === true && input.move?.hnsUnknownSheerForce !== true)
@@ -1060,7 +1089,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       abilityMoveFlags.has('punchingMove')) basePowerModifier.addHalfUp(4506);
   if (attackerItemActive && attackerHoldEffect === 'HOLD_EFFECT_OGERPON_MASK' && baseSpecies === 1416)
     basePowerModifier.addHalfUp(4915);
-  const bp = basePowerModifier.apply(move.bp);
+  const bp = basePowerModifier.apply(moveBasePower);
 
   const level = attacker.level || 50;
   let dmg = calculateHnsBaseDamage(bp, userFinalAttack, targetFinalDefense, level);

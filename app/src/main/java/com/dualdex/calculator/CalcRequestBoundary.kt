@@ -476,8 +476,8 @@ object CalcRequestBoundary {
      * versa). A caller-crafted `curHP` is rebound whenever the engine HP was read so a favorable
      * crafted value can never satisfy a pinch-ability threshold. A neutral live `status1` clears a
      * stale party status to null. Nonzero words remain raw authority for the narrow Guts physical
-     * path; the damage engine uses the exact word for Guts and burn predicates, and policy refuses
-     * every other unsupported active status instead of converting it from display text.
+     * path and the six status-double defender predicates; policy refuses unsupported active
+     * status contexts instead of converting them from display text.
      */
     private fun reconcileLiveBattlerHpStatus(
         request: DamageCalculationRequest,
@@ -513,8 +513,8 @@ object CalcRequestBoundary {
                 participant
             }
             // The live status word is the authority for "has a status"; a neutral live word
-            // clears a stale party status. A nonzero word stays raw for the exact Guts path and is
-            // refused elsewhere by policy; it is never guessed from the party/display string.
+            // clears a stale party status. A nonzero word stays raw for Guts and status-double
+            // predicates; it is never guessed from the party/display string.
             return if (state.statusObserved && state.status1 == 0) {
                 withHp.copy(status = null)
             } else {

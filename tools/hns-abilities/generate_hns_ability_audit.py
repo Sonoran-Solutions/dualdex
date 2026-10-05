@@ -20,7 +20,7 @@ KOTLIN = ROOT / "app/src/main/java/com/dualdex/pokemon/hns/HnsAbilityAuditData.k
 PIN = "1f42b74dff0e9fe942419845d040663dd829a973"
 CONTEXT_RULES = HERE / "context_rules.json"
 CONTEXT_CANDIDATES = {
-    6, 185, 5, 277, 280,
+    213, 6, 185, 5, 277, 280,
     18, 79, 112, 148, 198, 255, 281, 282, 293, 186, 187, 188, 284, 285, 286, 287,
     2, 3, 4, 16, 22, 24, 26, 33, 34, 36, 37, 47, 54, 57, 58, 62, 64, 70, 74, 75,
     55, 80, 83, 84, 85, 86, 88, 91, 95, 97, 105, 106, 124, 128, 132, 133, 139, 140, 141,
@@ -221,6 +221,8 @@ def main():
     extractor = load_extractor()
     extractor.verify_git_commit(str(upstream))
     abilities = extractor.extract_abilities(extractor.find_cpp_bin(args.cpp_bin), str(upstream))
+    if abilities.get(213, {}).get("constant") != "ABILITY_COMATOSE":
+        raise SystemExit("Pinned Comatose ID changed")
     abilities[0] = {"id": 0, "constant": "ABILITY_NONE", "name": "-------"}
     if set(abilities) != set(range(311)):
         raise SystemExit("ability IDs are missing, duplicated, or outside the pinned domain")

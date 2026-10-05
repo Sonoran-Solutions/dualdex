@@ -1,0 +1,140 @@
+{
+  "moves": {
+    "265": {
+      "additionalEffects": [
+        {
+          "chance": 0,
+          "moveEffect": "MOVE_EFFECT_REMOVE_STATUS",
+          "preAttackEffect": false,
+          "sheerForceOverride": false
+        }
+      ],
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "fixedSingleHitStatusDouble": true,
+      "makesContact": true,
+      "multiHit": false,
+      "power": 70,
+      "preAttackEffect": false,
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": false,
+      "statusDoubleMask": 64,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_NORMAL"
+    },
+    "358": {
+      "additionalEffects": [
+        {
+          "chance": 0,
+          "moveEffect": "MOVE_EFFECT_REMOVE_STATUS",
+          "preAttackEffect": false,
+          "sheerForceOverride": false
+        }
+      ],
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "fixedSingleHitStatusDouble": true,
+      "makesContact": true,
+      "multiHit": false,
+      "power": 70,
+      "preAttackEffect": false,
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": false,
+      "statusDoubleMask": 7,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_FIGHTING"
+    },
+    "474": {
+      "additionalEffects": [],
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "fixedSingleHitStatusDouble": true,
+      "makesContact": false,
+      "multiHit": false,
+      "power": 65,
+      "preAttackEffect": false,
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": false,
+      "statusDoubleMask": 136,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_POISON"
+    },
+    "506": {
+      "additionalEffects": [],
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "fixedSingleHitStatusDouble": true,
+      "makesContact": false,
+      "multiHit": false,
+      "power": 65,
+      "preAttackEffect": false,
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": false,
+      "statusDoubleMask": 4351,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_GHOST"
+    },
+    "767": {
+      "additionalEffects": [
+        {
+          "chance": 50,
+          "moveEffect": "MOVE_EFFECT_POISON",
+          "preAttackEffect": false,
+          "sheerForceOverride": false
+        }
+      ],
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "fixedSingleHitStatusDouble": true,
+      "makesContact": false,
+      "multiHit": false,
+      "power": 60,
+      "preAttackEffect": false,
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": true,
+      "statusDoubleMask": 136,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_POISON"
+    },
+    "772": {
+      "additionalEffects": [
+        {
+          "chance": 30,
+          "moveEffect": "MOVE_EFFECT_BURN",
+          "preAttackEffect": false,
+          "sheerForceOverride": false
+        }
+      ],
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "fixedSingleHitStatusDouble": true,
+      "makesContact": false,
+      "multiHit": false,
+      "power": 60,
+      "preAttackEffect": false,
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": true,
+      "statusDoubleMask": 4351,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_GHOST"
+    }
+  },
+  "statuses": {
+    "ANY": 4351,
+    "BURN": 16,
+    "FREEZE": 32,
+    "FROSTBITE": 4096,
+    "PARALYSIS": 64,
+    "POISON": 8,
+    "PSN_ANY": 136,
+    "SLEEP": 7,
+    "TOXIC_COUNTER": 3840,
+    "TOXIC_POISON": 128
+  }
+}

@@ -1,0 +1,13 @@
+Test-only independent Quick Claw RNG control; damage-roll rigging remains separate.
+
+--- a/test/test_runner_battle.c
++++ b/test/test_runner_battle.c
+@@ -44,1 +44,2 @@
+ void (*gDdxoBeforeAbilityPopup)(void);
++s32 gDdxoQuickClawMode;
+@@ -750,3 +751,5 @@
+ static u32 BattleTest_RandomWeightedArray(enum RandomTag tag, u32 sum, u32 n, const u16 *weights, void *caller)
+ {
++    if (tag == RNG_QUICK_CLAW && gDdxoQuickClawMode > 0)
++        return gDdxoQuickClawMode - 1;
+     if (tag == RNG_CRITICAL_HIT && gDdxoBeforeCriticalHit != NULL)

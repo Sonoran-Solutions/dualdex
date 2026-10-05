@@ -1,5 +1,17 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
+## Singles Gyro Ball — slice 8 (#137)
+
+Gyro Ball (360), EFFECT_GYRO_BALL, uses its separate generated family and exact
+boundary-owned effective Speeds. Dynamic integer power precedes Technician;
+source power 1 is only a placeholder. Speed authority preserves stages, weather
+suppression/Umbrella, Slow Start/Paradox, badge, active speed items, Tailwind and
+Swamp in source order. Neutral observed status is required; Unburden, unsupported
+weather, Substitute, nonneutral semi-state and Doubles remain refused. No caller
+Speed or turn order authorizes the ratio. See [slice 8 evidence](HNS_MOVE_COVERAGE_SLICE_8.md).
+The overall ceiling remains **ESTIMATED**.
+
+
 ## Status-dependent Singles base power (slice 6, #132)
 
 The separate FIXED_SINGLE_HIT_STATUS_DOUBLE family admits Smelling Salts (265),

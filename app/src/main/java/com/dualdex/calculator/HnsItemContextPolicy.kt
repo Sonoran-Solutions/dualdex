@@ -106,6 +106,7 @@ object HnsItemContextPolicy {
         val punchingMove: Boolean? = null,
         val moveUsesDefenseStat: Boolean? = null,
         val switchInEventsSettled: Boolean? = null,
+        val effectiveSpeedExact: Boolean = false,
         val moveId: Int? = null
     )
 
@@ -143,7 +144,11 @@ object HnsItemContextPolicy {
         if (itemId == 581) return unknown(itemId, name, side)
         val c = context ?: return unknown(itemId, name, side)
         val holdEffect = entry.data?.holdEffect ?: return unknown(itemId, name, c.side)
-        val proof: Proof? = when (entry.familyGroup) {
+        val proof: Proof? = if (c.moveId in Hns205MoveEffects.fixedSingleHitGyroBallMoveIds &&
+            holdEffect in HnsEffectiveSpeedAuthority.speedHoldEffects) {
+            if (c.effectiveSpeedExact) modelled("gyro_ball_speed_item_exact", "src/battle_main.c:4981-4991",
+                "The shared effective hold effect is applied at the source Speed item stage.") else null
+        } else when (entry.familyGroup) {
             "attacker_offense" -> attackerOffense(holdEffect, itemId, c)
             "defender_defense" -> defenderDefense(holdEffect, itemId, c)
             "post_hit_or_residual" -> when {
@@ -318,6 +323,8 @@ object HnsItemContextPolicy {
         return Context(
             side = side,
             moveId = moveId,
+            effectiveSpeedExact = moveId in Hns205MoveEffects.fixedSingleHitGyroBallMoveIds &&
+                HnsEffectiveSpeedAuthority.forRequest(request, if (side == HnsItemSide.ATTACKER) HnsAbilitySide.ATTACKER else HnsAbilitySide.DEFENDER).speed != null,
             fixedSingleHitMove = fixedSingleHitMove,
             moveType = authority.effectiveType,
             moveCategory = authority.category,

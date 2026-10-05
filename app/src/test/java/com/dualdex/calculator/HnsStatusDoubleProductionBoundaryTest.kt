@@ -152,7 +152,7 @@ class HnsStatusDoubleProductionBoundaryTest {
             assertTrue(build(request(move),d=status(0).let { it.copy(state=it.state.copy(partySlot=0)) }) is CalcRequestOutcome.Refused)
         }
         for(word in listOf(0,1,2,3,4,5,6,7,8,16,32,64,128,0xf80,4096)) assertTrue(HnsDefenderStatus.isValid(word))
-        for(move in listOf("Double Slap","Gyro Ball","Facade")) {
+        for(move in listOf("Double Slap","Electro Ball","Facade")) {
             val entry=HnsMoveMechanicsRegistry.classify(HeartAndSoul205DataPack.getMoveByName(move)!!.id)
             assertNotEquals(HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE,entry.category)
             assertTrue(build(request(move)) is CalcRequestOutcome.Refused)

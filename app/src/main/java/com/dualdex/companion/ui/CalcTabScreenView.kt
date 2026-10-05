@@ -551,7 +551,7 @@ class CalcTabScreenView(
                 typeface = Typeface.DEFAULT_BOLD
             }
             val subtitleView = TextView(context).apply {
-                text = "${moveInfo.type.displayName} • ${if (moveInfo.power > 0) "${moveInfo.power} Pwr" else "Status"}"
+                text = "${moveInfo.type.displayName} • ${if (moveInfo.power > 0) "${moveInfo.powerDisplay} Pwr" else "Status"}"
                 textSize = 10.5f
                 setTextColor(if (isSelected) 0xFFEEEEEE.toInt() else 0xFFB0C4DE.toInt())
             }

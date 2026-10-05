@@ -299,8 +299,14 @@ static const char* capitalised_category(const char* c) {
 
 /* One battler of the production H&S request. `role` is "attacker" or "defender". */
 static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b, const char* role,
-                        const jl_value* opposing_obs, const jl_value* move_obs, const char* format, long semi_state, err_t* err) {
+                        const jl_value* opposing_obs, const jl_value* move_obs, const char* format, long semi_state, const jl_value* speed_state, err_t* err) {
     long level, max_hp, hp_at_hit, atk, def, spa, spd, spe, species_id, item_id;
+    long speed_stage = 0, speed_side = 0, speed_badge = 0;
+    if (speed_state) {
+        if (!get_int(speed_state, "stage", -6, 6, &speed_stage, err) ||
+            !get_int(speed_state, "sideStatuses", 0, 0xffffffff, &speed_side, err) ||
+            !get_int(speed_state, "badge", 0, 1, &speed_badge, err)) return 0;
+    }
     long atk_stage = 0, spa_stage = 0, def_stage = 0, spd_stage = 0;
     const jl_value* stats = get_obj(scen_b, "stats", err);
     const jl_value* stages = get_obj(scen_b, "stages", err);
@@ -437,9 +443,11 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     sb_append(sb, ",\"rawStats\":{\"attack\":%ld,\"defense\":%ld,\"speed\":%ld,\"spAttack\":%ld,\"spDefense\":%ld}",
               atk, def, spe, spa, spd);
     /* gBattleMons statStages order: HP, Atk, Def, Speed, SpAtk, SpDef, Acc, Evasion (relative). */
-    sb_append(sb, ",\"statStages\":[0,%ld,%ld,0,%ld,%ld,0,0]", atk_stage, def_stage, spa_stage, spd_stage);
-    sb_append(sb, ",\"badgeBoosts\":{\"atk\":%s,\"def\":%s,\"spe\":false,\"spa\":%s,\"spd\":%s}}",
-              bb_atk ? "true" : "false", bb_def ? "true" : "false", bb_spa ? "true" : "false",
+    if (speed_state) sb_append(sb, ",\"hnsSideStatuses\":%ld,\"hnsUnburdenActive\":%s", speed_side,
+        jl_num(jl_get(speed_state, "unburdenActive")) == 1 ? "true" : "false");
+    sb_append(sb, ",\"statStages\":[0,%ld,%ld,%ld,%ld,%ld,0,0]", atk_stage, def_stage, speed_stage, spa_stage, spd_stage);
+    sb_append(sb, ",\"badgeBoosts\":{\"atk\":%s,\"def\":%s,\"spe\":%s,\"spa\":%s,\"spd\":%s}}",
+              bb_atk ? "true" : "false", bb_def ? "true" : "false", speed_badge ? "true" : "false", bb_spa ? "true" : "false",
               bb_spd ? "true" : "false");
     return 1;
 }
@@ -498,9 +506,9 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
      * historical operands. All new family vectors require captured state above. This host
      * adapter cannot authorize production; the Kotlin boundary never substitutes neutral. */
     sb_append(sb, "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\",");
-    if (!emit_battler(sb, s_atk, o_atk, "attacker", o_def, o_move, format, 0, err)) return 0;
+    if (!emit_battler(sb, s_atk, o_atk, "attacker", o_def, o_move, format, 0, jl_get(jl_get(obs, "effectiveSpeeds"), "attacker"), err)) return 0;
     sb_append(sb, ",");
-    if (!emit_battler(sb, s_def, o_def, "defender", o_atk, o_move, format, semi_state, err)) return 0;
+    if (!emit_battler(sb, s_def, o_def, "defender", o_atk, o_move, format, semi_state, jl_get(jl_get(obs, "effectiveSpeeds"), "defender"), err)) return 0;
     sb_append(sb, ",\"move\":{\"name\":");
     sb_json_string(sb, move_label);
     sb_append(sb, ",\"isCrit\":%s,\"hnsMoveFlags\":[", crit ? "true" : "false");
@@ -535,6 +543,8 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         if (strcmp(jl_str(jl_get(scen, "expect")), "immune") && (!jl_is_num(hp) || jl_num(hp) != 0)) return set_err(err, "explosion damage-time HP missing");
         sb_append(sb, ",\"hnsExplosionUserHpAtDamage\":0");
     }
+    const int gyro = !strcmp(source_effect, "EFFECT_GYRO_BALL");
+    if (gyro) sb_append(sb, ",\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_GYRO_BALL\"");
     const int brine = !strcmp(source_effect, "EFFECT_BRINE");
     if (brine) sb_append(sb, ",\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_BRINE\"");
     const int status_double = !strcmp(source_effect, "EFFECT_DOUBLE_POWER_ON_ARG_STATUS");
@@ -552,7 +562,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (brine || status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              (gyro || brine || status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");

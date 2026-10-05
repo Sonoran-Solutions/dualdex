@@ -130,7 +130,7 @@ class HnsBrineProductionBoundaryTest {
         assertTrue(ready(build(d=hp(100,100,item="Focus Sash"))).verdict.ignoredMechanics.isNotEmpty())
         assertTrue(ready(build(d=hp(50,100,item="Focus Band"))).verdict.ignoredMechanics.isNotEmpty())
         assertTrue(build(request().copy(field=CalcFieldInput(gameType="Doubles"))) is CalcRequestOutcome.Refused)
-        for(move in listOf("Water Spout","Eruption","Crush Grip","Wring Out","Flail","Reversal","Hard Press","Super Fang","Endeavor","Gyro Ball","Double Slap"))
+        for(move in listOf("Water Spout","Eruption","Crush Grip","Wring Out","Flail","Reversal","Hard Press","Super Fang","Endeavor","Electro Ball","Double Slap"))
             assertTrue(move,build(request(move)) is CalcRequestOutcome.Refused)
     }
     @Test fun `Brine modifier stays before all later base power factors`() {

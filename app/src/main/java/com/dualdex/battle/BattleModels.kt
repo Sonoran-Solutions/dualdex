@@ -650,7 +650,7 @@ data class MovePresentation(
         else -> "??/—"
     }
 
-    val powerDisplay: String get() = basePower?.takeIf { it > 0 }?.toString() ?: "—"
+    val powerDisplay: String get() = com.dualdex.pokemon.movePowerDisplay(moveId, basePower)
     val accuracyDisplay: String get() = accuracy?.takeIf { it > 0 }?.let { "$it%" } ?: "—"
 
     val categoryDisplay: String get() = when (category) {

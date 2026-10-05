@@ -14,7 +14,13 @@ data class MoveInfo(
     val power: Int,
     val accuracy: Int,
     val pp: Int
-)
+) {
+    val powerDisplay: String get() = movePowerDisplay(id, power)
+}
+
+fun movePowerDisplay(moveId: Int, power: Int?): String =
+    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitGyroBallMoveIds && power == 1) "Variable"
+    else power?.takeIf { it > 0 }?.toString() ?: "—"
 
 object MoveDatabase {
     private val moveMap = mutableMapOf<Int, MoveInfo>()

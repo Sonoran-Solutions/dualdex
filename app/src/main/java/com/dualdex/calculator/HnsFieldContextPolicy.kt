@@ -68,6 +68,7 @@ object HnsFieldContextPolicy {
         val defenderTerrainApplicability: HnsTerrainApplicability? = null,
         val attackerHoldEffectResolution: HnsHoldEffectResolution? = null,
         val defenderHoldEffectResolution: HnsHoldEffectResolution? = null,
+        val effectiveSpeedExact: Boolean = false,
         val defenderSemiInvulnerableState: Int? = null
     )
 
@@ -94,6 +95,8 @@ object HnsFieldContextPolicy {
         val authority = HnsMoveAuthority.forRequest(request, fixedSingleHitMove)
         return Context(
             fixedSingleHitMove = fixedSingleHitMove,
+            effectiveSpeedExact = moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitGyroBallMoveIds &&
+                HnsAbilitySide.entries.all { HnsEffectiveSpeedAuthority.forRequest(request,it).speed != null },
             moveId = moveId,
             preFieldMoveType = authority.preFieldType,
             effectiveMoveType = authority.effectiveType,
@@ -240,6 +243,11 @@ object HnsFieldContextPolicy {
                 )
             }
             HnsFieldStatus.ELECTRIC_TERRAIN -> when {
+                c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitGyroBallMoveIds &&
+                    c.effectiveSpeedExact && type != null && c.moveCategory != null &&
+                    (type != PokemonType.ELECTRIC || c.attackerTerrainApplicability in setOf(HnsTerrainApplicability.AFFECTED,HnsTerrainApplicability.NOT_AFFECTED)) -> modelled(
+                        "gyro_ball_electric_terrain_speed_exact", "src/battle_main.c:4959",
+                        "Raw Electric Terrain is retained for exact Surge Surfer/Quark Drive Speed; existing grounded damage and stat-ability gates remain independent.")
                 attacker == HnsFieldStatusData.ABILITY_QUARK_DRIVE ||
                     defender == HnsFieldStatusData.ABILITY_QUARK_DRIVE -> relevant(
                     rule = "electric_terrain_paradox_ability",

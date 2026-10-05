@@ -787,6 +787,8 @@ object CalcRequestBoundary {
             defenderPersonality = defenderRuntime?.takeIf { it.personalityObserved }?.personality,
             attackerGender = attackerGender,
             defenderGender = defenderGender,
+            attackerSideStatuses = authoritativeObservedDefenderSideStatuses(request.attacker.partySlot, playerBattlerState, isExactVerified),
+            defenderSlowStartTimer = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileSlowStartTimer,
             attackerSlowStartTimer = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileSlowStartTimer,
             attackerFlashFireBoosted = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileFlashFireBoosted,
             attackerTransformed = attackerRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileTransformed,
@@ -937,6 +939,9 @@ object CalcRequestBoundary {
         ) {
             return null
         }
+        // Pinned ShouldGetStatBadgeBoost excludes the opponent side by live battler ID.
+        // This proof uses the exact slot-matched observation, never the caller/UI side.
+        if (state.battlerIndex?.let { it in 0..3 && it and 1 != 0 } == true) return CalcBadgeBoosts()
         if (!state.badgesObserved) return null
         return CalcBadgeBoosts(
             atk = state.badgeBoostAtk,

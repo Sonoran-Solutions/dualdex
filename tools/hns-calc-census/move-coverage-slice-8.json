@@ -1,0 +1,6726 @@
+{
+  "after": {
+    "CAVEATED_ESTIMATE": 462,
+    "FULLY_MODELLED": 21232,
+    "REFUSED": 2584
+  },
+  "afterLead": {
+    "battlesExcludedNoEligibleMove": 0,
+    "battlesIncluded": 651,
+    "battlesTotal": 651,
+    "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+    "doublesPairsDisplayable": 6,
+    "doublesPairsTotal": 18,
+    "eligibleRequests": 8450,
+    "pairsDisplayable": 614,
+    "pairsTotal": 1302,
+    "requestsDisplayable": 7464,
+    "singlesPairsDisplayable": 608,
+    "singlesPairsTotal": 1284
+  },
+  "battlesGainingRequests": 38,
+  "before": {
+    "CAVEATED_ESTIMATE": 462,
+    "FULLY_MODELLED": 21144,
+    "REFUSED": 2672
+  },
+  "beforeLead": {
+    "battlesExcludedNoEligibleMove": 0,
+    "battlesIncluded": 651,
+    "battlesTotal": 651,
+    "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+    "doublesPairsDisplayable": 6,
+    "doublesPairsTotal": 18,
+    "eligibleRequests": 8450,
+    "pairsDisplayable": 582,
+    "pairsTotal": 1302,
+    "requestsDisplayable": 7424,
+    "singlesPairsDisplayable": 576,
+    "singlesPairsTotal": 1284
+  },
+  "blankBattlesAfter": 0,
+  "blankBattlesBefore": 0,
+  "gyroBallRequestCount": 90,
+  "newlyDisplayableLeadPairs": [
+    [
+      "TRAINER_BUGSY_POSTOBC_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_BUGSY_POSTOBC_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_ELLEN_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_ELLEN_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_GRUNT_12_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_GRUNT_12_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_GRUNT_19_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_GRUNT_19_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_GRUNT_31_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_GRUNT_31_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_GRUNT_3_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_GRUNT_3_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_HORTON_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_HORTON_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_JENN_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_JENN_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_KENNY_2_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_KENNY_2_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_KENNY_3_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_KENNY_3_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_KENNY_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_KENNY_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_NOLAND_BF_BRAIN_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_NOLAND_BF_BRAIN_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_NOLAND_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_NOLAND_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_PAULA_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_PAULA_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_SHIRLEY_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_SHIRLEY_HNS",
+      "ref-special"
+    ],
+    [
+      "TRAINER_TOM_HNS",
+      "ref-physical"
+    ],
+    [
+      "TRAINER_TOM_HNS",
+      "ref-special"
+    ]
+  ],
+  "outsideSliceChanges": [],
+  "potentialCounts": "Unproven upper bounds; NOT production authorization",
+  "ranking": [
+    {
+      "battles": 138,
+      "blockedRequests": 392,
+      "effect": "EFFECT_HIT / repeated strikes",
+      "leadPairs": 160,
+      "leadRequests": 166,
+      "moves": [
+        {
+          "id": 292,
+          "name": "Arm Thrust",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 198,
+          "name": "Bone Rush",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 155,
+          "name": "Bonemerang",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 331,
+          "name": "Bullet Seed",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 4,
+          "name": "Comet Punch",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": true,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 458,
+          "name": "Double Hit",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 24,
+          "name": "Double Kick",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 3,
+          "name": "Double Slap",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 530,
+          "name": "Dual Chop",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 742,
+          "name": "Dual Wingbeat",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 31,
+          "name": "Fury Attack",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 154,
+          "name": "Fury Swipes",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 333,
+          "name": "Icicle Spear",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 42,
+          "name": "Pin Missile",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 350,
+          "name": "Rock Blast",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 727,
+          "name": "Scale Shot",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 131,
+          "name": "Spike Cannon",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 541,
+          "name": "Tail Slap",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 814,
+          "name": "Twin Beam",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 41,
+          "name": "Twineedle",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 36,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 14,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 336
+    },
+    {
+      "battles": 39,
+      "blockedRequests": 90,
+      "effect": "EFFECT_GYRO_BALL",
+      "leadPairs": 42,
+      "leadRequests": 42,
+      "moves": [
+        {
+          "id": 360,
+          "name": "Gyro Ball",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": true,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
+            "effect": "EFFECT_GYRO_BALL",
+            "fixedSingleHitGyroBall": true,
+            "immunityFlags": [
+              "ballisticMove"
+            ],
+            "makesContact": true,
+            "multiHit": false,
+            "ordinary": false,
+            "power": 1,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "strikeCount": 1,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_STEEL"
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 8,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 78
+    },
+    {
+      "battles": 39,
+      "blockedRequests": 90,
+      "effect": "EFFECT_ROLLOUT",
+      "leadPairs": 38,
+      "leadRequests": 38,
+      "moves": [
+        {
+          "id": 301,
+          "name": "Ice Ball",
+          "sourceMetadata": {
+            "effect": "EFFECT_ROLLOUT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 205,
+          "name": "Rollout",
+          "sourceMetadata": {
+            "effect": "EFFECT_ROLLOUT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 10,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 72
+    },
+    {
+      "battles": 36,
+      "blockedRequests": 80,
+      "effect": "EFFECT_SEMI_INVULNERABLE",
+      "leadPairs": 34,
+      "leadRequests": 34,
+      "moves": [
+        {
+          "id": 340,
+          "name": "Bounce",
+          "sourceMetadata": {
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        },
+        {
+          "id": 91,
+          "name": "Dig",
+          "sourceMetadata": {
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 291,
+          "name": "Dive",
+          "sourceMetadata": {
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 19,
+          "name": "Fly",
+          "sourceMetadata": {
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 566,
+          "name": "Phantom Force",
+          "sourceMetadata": {
+            "damageFlags": {
+              "minimizeDoubleDamage": [
+                "B_UPDATED_MOVE_FLAGS < GEN_7"
+              ]
+            },
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 6,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 8
+      },
+      "potentialUpperBound": 70
+    },
+    {
+      "battles": 29,
+      "blockedRequests": 74,
+      "effect": "EFFECT_HIT_ESCAPE",
+      "leadPairs": 28,
+      "leadRequests": 28,
+      "moves": [
+        {
+          "id": 740,
+          "name": "Flip Turn",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_ESCAPE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 369,
+          "name": "U-Turn",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_ESCAPE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 521,
+          "name": "Volt Switch",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_ESCAPE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 68
+    },
+    {
+      "battles": 29,
+      "blockedRequests": 70,
+      "effect": "EFFECT_OHKO",
+      "leadPairs": 22,
+      "leadRequests": 22,
+      "moves": [
+        {
+          "id": 90,
+          "name": "Fissure",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesUnderground": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_OHKO",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 12,
+          "name": "Guillotine",
+          "sourceMetadata": {
+            "effect": "EFFECT_OHKO",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 32,
+          "name": "Horn Drill",
+          "sourceMetadata": {
+            "effect": "EFFECT_OHKO",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 329,
+          "name": "Sheer Cold",
+          "sourceMetadata": {
+            "effect": "EFFECT_OHKO",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 66
+    },
+    {
+      "battles": 33,
+      "blockedRequests": 68,
+      "effect": "EFFECT_PURSUIT",
+      "leadPairs": 30,
+      "leadRequests": 30,
+      "moves": [
+        {
+          "id": 228,
+          "name": "Pursuit",
+          "sourceMetadata": {
+            "effect": "EFFECT_PURSUIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 8,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 14
+      },
+      "potentialUpperBound": 48
+    },
+    {
+      "battles": 21,
+      "blockedRequests": 64,
+      "effect": "EFFECT_BELCH",
+      "leadPairs": 20,
+      "leadRequests": 20,
+      "moves": [
+        {
+          "id": 562,
+          "name": "Belch",
+          "sourceMetadata": {
+            "effect": "EFFECT_BELCH",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 64
+    },
+    {
+      "battles": 21,
+      "blockedRequests": 62,
+      "effect": "EFFECT_ASSURANCE",
+      "leadPairs": 28,
+      "leadRequests": 28,
+      "moves": [
+        {
+          "id": 372,
+          "name": "Assurance",
+          "sourceMetadata": {
+            "effect": "EFFECT_ASSURANCE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 58
+    },
+    {
+      "battles": 22,
+      "blockedRequests": 54,
+      "effect": "EFFECT_FIXED_HP_DAMAGE",
+      "leadPairs": 22,
+      "leadRequests": 22,
+      "moves": [
+        {
+          "id": 82,
+          "name": "Dragon Rage",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIXED_HP_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 49,
+          "name": "Sonic Boom",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIXED_HP_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 12
+      },
+      "potentialUpperBound": 42
+    },
+    {
+      "battles": 24,
+      "blockedRequests": 52,
+      "effect": "EFFECT_FLAIL",
+      "leadPairs": 22,
+      "leadRequests": 22,
+      "moves": [
+        {
+          "id": 175,
+          "name": "Flail",
+          "sourceMetadata": {
+            "effect": "EFFECT_FLAIL",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 179,
+          "name": "Reversal",
+          "sourceMetadata": {
+            "effect": "EFFECT_FLAIL",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 42
+    },
+    {
+      "battles": 17,
+      "blockedRequests": 52,
+      "effect": "EFFECT_HIT_SWITCH_TARGET",
+      "leadPairs": 16,
+      "leadRequests": 16,
+      "moves": [
+        {
+          "id": 509,
+          "name": "Circle Throw",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_SWITCH_TARGET",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 525,
+          "name": "Dragon Tail",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_SWITCH_TARGET",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 52
+    },
+    {
+      "battles": 23,
+      "blockedRequests": 52,
+      "effect": "EFFECT_LEVEL_DAMAGE",
+      "leadPairs": 26,
+      "leadRequests": 26,
+      "moves": [
+        {
+          "id": 101,
+          "name": "Night Shade",
+          "sourceMetadata": {
+            "effect": "EFFECT_LEVEL_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 69,
+          "name": "Seismic Toss",
+          "sourceMetadata": {
+            "effect": "EFFECT_LEVEL_DAMAGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4
+      },
+      "potentialUpperBound": 48
+    },
+    {
+      "battles": 22,
+      "blockedRequests": 52,
+      "effect": "EFFECT_RAPID_SPIN",
+      "leadPairs": 14,
+      "leadRequests": 14,
+      "moves": [
+        {
+          "id": 229,
+          "name": "Rapid Spin",
+          "sourceMetadata": {
+            "effect": "EFFECT_RAPID_SPIN",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": null
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 10,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 16
+      },
+      "potentialUpperBound": 26
+    },
+    {
+      "battles": 22,
+      "blockedRequests": 48,
+      "effect": "EFFECT_ELECTRO_BALL",
+      "leadPairs": 20,
+      "leadRequests": 20,
+      "moves": [
+        {
+          "id": 486,
+          "name": "Electro Ball",
+          "sourceMetadata": {
+            "effect": "EFFECT_ELECTRO_BALL",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 44
+    },
+    {
+      "battles": 24,
+      "blockedRequests": 48,
+      "effect": "EFFECT_LAST_RESORT",
+      "leadPairs": 24,
+      "leadRequests": 24,
+      "moves": [
+        {
+          "id": 387,
+          "name": "Last Resort",
+          "sourceMetadata": {
+            "effect": "EFFECT_LAST_RESORT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 12
+      },
+      "potentialUpperBound": 36
+    },
+    {
+      "battles": 20,
+      "blockedRequests": 46,
+      "effect": "EFFECT_SUCKER_PUNCH",
+      "leadPairs": 20,
+      "leadRequests": 20,
+      "moves": [
+        {
+          "id": 389,
+          "name": "Sucker Punch",
+          "sourceMetadata": {
+            "effect": "EFFECT_SUCKER_PUNCH",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 6
+      },
+      "potentialUpperBound": 40
+    },
+    {
+      "battles": 15,
+      "blockedRequests": 36,
+      "effect": "EFFECT_ENDEAVOR",
+      "leadPairs": 14,
+      "leadRequests": 14,
+      "moves": [
+        {
+          "id": 283,
+          "name": "Endeavor",
+          "sourceMetadata": {
+            "effect": "EFFECT_ENDEAVOR",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 18
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 18,
+      "blockedRequests": 36,
+      "effect": "EFFECT_POWER_BASED_ON_TARGET_HP",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 378,
+          "name": "Wring Out",
+          "sourceMetadata": {
+            "effect": "EFFECT_POWER_BASED_ON_TARGET_HP",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 36
+    },
+    {
+      "battles": 18,
+      "blockedRequests": 36,
+      "effect": "EFFECT_SOLAR_BEAM",
+      "leadPairs": 16,
+      "leadRequests": 16,
+      "moves": [
+        {
+          "id": 76,
+          "name": "Solar Beam",
+          "sourceMetadata": {
+            "effect": "EFFECT_SOLAR_BEAM",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 12,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 22
+    },
+    {
+      "battles": 14,
+      "blockedRequests": 34,
+      "effect": "EFFECT_HIT / damagesAirborne",
+      "leadPairs": 8,
+      "leadRequests": 8,
+      "moves": [
+        {
+          "id": 542,
+          "name": "Hurricane",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesAirborne": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        },
+        {
+          "id": 327,
+          "name": "Sky Uppercut",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesAirborne": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": true,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 8
+      },
+      "potentialUpperBound": 24
+    },
+    {
+      "battles": 17,
+      "blockedRequests": 34,
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "leadPairs": 8,
+      "leadRequests": 8,
+      "moves": [
+        {
+          "id": 728,
+          "name": "Meteor Beam",
+          "sourceMetadata": {
+            "effect": "EFFECT_TWO_TURNS_ATTACK",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 13,
+          "name": "Razor Wind",
+          "sourceMetadata": {
+            "effect": "EFFECT_TWO_TURNS_ATTACK",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 130,
+          "name": "Skull Bash",
+          "sourceMetadata": {
+            "effect": "EFFECT_TWO_TURNS_ATTACK",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": null
+          }
+        },
+        {
+          "id": 143,
+          "name": "Sky Attack",
+          "sourceMetadata": {
+            "effect": "EFFECT_TWO_TURNS_ATTACK",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": null
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 16,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 10
+      },
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 14,
+      "blockedRequests": 30,
+      "effect": "EFFECT_REVENGE",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 419,
+          "name": "Avalanche",
+          "sourceMetadata": {
+            "effect": "EFFECT_REVENGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 279,
+          "name": "Revenge",
+          "sourceMetadata": {
+            "effect": "EFFECT_REVENGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 26
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 28,
+      "effect": "EFFECT_HIT / damagesAirborneDoubleDamage",
+      "leadPairs": 16,
+      "leadRequests": 16,
+      "moves": [
+        {
+          "id": 239,
+          "name": "Twister",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesAirborneDoubleDamage": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 28
+    },
+    {
+      "battles": 13,
+      "blockedRequests": 28,
+      "effect": "EFFECT_HIT / ignoresTargetDefenseEvasionStages",
+      "leadPairs": 8,
+      "leadRequests": 8,
+      "moves": [
+        {
+          "id": 498,
+          "name": "Chip Away",
+          "sourceMetadata": {
+            "damageFlags": {
+              "ignoresTargetDefenseEvasionStages": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 626,
+          "name": "Darkest Lariat",
+          "sourceMetadata": {
+            "damageFlags": {
+              "ignoresTargetDefenseEvasionStages": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 26
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 28,
+      "effect": "EFFECT_SMACK_DOWN",
+      "leadPairs": 20,
+      "leadRequests": 20,
+      "moves": [
+        {
+          "id": 479,
+          "name": "Smack Down",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesAirborne": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_SMACK_DOWN",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 28
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 26,
+      "effect": "EFFECT_MAGNITUDE",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 222,
+          "name": "Magnitude",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesUnderground": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_MAGNITUDE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 24
+    },
+    {
+      "battles": 13,
+      "blockedRequests": 26,
+      "effect": "EFFECT_PAYBACK",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 371,
+          "name": "Payback",
+          "sourceMetadata": {
+            "effect": "EFFECT_PAYBACK",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 10
+      },
+      "potentialUpperBound": 12
+    },
+    {
+      "battles": 12,
+      "blockedRequests": 26,
+      "effect": "EFFECT_RECOIL_IF_MISS",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 136,
+          "name": "High Jump Kick",
+          "sourceMetadata": {
+            "effect": "EFFECT_RECOIL_IF_MISS",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 26,
+          "name": "Jump Kick",
+          "sourceMetadata": {
+            "effect": "EFFECT_RECOIL_IF_MISS",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 26,
+      "effect": "EFFECT_REFLECT_DAMAGE",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 68,
+          "name": "Counter",
+          "sourceMetadata": {
+            "effect": "EFFECT_REFLECT_DAMAGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 368,
+          "name": "Metal Burst",
+          "sourceMetadata": {
+            "effect": "EFFECT_REFLECT_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 243,
+          "name": "Mirror Coat",
+          "sourceMetadata": {
+            "effect": "EFFECT_REFLECT_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 8,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 12,
+      "blockedRequests": 24,
+      "effect": "EFFECT_FIRST_TURN_ONLY",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 252,
+          "name": "Fake Out",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIRST_TURN_ONLY",
+            "makesContact": null,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        },
+        {
+          "id": 623,
+          "name": "First Impression",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIRST_TURN_ONLY",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 16
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 24,
+      "effect": "EFFECT_FUTURE_SIGHT",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 248,
+          "name": "Future Sight",
+          "sourceMetadata": {
+            "effect": "EFFECT_FUTURE_SIGHT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 24
+    },
+    {
+      "battles": 9,
+      "blockedRequests": 24,
+      "effect": "EFFECT_HEAT_CRASH",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 484,
+          "name": "Heavy Slam",
+          "sourceMetadata": {
+            "damageFlags": {
+              "minimizeDoubleDamage": [
+                "B_UPDATED_MOVE_FLAGS >= GEN_7"
+              ]
+            },
+            "effect": "EFFECT_HEAT_CRASH",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 10,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 12
+    },
+    {
+      "battles": 12,
+      "blockedRequests": 24,
+      "effect": "EFFECT_SPIT_UP",
+      "leadPairs": 12,
+      "leadRequests": 12,
+      "moves": [
+        {
+          "id": 255,
+          "name": "Spit Up",
+          "sourceMetadata": {
+            "effect": "EFFECT_SPIT_UP",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 9,
+      "blockedRequests": 22,
+      "effect": "EFFECT_FELL_STINGER",
+      "leadPairs": 14,
+      "leadRequests": 14,
+      "moves": [
+        {
+          "id": 565,
+          "name": "Fell Stinger",
+          "sourceMetadata": {
+            "effect": "EFFECT_FELL_STINGER",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 16,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 8,
+      "blockedRequests": 22,
+      "effect": "EFFECT_PSYSHOCK",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 473,
+          "name": "Psyshock",
+          "sourceMetadata": {
+            "effect": "EFFECT_PSYSHOCK",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 14
+    },
+    {
+      "battles": 10,
+      "blockedRequests": 20,
+      "effect": "EFFECT_DREAM_EATER",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 138,
+          "name": "Dream Eater",
+          "sourceMetadata": {
+            "effect": "EFFECT_DREAM_EATER",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 20
+    },
+    {
+      "battles": 10,
+      "blockedRequests": 20,
+      "effect": "EFFECT_FACADE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 263,
+          "name": "Facade",
+          "sourceMetadata": {
+            "effect": "EFFECT_FACADE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 8,
+      "blockedRequests": 16,
+      "effect": "EFFECT_FOUL_PLAY",
+      "leadPairs": 8,
+      "leadRequests": 8,
+      "moves": [
+        {
+          "id": 492,
+          "name": "Foul Play",
+          "sourceMetadata": {
+            "effect": "EFFECT_FOUL_PLAY",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 12
+    },
+    {
+      "battles": 8,
+      "blockedRequests": 16,
+      "effect": "EFFECT_SKY_DROP",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 507,
+          "name": "Sky Drop",
+          "sourceMetadata": {
+            "effect": "EFFECT_SKY_DROP",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 16
+    },
+    {
+      "battles": 8,
+      "blockedRequests": 16,
+      "effect": "EFFECT_UPROAR",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 253,
+          "name": "Uproar",
+          "sourceMetadata": {
+            "effect": "EFFECT_UPROAR",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 16
+    },
+    {
+      "battles": 7,
+      "blockedRequests": 14,
+      "effect": "EFFECT_RAGE_FIST",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 815,
+          "name": "Rage Fist",
+          "sourceMetadata": {
+            "effect": "EFFECT_RAGE_FIST",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": true,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 14
+    },
+    {
+      "battles": 7,
+      "blockedRequests": 14,
+      "effect": "EFFECT_RETALIATE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 514,
+          "name": "Retaliate",
+          "sourceMetadata": {
+            "effect": "EFFECT_RETALIATE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 14
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 14,
+      "effect": "UNKNOWN",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 67,
+          "name": "Low Kick",
+          "sourceMetadata": {}
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 6,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 6,
+      "blockedRequests": 12,
+      "effect": "EFFECT_BIDE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 117,
+          "name": "Bide",
+          "sourceMetadata": {
+            "effect": "EFFECT_BIDE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 10
+      },
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 6,
+      "blockedRequests": 12,
+      "effect": "EFFECT_FIXED_PERCENT_DAMAGE",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 162,
+          "name": "Super Fang",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIXED_PERCENT_DAMAGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 6,
+      "blockedRequests": 12,
+      "effect": "EFFECT_PSYWAVE",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 149,
+          "name": "Psywave",
+          "sourceMetadata": {
+            "effect": "EFFECT_PSYWAVE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 12
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_BEAT_UP",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 251,
+          "name": "Beat Up",
+          "sourceMetadata": {
+            "effect": "EFFECT_BEAT_UP",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_FRUSTRATION",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 218,
+          "name": "Frustration",
+          "sourceMetadata": {
+            "effect": "EFFECT_FRUSTRATION",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 10
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 284,
+          "name": "Eruption",
+          "sourceMetadata": {
+            "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 323,
+          "name": "Water Spout",
+          "sourceMetadata": {
+            "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_SNORE",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 173,
+          "name": "Snore",
+          "sourceMetadata": {
+            "effect": "EFFECT_SNORE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 10
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_STOMPING_TANTRUM",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 661,
+          "name": "Stomping Tantrum",
+          "sourceMetadata": {
+            "effect": "EFFECT_STOMPING_TANTRUM",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 843,
+          "name": "Temper Flare",
+          "sourceMetadata": {
+            "effect": "EFFECT_STOMPING_TANTRUM",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_TRIPLE_KICK",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 167,
+          "name": "Triple Kick",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "3"
+              ]
+            },
+            "effect": "EFFECT_TRIPLE_KICK",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 8,
+      "effect": "EFFECT_BODY_PRESS",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 704,
+          "name": "Body Press",
+          "sourceMetadata": {
+            "effect": "EFFECT_BODY_PRESS",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_FALSE_SWIPE",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 206,
+          "name": "False Swipe",
+          "sourceMetadata": {
+            "effect": "EFFECT_FALSE_SWIPE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_FURY_CUTTER",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 210,
+          "name": "Fury Cutter",
+          "sourceMetadata": {
+            "effect": "EFFECT_FURY_CUTTER",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4
+      },
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 8,
+      "effect": "EFFECT_HIDDEN_POWER",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 237,
+          "name": "Hidden Power",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIDDEN_POWER",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_PUNISHMENT",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 386,
+          "name": "Punishment",
+          "sourceMetadata": {
+            "effect": "EFFECT_PUNISHMENT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_SUPER_EFFECTIVE_ON_ARG",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 573,
+          "name": "Freeze-Dry",
+          "sourceMetadata": {
+            "effect": "EFFECT_SUPER_EFFECTIVE_ON_ARG",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_SYNCHRONOISE",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 485,
+          "name": "Synchronoise",
+          "sourceMetadata": {
+            "effect": "EFFECT_SYNCHRONOISE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_WEATHER_BALL",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 311,
+          "name": "Weather Ball",
+          "sourceMetadata": {
+            "effect": "EFFECT_WEATHER_BALL",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 6,
+      "effect": "EFFECT_PRESENT",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 217,
+          "name": "Present",
+          "sourceMetadata": {
+            "effect": "EFFECT_PRESENT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 6,
+      "effect": "EFFECT_RAGING_BULL",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 801,
+          "name": "Raging Bull",
+          "sourceMetadata": {
+            "effect": "EFFECT_RAGING_BULL",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 6,
+      "effect": "EFFECT_STONE_AXE",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 758,
+          "name": "Stone Axe",
+          "sourceMetadata": {
+            "effect": "EFFECT_STONE_AXE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 6,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 6,
+      "effect": "EFFECT_TRUMP_CARD",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 376,
+          "name": "Trump Card",
+          "sourceMetadata": {
+            "effect": "EFFECT_TRUMP_CARD",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_ABSORB",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 71,
+          "name": "Absorb",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "absorbPercentage": 50,
+            "effect": "EFFECT_ABSORB",
+            "fixedSingleHitDrain": true,
+            "healingMove": true,
+            "immunityFlags": [
+              "healingMove"
+            ],
+            "makesContact": false,
+            "ordinary": false,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "target": "TARGET_SELECTED"
+          }
+        },
+        {
+          "id": 202,
+          "name": "Giga Drain",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "absorbPercentage": 50,
+            "effect": "EFFECT_ABSORB",
+            "fixedSingleHitDrain": true,
+            "healingMove": true,
+            "immunityFlags": [
+              "healingMove"
+            ],
+            "makesContact": false,
+            "ordinary": false,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "target": "TARGET_SELECTED"
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_FOCUS_PUNCH",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 264,
+          "name": "Focus Punch",
+          "sourceMetadata": {
+            "effect": "EFFECT_FOCUS_PUNCH",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": true,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_LASH_OUT",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 736,
+          "name": "Lash Out",
+          "sourceMetadata": {
+            "effect": "EFFECT_LASH_OUT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_STORED_POWER",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 500,
+          "name": "Stored Power",
+          "sourceMetadata": {
+            "effect": "EFFECT_STORED_POWER",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_TERRAIN_BOOST",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 725,
+          "name": "Expanding Force",
+          "sourceMetadata": {
+            "effect": "EFFECT_TERRAIN_BOOST",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 732,
+          "name": "Rising Voltage",
+          "sourceMetadata": {
+            "effect": "EFFECT_TERRAIN_BOOST",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_CHLOROBLAST",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 763,
+          "name": "Chloroblast",
+          "sourceMetadata": {
+            "effect": "EFFECT_CHLOROBLAST",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_EARTHQUAKE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 89,
+          "name": "Earthquake",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "damageFlags": {
+              "damagesUnderground": [
+                "B_UPDATED_MOVE_FLAGS >= GEN_2"
+              ]
+            },
+            "damagesUnderground": true,
+            "effect": "EFFECT_EARTHQUAKE",
+            "fixedSingleHitEarthquake": true,
+            "immunityFlags": [],
+            "makesContact": false,
+            "ordinary": false,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "target": "TARGET_FOES_AND_ALLY"
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_ECHOED_VOICE",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 497,
+          "name": "Echoed Voice",
+          "sourceMetadata": {
+            "effect": "EFFECT_ECHOED_VOICE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_FAIL_IF_NOT_ARG_TYPE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 645,
+          "name": "Burn Up",
+          "sourceMetadata": {
+            "damageFlags": {
+              "thawsUser": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_FAIL_IF_NOT_ARG_TYPE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_HIT / alwaysCriticalHit",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 480,
+          "name": "Storm Throw",
+          "sourceMetadata": {
+            "damageFlags": {
+              "alwaysCriticalHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_HIT / damagesUnderwater",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 250,
+          "name": "Whirlpool",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 85,
+            "additionalEffects": [
+              {
+                "chance": 0,
+                "moveEffect": "MOVE_EFFECT_WRAP",
+                "multistring": "B_MSG_WRAPPED_WHIRLPOOL",
+                "preAttackEffect": false,
+                "sheerForceOverride": false
+              }
+            ],
+            "category": "DAMAGE_CATEGORY_SPECIAL",
+            "damageFlags": {
+              "damagesUnderwater": [
+                "TRUE"
+              ]
+            },
+            "damagesUnderwater": true,
+            "effect": "EFFECT_HIT",
+            "fixedSingleHitUnderwater": true,
+            "immunityFlags": [],
+            "makesContact": false,
+            "multiHit": false,
+            "ordinary": false,
+            "power": 35,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "skyBattleBanned": false,
+            "strikeCount": 1,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_WATER"
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_LOW_KICK",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 447,
+          "name": "Grass Knot",
+          "sourceMetadata": {
+            "effect": "EFFECT_LOW_KICK",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_RETURN",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 216,
+          "name": "Return",
+          "sourceMetadata": {
+            "effect": "EFFECT_RETURN",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_SHELL_SIDE_ARM",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 729,
+          "name": "Shell Side Arm",
+          "sourceMetadata": {
+            "effect": "EFFECT_SHELL_SIDE_ARM",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_STEAL_ITEM",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 168,
+          "name": "Thief",
+          "sourceMetadata": {
+            "effect": "EFFECT_STEAL_ITEM",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    }
+  ],
+  "remainingFamilyRanking": [
+    {
+      "battles": 138,
+      "blockedRequests": 392,
+      "effect": "EFFECT_HIT / repeated strikes",
+      "leadPairs": 160,
+      "leadRequests": 166,
+      "moves": [
+        {
+          "id": 292,
+          "name": "Arm Thrust",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 198,
+          "name": "Bone Rush",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 155,
+          "name": "Bonemerang",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 331,
+          "name": "Bullet Seed",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 4,
+          "name": "Comet Punch",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": true,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 458,
+          "name": "Double Hit",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 24,
+          "name": "Double Kick",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 3,
+          "name": "Double Slap",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 530,
+          "name": "Dual Chop",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 742,
+          "name": "Dual Wingbeat",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 31,
+          "name": "Fury Attack",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 154,
+          "name": "Fury Swipes",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 333,
+          "name": "Icicle Spear",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 42,
+          "name": "Pin Missile",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 350,
+          "name": "Rock Blast",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 727,
+          "name": "Scale Shot",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 131,
+          "name": "Spike Cannon",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 541,
+          "name": "Tail Slap",
+          "sourceMetadata": {
+            "damageFlags": {
+              "multiHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 814,
+          "name": "Twin Beam",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 41,
+          "name": "Twineedle",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "2"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 36,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 14,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 336
+    },
+    {
+      "battles": 39,
+      "blockedRequests": 90,
+      "effect": "EFFECT_ROLLOUT",
+      "leadPairs": 38,
+      "leadRequests": 38,
+      "moves": [
+        {
+          "id": 301,
+          "name": "Ice Ball",
+          "sourceMetadata": {
+            "effect": "EFFECT_ROLLOUT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 205,
+          "name": "Rollout",
+          "sourceMetadata": {
+            "effect": "EFFECT_ROLLOUT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 10,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 72
+    },
+    {
+      "battles": 36,
+      "blockedRequests": 80,
+      "effect": "EFFECT_SEMI_INVULNERABLE",
+      "leadPairs": 34,
+      "leadRequests": 34,
+      "moves": [
+        {
+          "id": 340,
+          "name": "Bounce",
+          "sourceMetadata": {
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        },
+        {
+          "id": 91,
+          "name": "Dig",
+          "sourceMetadata": {
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 291,
+          "name": "Dive",
+          "sourceMetadata": {
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 19,
+          "name": "Fly",
+          "sourceMetadata": {
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 566,
+          "name": "Phantom Force",
+          "sourceMetadata": {
+            "damageFlags": {
+              "minimizeDoubleDamage": [
+                "B_UPDATED_MOVE_FLAGS < GEN_7"
+              ]
+            },
+            "effect": "EFFECT_SEMI_INVULNERABLE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 6,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 8
+      },
+      "potentialUpperBound": 70
+    },
+    {
+      "battles": 29,
+      "blockedRequests": 74,
+      "effect": "EFFECT_HIT_ESCAPE",
+      "leadPairs": 28,
+      "leadRequests": 28,
+      "moves": [
+        {
+          "id": 740,
+          "name": "Flip Turn",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_ESCAPE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 369,
+          "name": "U-Turn",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_ESCAPE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 521,
+          "name": "Volt Switch",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_ESCAPE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 68
+    },
+    {
+      "battles": 29,
+      "blockedRequests": 70,
+      "effect": "EFFECT_OHKO",
+      "leadPairs": 22,
+      "leadRequests": 22,
+      "moves": [
+        {
+          "id": 90,
+          "name": "Fissure",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesUnderground": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_OHKO",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 12,
+          "name": "Guillotine",
+          "sourceMetadata": {
+            "effect": "EFFECT_OHKO",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 32,
+          "name": "Horn Drill",
+          "sourceMetadata": {
+            "effect": "EFFECT_OHKO",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 329,
+          "name": "Sheer Cold",
+          "sourceMetadata": {
+            "effect": "EFFECT_OHKO",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 66
+    },
+    {
+      "battles": 33,
+      "blockedRequests": 68,
+      "effect": "EFFECT_PURSUIT",
+      "leadPairs": 30,
+      "leadRequests": 30,
+      "moves": [
+        {
+          "id": 228,
+          "name": "Pursuit",
+          "sourceMetadata": {
+            "effect": "EFFECT_PURSUIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 8,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 14
+      },
+      "potentialUpperBound": 48
+    },
+    {
+      "battles": 21,
+      "blockedRequests": 64,
+      "effect": "EFFECT_BELCH",
+      "leadPairs": 20,
+      "leadRequests": 20,
+      "moves": [
+        {
+          "id": 562,
+          "name": "Belch",
+          "sourceMetadata": {
+            "effect": "EFFECT_BELCH",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 64
+    },
+    {
+      "battles": 21,
+      "blockedRequests": 62,
+      "effect": "EFFECT_ASSURANCE",
+      "leadPairs": 28,
+      "leadRequests": 28,
+      "moves": [
+        {
+          "id": 372,
+          "name": "Assurance",
+          "sourceMetadata": {
+            "effect": "EFFECT_ASSURANCE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 58
+    },
+    {
+      "battles": 22,
+      "blockedRequests": 54,
+      "effect": "EFFECT_FIXED_HP_DAMAGE",
+      "leadPairs": 22,
+      "leadRequests": 22,
+      "moves": [
+        {
+          "id": 82,
+          "name": "Dragon Rage",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIXED_HP_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 49,
+          "name": "Sonic Boom",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIXED_HP_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 12
+      },
+      "potentialUpperBound": 42
+    },
+    {
+      "battles": 24,
+      "blockedRequests": 52,
+      "effect": "EFFECT_FLAIL",
+      "leadPairs": 22,
+      "leadRequests": 22,
+      "moves": [
+        {
+          "id": 175,
+          "name": "Flail",
+          "sourceMetadata": {
+            "effect": "EFFECT_FLAIL",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 179,
+          "name": "Reversal",
+          "sourceMetadata": {
+            "effect": "EFFECT_FLAIL",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 42
+    },
+    {
+      "battles": 17,
+      "blockedRequests": 52,
+      "effect": "EFFECT_HIT_SWITCH_TARGET",
+      "leadPairs": 16,
+      "leadRequests": 16,
+      "moves": [
+        {
+          "id": 509,
+          "name": "Circle Throw",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_SWITCH_TARGET",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 525,
+          "name": "Dragon Tail",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIT_SWITCH_TARGET",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 52
+    },
+    {
+      "battles": 23,
+      "blockedRequests": 52,
+      "effect": "EFFECT_LEVEL_DAMAGE",
+      "leadPairs": 26,
+      "leadRequests": 26,
+      "moves": [
+        {
+          "id": 101,
+          "name": "Night Shade",
+          "sourceMetadata": {
+            "effect": "EFFECT_LEVEL_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 69,
+          "name": "Seismic Toss",
+          "sourceMetadata": {
+            "effect": "EFFECT_LEVEL_DAMAGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4
+      },
+      "potentialUpperBound": 48
+    },
+    {
+      "battles": 22,
+      "blockedRequests": 52,
+      "effect": "EFFECT_RAPID_SPIN",
+      "leadPairs": 14,
+      "leadRequests": 14,
+      "moves": [
+        {
+          "id": 229,
+          "name": "Rapid Spin",
+          "sourceMetadata": {
+            "effect": "EFFECT_RAPID_SPIN",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": null
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 10,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 16
+      },
+      "potentialUpperBound": 26
+    },
+    {
+      "battles": 22,
+      "blockedRequests": 48,
+      "effect": "EFFECT_ELECTRO_BALL",
+      "leadPairs": 20,
+      "leadRequests": 20,
+      "moves": [
+        {
+          "id": 486,
+          "name": "Electro Ball",
+          "sourceMetadata": {
+            "effect": "EFFECT_ELECTRO_BALL",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 44
+    },
+    {
+      "battles": 24,
+      "blockedRequests": 48,
+      "effect": "EFFECT_LAST_RESORT",
+      "leadPairs": 24,
+      "leadRequests": 24,
+      "moves": [
+        {
+          "id": 387,
+          "name": "Last Resort",
+          "sourceMetadata": {
+            "effect": "EFFECT_LAST_RESORT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 12
+      },
+      "potentialUpperBound": 36
+    },
+    {
+      "battles": 20,
+      "blockedRequests": 46,
+      "effect": "EFFECT_SUCKER_PUNCH",
+      "leadPairs": 20,
+      "leadRequests": 20,
+      "moves": [
+        {
+          "id": 389,
+          "name": "Sucker Punch",
+          "sourceMetadata": {
+            "effect": "EFFECT_SUCKER_PUNCH",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 6
+      },
+      "potentialUpperBound": 40
+    },
+    {
+      "battles": 15,
+      "blockedRequests": 36,
+      "effect": "EFFECT_ENDEAVOR",
+      "leadPairs": 14,
+      "leadRequests": 14,
+      "moves": [
+        {
+          "id": 283,
+          "name": "Endeavor",
+          "sourceMetadata": {
+            "effect": "EFFECT_ENDEAVOR",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 18
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 18,
+      "blockedRequests": 36,
+      "effect": "EFFECT_POWER_BASED_ON_TARGET_HP",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 378,
+          "name": "Wring Out",
+          "sourceMetadata": {
+            "effect": "EFFECT_POWER_BASED_ON_TARGET_HP",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 36
+    },
+    {
+      "battles": 18,
+      "blockedRequests": 36,
+      "effect": "EFFECT_SOLAR_BEAM",
+      "leadPairs": 16,
+      "leadRequests": 16,
+      "moves": [
+        {
+          "id": 76,
+          "name": "Solar Beam",
+          "sourceMetadata": {
+            "effect": "EFFECT_SOLAR_BEAM",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 12,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 22
+    },
+    {
+      "battles": 14,
+      "blockedRequests": 34,
+      "effect": "EFFECT_HIT / damagesAirborne",
+      "leadPairs": 8,
+      "leadRequests": 8,
+      "moves": [
+        {
+          "id": 542,
+          "name": "Hurricane",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesAirborne": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        },
+        {
+          "id": 327,
+          "name": "Sky Uppercut",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesAirborne": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": true,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 8
+      },
+      "potentialUpperBound": 24
+    },
+    {
+      "battles": 17,
+      "blockedRequests": 34,
+      "effect": "EFFECT_TWO_TURNS_ATTACK",
+      "leadPairs": 8,
+      "leadRequests": 8,
+      "moves": [
+        {
+          "id": 728,
+          "name": "Meteor Beam",
+          "sourceMetadata": {
+            "effect": "EFFECT_TWO_TURNS_ATTACK",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 13,
+          "name": "Razor Wind",
+          "sourceMetadata": {
+            "effect": "EFFECT_TWO_TURNS_ATTACK",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 130,
+          "name": "Skull Bash",
+          "sourceMetadata": {
+            "effect": "EFFECT_TWO_TURNS_ATTACK",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": null
+          }
+        },
+        {
+          "id": 143,
+          "name": "Sky Attack",
+          "sourceMetadata": {
+            "effect": "EFFECT_TWO_TURNS_ATTACK",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": null
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 16,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 10
+      },
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 14,
+      "blockedRequests": 30,
+      "effect": "EFFECT_REVENGE",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 419,
+          "name": "Avalanche",
+          "sourceMetadata": {
+            "effect": "EFFECT_REVENGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 279,
+          "name": "Revenge",
+          "sourceMetadata": {
+            "effect": "EFFECT_REVENGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 26
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 28,
+      "effect": "EFFECT_HIT / damagesAirborneDoubleDamage",
+      "leadPairs": 16,
+      "leadRequests": 16,
+      "moves": [
+        {
+          "id": 239,
+          "name": "Twister",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesAirborneDoubleDamage": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 28
+    },
+    {
+      "battles": 13,
+      "blockedRequests": 28,
+      "effect": "EFFECT_HIT / ignoresTargetDefenseEvasionStages",
+      "leadPairs": 8,
+      "leadRequests": 8,
+      "moves": [
+        {
+          "id": 498,
+          "name": "Chip Away",
+          "sourceMetadata": {
+            "damageFlags": {
+              "ignoresTargetDefenseEvasionStages": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 626,
+          "name": "Darkest Lariat",
+          "sourceMetadata": {
+            "damageFlags": {
+              "ignoresTargetDefenseEvasionStages": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 26
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 28,
+      "effect": "EFFECT_SMACK_DOWN",
+      "leadPairs": 20,
+      "leadRequests": 20,
+      "moves": [
+        {
+          "id": 479,
+          "name": "Smack Down",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesAirborne": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_SMACK_DOWN",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 28
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 26,
+      "effect": "EFFECT_MAGNITUDE",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 222,
+          "name": "Magnitude",
+          "sourceMetadata": {
+            "damageFlags": {
+              "damagesUnderground": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_MAGNITUDE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 24
+    },
+    {
+      "battles": 13,
+      "blockedRequests": 26,
+      "effect": "EFFECT_PAYBACK",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 371,
+          "name": "Payback",
+          "sourceMetadata": {
+            "effect": "EFFECT_PAYBACK",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 10
+      },
+      "potentialUpperBound": 12
+    },
+    {
+      "battles": 12,
+      "blockedRequests": 26,
+      "effect": "EFFECT_RECOIL_IF_MISS",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 136,
+          "name": "High Jump Kick",
+          "sourceMetadata": {
+            "effect": "EFFECT_RECOIL_IF_MISS",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 26,
+          "name": "Jump Kick",
+          "sourceMetadata": {
+            "effect": "EFFECT_RECOIL_IF_MISS",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 26,
+      "effect": "EFFECT_REFLECT_DAMAGE",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 68,
+          "name": "Counter",
+          "sourceMetadata": {
+            "effect": "EFFECT_REFLECT_DAMAGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 368,
+          "name": "Metal Burst",
+          "sourceMetadata": {
+            "effect": "EFFECT_REFLECT_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 243,
+          "name": "Mirror Coat",
+          "sourceMetadata": {
+            "effect": "EFFECT_REFLECT_DAMAGE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 8,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 12,
+      "blockedRequests": 24,
+      "effect": "EFFECT_FIRST_TURN_ONLY",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 252,
+          "name": "Fake Out",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIRST_TURN_ONLY",
+            "makesContact": null,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        },
+        {
+          "id": 623,
+          "name": "First Impression",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIRST_TURN_ONLY",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 16
+    },
+    {
+      "battles": 11,
+      "blockedRequests": 24,
+      "effect": "EFFECT_FUTURE_SIGHT",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 248,
+          "name": "Future Sight",
+          "sourceMetadata": {
+            "effect": "EFFECT_FUTURE_SIGHT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 24
+    },
+    {
+      "battles": 9,
+      "blockedRequests": 24,
+      "effect": "EFFECT_HEAT_CRASH",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 484,
+          "name": "Heavy Slam",
+          "sourceMetadata": {
+            "damageFlags": {
+              "minimizeDoubleDamage": [
+                "B_UPDATED_MOVE_FLAGS >= GEN_7"
+              ]
+            },
+            "effect": "EFFECT_HEAT_CRASH",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 10,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 12
+    },
+    {
+      "battles": 12,
+      "blockedRequests": 24,
+      "effect": "EFFECT_SPIT_UP",
+      "leadPairs": 12,
+      "leadRequests": 12,
+      "moves": [
+        {
+          "id": 255,
+          "name": "Spit Up",
+          "sourceMetadata": {
+            "effect": "EFFECT_SPIT_UP",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 9,
+      "blockedRequests": 22,
+      "effect": "EFFECT_FELL_STINGER",
+      "leadPairs": 14,
+      "leadRequests": 14,
+      "moves": [
+        {
+          "id": 565,
+          "name": "Fell Stinger",
+          "sourceMetadata": {
+            "effect": "EFFECT_FELL_STINGER",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 16,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 8,
+      "blockedRequests": 22,
+      "effect": "EFFECT_PSYSHOCK",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 473,
+          "name": "Psyshock",
+          "sourceMetadata": {
+            "effect": "EFFECT_PSYSHOCK",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 14
+    },
+    {
+      "battles": 10,
+      "blockedRequests": 20,
+      "effect": "EFFECT_DREAM_EATER",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 138,
+          "name": "Dream Eater",
+          "sourceMetadata": {
+            "effect": "EFFECT_DREAM_EATER",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 20
+    },
+    {
+      "battles": 10,
+      "blockedRequests": 20,
+      "effect": "EFFECT_FACADE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 263,
+          "name": "Facade",
+          "sourceMetadata": {
+            "effect": "EFFECT_FACADE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 18
+    },
+    {
+      "battles": 8,
+      "blockedRequests": 16,
+      "effect": "EFFECT_FOUL_PLAY",
+      "leadPairs": 8,
+      "leadRequests": 8,
+      "moves": [
+        {
+          "id": 492,
+          "name": "Foul Play",
+          "sourceMetadata": {
+            "effect": "EFFECT_FOUL_PLAY",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 12
+    },
+    {
+      "battles": 8,
+      "blockedRequests": 16,
+      "effect": "EFFECT_SKY_DROP",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 507,
+          "name": "Sky Drop",
+          "sourceMetadata": {
+            "effect": "EFFECT_SKY_DROP",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 16
+    },
+    {
+      "battles": 8,
+      "blockedRequests": 16,
+      "effect": "EFFECT_UPROAR",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 253,
+          "name": "Uproar",
+          "sourceMetadata": {
+            "effect": "EFFECT_UPROAR",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 16
+    },
+    {
+      "battles": 7,
+      "blockedRequests": 14,
+      "effect": "EFFECT_RAGE_FIST",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 815,
+          "name": "Rage Fist",
+          "sourceMetadata": {
+            "effect": "EFFECT_RAGE_FIST",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": true,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 14
+    },
+    {
+      "battles": 7,
+      "blockedRequests": 14,
+      "effect": "EFFECT_RETALIATE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 514,
+          "name": "Retaliate",
+          "sourceMetadata": {
+            "effect": "EFFECT_RETALIATE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 14
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 14,
+      "effect": "UNKNOWN",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 67,
+          "name": "Low Kick",
+          "sourceMetadata": {}
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 6,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 6,
+      "blockedRequests": 12,
+      "effect": "EFFECT_BIDE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 117,
+          "name": "Bide",
+          "sourceMetadata": {
+            "effect": "EFFECT_BIDE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 10
+      },
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 6,
+      "blockedRequests": 12,
+      "effect": "EFFECT_FIXED_PERCENT_DAMAGE",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 162,
+          "name": "Super Fang",
+          "sourceMetadata": {
+            "effect": "EFFECT_FIXED_PERCENT_DAMAGE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 6,
+      "blockedRequests": 12,
+      "effect": "EFFECT_PSYWAVE",
+      "leadPairs": 10,
+      "leadRequests": 10,
+      "moves": [
+        {
+          "id": 149,
+          "name": "Psywave",
+          "sourceMetadata": {
+            "effect": "EFFECT_PSYWAVE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 12
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_BEAT_UP",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 251,
+          "name": "Beat Up",
+          "sourceMetadata": {
+            "effect": "EFFECT_BEAT_UP",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_FRUSTRATION",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 218,
+          "name": "Frustration",
+          "sourceMetadata": {
+            "effect": "EFFECT_FRUSTRATION",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 10
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 284,
+          "name": "Eruption",
+          "sourceMetadata": {
+            "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 323,
+          "name": "Water Spout",
+          "sourceMetadata": {
+            "effect": "EFFECT_POWER_BASED_ON_USER_HP",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_SNORE",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 173,
+          "name": "Snore",
+          "sourceMetadata": {
+            "effect": "EFFECT_SNORE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 10
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_STOMPING_TANTRUM",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 661,
+          "name": "Stomping Tantrum",
+          "sourceMetadata": {
+            "effect": "EFFECT_STOMPING_TANTRUM",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 843,
+          "name": "Temper Flare",
+          "sourceMetadata": {
+            "effect": "EFFECT_STOMPING_TANTRUM",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 5,
+      "blockedRequests": 10,
+      "effect": "EFFECT_TRIPLE_KICK",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 167,
+          "name": "Triple Kick",
+          "sourceMetadata": {
+            "damageFlags": {
+              "strikeCount": [
+                "3"
+              ]
+            },
+            "effect": "EFFECT_TRIPLE_KICK",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 4
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 8,
+      "effect": "EFFECT_BODY_PRESS",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 704,
+          "name": "Body Press",
+          "sourceMetadata": {
+            "effect": "EFFECT_BODY_PRESS",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 4,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_FALSE_SWIPE",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 206,
+          "name": "False Swipe",
+          "sourceMetadata": {
+            "effect": "EFFECT_FALSE_SWIPE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_FURY_CUTTER",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 210,
+          "name": "Fury Cutter",
+          "sourceMetadata": {
+            "effect": "EFFECT_FURY_CUTTER",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 4
+      },
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 8,
+      "effect": "EFFECT_HIDDEN_POWER",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 237,
+          "name": "Hidden Power",
+          "sourceMetadata": {
+            "effect": "EFFECT_HIDDEN_POWER",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_PUNISHMENT",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 386,
+          "name": "Punishment",
+          "sourceMetadata": {
+            "effect": "EFFECT_PUNISHMENT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_SUPER_EFFECTIVE_ON_ARG",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 573,
+          "name": "Freeze-Dry",
+          "sourceMetadata": {
+            "effect": "EFFECT_SUPER_EFFECTIVE_ON_ARG",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_SYNCHRONOISE",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 485,
+          "name": "Synchronoise",
+          "sourceMetadata": {
+            "effect": "EFFECT_SYNCHRONOISE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 4,
+      "blockedRequests": 8,
+      "effect": "EFFECT_WEATHER_BALL",
+      "leadPairs": 6,
+      "leadRequests": 6,
+      "moves": [
+        {
+          "id": 311,
+          "name": "Weather Ball",
+          "sourceMetadata": {
+            "effect": "EFFECT_WEATHER_BALL",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 8
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 6,
+      "effect": "EFFECT_PRESENT",
+      "leadPairs": 4,
+      "leadRequests": 4,
+      "moves": [
+        {
+          "id": 217,
+          "name": "Present",
+          "sourceMetadata": {
+            "effect": "EFFECT_PRESENT",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 6,
+      "effect": "EFFECT_RAGING_BULL",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 801,
+          "name": "Raging Bull",
+          "sourceMetadata": {
+            "effect": "EFFECT_RAGING_BULL",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2,
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 6,
+      "effect": "EFFECT_STONE_AXE",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 758,
+          "name": "Stone Axe",
+          "sourceMetadata": {
+            "effect": "EFFECT_STONE_AXE",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 6,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 6
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 3,
+      "blockedRequests": 6,
+      "effect": "EFFECT_TRUMP_CARD",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 376,
+          "name": "Trump Card",
+          "sourceMetadata": {
+            "effect": "EFFECT_TRUMP_CARD",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 6
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_ABSORB",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 71,
+          "name": "Absorb",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "absorbPercentage": 50,
+            "effect": "EFFECT_ABSORB",
+            "fixedSingleHitDrain": true,
+            "healingMove": true,
+            "immunityFlags": [
+              "healingMove"
+            ],
+            "makesContact": false,
+            "ordinary": false,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "target": "TARGET_SELECTED"
+          }
+        },
+        {
+          "id": 202,
+          "name": "Giga Drain",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "absorbPercentage": 50,
+            "effect": "EFFECT_ABSORB",
+            "fixedSingleHitDrain": true,
+            "healingMove": true,
+            "immunityFlags": [
+              "healingMove"
+            ],
+            "makesContact": false,
+            "ordinary": false,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "target": "TARGET_SELECTED"
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_FOCUS_PUNCH",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 264,
+          "name": "Focus Punch",
+          "sourceMetadata": {
+            "effect": "EFFECT_FOCUS_PUNCH",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": true,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_LASH_OUT",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 736,
+          "name": "Lash Out",
+          "sourceMetadata": {
+            "effect": "EFFECT_LASH_OUT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_STORED_POWER",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 500,
+          "name": "Stored Power",
+          "sourceMetadata": {
+            "effect": "EFFECT_STORED_POWER",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 4
+    },
+    {
+      "battles": 2,
+      "blockedRequests": 4,
+      "effect": "EFFECT_TERRAIN_BOOST",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 725,
+          "name": "Expanding Force",
+          "sourceMetadata": {
+            "effect": "EFFECT_TERRAIN_BOOST",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        },
+        {
+          "id": 732,
+          "name": "Rising Voltage",
+          "sourceMetadata": {
+            "effect": "EFFECT_TERRAIN_BOOST",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_CHLOROBLAST",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 763,
+          "name": "Chloroblast",
+          "sourceMetadata": {
+            "effect": "EFFECT_CHLOROBLAST",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_EARTHQUAKE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 89,
+          "name": "Earthquake",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "damageFlags": {
+              "damagesUnderground": [
+                "B_UPDATED_MOVE_FLAGS >= GEN_2"
+              ]
+            },
+            "damagesUnderground": true,
+            "effect": "EFFECT_EARTHQUAKE",
+            "fixedSingleHitEarthquake": true,
+            "immunityFlags": [],
+            "makesContact": false,
+            "ordinary": false,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "target": "TARGET_FOES_AND_ALLY"
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_ECHOED_VOICE",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 497,
+          "name": "Echoed Voice",
+          "sourceMetadata": {
+            "effect": "EFFECT_ECHOED_VOICE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_FAIL_IF_NOT_ARG_TYPE",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 645,
+          "name": "Burn Up",
+          "sourceMetadata": {
+            "damageFlags": {
+              "thawsUser": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_FAIL_IF_NOT_ARG_TYPE",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_CONDITION_UNVERIFIED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_GYRO_BALL",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 360,
+          "name": "Gyro Ball",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": true,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
+            "effect": "EFFECT_GYRO_BALL",
+            "fixedSingleHitGyroBall": true,
+            "immunityFlags": [
+              "ballisticMove"
+            ],
+            "makesContact": true,
+            "multiHit": false,
+            "ordinary": false,
+            "power": 1,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "strikeCount": 1,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_STEEL"
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_EFFECTIVE_SPEED_UNKNOWN": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_HIT / alwaysCriticalHit",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 480,
+          "name": "Storm Throw",
+          "sourceMetadata": {
+            "damageFlags": {
+              "alwaysCriticalHit": [
+                "TRUE"
+              ]
+            },
+            "effect": "EFFECT_HIT",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_HIT / damagesUnderwater",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 250,
+          "name": "Whirlpool",
+          "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 85,
+            "additionalEffects": [
+              {
+                "chance": 0,
+                "moveEffect": "MOVE_EFFECT_WRAP",
+                "multistring": "B_MSG_WRAPPED_WHIRLPOOL",
+                "preAttackEffect": false,
+                "sheerForceOverride": false
+              }
+            ],
+            "category": "DAMAGE_CATEGORY_SPECIAL",
+            "damageFlags": {
+              "damagesUnderwater": [
+                "TRUE"
+              ]
+            },
+            "damagesUnderwater": true,
+            "effect": "EFFECT_HIT",
+            "fixedSingleHitUnderwater": true,
+            "immunityFlags": [],
+            "makesContact": false,
+            "multiHit": false,
+            "ordinary": false,
+            "power": 35,
+            "priority": 0,
+            "punchingMove": false,
+            "sheerForceAffected": false,
+            "skyBattleBanned": false,
+            "strikeCount": 1,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_WATER"
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_LOW_KICK",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 447,
+          "name": "Grass Knot",
+          "sourceMetadata": {
+            "effect": "EFFECT_LOW_KICK",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_RETURN",
+      "leadPairs": 2,
+      "leadRequests": 2,
+      "moves": [
+        {
+          "id": 216,
+          "name": "Return",
+          "sourceMetadata": {
+            "effect": "EFFECT_RETURN",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_SHELL_SIDE_ARM",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 729,
+          "name": "Shell Side Arm",
+          "sourceMetadata": {
+            "effect": "EFFECT_SHELL_SIDE_ARM",
+            "makesContact": false,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": true
+          }
+        }
+      ],
+      "overlappingBlockers": {
+        "HNS_ABILITY_EFFECT_NOT_MODELLED": 2,
+        "HNS_ITEM_EFFECT_NOT_MODELLED": 2
+      },
+      "potentialUpperBound": 0
+    },
+    {
+      "battles": 1,
+      "blockedRequests": 2,
+      "effect": "EFFECT_STEAL_ITEM",
+      "leadPairs": 0,
+      "leadRequests": 0,
+      "moves": [
+        {
+          "id": 168,
+          "name": "Thief",
+          "sourceMetadata": {
+            "effect": "EFFECT_STEAL_ITEM",
+            "makesContact": true,
+            "ordinary": false,
+            "punchingMove": false,
+            "sheerForceAffected": false
+          }
+        }
+      ],
+      "overlappingBlockers": {},
+      "potentialUpperBound": 2
+    }
+  ],
+  "selectedStillRefused": [
+    {
+      "causes": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_EFFECTIVE_SPEED_UNKNOWN"
+      ],
+      "key": "TRAINER_DUFF_AND_EDA_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "reasons": [
+        "HNS_EFFECTIVE_SPEED_UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ]
+    },
+    {
+      "causes": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_EFFECTIVE_SPEED_UNKNOWN"
+      ],
+      "key": "TRAINER_DUFF_AND_EDA_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "reasons": [
+        "HNS_EFFECTIVE_SPEED_UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ]
+    }
+  ],
+  "startingSha": "0c821f012b0e73e8cc50a7a8074e8aa2dcb623cc",
+  "transitionCounts": {
+    "REFUSED -> CAVEATED_ESTIMATE": 0,
+    "REFUSED -> FULLY_MODELLED": 88,
+    "REFUSED -> REFUSED": 2
+  },
+  "transitions": [
+    {
+      "key": "TRAINER_BETH_HNS#2|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BETH_HNS#2|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BLAINE_POSTOBC_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BLAINE_POSTOBC_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BRIAN_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BRIAN_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BUGSY_2_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BUGSY_2_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BUGSY_POSTOBC_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BUGSY_POSTOBC_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_CAROL_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_CAROL_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DUFF_AND_EDA_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_EFFECTIVE_SPEED_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_EFFECTIVE_SPEED_UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DUFF_AND_EDA_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_EFFECTIVE_SPEED_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_EFFECTIVE_SPEED_UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_EDDIE_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_EDDIE_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ELLEN_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ELLEN_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GEORGE_HNS#2|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GEORGE_HNS#2|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_11_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_11_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_12_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_12_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_19_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_19_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_31_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_31_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_3_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_3_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_4_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_4_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HORTON_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HORTON_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HORTON_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HORTON_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HORTON_HNS#2|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HORTON_HNS#2|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HORTON_HNS#3|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HORTON_HNS#3|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_IRWIN_4_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_IRWIN_4_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_IRWIN_5_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_IRWIN_5_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JASMINE_1_3_HNS#2|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JASMINE_1_3_HNS#2|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JASMINE_2_HNS#3|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JASMINE_2_HNS#3|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JASMINE_POSTOBC_HNS#4|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Steely Spirit:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JASMINE_POSTOBC_HNS#4|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Steely Spirit:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JENN_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JENN_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JERRY_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JERRY_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENNY_2_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENNY_2_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENNY_3_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENNY_3_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENNY_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENNY_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KIPP_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KIPP_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KIPP_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KIPP_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_NOLAND_BF_BRAIN_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_NOLAND_BF_BRAIN_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_NOLAND_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_NOLAND_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PAULA_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PAULA_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PROTON_2_HNS#2|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PROTON_2_HNS#2|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_REENA_3_HNS#3|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_REENA_3_HNS#3|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SHAWN_HNS#2|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SHAWN_HNS#2|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SHIRLEY_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SHIRLEY_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SHIRLEY_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SHIRLEY_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TOM_HNS#0|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TOM_HNS#0|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TOM_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TOM_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VINCENT_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VINCENT_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WESSEL_HNS#1|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WESSEL_HNS#1|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WHITNEY_2_HNS#5|ref-physical|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Silk Scarf:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ITEM_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WHITNEY_2_HNS#5|ref-special|trainer-to-reference|Gyro Ball",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_ITEM_EFFECT_NOT_MODELLED:attacker:Silk Scarf:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ITEM_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    }
+  ]
+}

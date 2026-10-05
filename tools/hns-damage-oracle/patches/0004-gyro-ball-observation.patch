@@ -1,0 +1,27 @@
+Read-only TESTING accessor for the original Gyro Ball base-power function. No formula or state writes.
+
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -6570,6 +6570,22 @@
+     return basePower;
+ }
+ 
++#if TESTING
++// Read-only oracle accessor: execute the original static base-power function for Gyro Ball.
++u32 DdxoGyroBallBasePower(enum BattlerId atk, enum BattlerId def)
++{
++    struct BattleContext ctx = {0};
++    ctx.battlerAtk = atk;
++    ctx.battlerDef = def;
++    ctx.move = MOVE_GYRO_BALL;
++    ctx.abilityAtk = GetBattlerAbility(atk);
++    ctx.abilityDef = GetBattlerAbility(def);
++    ctx.holdEffectAtk = GetBattlerHoldEffect(atk);
++    ctx.holdEffectDef = GetBattlerHoldEffect(def);
++    return CalcMoveBasePower(&ctx);
++}
++#endif
++
+ static inline u32 CalcMoveBasePowerAfterModifiers(struct BattleContext *ctx)
+ {
+     u32 holdEffectParamAtk;

@@ -50,9 +50,9 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 | Tier | Requests |
 |---|---:|
-| `FULLY_MODELLED` | 21232 |
+| `FULLY_MODELLED` | 21278 |
 | `CAVEATED_ESTIMATE` | 462 |
-| `REFUSED` | 2584 |
+| `REFUSED` | 2538 |
 
 ## Denominators
 
@@ -66,7 +66,7 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 | - reference lead -> trainer | 14656 |
 | - trainer -> reference lead | 9622 |
 | Moves excluded, not damaging | 4782 |
-| Of the eligible requests, refused by `HNS_MOVE_MECHANICS_NOT_MODELLED` | 2194 |
+| Of the eligible requests, refused by `HNS_MOVE_MECHANICS_NOT_MODELLED` | 2148 |
 
 **Eligibility rule.** A pinned move is eligible when its own record declares a base power greater than zero: it deals damage, so the production policy has a real verdict for it. A move whose damage shape is outside the admitted fixed single-hit subset is therefore **evaluated and refused** with `HNS_MOVE_MECHANICS_NOT_MODELLED`, and it counts in the denominator and in the blocker ranking. Only a move with no base power at all is excluded, because there is no damage number to display or refuse for it; those are recorded in `excludedMoves` with their reason and excluded from every damage metric above.
 
@@ -74,7 +74,7 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 
 **Definition.** For every trainer battle, the *trainer lead* is the trainer's pinned party slot 0 (the pinned source uses no party pools and no party-index shuffling; the inventory extractor fails closed if that ever changes). The *matchup* is that lead paired with each reference team lead, in both directions, over the eligible damaging moves of that pair. A pair *displays* only when **every** eligible request in it displays a number.
 
-> **47.2% of trainer-battle lead matchups display every eligible damaging move** (614 of 1302 reference-pair evaluations over 651 of 651 trainer battles).
+> **48.4% of trainer-battle lead matchups display every eligible damaging move** (630 of 1302 reference-pair evaluations over 651 of 651 trainer battles).
 
 | | |
 |---|---:|
@@ -82,15 +82,15 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 | Battles included in the lead metric | 651 |
 | Battles excluded: lead has no eligible damaging move | 0 |
 | Lead pairs evaluated (battle x reference team) | 1302 |
-| Lead pairs whose every eligible request displays | 614 |
+| Lead pairs whose every eligible request displays | 630 |
 | Eligible requests in the lead metric | 8450 |
-| Of those, displaying | 7464 |
+| Of those, displaying | 7482 |
 
 Split by the trainer's own battle format; Doubles requests require the complete source-proven live operand packet in addition to target count:
 
 | Format | Pairs evaluated | Pairs displaying | Coverage |
 |---|---:|---:|---:|
-| Singles | 1284 | 608 | 47.4% |
+| Singles | 1284 | 624 | 48.6% |
 | Doubles | 18 | 6 | 33.3% |
 
 A battle whose lead has no eligible damaging move is excluded rather than counted as covered or as blocked, because there is no damage number in question for it. Its party members are still counted in the trainer-level inventory and in the blocker counts.
@@ -101,7 +101,7 @@ Ranked by the number of distinct trainer battles affected, then by requests. A b
 
 | # | Blocker | Limitation | Side | Battles | Requests |
 |---:|---|---|---|---:|---:|
-| 1 | HNS_MOVE_MECHANICS_NOT_MODELLED | `HNS_MOVE_MECHANICS_NOT_MODELLED` | - | 483 | 2194 |
+| 1 | HNS_MOVE_MECHANICS_NOT_MODELLED | `HNS_MOVE_MECHANICS_NOT_MODELLED` | - | 473 | 2148 |
 | 2 | HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | - | 68 | 152 |
 | 3 | Swarm | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 24 | 92 |
 | 4 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 24 | 88 |
@@ -143,13 +143,13 @@ These named abilities and items are neutralized by production policy before the 
 
 | Limitation | Battles | Requests |
 |---|---:|---:|
-| `HNS_MOVE_MECHANICS_NOT_MODELLED` | 483 | 2194 |
+| `HNS_MOVE_MECHANICS_NOT_MODELLED` | 473 | 2148 |
 | `HNS_ABILITY_CONDITION_UNVERIFIED` | 70 | 216 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
-| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 50 | 378 |
-| `HNS_ITEM_EFFECT_NOT_MODELLED` | 44 | 156 |
+| `HNS_ABILITY_EFFECT_NOT_MODELLED` | 50 | 376 |
+| `HNS_ITEM_EFFECT_NOT_MODELLED` | 44 | 152 |
 | `HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED` | 2 | 4 |
-| `HNS_EFFECTIVE_SPEED_UNKNOWN` | 1 | 2 |
+| `HNS_EFFECTIVE_SPEED_UNKNOWN` | 2 | 4 |
 
 ### Held-item blockers
 
@@ -163,7 +163,7 @@ These named abilities and items are neutralized by production policy before the 
 | Charcoal | attacker | 3 | 6 |
 | Flying Gem | attacker | 2 | 8 |
 | Lagging Tail | attacker | 2 | 8 |
-| Miracle Seed | attacker | 2 | 8 |
+| Miracle Seed | attacker | 2 | 6 |
 | Black Glasses | attacker | 2 | 4 |
 | Razor Claw | attacker | 2 | 4 |
 | Electric Seed | defender | 1 | 8 |
@@ -172,9 +172,9 @@ These named abilities and items are neutralized by production policy before the 
 | Draco Plate | attacker | 1 | 2 |
 | Icicle Plate | attacker | 1 | 2 |
 | Mystic Water | attacker | 1 | 2 |
-| Normal Gem | attacker | 1 | 2 |
 | Pixie Plate | attacker | 1 | 2 |
 | Sharp Beak | attacker | 1 | 2 |
+| Soft Sand | attacker | 1 | 2 |
 
 ## Random Abilities view
 
@@ -188,7 +188,7 @@ Under Random Abilities any of the pinned domain's 310 abilities can be installed
 
 Counts are weighted by the cohort's eligible requests; battle counts de-duplicate trainer battles within each disposition. Refusals are attributed only to the exact ability entry in production's blocker list, while caveats use its ignored-mechanic list. Thus an unsupported move can refuse a request without making a caveatable ability look like a blocker. *Rules* lists the reviewed contextual rules that fired.
 
-**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 729450 request trials as refused, 12902 as caveated, and 2921848 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
+**Weighted request-trial totals.** Across the eligible ability/side/category contexts, production classified 727478 request trials as refused, 12932 as caveated, and 2923790 as clear. These totals count each ability assignment over each eligible request once and exclude the ambiguous opposite-ability contexts described above.
 
 ### Abilities that cause refusals
 
@@ -221,7 +221,7 @@ Counts are weighted by the cohort's eligible requests; battle counts de-duplicat
 | 1 | Huge Power | attacker | Physical | 475 | 4405 | attack_stat_ability_physical_move |
 | 2 | Pure Power | attacker | Physical | 475 | 4405 | attack_stat_ability_physical_move |
 | 3 | Sturdy | defender | Physical | 376 | 2156 | group_e_sturdy_survival_estimate,group_e_survival |
-| 4 | Sturdy | defender | Special | 317 | 1546 | group_e_sturdy_survival_estimate,group_e_survival |
+| 4 | Sturdy | defender | Special | 320 | 1576 | group_e_sturdy_survival_estimate,group_e_survival |
 | 5 | Thick Fat | defender | Special | 88 | 276 | group_e_fixed_hit_modifier,thick_fat_fire_or_ice_move,thick_fat_other_move_type |
 | 6 | Thick Fat | defender | Physical | 45 | 114 | group_e_fixed_hit_modifier,thick_fat_fire_or_ice_move,thick_fat_other_move_type |
 
@@ -308,23 +308,25 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Sharpness | 4 | 0 | 0 | sharpness_defender_side, sharpness_nonslicing_move |
 | Tera Shell | 4 | 0 | 0 | attacker_always_irrelevant, defender_not_terapagos_terastal |
 | Damp | 4 | 1 | 0 | damp_selected_hit_execution |
-| Swift Swim | 4 | 1 | 0 | gyro_ball_speed_ability_exact, speed_ability_unsupported_move_independent, speed_ability_without_analytic |
-| Chlorophyll | 4 | 1 | 0 | gyro_ball_speed_ability_exact, speed_ability_unsupported_move_independent, speed_ability_without_analytic |
+| Plus | 4 | 1 | 0 | doubles_plus_minus_exact |
+| Minus | 4 | 1 | 0 | doubles_plus_minus_exact |
+| Friend Guard | 4 | 1 | 0 | doubles_partner_holder_opposing_hit |
+| Telepathy | 4 | 1 | 0 | doubles_partner_holder_opposing_hit |
 | Battle Armor | 4 | 2 | 0 | attacker_critical_hit_armor, defender_armor_fixed_noncritical_hit |
 | Color Change | 4 | 2 | 0 | live_effective_types_capture_type_rewriter |
 | Flash Fire | 4 | 2 | 0 | flash_fire_defender_immunity_only, flash_fire_nonfire_move |
 | Rough Skin | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
+| Swift Swim | 4 | 2 | 0 | electro_ball_speed_ability_exact, gyro_ball_speed_ability_exact, speed_ability_without_analytic |
+| Chlorophyll | 4 | 2 | 0 | electro_ball_speed_ability_exact, gyro_ball_speed_ability_exact, speed_ability_without_analytic |
 | Trace | 4 | 2 | 0 | live_effective_ability_capture_ability_rewriter |
 | Thick Fat | 4 | 2 | 2 | attacker_thick_fat_does_not_mitigate_incoming_damage, group_e_fixed_hit_modifier |
-| Plus | 4 | 2 | 0 | doubles_plus_minus_exact |
-| Minus | 4 | 2 | 0 | doubles_plus_minus_exact |
 | Marvel Scale | 4 | 2 | 0 | marvel_scale_attacker_side, marvel_scale_no_status, marvel_scale_operands_unknown |
 | Liquid Ooze | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Shell Armor | 4 | 2 | 0 | attacker_critical_hit_armor, defender_armor_fixed_noncritical_hit |
 | Rivalry | 4 | 2 | 0 | rivalry_defender_role_irrelevant, rivalry_genderless_neutral |
 | Unburden | 4 | 2 | 0 | group_e_order_modifier, speed_ability_without_analytic |
 | Heatproof | 4 | 2 | 0 | heatproof_attacker_direct_hit_irrelevant, heatproof_defender_fire_move |
-| Quick Feet | 4 | 2 | 0 | group_e_order_modifier, speed_ability_without_analytic |
+| Quick Feet | 4 | 2 | 0 | electro_ball_speed_ability_exact, group_e_order_modifier, speed_ability_without_analytic |
 | Klutz | 4 | 2 | 0 | group_e_hold_authority, klutz_no_current_item |
 | Super Luck | 4 | 2 | 0 | fixed_crit_stage_only |
 | Aftermath | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
@@ -333,10 +335,8 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Solid Rock | 4 | 2 | 0 | solid_rock_attacker_side, solid_rock_effectiveness_unknown |
 | Flower Gift | 4 | 2 | 0 | flower_gift_not_cherrim_sunshine |
 | Pickpocket | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
-| Friend Guard | 4 | 2 | 0 | doubles_partner_holder_opposing_hit |
 | Harvest | 4 | 2 | 0 | berry_recovery_outside_single_hit |
-| Telepathy | 4 | 2 | 0 | doubles_partner_holder_opposing_hit |
-| Sand Rush | 4 | 2 | 0 | group_e_order_modifier, speed_ability_without_analytic |
+| Sand Rush | 4 | 2 | 0 | electro_ball_speed_ability_exact, group_e_order_modifier, speed_ability_without_analytic |
 | Mummy | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Iron Barbs | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Cheek Pouch | 4 | 2 | 0 | berry_recovery_outside_single_hit |
@@ -346,7 +346,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Aura Break | 4 | 2 | 0 | aura_no_matching_field_ability, aura_wrong_type_or_no_matching_aura |
 | Stakeout | 4 | 2 | 0 | stakeout_defender_role_irrelevant, stakeout_raw_first_turn_other |
 | Water Bubble | 4 | 2 | 0 | water_bubble_attacker_nonwater_move, water_bubble_defender_fire_move |
-| Slush Rush | 4 | 2 | 0 | group_e_order_modifier, speed_ability_without_analytic |
+| Slush Rush | 4 | 2 | 0 | electro_ball_speed_ability_exact, group_e_order_modifier, speed_ability_without_analytic |
 | Innards Out | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Fluffy | 4 | 2 | 0 | fluffy_attacker_side, fluffy_contact_unknown |
 | Tangling Hair | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
@@ -359,7 +359,7 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Mimicry | 4 | 2 | 0 | live_effective_types_capture_type_rewriter |
 | Steely Spirit | 4 | 2 | 0 | steely_spirit_defender_singles_irrelevant, steely_spirit_holder_effective_nonsteel_move |
 | Wandering Spirit | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
-| Quick Draw | 4 | 2 | 0 | group_e_order_modifier, speed_ability_without_analytic |
+| Quick Draw | 4 | 2 | 0 | electro_ball_speed_ability_exact, group_e_order_modifier, speed_ability_without_analytic |
 | Lingering Aroma | 4 | 2 | 0 | after_hit_ability_outside_single_hit |
 | Wind Power | 4 | 2 | 0 | group_e_charge, group_e_charge_non_electric |
 | Electromorphosis | 4 | 2 | 0 | group_e_charge, group_e_charge_non_electric |
@@ -384,11 +384,11 @@ These rows have a reviewed context rule and at least one explicit proof of irrel
 | Truant | 2 | 2 | 0 | attacker_move_execution_state_unobserved, defender_truant_does_not_change_incoming_damage |
 | Multiscale | 2 | 2 | 0 | multiscale_attacker_side, multiscale_full_hp |
 | Shadow Shield | 2 | 2 | 0 | shadow_shield_attacker_side, shadow_shield_full_hp |
+| Stall | 2 | 4 | 0 | electro_ball_speed_ability_exact, group_e_move_execution |
 | Analytic | 2 | 4 | 0 | analytic_defender_role_irrelevant |
 | Triage | 2 | 4 | 0 | group_e_move_execution |
-| Stall | 1 | 4 | 0 | group_e_move_execution |
+| Surge Surfer | 2 | 4 | 0 | electro_ball_speed_ability_exact, group_e_move_execution |
 | Parental Bond | 1 | 4 | 0 | group_e_move_execution |
-| Surge Surfer | 1 | 4 | 0 | group_e_move_execution |
 
 ### Side and category breakdown
 
@@ -399,7 +399,7 @@ The same ability can be clear, caveated, or refused on different sides and in di
 | attacker | Physical | 56 | 4405 | 2 | 4405 |
 | attacker | Special | 56 | 2643 | 0 | 0 |
 | defender | Physical | 128 | 2988 | 2 | 2156 |
-| defender | Special | 125 | 1784 | 2 | 1546 |
+| defender | Special | 123 | 1784 | 2 | 1576 |
 
 Across all 1240 ranked rows the strongest three-valued ability result was `PROVEN_IRRELEVANT` in 841 rows, `RELEVANT` in 67 rows and `UNKNOWN` in 332 rows. These policy results are distinct from the trial dispositions above: RELEVANT may be caveated, while UNKNOWN remains refused. Clear, caveated and refused request/battle counts are included in each `abilityTrials` row. The per-ability-per-side-per-category detail is in `census.json` under `abilityTrials`; the per-cohort detail used to derive it is printed by `DUALDEX_CENSUS_FULL=true DUALDEX_CENSUS_GENERATE=true ./ci.sh test`.
 

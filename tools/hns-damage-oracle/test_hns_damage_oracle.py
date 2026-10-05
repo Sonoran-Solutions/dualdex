@@ -725,8 +725,8 @@ class HarnessGuardTest(unittest.TestCase):
         for name in backend.HARNESS_PATCHES:
             text = (backend.PATCH_DIR / name).read_text()
             targets = [line[6:] for line in text.splitlines() if line.startswith("+++ b/")]
-            expected = "src/battle_util.c" if name.startswith("0004") else "test/test_runner.c" if name.startswith("0001") else "test/test_runner_battle.c"
-            if name.startswith("0004"):
+            expected = "src/battle_util.c" if name.startswith(("0004", "0006")) else "test/test_runner.c" if name.startswith("0001") else "test/test_runner_battle.c"
+            if name.startswith(("0004", "0006")):
                 added = "\n".join(line[1:] for line in text.splitlines() if line.startswith("+") and not line.startswith("+++"))
                 self.assertIn("#if TESTING", added)
                 self.assertIn("return CalcMoveBasePower(&ctx);", added)
@@ -1092,6 +1092,24 @@ class BrineHpEvidenceTest(unittest.TestCase):
         for slot in ({"DG": [], "D2": []}, {"DG": []}):
             with self.assertRaisesRegex(backend.OracleError,"hit-boundary defender HP capture"):
                 backend.assemble_entry(scenario,{0:slot})
+
+
+class ElectroBallEvidenceTest(unittest.TestCase):
+    def test_source_totals_determine_power_and_zero_divisor_fails_before_division(self):
+        corpus = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        entry = copy.deepcopy(next(e for e in corpus['entries'] if e['scenario']['id']=='electro-ball-ratio-100'))
+        entry['observed']['effectiveSpeeds']['basePower'] = 80
+        with self.assertRaisesRegex(schema.SchemaError, 'dynamic Speed power'):
+            schema.validate_entry(entry)
+        entry['observed']['effectiveSpeeds']['defender']['total'] = 0
+        with self.assertRaisesRegex(schema.SchemaError, 'unsafe Electro Ball divisor'):
+            schema.validate_entry(entry)
+        scenario = next(s for s in SCENARIOS if s['id']=='electro-ball-attacker-zero')
+        source = backend.render_sources([scenario])
+        joined = '\n'.join(source.values())
+        guard = joined.index('Unsafe Electro Ball divisor')
+        accessor = joined.index('DdxoElectroBallBasePower((enum BattlerId)', guard)
+        self.assertLess(guard, accessor)
 
 
 if __name__ == "__main__":

@@ -40,6 +40,9 @@ enum class HnsMoveMechanicsCategory {
     /** Singles dynamic base power from exact effective Speeds. */
     FIXED_SINGLE_HIT_GYRO_BALL,
 
+    /** Singles integer Speed-ratio table; defender zero is refused. */
+    FIXED_SINGLE_HIT_ELECTRO_BALL,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -67,7 +70,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -234,6 +237,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_GYRO_BALL",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_GYRO_BALL,
                 "Pinned Singles dynamic power from source effective Speeds.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitElectroBallMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_ELECTRO_BALL",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ELECTRO_BALL,
+                "Pinned Singles integer effective-Speed ratio table; undefined zero divisor refused.")
         }
         val effect = Hns205MoveEffects.effectById[moveId]
         if (effect == null) {

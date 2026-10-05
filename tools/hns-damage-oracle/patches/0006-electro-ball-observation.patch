@@ -1,0 +1,27 @@
+Read-only TESTING accessor for the original Electro Ball base-power function. No formula or state writes.
+
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -6589,3 +6589,22 @@
++#if TESTING
++// Read-only oracle accessor: execute the original static base-power function for Electro Ball.
++u32 DdxoElectroBallBasePower(enum BattlerId atk, enum BattlerId def)
++{
++    // Never invoke the pinned unguarded division with a zero divisor.
++    if (GetBattlerTotalSpeedStat(def, GetBattlerAbility(def), GetBattlerHoldEffect(def)) == 0)
++        return 0;
++    struct BattleContext ctx = {0};
++    ctx.battlerAtk = atk;
++    ctx.battlerDef = def;
++    ctx.move = MOVE_ELECTRO_BALL;
++    ctx.abilityAtk = GetBattlerAbility(atk);
++    ctx.abilityDef = GetBattlerAbility(def);
++    ctx.holdEffectAtk = GetBattlerHoldEffect(atk);
++    ctx.holdEffectDef = GetBattlerHoldEffect(def);
++    return CalcMoveBasePower(&ctx);
++}
++#endif
++
+ static inline u32 CalcMoveBasePowerAfterModifiers(struct BattleContext *ctx)
+ {
+     u32 holdEffectParamAtk;

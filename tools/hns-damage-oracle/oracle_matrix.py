@@ -73,6 +73,7 @@ SPECIES = {
 MOVES = {
     "Brine": ("Water", "special", 65),
     "Gyro Ball": ("Steel", "physical", 1),
+    "Electro Ball": ("Electric", "special", 1),
     "Smelling Salts": ("Normal", "physical", 70), "Wake-Up Slap": ("Fighting", "physical", 70),
     "Venoshock": ("Poison", "special", 65), "Hex": ("Ghost", "special", 65),
     "Barb Barrage": ("Poison", "physical", 60), "Infernal Parade": ("Ghost", "special", 60),
@@ -142,6 +143,7 @@ IMMUNITIES = {
 TYPE_MOVES = {
     "Brine": ("Water", "special", 65),
     "Gyro Ball": ("Steel", "physical", 1),
+    "Electro Ball": ("Electric", "special", 1),
     "Normal": ("Strength", "Swift"), "Fighting": ("Karate Chop", "Aura Sphere"),
     "Flying": ("Drill Peck", "Air Slash"), "Poison": ("Poison Jab", "Sludge Bomb"),
     "Ground": ("Bone Club", "Earth Power"), "Rock": ("Rock Slide", "Power Gem"),
@@ -2545,12 +2547,63 @@ def _gyro_ball():
         case("badge-"+side,badges=(3,),side=side)
     return out
 
+def _electro_ball():
+    out = []
+    def case(name, a_speed=100, d_speed=100, ability="Insomnia", defender_ability="Insomnia", item=None, defender_item=None, a_species="Machamp", setup=None, surface="modelled", expect="damage", **kw):
+        a = attacker(a_species, atk=151, spa=151, spe=a_speed, ability=(symbol("ABILITY",ability),ability), item=(symbol("ITEM",item),item) if item else None)
+        d = defender("Blastoise", dfn=109, spd=109, spe=d_speed, ability=(symbol("ABILITY",defender_ability),defender_ability), item=(symbol("ITEM",defender_item),defender_item) if defender_item else None)
+        out.append(scenario("electro-ball-"+name, ["move-coverage-slice-9"], a, d, "Electro Ball", surface=surface, expect=expect, **kw))
+        out[-1]["stateSetup"] = setup or {"capture":True}
+    for a in (99,100,199,200,299,300,399,400,500):
+        case("ratio-"+str(a),a)
+    case("attacker-zero",1,setup={"gyroSpeed":{"attacker":{"stage":-6}}})
+    for bp,a in ((40,99),(60,100),(80,200)):
+        case("technician-"+str(bp),a,ability="Technician")
+    for role in ("attacker","defender"):
+        for item in ("Choice Scarf","Iron Ball"):
+            case(role+"-"+slug(item),item=item if role=="attacker" else None,defender_item=item if role=="defender" else None)
+        case(role+"-tailwind",setup={"gyroSpeed":{role:{"sideStatuses":0x10}}})
+    case("power-anklet",item="Power Anklet")
+    case("quick-powder-ditto",item="Quick Powder",a_species="Ditto")
+    for ability,weather in (("Swift Swim","rain"),("Chlorophyll","sun")):
+        case(slug(ability),ability=ability,weather=weather)
+        case(slug(ability)+"-umbrella",ability=ability,weather=weather,item="Utility Umbrella")
+        case(slug(ability)+"-cloud-nine",ability=ability,weather=weather,defender_ability="Cloud Nine")
+    case("slow-start",ability="Slow Start",setup={"attacker":{"slowStartTimer":1}})
+    case("surge-surfer-grounded",ability="Surge Surfer",terrain="electric")
+    case("surge-surfer-ungrounded",ability="Surge Surfer",terrain="electric",item="Air Balloon")
+    case("terrain-control",terrain="electric")
+    case("quark-drive-speed",ability="Quark Drive",terrain="electric",a_speed=300,setup={"attacker":{"paradoxBoostedStat":3}})
+    case("hadron-engine",ability="Hadron Engine",terrain="electric")
+    case("protosynthesis-speed",ability="Protosynthesis",weather="sun",a_speed=300,setup={"attacker":{"paradoxBoostedStat":3}})
+    case("charge",setup={"attacker":{"chargeTimer":1}})
+    case("charge-terrain-technician",ability="Technician",terrain="electric",setup={"attacker":{"chargeTimer":1}})
+    case("light-screen",light_screen=True)
+    for item in ("Magnet","Life Orb"):
+        case(slug(item),item=item)
+    case("crit",crit=True)
+    case("stages",setup={"attackerStatStages":{"spAttack":1},"defenderStatStages":{"spDefense":-1}})
+    out[-1]["attacker"]["stages"]["spAttack"] = 1
+    out[-1]["defender"]["stages"]["spDefense"] = -1
+    for ability in ("Bulletproof","Volt Absorb","Motor Drive","Lightning Rod"):
+        case(slug(ability),a_speed=500,defender_ability=ability,expect="immune")
+    case("mold-breaker",ability="Mold Breaker",defender_ability="Volt Absorb",surface="engine-only")
+    case("ability-shield",ability="Mold Breaker",defender_ability="Volt Absorb",defender_item="Ability Shield",expect="immune")
+    case("sheer-force",ability="Sheer Force")
+    case("normalize",ability="Normalize")
+    case("trick-room",setup={"gyroSpeed":{"trickRoom":True}})
+    case("quick-claw",item="Quick Claw")
+    case("unburden",ability="Unburden",surface="engine-only",setup={"gyroSpeed":{"attacker":{"unburdenActive":True}}})
+    case("paralysis",surface="engine-only",setup={"gyroSpeed":{"attacker":{"status1":64}}})
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine, _gyro_ball)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine, _gyro_ball, _electro_ball)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

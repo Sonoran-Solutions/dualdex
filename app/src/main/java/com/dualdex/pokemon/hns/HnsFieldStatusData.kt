@@ -91,6 +91,7 @@ internal object HnsFieldStatusData {
         "electric_terrain_grounded_electric_hadron_special",
         "electric_terrain_hadron_engine_special",
         "electric_terrain_hadron_engine_physical",
+        "electro_ball_electric_terrain_speed_exact",
         "psychic_terrain_grounded_attacker_nonpriority_move",
         "psychic_terrain_non_psychic_nonpriority_move",
         "psychic_terrain_priority_move",

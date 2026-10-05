@@ -270,12 +270,21 @@ class HnsFieldContextPolicyTest {
             ctx(moveId = HnsFieldStatusData.GRASSY_GLIDE_MOVE_ID, attackerAbility = analytic),
             ctx(effective = PokemonType.PSYCHIC), ctx(moveId = quickAttack),
             ctx(moveId = 409, attackerAbility = 205, defenderTerrain = HnsTerrainApplicability.NOT_AFFECTED),
-            ctx(preField = PokemonType.WATER, effective = PokemonType.WATER)
+            ctx(preField = PokemonType.WATER, effective = PokemonType.WATER),
+            ctx(moveId=486,effective=PokemonType.ELECTRIC,category=MoveCategory.SPECIAL).copy(effectiveSpeedExact=true)
         )
         for (context in contexts) {
             HnsFieldContextPolicy.assess(HnsFieldState.decode(-1), context).mapNotNullTo(produced) { it.rule }
         }
         assertEquals(HnsFieldStatusData.contextRuleNames, produced)
+    }
+    @Test fun `Electro Ball terrain requires both Speed and damage authority`() {
+        val exact=ctx(moveId=486,effective=PokemonType.ELECTRIC,category=MoveCategory.SPECIAL)
+            .copy(effectiveSpeedExact=true)
+        assertRule(modelled,"electro_ball_electric_terrain_speed_exact",decide(HnsFieldStatus.ELECTRIC_TERRAIN,exact))
+        for(missing in listOf(exact.copy(effectiveSpeedExact=false),
+            exact.copy(attackerTerrainApplicability=HnsTerrainApplicability.UNKNOWN),exact.copy(moveCategory=null)))
+            assertEquals(unknown,decide(HnsFieldStatus.ELECTRIC_TERRAIN,missing).relevance)
     }
     @Test fun `Earthquake Grassy effect uses observed semi state independent of terrain grounding`() {
         val base=ctx(moveId=89,effective=PokemonType.GROUND,defenderTerrain=HnsTerrainApplicability.UNKNOWN)

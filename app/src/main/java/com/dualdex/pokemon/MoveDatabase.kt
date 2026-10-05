@@ -19,7 +19,7 @@ data class MoveInfo(
 }
 
 fun movePowerDisplay(moveId: Int, power: Int?): String =
-    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitGyroBallMoveIds && power == 1) "Variable"
+    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.reviewedVariablePowerMoveIds && power == 1) "Variable"
     else power?.takeIf { it > 0 }?.toString() ?: "—"
 
 object MoveDatabase {

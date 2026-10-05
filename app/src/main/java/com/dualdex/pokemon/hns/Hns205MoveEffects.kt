@@ -3308,6 +3308,10 @@ internal object Hns205MoveEffects {
     val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(120, 153)
     val explosionPowerById: Map<Int, Int> = mapOf(120 to 200, 153 to 250)
     val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(360)
+    val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(486)
+    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds
+    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds
+    val electroBallPowerTable: List<Int> = listOf(40, 60, 80, 120, 150)
     val fixedSingleHitBrineMoveIds: Set<Int> = setOf(362)
     val fixedSingleHitStatusDoubleMoveIds: Set<Int> = setOf(265, 358, 474, 506, 767, 772)
     val statusDoublePowerMaskById: Map<Int, Int> = mapOf(265 to 64, 358 to 7, 474 to 136, 506 to 4351, 767 to 136, 772 to 4351)

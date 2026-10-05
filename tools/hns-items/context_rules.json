@@ -1001,6 +1001,19 @@
               "contains": "HOLD_EFFECT_CHOICE_SCARF"
             }
           ]
+        },
+        {
+          "rule": "electro_ball_speed_item_exact",
+          "side": "EITHER",
+          "families": [],
+          "predicate": "Singles Electro Ball; shared effective hold effect and every required effective-Speed operand exact.",
+          "rationale": "The source Speed item slot runs after badges and before Tailwind; suppressed hold effects remain NONE.",
+          "evidence": [
+            {
+              "source": "src/battle_main.c:4983",
+              "contains": "HOLD_EFFECT_CHOICE_SCARF"
+            }
+          ]
         }
       ],
       "always_blocking": [

@@ -295,8 +295,8 @@ def validate_scenario(s: Any, path: str = "scenario") -> None:
         for role, value in s["stateSetup"].items():
             loc = f"{path}.stateSetup.{role}"
             if role == "gyroSpeed":
-                if "move-coverage-slice-8" not in s["tags"] or not isinstance(value, dict) or not set(value) <= {"attacker", "defender", "trickRoom", "quickClawProc"}:
-                    _fail(loc, "requires Gyro Ball Speed setup")
+                if not any(t in s["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")) or not isinstance(value, dict) or not set(value) <= {"attacker", "defender", "trickRoom", "quickClawProc"}:
+                    _fail(loc, "requires reviewed Speed-power setup")
                 for key, operands in value.items():
                     if key in ("trickRoom", "quickClawProc"): _require_bool(operands, loc)
                     else:
@@ -423,8 +423,8 @@ def _validate_observed_battler(b: Any, path: str) -> None:
 
 def validate_observed(observed: Any, scenario: dict, path: str) -> None:
     extended = "doubles" in (scenario.get("stateSetup") or {})
-    _require_keys(observed, OBSERVED_KEYS + (("effectiveSpeeds",) if "move-coverage-slice-8" in scenario["tags"] else ()) + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
-    if "move-coverage-slice-8" in scenario["tags"]:
+    _require_keys(observed, OBSERVED_KEYS + (("effectiveSpeeds",) if any(t in scenario["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")) else ()) + (("doubles",) if extended else ()) + (("defenderSemiInvulnerableState",) if any(t in scenario["tags"] for t in ("move-coverage-slice-3", "move-coverage-slice-5")) else ()) + (("explosionUserHpAtDamage",) if "move-coverage-slice-4" in scenario["tags"] else ()), path)
+    if any(t in scenario["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")):
         speeds = observed["effectiveSpeeds"]
         _require_keys(speeds, ("attacker", "defender", "basePower"), path + ".effectiveSpeeds")
         for role in ("attacker", "defender"):
@@ -433,7 +433,11 @@ def validate_observed(observed: Any, scenario: dict, path: str) -> None:
                 _require_int(speeds[role][key], path, low, high)
             if speeds[role]["raw"] != scenario[role]["stats"]["speed"]: _fail(path, "raw Speed differs")
         a, d = speeds["attacker"]["total"], speeds["defender"]["total"]
-        if speeds["basePower"] != (1 if a == 0 else min(25*d//a+1,150)): _fail(path, "Gyro Ball power differs")
+        if "move-coverage-slice-9" in scenario["tags"]:
+            if d == 0: _fail(path, "unsafe Electro Ball divisor")
+            expected = [40,60,80,120,150][min(a//d,4)]
+        else: expected = 1 if a == 0 else min(25*d//a+1,150)
+        if speeds["basePower"] != expected: _fail(path, "dynamic Speed power differs")
     if "move-coverage-slice-4" in scenario["tags"]:
         _require_int(observed["explosionUserHpAtDamage"], path + ".explosionUserHpAtDamage", 0, 0)
     if extended:

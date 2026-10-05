@@ -58,7 +58,7 @@ ITEM_RECORDS = {
 
 TOOL_DIR = Path(__file__).resolve().parent
 PATCH_DIR = TOOL_DIR / "patches"
-HARNESS_PATCHES = ("0001-test-runner-include-order.patch", "0002-pre-damage-state-hook.patch", "0003-immunity-observation-hook.patch", "0004-gyro-ball-observation.patch", "0005-quick-claw-rng-control.patch")
+HARNESS_PATCHES = ("0001-test-runner-include-order.patch", "0002-pre-damage-state-hook.patch", "0003-immunity-observation-hook.patch", "0004-gyro-ball-observation.patch", "0005-quick-claw-rng-control.patch", "0006-electro-ball-observation.patch")
 TEST_SUBDIR = "test/dualdex_oracle"
 TEST_PREFIX = "DDXO "
 SCENARIOS_PER_FILE = 100
@@ -249,6 +249,7 @@ u32 GetMoveTargetCount(struct BattleContext *ctx);
 // State that changes cached hold effects is installed in GIVEN instead of this late hook.
 extern s32 gDdxoQuickClawMode;
 extern u32 DdxoGyroBallBasePower(enum BattlerId atk, enum BattlerId def);
+extern u32 DdxoElectroBallBasePower(enum BattlerId atk, enum BattlerId def);
 extern void (*gDdxoBeforeCriticalHit)(void);
 extern void (*gDdxoBeforeAbilityPopup)(void);
 static u16 sDdxoSpeciesAtHit[MAX_BATTLERS_COUNT];
@@ -600,7 +601,7 @@ def render_scenario(s: dict) -> str:
     lines.append(ind + "gDdxoBeforeAbilityPopup = NULL;")
     proc = (state_setup.get("gyroSpeed") or {}).get("quickClawProc")
     lines.append(ind + f"gDdxoQuickClawMode = {0 if proc is None else 1 + int(proc)};")
-    if any(t in s["tags"] for t in ("move-coverage-slice-7", "move-coverage-slice-8")) and s["expect"] == "immune":
+    if any(t in s["tags"] for t in ("move-coverage-slice-7", "move-coverage-slice-8", "move-coverage-slice-9")) and s["expect"] == "immune":
         lines.append(ind + f"gDdxoBeforeAbilityPopup = {callback_name};")
     lines.append("    } WHEN {")
     for turn in turns:
@@ -744,13 +745,16 @@ def render_scenario(s: dict) -> str:
                 setup.append(f"    gSideStatuses[GetBattlerSide((enum BattlerId){pos})] |= {operands['sideStatuses']};")
         if state_setup["gyroSpeed"].get("trickRoom"):
             setup.append("    gFieldStatuses |= STATUS_FIELD_TRICK_ROOM;")
-    if "move-coverage-slice-8" in s["tags"]:
+    if any(t in s["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")):
+        if "move-coverage-slice-9" in s["tags"]:
+            setup.append(f'    if (GetBattlerTotalSpeedStat((enum BattlerId){def_pos}, GetBattlerAbility((enum BattlerId){def_pos}), GetBattlerHoldEffect((enum BattlerId){def_pos})) == 0) Test_ExitWithResult(TEST_RESULT_FAIL, __LINE__, "Unsafe Electro Ball divisor");')
         args = []
         for pos in (atk_pos, def_pos):
             args += [f"gBattleMons[{pos}].speed", f"gBattleMons[{pos}].statStages[STAT_SPEED] - DEFAULT_STAT_STAGE",
                 f"GetBattlerTotalSpeedStat((enum BattlerId){pos}, GetBattlerAbility((enum BattlerId){pos}), GetBattlerHoldEffect((enum BattlerId){pos}))",
                 f"gSideStatuses[GetBattlerSide((enum BattlerId){pos})]", f"ShouldGetStatBadgeBoost(B_FLAG_BADGE_BOOST_SPEED, (enum BattlerId){pos})", f"gBattleMons[{pos}].volatiles.unburdenActive"]
-        args.append(f"DdxoGyroBallBasePower((enum BattlerId){atk_pos}, (enum BattlerId){def_pos})")
+        accessor = "DdxoElectroBallBasePower" if "move-coverage-slice-9" in s["tags"] else "DdxoGyroBallBasePower"
+        args.append(f"{accessor}((enum BattlerId){atk_pos}, (enum BattlerId){def_pos})")
         setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|G|'+"|".join(["%d"] * 13)+'", sDdxoRoll, '+", ".join(args)+');')
         setup.append("    gDdxoBeforeAbilityPopup = NULL;")
     setup += [f"    sDdxoBasePowerAtHit = GetActiveGimmick((enum BattlerId){atk_pos}) == GIMMICK_DYNAMAX ? GetMaxMovePower({move}) : GetMovePower({move});"]
@@ -781,6 +785,7 @@ EXECUTION_SOURCE = r'''#include "global.h"
 #include "constants/battle_move_effects.h"
 #include "move.h"
 extern u32 DdxoGyroBallBasePower(enum BattlerId atk, enum BattlerId def);
+extern u32 DdxoElectroBallBasePower(enum BattlerId atk, enum BattlerId def);
 extern void (*gDdxoBeforeCriticalHit)(void);
 extern void (*gDdxoBeforeAbilityPopup)(void);
 
@@ -1484,15 +1489,19 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             if semi != (2 if state_setup.get("underwater") else int(bool(state_setup.get("underground")))): raise OracleError(f"{sid}: wrong actual semi state {semi}")
             observed["defenderSemiInvulnerableState"] = semi
         elif "Q" in slot: raise OracleError(f"{sid}: unexpected semi state")
-        if "move-coverage-slice-8" in scenario["tags"]:
+        if any(t in scenario["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")):
             if "G" not in slot: raise OracleError(f"{sid}: missing engine Speed observation")
             values = [_int(v, sid + " Speed") for v in slot["G"]]
             speeds = {role: dict(zip(("raw", "stage", "total", "sideStatuses", "badge", "unburdenActive"), values[offset:offset+6]))
                 for role, offset in (("attacker", 0), ("defender", 6))}
             speeds["basePower"] = values[12]
             a, d = speeds["attacker"]["total"], speeds["defender"]["total"]
-            if speeds["basePower"] != (1 if a == 0 else min(25*d//a+1, 150)):
-                raise OracleError(f"{sid}: source Gyro Ball power disagrees with source total Speeds")
+            if "move-coverage-slice-9" in scenario["tags"]:
+                if d == 0: raise OracleError(f"{sid}: unsafe Electro Ball divisor")
+                expected = [40,60,80,120,150][min(a//d,4)]
+            else: expected = 1 if a == 0 else min(25*d//a+1,150)
+            if speeds["basePower"] != expected:
+                raise OracleError(f"{sid}: source dynamic Speed power disagrees with source total Speeds")
             observed["effectiveSpeeds"] = speeds
         elif "G" in slot: raise OracleError(f"{sid}: unexpected Speed observation")
         if canonical is None:
@@ -1543,7 +1552,7 @@ def verify_upstream(upstream: Path) -> None:
 def _apply_patch(work: Path, patch: Path) -> None:
     text = patch.read_text()
     targets = re.findall(r"^\+\+\+ b/(\S+)", text, re.M)
-    if not targets or any(not t.startswith("test/") and not (patch.name == "0004-gyro-ball-observation.patch" and t == "src/battle_util.c") for t in targets):
+    if not targets or any(not t.startswith("test/") and not (patch.name in ("0004-gyro-ball-observation.patch", "0006-electro-ball-observation.patch") and t == "src/battle_util.c") for t in targets):
         raise OracleError(f"{patch.name} must only touch the upstream test harness, touches {targets}")
     _run(["patch", "-p1", "--forward", "--batch", "-i", str(patch)], cwd=work)
 

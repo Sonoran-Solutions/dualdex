@@ -3761,7 +3761,23 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "fixedSingleHitElectroBall": true,
+      "power": 1,
+      "type": "TYPE_ELECTRIC",
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "accuracy": 100,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "ballisticMove": true,
+      "additionalEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [
+        "ballisticMove"
+      ]
     },
     "487": {
       "effect": "EFFECT_SOAK",

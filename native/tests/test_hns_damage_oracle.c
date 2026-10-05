@@ -524,6 +524,14 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     if (!source_effect || !jl_is_bool(ordinary)) return set_err(err, "oracle source move metadata is malformed");
     sb_append(sb, "],\"hnsMoveId\":%ld,\"hnsMoveEffect\":", (long)jl_num(jl_get(o_move, "id")));
     sb_json_string(sb, source_effect);
+    const int explosion = !strcmp(source_effect, "EFFECT_HIT") &&
+        (jl_num(jl_get(o_move, "id")) == 120 || jl_num(jl_get(o_move, "id")) == 153);
+    sb_append(sb, ",\"hnsIsExplosion\":%s", explosion ? "true" : "false");
+    if (explosion) {
+        const jl_value* hp = jl_get(obs, "explosionUserHpAtDamage");
+        if (strcmp(jl_str(jl_get(scen, "expect")), "immune") && (!jl_is_num(hp) || jl_num(hp) != 0)) return set_err(err, "explosion damage-time HP missing");
+        sb_append(sb, ",\"hnsExplosionUserHpAtDamage\":0");
+    }
     const int earthquake = !strcmp(source_effect, "EFFECT_EARTHQUAKE") &&
         (jl_num(jl_get(o_move, "id")) == 89 || jl_num(jl_get(o_move, "id")) == 523) &&
         strcmp(jl_str(jl_get(scen, "format")), "singles") == 0;
@@ -531,7 +539,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              (explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");

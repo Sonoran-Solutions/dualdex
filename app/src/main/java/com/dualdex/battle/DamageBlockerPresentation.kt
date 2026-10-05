@@ -333,6 +333,10 @@ sealed interface DamageBlockerPresentation {
                 .takeIf { it.isNotEmpty() }?.let { mechanics += Mechanic("Semi-invulnerable state unknown", it) }
             take(setOf(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED))
                 .takeIf { it.isNotEmpty() }?.let { mechanics += Mechanic("Semi-invulnerable target not supported", it) }
+            take(setOf(CalcLimitation.HNS_DAMP_BLOCKS_EXPLOSION))
+                .takeIf { it.isNotEmpty() }?.let { mechanics += Mechanic("Damp prevents this move from executing", it) }
+            take(setOf(CalcLimitation.HNS_EXPLOSION_EXECUTION_UNKNOWN))
+                .takeIf { it.isNotEmpty() }?.let { mechanics += Mechanic("Explosion execution authority unknown", it) }
             if (blocking.isNotEmpty()) {
                 mechanics += Mechanic("Damage interaction not modelled", blocking.toList())
             }

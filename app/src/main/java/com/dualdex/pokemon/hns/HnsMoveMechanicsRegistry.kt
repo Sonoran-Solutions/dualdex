@@ -25,6 +25,9 @@ enum class HnsMoveMechanicsCategory {
     /** Singles fixed hit with separate semi-state execution and modifier authority. */
     FIXED_SINGLE_HIT_EARTHQUAKE,
 
+    /** Singles explosion with independent execution and damage-time operands. */
+    FIXED_SINGLE_HIT_EXPLOSION,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -52,7 +55,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -194,6 +197,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_EARTHQUAKE",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EARTHQUAKE,
                 "Pinned Singles hit; exact semi-state and effect-specific modifiers require live authority.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitExplosionMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION,
+                "Pinned Singles explosion; Damp gate precedes HP=0 and modern selected-hit damage.")
         }
         val effect = Hns205MoveEffects.effectById[moveId]
         if (effect == null) {

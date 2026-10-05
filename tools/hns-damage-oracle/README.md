@@ -363,3 +363,16 @@ separately against measured hit damage and the pinned maxHP/16 predicate; it nev
 replaces the selected-hit damage measurement. See [slice 3](../../docs/HNS_MOVE_COVERAGE_SLICE_3.md)
 for the live domain/clamp correction, exact two modifier slots, boundary tests,
 census and final validation results.
+
+## Move coverage slice 4 (#128)
+
+The frozen Singles Explosion/Self-Destruct matrix adds 24 scenarios to the unchanged
+2,008 historical entries. New E records capture actual attacker HP at the existing
+critical-hit/damage boundary; all require exactly zero. Faint cleanup clears
+gLastMoves, so these scenarios capture gCurrentMove and battler operands at that
+same boundary. No hook writes HP or damage. Damp attempts are separate execution
+tests, never fabricated zero-damage vectors. Seven execution parameters cover both
+Damp-banned moves, own Damp, Mold Breaker, Ability Shield, neutral damage and Ghost
+immunity. The Ghost hit also reaches the boundary with HP=0. Production suppression
+refusals remain independent; the Gastro Acid arithmetic witness is engine-only.
+See [slice 4](../../docs/HNS_MOVE_COVERAGE_SLICE_4.md) for final counts and validation.

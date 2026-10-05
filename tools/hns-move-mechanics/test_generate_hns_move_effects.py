@@ -382,6 +382,40 @@ class EarthquakeContractTest(unittest.TestCase):
                 self.assertFalse(gen.parse_earthquake_metadata(original,False))
 
 
+
+class ExplosionContractTest(unittest.TestCase):
+    BODY = """[MOVE_EXPLOSION] =
+    {
+        .effect = EFFECT_HIT,
+        .power = B_UPDATED_MOVE_DATA >= GEN_2 ? 250 : 170,
+        .type = TYPE_NORMAL,
+        .category = DAMAGE_CATEGORY_PHYSICAL,
+        .target = TARGET_FOES_AND_ALLY,
+        .priority = 0,
+        .explosion = TRUE,
+        .dampBanned = TRUE,
+        .parentalBondBanned = TRUE,
+    },"""
+    def test_damp_ban_false_predicates_are_source_derived(self):
+        self.assertEqual(({"MOVE_EXPLOSION"},set()),gen.parse_damp_bans(self.BODY))
+        self.assertEqual((set(),set()),gen.parse_damp_bans(self.BODY.replace(".dampBanned = TRUE,","")))
+        self.assertEqual((set(),{"MOVE_EXPLOSION"}),gen.parse_damp_bans(self.BODY.replace(".dampBanned = TRUE,",".dampBanned = SOME_CONFIG,")))
+    def test_frozen_contract(self):
+        self.assertEqual({"MOVE_EXPLOSION":250},gen.parse_explosion_metadata(self.BODY,True,True))
+        self.assertEqual({},gen.parse_explosion_metadata(self.BODY.replace("MOVE_EXPLOSION","MOVE_MISTY_EXPLOSION"),True,True))
+        self.assertEqual({"MOVE_SELF_DESTRUCT":200},gen.parse_explosion_metadata(self.BODY.replace("MOVE_EXPLOSION","MOVE_SELF_DESTRUCT").replace("250 : 170","200 : 130"),True,True))
+        self.assertEqual({},gen.parse_explosion_metadata(self.BODY,False,True))
+        self.assertEqual({},gen.parse_explosion_metadata(self.BODY,True,False))
+        for before, after in (("EFFECT_HIT","EFFECT_RECOIL"),("250","251"),
+            ("TYPE_NORMAL","TYPE_FIRE"),("DAMAGE_CATEGORY_PHYSICAL","DAMAGE_CATEGORY_SPECIAL"),
+            ("TARGET_FOES_AND_ALLY","TARGET_SELECTED"),(".priority = 0",".priority = 1"),
+            (".explosion = TRUE,",""),(".dampBanned = TRUE,",""),(".parentalBondBanned = TRUE,","")):
+            with self.subTest(before=before):
+                self.assertEqual({},gen.parse_explosion_metadata(self.BODY.replace(before,after),True,True))
+        for field in ("multiHit", "strikeCount", "makesContact", "damagesUnderground", "newExecutionFlag", "soundMove", "punchingMove"):
+            with self.subTest(field=field):
+                self.assertEqual({},gen.parse_explosion_metadata(self.BODY.replace(".priority",f".{field} = TRUE,\n.priority"),True,True))
+
 if __name__ == "__main__":
     unittest.main()
 

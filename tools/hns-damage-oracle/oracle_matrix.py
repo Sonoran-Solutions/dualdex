@@ -71,6 +71,7 @@ SPECIES = {
 
 # label -> (planning type, planning per-move category, planning power)
 MOVES = {
+    "Self-Destruct": ("Normal", "physical", 200), "Explosion": ("Normal", "physical", 250),
     "Petal Blizzard": ("Grass", "physical", 90),
     "Tackle": ("Normal", "physical", 40), "Scratch": ("Normal", "physical", 40),
     "Headbutt": ("Normal", "physical", 70), "Strength": ("Normal", "physical", 80),
@@ -2308,12 +2309,50 @@ def _fixed_single_hit_earthquake():
     return out
 
 
+def _fixed_single_hit_explosion():
+    out = []
+    def case(name, move="Explosion", ability="Insomnia", item=None, **kw):
+        a = attacker("Machamp", atk=151, spa=151, spe=100, hp=200, maxhp=200,
+                     ability=(symbol("ABILITY", ability), ability),
+                     item=(symbol("ITEM", item), item) if item else None)
+        out.append(scenario("explosion-"+name, ["move-coverage-slice-4"], a,
+            defender("Snorlax", dfn=109, spd=109, spe=40), move, **kw))
+    for move in ("Self-Destruct", "Explosion"):
+        for side in ("player", "opponent"):
+            case(slug(move)+"-"+side, move, side=side)
+    case("high-defense")
+    out[-1]["defender"]["stats"]["defense"] = 503
+    case("defense-stage")
+    out[-1]["defender"]["stages"]["defense"] = 2
+    case("reflect", reflect=True)
+    case("wonder-room", surface="engine-only", state_setup={"capture":True,"wonderRoom":True})
+    case("fur-coat")
+    out[-1]["defender"].update(ability="ABILITY_FUR_COAT",abilityLabel="Fur Coat")
+    for ability in ("Defeatist", "Parental Bond", "Normalize", "Pixilate", "Aerilate", "Refrigerate", "Galvanize"):
+        case(slug(ability), ability=ability)
+    case("life-orb", item="Life Orb")
+    case("crit", crit=True)
+    case("attack-stages")
+    out[-1]["attacker"]["stages"]["attack"] = 2
+    case("rounding", item="Life Orb", reflect=True)
+    out[-1]["attacker"]["stats"]["attack"] = 153
+    case("ghost", expect="immune")
+    out[-1]["defender"].update(species="SPECIES_BANETTE",speciesLabel="Banette")
+    case("pixilate-ghost", ability="Pixilate")
+    out[-1]["defender"].update(species="SPECIES_BANETTE",speciesLabel="Banette")
+    case("mold-breaker-damp", ability="Mold Breaker")
+    out[-1]["defender"].update(ability="ABILITY_DAMP",abilityLabel="Damp")
+    case("gastro-damp", surface="engine-only", state_setup={"capture":True,"gastroAcidBeforeHit":"defender","defender":{"gastroAcid":1}})
+    out[-1]["defender"].update(ability="ABILITY_DAMP",abilityLabel="Damp")
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

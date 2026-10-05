@@ -19,11 +19,12 @@ internal class HnsFieldAbilityAuthority(private val c: HnsAbilityContextPolicy.C
         val defenderGas = live.defenderNeutralizingGas ?: return null
         // Effective identities under global Gas suppression remain outside the supported contract.
         if (attackerGas && !attackerGastro || defenderGas && !defenderGastro) return null
-        if (c.attackerAbilityId == abilityId && !attackerGastro) return true
+        val explosion = c.moveId in Hns205MoveEffects.fixedSingleHitExplosionMoveIds
+        if (c.attackerAbilityId == abilityId && !attackerGastro && (!explosion || abilityId == 6)) return true
         if (c.defenderAbilityId != abilityId || defenderGastro) return false
-        // Aura Break is breakable; Dark/Fairy Aura and the weather suppressors are not in
+        // Aura Break and Damp are breakable; Dark/Fairy Aura and weather suppressors are not in
         // the pinned GEN_LATEST data. GetBattlerAbility never bypasses the attacker's own ability.
-        if (abilityId == 188) {
+        if (abilityId == 188 || abilityId == 6) {
             if (c.defenderItemId == HnsGroupCPolicy.ABILITY_SHIELD_ITEM_ID) {
                 when (c.defenderAbilityShieldActiveIgnoringAbility) {
                     true -> return true
@@ -33,7 +34,8 @@ internal class HnsFieldAbilityAuthority(private val c: HnsAbilityContextPolicy.C
             }
             if (c.attackerAbilityId in HnsGroupCPolicy.moldBreakerAbilityIds) return false
             val moveId = c.moveId ?: return null
-            val flags = Hns205MoveEffects.immunityFlagsById[moveId] ?: return null
+            if (moveId !in Hns205MoveEffects.effectById) return null
+            val flags = Hns205MoveEffects.immunityFlagsById[moveId].orEmpty()
             if ("ignoresTargetAbility" in Hns205MoveEffects.unknownImmunityFlagsById[moveId].orEmpty()) return null
             if ("ignoresTargetAbility" in flags) return false
         }

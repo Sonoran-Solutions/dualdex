@@ -300,3 +300,13 @@ settled merely because topology is readable. Native and production-boundary
 regressions cover partner flags, replacement callback, both observations and
 caller replay. The settled census baseline and original request population are
 unchanged. This correction changes authority admission, not damage arithmetic.
+
+## Slice 4 request-local supersession
+
+[Explosion/Self-Destruct slice 4](HNS_MOVE_COVERAGE_SLICE_4.md) adds a narrow
+Parental Bond false-predicate proof for generated IDs 120/153: both source moves
+are parentalBondBanned, so a second hit cannot occur. The global Parental Bond
+remainder disposition stays unsupported. Damp is now MODELLED_HNS_CONDITIONAL:
+effective field Damp forbids these moves before self-KO, while a generated
+non-Damp-ban proof preserves other moves' prior causes. Aftermath prevention
+remains separate and unmodelled; this does not reopen historical closure claims.

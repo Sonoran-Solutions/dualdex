@@ -253,6 +253,7 @@ static u32 sDdxoSetupCalls;
 static bool32 sDdxoUseHitSpecies;
 static u32 sDdxoRoll;
 static u32 sDdxoBasePowerAtHit;
+static u32 sDdxoExplosionMoveAtHit;
 static u16 sDdxoItemAtHit[MAX_BATTLERS_COUNT];
 
 // Pinned src/battle_util.c:7194-7207. This test-side copy records the exact CanEvolve predicate
@@ -401,11 +402,13 @@ static void DdxoHit(const char *id, u32 roll, enum Move move, u32 battlerAtk, u3
     // source entry point with the same live battler/move state so the corpus records the exact
     // effective type and explicit boost predicate the production adapter must serialize.
     SetTypeBeforeUsingMove(move, battlerAtk);
-    DdxoBattler(id, roll, "A", battlerAtk);
-    DdxoBattler(id, roll, "D", battlerDef);
+    if (move != MOVE_EXPLOSION && move != MOVE_SELF_DESTRUCT) {
+        DdxoBattler(id, roll, "A", battlerAtk);
+        DdxoBattler(id, roll, "D", battlerDef);
+    }
     Test_MgbaPrintf("DDXO|%%s|%%d|M|%%d|%%s|%%d|%%s|%%s|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d|%%d", id, roll, move, DdxoType(GetBattleMoveType(move)),
         sDdxoUseHitSpecies ? sDdxoBasePowerAtHit : GetMovePower(move), DdxoCategory(GetBattleMoveCategory(move)), DdxoTarget(GetBattlerMoveTargetType(battlerAtk, move)),
-        GetMoveTargetCount(&ctx), gLastMoves[battlerAtk], IsSoundMove(move), IsBallisticMove(move), IsWindMove(move),
+        GetMoveTargetCount(&ctx), (move == MOVE_EXPLOSION || move == MOVE_SELF_DESTRUCT) ? sDdxoExplosionMoveAtHit : gLastMoves[battlerAtk], IsSoundMove(move), IsBallisticMove(move), IsWindMove(move),
         IsHealingMove(move), MoveIgnoresTargetAbility(move),
         GetBattleMovePriority(battlerAtk, gBattleMons[battlerAtk].ability, move), GetMoveTarget(move),
         IsPunchingMove(move), IsBitingMove(move), IsPulseMove(move), IsSlicingMove(move),
@@ -546,6 +549,8 @@ def render_scenario(s: dict) -> str:
     solar_setup_ticks = _solar_power_setup_ticks(s, setup_turns)
     hp_capture_events = (setup_turns if ticking else 0) + solar_setup_ticks
     scene += [f"HP_BAR({atk_ref}, captureHP: &results[i].hpAtHit);"] * hp_capture_events
+    if "move-coverage-slice-4" in s["tags"]:
+        scene.append(f"HP_BAR({atk_ref});")
     if s["expect"] == "immune":
         scene.append(f"NONE_OF {{ HP_BAR({def_ref}); }}")
     else:
@@ -605,6 +610,8 @@ def render_scenario(s: dict) -> str:
         "}",
         "",
     ]
+    if "move-coverage-slice-4" in s["tags"]:
+        lines.insert(lines.index("    } THEN {") + 1, ind + f"EXPECT_EQ(gBattleMons[{atk_pos}].hp, 0);")
     if "move-coverage-slice-3" in s["tags"] and s["expect"] == "immune":
         # Immunity can return before the crit callback. Capture actual state separately there.
         lines.insert(lines.index("    } THEN {") + 1, ind + f'Test_MgbaPrintf("DDXO|{sid}|%d|Q|%d", i, gBattleMons[{def_pos}].volatiles.semiInvulnerable);')
@@ -617,6 +624,12 @@ def render_scenario(s: dict) -> str:
              f"        || gBattleResults.battleTurnCounter != {setup_turns}) return;"]
     if "move-coverage-slice-3" in s["tags"] and s["expect"] == "damage":
         setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|Q|%d", sDdxoRoll, gBattleMons[{def_pos}].volatiles.semiInvulnerable);')
+    if "move-coverage-slice-4" in s["tags"]:
+        setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|E|%d", sDdxoRoll, gBattleMons[{atk_pos}].hp);')
+        setup.append("    sDdxoExplosionMoveAtHit = gCurrentMove;")
+        setup.append(f'    DdxoBattler("{sid}", sDdxoRoll, "A", {atk_pos});')
+        setup.append(f'    DdxoBattler("{sid}", sDdxoRoll, "D", {def_pos});')
+        lines[lines.index(f"{ind}EXPECT_EQ(gLastMoves[{atk_pos}], {move});")] = f"{ind}EXPECT_EQ(sDdxoExplosionMoveAtHit, {move});"
     for role, pos in (("attackerSpeciesForm", atk_pos), ("defenderSpeciesForm", def_pos)):
         form = state_setup.get(role)
         if form is not None:
@@ -700,7 +713,7 @@ def _is_spread_capable(s: dict) -> bool:
                                   "Earthquake", "Surf", "Petal Blizzard"}
 
 
-EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi")
+EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi", "execution-explosion")
 EXECUTION_SOURCE = r'''#include "global.h"
 #include "test/battle.h"
 #include "battle.h"
@@ -783,6 +796,48 @@ SINGLE_BATTLE_TEST("DDXO execution-earthquake-semi")
     }
 }
 
+
+static u32 sExplosionDamageCalls;
+static void DdxoExplosionBoundary(void)
+{
+    if (gCurrentMove != MOVE_EXPLOSION && gCurrentMove != MOVE_SELF_DESTRUCT) return;
+    EXPECT_EQ(gBattleMons[0].hp, 0);
+    sExplosionDamageCalls++;
+}
+SINGLE_BATTLE_TEST("DDXO execution-explosion")
+{
+    u32 move, abilityAtk, abilityDef, item, species;
+    bool32 blocks, immune;
+    PARAMETRIZE { move=MOVE_SELF_DESTRUCT; abilityAtk=ABILITY_INSOMNIA; abilityDef=ABILITY_DAMP; item=ITEM_NONE; species=SPECIES_SNORLAX; blocks=TRUE; immune=FALSE; }
+    PARAMETRIZE { move=MOVE_EXPLOSION; abilityAtk=ABILITY_INSOMNIA; abilityDef=ABILITY_DAMP; item=ITEM_NONE; species=SPECIES_SNORLAX; blocks=TRUE; immune=FALSE; }
+    PARAMETRIZE { move=MOVE_EXPLOSION; abilityAtk=ABILITY_DAMP; abilityDef=ABILITY_INSOMNIA; item=ITEM_NONE; species=SPECIES_SNORLAX; blocks=TRUE; immune=FALSE; }
+    PARAMETRIZE { move=MOVE_EXPLOSION; abilityAtk=ABILITY_MOLD_BREAKER; abilityDef=ABILITY_DAMP; item=ITEM_NONE; species=SPECIES_SNORLAX; blocks=FALSE; immune=FALSE; }
+    PARAMETRIZE { move=MOVE_EXPLOSION; abilityAtk=ABILITY_MOLD_BREAKER; abilityDef=ABILITY_DAMP; item=ITEM_ABILITY_SHIELD; species=SPECIES_SNORLAX; blocks=TRUE; immune=FALSE; }
+    PARAMETRIZE { move=MOVE_EXPLOSION; abilityAtk=ABILITY_INSOMNIA; abilityDef=ABILITY_INSOMNIA; item=ITEM_NONE; species=SPECIES_SNORLAX; blocks=FALSE; immune=FALSE; }
+    PARAMETRIZE { move=MOVE_EXPLOSION; abilityAtk=ABILITY_INSOMNIA; abilityDef=ABILITY_INSOMNIA; item=ITEM_NONE; species=SPECIES_BANETTE; blocks=FALSE; immune=TRUE; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(abilityAtk); HP(200); MaxHP(200); Speed(100); }
+        OPPONENT(species) { Ability(abilityDef); Item(item); HP(60000); MaxHP(60000); Speed(40); }
+        sExplosionDamageCalls = 0;
+        gDdxoBeforeCriticalHit = DdxoExplosionBoundary;
+    } WHEN {
+        TURN { MOVE(player, move); }
+    } SCENE {
+        if (blocks) { NONE_OF { HP_BAR(player); HP_BAR(opponent); } }
+        else {
+            HP_BAR(player, hp: 0);
+            if (immune) { NONE_OF { HP_BAR(opponent); } }
+            else { HP_BAR(opponent); }
+        }
+    } THEN {
+        EXPECT_EQ(gBattleMons[0].hp, blocks ? 200 : 0);
+        if (blocks || immune) EXPECT_EQ(gBattleMons[1].hp, 60000);
+        else EXPECT_LT(gBattleMons[1].hp, 60000);
+        EXPECT_EQ(sExplosionDamageCalls, blocks ? 0 : 1);
+        gDdxoBeforeCriticalHit = NULL;
+    }
+}
+
 '''
 
 
@@ -856,9 +911,9 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
         roll = _int(roll_text, f"{sid} roll index")
         if not 0 <= roll < ROLL_COUNT:
             raise OracleError(f"{sid}: roll index {roll} out of range")
-        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K", "Q"):
+        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K", "Q", "E"):
             raise OracleError(f"{sid}: unknown oracle line kind {kind!r}")
-        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else 1 if kind == "Q" else LINE_FIELDS[kind]
+        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else 1 if kind in ("Q", "E") else LINE_FIELDS[kind]
         if len(fields) != expected_length:
             raise OracleError(f"{sid}: {kind} line has {len(fields)} fields, expected {expected_length}")
         slot = records[sid].setdefault(roll, {})
@@ -876,7 +931,7 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
             missing = sorted(set(range(ROLL_COUNT)) - set(rolls))
             raise OracleError(f"{sid}: missing oracle output for rng value(s) {missing}")
         for roll, slot in rolls.items():
-            if set(slot) - {"AG", "DG", "K", "Q"} != set(LINE_FIELDS):
+            if set(slot) - {"AG", "DG", "K", "Q", "E"} != set(LINE_FIELDS):
                 raise OracleError(f"{sid}: roll {roll} is missing line(s) {sorted(set(LINE_FIELDS) - set(slot))}")
     unexpected = sorted(set(statuses) - wanted)
     if unexpected:
@@ -1002,7 +1057,10 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
                 raise OracleError(f"{sid}: missing pre-damage runtime capture for {role}")
             runtime[role] = dict(zip(RUNTIME_DOMAINS, (_int(v, f"{sid} runtime") for v in values)))
             runtime[role]["personality"] &= 0xffffffff
-        if scenario["attacker"]["status"] == "none":
+        if "move-coverage-slice-4" in scenario["tags"]:
+            if atk["hp"] != 0 or slot.get("E") != ["0"]:
+                raise OracleError(f"{sid}: source explosion did not self-KO before damage")
+        elif scenario["attacker"]["status"] == "none":
             # Solar Power and Life Orb residuals happen after the selected hit; hpAtHit is captured
             # before them. Permit only their exact source amounts, which cannot change hit damage.
             solar_residual = (scenario["attacker"]["stats"]["maxHp"] // 8
@@ -1137,6 +1195,9 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
             "targetCount": _int(m[5], f"{sid} M"),
             "fieldStatuses": observed_field_statuses,
         }
+        if "move-coverage-slice-4" in scenario["tags"]:
+            observed["explosionUserHpAtDamage"] = _int(slot["E"][0], f"{sid} damage-time HP")
+        elif "E" in slot: raise OracleError(f"{sid}: unexpected explosion HP")
         if state_setup.get("doubles"):
             if "K" not in slot: raise OracleError(f"{sid}: missing live Doubles operands")
             k = [_int(v, f"{sid} Doubles") for v in slot["K"]]

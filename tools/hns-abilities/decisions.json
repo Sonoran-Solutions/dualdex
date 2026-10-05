@@ -20,8 +20,8 @@
     "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
   },
   "6": {
-    "category": "PROVEN_NO_DAMAGE_EFFECT",
-    "rationale": "Reviewed pinned ability uses affect status, accuracy, switching, priority, PP, secondary/indirect effects, or overworld behavior; no ordinary direct-damage operand, type, immunity, field, or held-item modifier is changed by the effective ability itself."
+    "category": "MODELLED_HNS_CONDITIONAL",
+    "rationale": "Damp prevents the frozen Explosion/Self-Destruct family from executing before self-KO. Request-local effective field authority gates execution; ordinary selected hits retain no-current-hit effect. Aftermath prevention remains outside the result."
   },
   "7": {
     "category": "PROVEN_NO_DAMAGE_EFFECT",

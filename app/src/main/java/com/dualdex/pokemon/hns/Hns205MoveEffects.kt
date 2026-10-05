@@ -3304,6 +3304,11 @@ internal object Hns205MoveEffects {
 
     val fixedSingleHitEarthquakeMoveIds: Set<Int> = setOf(89, 523)
     val earthquakeDamagesUndergroundById: Map<Int, Boolean> = mapOf(89 to true, 523 to false)
+    /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */
+    val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(120, 153)
+    val explosionPowerById: Map<Int, Int> = mapOf(120 to 200, 153 to 250)
+    val dampBannedMoveIds: Set<Int> = setOf(120, 153, 673, 730)
+    val unknownDampBanMoveIds: Set<Int> = setOf()
     /** Recoil moves which clear Freeze/Frostbite before the selected hit. */
     val recoilThawsUserMoveIds: Set<Int> = setOf(394)
 

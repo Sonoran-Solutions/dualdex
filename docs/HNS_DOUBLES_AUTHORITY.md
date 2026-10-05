@@ -48,8 +48,11 @@ preserve missing/old tuple refusal. No trainer or census data is production auth
 
 ## Runtime packet and selected participants
 
-The legacy JNI prefix of 103 words remains intact. The extended tuple has **162
-words**: `[103]` explicitly marks a readable packet, `[104]` is version **1**,
+The current JNI participant tuple has **165 words total**. Words `[0..161]`
+remain the unchanged legacy/Doubles prefix, including the original 103-word
+legacy prefix; `[162..164]` are the additive Heal Block extension. The Doubles
+packet remains version **1**, with no version bump: `[103]` explicitly marks a
+readable packet, `[104]` is version **1**,
 `[105]` is count, `[106]` absent flags, `[107..108]` side Follow Me timers and
 `[109]` action flags (bit 0 Mold Breaker active, bit 1 combined Pledge active).
 `[110..161]` contains four indexed 13-word records: index, position, party slot,

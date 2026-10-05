@@ -3334,8 +3334,10 @@ remaining no-result battles. The 1,845-case oracle retains only the two existing
 ## 21. Authoritative ordinary-hit Doubles subset (PR #119)
 
 The historical Singles-only format gates above are superseded for ordinary
-opposing hits with complete live authority. The version-1 162-word participant
-ABI appends the minimal four-index packet described in
+opposing hits with complete live authority. The current participant ABI has
+**165 words total**: `[0..161]` remain the unchanged legacy/Doubles prefix, and
+`[162..164]` are the additive Heal Block extension. The minimal four-index Doubles
+packet remains version **1**, with no version bump, as described in
 [HNS_DOUBLES_AUTHORITY.md](HNS_DOUBLES_AUTHORITY.md). Native indexed observations,
 actual position/party mapping, HP/presence, source battle-type flags and repeated
 matching partner/global reads replace the prior per-side ambiguity for explicit

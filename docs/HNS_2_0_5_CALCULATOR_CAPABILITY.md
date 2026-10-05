@@ -2188,7 +2188,7 @@ ordinary `EFFECT_HIT` subset:
 | `GetDefenderPartnerAbilitiesModifier` (`Friend Guard`) | `battle_util.c:7640` | Doubles-only; format blocked and ability unclassified. |
 | `GetAttackerItemsModifier` (`Metronome`, `Expert Belt`, `Life Orb`) | `battle_util.c:7656` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
 | `GetDefenderItemsModifier` (resist berries) | `battle_util.c:7682` | A known relevant item may be neutralized as a named estimate caveat; unknown item identity or relevance remains hard. |
-| `CalcMoveBasePowerAfterModifiers` state/power effects (`Facade`, `Brine`, …) | `battle_util.c:6573` | Non-`EFFECT_HIT` effects are refused by the move allow-list; ability/item/status base-power modifiers are refused by their gates. |
+| `CalcMoveBasePowerAfterModifiers` state/power effects (`Facade`, `Brine`, …) | `battle_util.c:6573` | Slice 7 admits only Brine through its separate Singles category, valid authoritative defender HP pair and exact floor-half Q12 move-effect slot. Other state/power effects retain their existing per-family gates. |
 | `CalcAttackStat` / `CalcDefenseStat` (stages, raw words, Power Trick, badge, ability stat mods) | `battle_util.c:6912`, `7211` | Stat stages and raw battle stat words are observed and **runtime validated** (golden C); badge state is player-side-only; pinch abilities, Hustle, and Guts use the accumulated Attack-stage pipeline under exact live/category gates; Huge/Pure Power and Thick Fat remain unsupported for production. |
 | `GetActiveGimmick` / Tera multiplier | `battle_terastal.c:134` | Not carried and not read → **FAIL CLOSED**. |
 | Pledge state (`gBattleStruct->pledgeMove`) | `battle_util.c:7426` | Pledge moves are non-ordinary; refused. |
@@ -3477,3 +3477,16 @@ Earthquake skips that reduction and adds Q12 ×2 in the ordered other-modifier
 accumulator before screens/abilities/items. Bulldoze uses the existing source-backed
 Sheer Force slot. Ground immunity remains independent. H&S remains ESTIMATED;
 hardware NOT_RUN. See [slice 3 source, authority and evidence](HNS_MOVE_COVERAGE_SLICE_3.md).
+
+
+## Move coverage slice 7 — authoritative Brine HP
+
+Brine (362, EFFECT_BRINE) has a separate Singles fixed-hit category. Exact-trusted,
+current slot-matched defender HP/maxHP must satisfy 1 <= HP <= maxHP, with positive
+source-domain maxHP; unread/invalid operands refuse with HNS_DEFENDER_HP_UNKNOWN.
+The predicate HP <= floor(maxHP/2) adds 8192 in the existing Q12 base-power
+accumulator's move-effect slot, before later modifiers, while source BP stays 65.
+Odd maxHP 101 boosts at HP 50, never HP 51. Technician and Sheer Force are inactive.
+The result uses the currently observed battle state; later healing/damage/actions
+are not predicted. Substitute, positive semi-states and Doubles remain refused.
+H&S remains ESTIMATED. See [slice 7 evidence](HNS_MOVE_COVERAGE_SLICE_7.md).

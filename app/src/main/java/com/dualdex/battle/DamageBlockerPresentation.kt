@@ -187,6 +187,8 @@ sealed interface DamageBlockerPresentation {
                     CalcLimitation.HNS_BASE_STAT_EQUALIZER_NOT_MODELLED
                 )
             ).takeIf { it.isNotEmpty() }?.let { states += State("Challenge setting not modelled", it) }
+            take(setOf(CalcLimitation.HNS_DEFENDER_HP_UNKNOWN))
+                .takeIf { it.isNotEmpty() }?.let { states += State("Defender HP unread or invalid", it) }
             take(setOf(CalcLimitation.HNS_DEFENDER_STATUS_UNKNOWN, CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED, CalcLimitation.STATUS_NOT_MODELLED))
                 .takeIf { it.isNotEmpty() }?.let { states += State("Status not modelled", it) }
             take(setOf(CalcLimitation.FIELD_CONDITION_NOT_MODELLED))

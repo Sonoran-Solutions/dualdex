@@ -1052,5 +1052,34 @@ class UnderwaterHitStateTest(unittest.TestCase):
             backend.assemble_entry(scenario,records[sid])
 
 
+
+
+
+class BrineHpEvidenceTest(unittest.TestCase):
+    def test_hit_time_pair_cannot_be_replaced_by_setup_or_healed_hp(self):
+        doc = schema.load_corpus_text((backend.TOOL_DIR / "corpus.json").read_text())
+        entry = next(e for e in doc["entries"] if e["scenario"]["id"] == "brine-odd-half-player")
+        for field,value in (("hpAtHit",51),("maxHpAtHit",100)):
+            fake=copy.deepcopy(entry)
+            fake["observed"]["defender"][field]=value
+            with self.assertRaises(schema.SchemaError):
+                schema.validate_observed(fake["observed"],fake["scenario"],"Brine HP evidence")
+        fake=copy.deepcopy(entry)
+        del fake["observed"]["defender"]["maxHpAtHit"]
+        with self.assertRaises(schema.SchemaError):
+            schema.validate_observed(fake["observed"],fake["scenario"],"missing maxHP")
+    def test_immunity_observation_precedes_recovery_and_never_writes_hp(self):
+        source=backend.render_scenario(next(s for s in SCENARIOS if s["id"]=="brine-water-absorb"))
+        self.assertIn("gDdxoBeforeAbilityPopup = DdxoSetup_brine_water_absorb;",source)
+        self.assertIn('DdxoBattler("brine-water-absorb", sDdxoRoll, "D", B_POSITION_OPPONENT_LEFT);',source)
+        self.assertNotRegex(source,r"gBattleMons\[[^]]+\]\.(?:hp|maxHP)\s*=")
+
+    def test_post_turn_fallback_cannot_impersonate_the_hp_callback(self):
+        scenario=next(s for s in SCENARIOS if s["id"]=="brine-water-absorb")
+        for slot in ({"DG": [], "D2": []}, {"DG": []}):
+            with self.assertRaisesRegex(backend.OracleError,"hit-boundary defender HP capture"):
+                backend.assemble_entry(scenario,{0:slot})
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3307,6 +3307,7 @@ internal object Hns205MoveEffects {
     /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */
     val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(120, 153)
     val explosionPowerById: Map<Int, Int> = mapOf(120 to 200, 153 to 250)
+    val fixedSingleHitBrineMoveIds: Set<Int> = setOf(362)
     val fixedSingleHitStatusDoubleMoveIds: Set<Int> = setOf(265, 358, 474, 506, 767, 772)
     val statusDoublePowerMaskById: Map<Int, Int> = mapOf(265 to 64, 358 to 7, 474 to 136, 506 to 4351, 767 to 136, 772 to 4351)
     const val STATUS1_SLEEP: Int = 7

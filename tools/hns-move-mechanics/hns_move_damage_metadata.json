@@ -2805,7 +2805,19 @@
       "ordinary": false,
       "makesContact": false,
       "punchingMove": false,
-      "sheerForceAffected": false
+      "sheerForceAffected": false,
+      "fixedSingleHitBrine": true,
+      "power": 65,
+      "type": "TYPE_WATER",
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "accuracy": 100,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "additionalEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "363": {
       "effect": "EFFECT_NATURAL_GIFT",

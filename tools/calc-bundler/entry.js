@@ -1,6 +1,7 @@
 import { calculate, Generations, Pokemon, Move, Field, Side } from '@smogon/calc';
 import hnsStatusContract from '../hns-move-mechanics/hns_status_contract.json';
 const hnsStatus = hnsStatusContract.statuses;
+import hnsMoveMetadata from '../hns-move-mechanics/hns_move_damage_metadata.json';
 import hnsGroupDDomains from '../hns-layout/group_d_domains.json';
 
 // @smogon/calc compares field.gameType against the canonical capitalised
@@ -345,6 +346,7 @@ function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
   if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
+        input.move?.hnsMoveEffect === 'EFFECT_BRINE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_BRINE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitBrine === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true ||
         input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE' && input.move?.hnsIsEarthquake === true ||
         input.move?.hnsMoveEffect === 'EFFECT_HIT' && input.move?.hnsIsUnderwater === true && [57,250].includes(id) ||
@@ -378,6 +380,22 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
         input.move?.hnsMoveEffect !== 'EFFECT_HIT' || ![57, 250].includes(input.move?.hnsMoveId) ||
         input.move?.hnsFixedSingleHit !== true || gameType !== 'Singles' || ![0, 2].includes(semiState))
       throw new Error('H&S Surf/Whirlpool execution authority missing or unsupported');
+  }
+  const brineMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
+  const brineFamily = brineMetadata?.fixedSingleHitBrine === true;
+  if (brineFamily || input.move?.hnsMoveEffect === 'EFFECT_BRINE' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_BRINE') {
+    const hp = input.defender?.hpAtHit, maxHp = input.defender?.maxHpAtHit;
+    if (!brineFamily || input.move?.hnsMoveFamily !== 'FIXED_SINGLE_HIT_BRINE' ||
+        input.move?.hnsMoveEffect !== brineMetadata.effect || input.move?.hnsFixedSingleHit !== true ||
+        input.move?.hnsIsOrdinary !== false || gameType !== 'Singles' || semiState !== 0 ||
+        input.defender?.hnsSubstitute !== false ||
+        input.move?.hnsMakesContact !== brineMetadata.makesContact ||
+        input.move?.hnsSheerForceAffected !== brineMetadata.sheerForceAffected ||
+        !Array.isArray(input.move?.hnsMoveFlags) || input.move.hnsMoveFlags.length !== brineMetadata.immunityFlags.length ||
+        !Array.isArray(input.move?.hnsMoveAbilityFlags) || input.move.hnsMoveAbilityFlags.length !== brineMetadata.abilityFlags.length ||
+        input.move?.overrides?.basePower !== brineMetadata.power || move.bp !== brineMetadata.power ||
+        !Number.isInteger(hp) || !Number.isInteger(maxHp) || maxHp <= 0 || maxHp > 65535 || hp <= 0 || hp > maxHp)
+      throw new Error('H&S Brine live HP or move authority missing or invalid');
   }
   const statusMetadata = hnsStatusContract.moves[String(input.move?.hnsMoveId)];
   const statusFamily = statusMetadata?.fixedSingleHitStatusDouble === true;
@@ -858,6 +876,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   // CalcMoveBasePowerAfterModifiers has a separate fixed-point accumulator from the two stat
   // stages. Preserve the Group C Dry Skin × Wise Glasses composition correction.
   const basePowerModifier = createHnsModifierAccumulator(halfUp);
+  // EFFECT_BRINE: source hp <= maxHP / 2, before Helping Hand/Gems/abilities/items.
+  if (brineFamily && input.defender.hpAtHit <= Math.floor(input.defender.maxHpAtHit / 2))
+    basePowerModifier.addHalfUp(8192);
   const earthquakeFamily = input.move?.hnsIsEarthquake === true && input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE';
   if (earthquakeFamily) {
     if (gameType !== 'Singles' || ![89, 523].includes(input.move?.hnsMoveId) ||

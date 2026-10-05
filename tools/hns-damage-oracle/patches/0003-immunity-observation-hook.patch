@@ -1,0 +1,21 @@
+Test-only pre-recovery immunity observation; no battle arithmetic changes.
+
+--- a/test/test_runner_battle.c
++++ b/test/test_runner_battle.c
+@@ -42,6 +42,7 @@
+ 
+ #define RNG_SEED_DEFAULT {0, 0, 0, 0}
+ void (*gDdxoBeforeCriticalHit)(void);
++void (*gDdxoBeforeAbilityPopup)(void);
+ 
+ static inline bool32 RngSeedNotDefault(const rng_value_t *seed)
+ {
+@@ -846,6 +847,8 @@
+ 
+ void TestRunner_Battle_RecordAbilityPopUp(enum BattlerId battlerId, enum Ability ability)
+ {
++    if (gDdxoBeforeAbilityPopup != NULL)
++        gDdxoBeforeAbilityPopup();
+     s32 queuedEvent;
+     s32 match;
+     struct QueuedEvent *event;

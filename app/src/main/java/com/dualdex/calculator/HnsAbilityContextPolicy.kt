@@ -83,6 +83,11 @@ object HnsAbilityContextPolicy {
         18, 79, 112, 148, 198, 255, 281, 282, 293, 186, 187, 188, 284, 285, 286, 287
     )
 
+    fun isExactStatusDoubleComatose(decision: HnsAbilityRequestDecision): Boolean =
+        decision.abilityId == 213 && decision.side == HnsAbilitySide.DEFENDER &&
+            decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
+            decision.rule == "status_double_comatose_sleep"
+
     fun hasModelledConditionalDamageContext(abilityId: Int?): Boolean =
         abilityId != null && abilityId in MODELLED_CONDITIONAL_DAMAGE_ABILITY_IDS
 
@@ -318,6 +323,14 @@ object HnsAbilityContextPolicy {
         val resistBerryDecision: HnsResistBerryDecision? = null
     )
 
+    private fun statusDoubleBasePower(c: Context): Int? {
+        val mask = com.dualdex.pokemon.hns.Hns205MoveEffects.statusDoublePowerMaskById[c.moveId] ?: return null
+        val raw = c.defenderStatus1 ?: return null
+        if (!HnsDefenderStatus.isValid(raw) || !c.defenderAbilityObserved || c.defenderAbilityId == null) return null
+        val effective = raw or if (c.defenderAbilityId == 213) com.dualdex.pokemon.hns.Hns205MoveEffects.STATUS1_SLEEP else 0
+        return c.moveBasePower?.let { if ((effective and mask) != 0) it * 2 else it }
+    }
+
     /** Abilities whose only damage-relevant effect is already reflected in live stat stages. */
     private val LIVE_STAT_STAGE_WRITER_IDS = setOf(
         3, 22, 80, 83, 86, 88, 128, 133, 141, 153, 154, 155, 172, 192, 195, 201,
@@ -368,6 +381,12 @@ object HnsAbilityContextPolicy {
         val doublesExact = c.liveBattleState?.doubles != null && c.observedBattlersCount == 4 &&
             c.fixedSingleHitMove == true && abilityObserved(c)
         val proof: Proof? = when {
+            abilityId == 213 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitStatusDoubleMoveIds &&
+                c.fixedSingleHitMove == true && c.observedBattlersCount == 2 && abilityObserved(c) ->
+                if (side == HnsAbilitySide.DEFENDER) relevant("status_double_comatose_sleep", "src/battle_util.c:6398-6403",
+                    "Effective Comatose contributes sleep bits only to this family's pre-hit base-power predicate.")
+                else proof("status_double_attacker_comatose", "src/battle_util.c:6398-6403",
+                    "This selected-hit predicate reads defender ability; attacker Comatose cannot alter it.")
             doublesExact && abilityId in setOf(57, 58) ->
                 relevant("doubles_plus_minus_exact", "src/battle_util.c:7026-7044",
                     "The live partner effective identity authorizes the exact category-specific Plus/Minus Attack accumulator slot.")
@@ -654,6 +673,13 @@ object HnsAbilityContextPolicy {
                 )
                 c.fixedSingleHitMove != true || c.moveId == null -> null
                 c.moveBasePower == null || c.moveBasePower !in 1..255 -> null
+                c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitStatusDoubleMoveIds && statusDoubleBasePower(c) == null -> null
+                statusDoubleBasePower(c)?.let { it > 60 } == true -> proof(
+                    "technician_status_double_over_60", "src/battle_util.c:6398; src/battle_util.c:6655",
+                    "The pre-hit status predicate doubles integer source power before the Technician threshold.")
+                c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitStatusDoubleMoveIds && statusDoubleBasePower(c)?.let { it <= 60 } == true -> relevant(
+                    "technician_status_double_at_most_60", "src/battle_util.c:6398; src/battle_util.c:6655",
+                    "The validated pre-hit status predicate leaves integer source power at most 60 before Technician.")
                 c.moveBasePower <= 60 -> relevant(
                     "technician_attacker_bp_at_most_60", "src/battle_util.c:6655",
                     "The pinned ordinary EFFECT_HIT path preserves source move power before Technician's <=60 check; this move receives the modeled 1.5 base-power modifier."
@@ -1884,7 +1910,8 @@ object HnsAbilityContextPolicy {
         val refused = relevance == HnsAbilityRequestRelevance.UNKNOWN ||
             (relevance == HnsAbilityRequestRelevance.RELEVANT &&
                 disposition?.tier == com.dualdex.pokemon.hns.HnsGroupETier.HARD_REFUSAL &&
-                !(id in setOf(57, 58) && rule == "doubles_plus_minus_exact"))
+                !(id in setOf(57, 58) && rule == "doubles_plus_minus_exact") &&
+                !(id == 213 && rule == "status_double_comatose_sleep"))
         return HnsAbilityRequestDecision(id, name, side, category,
             if (refused) HnsAbilityRequestRelevance.UNKNOWN else relevance,
             rule ?: disposition?.let { "group_e_" + it.family }, source ?: disposition?.source,

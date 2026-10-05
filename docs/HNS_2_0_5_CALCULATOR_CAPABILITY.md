@@ -1,5 +1,17 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
+## Status-dependent Singles base power (slice 6, #132)
+
+The separate FIXED_SINGLE_HIT_STATUS_DOUBLE family admits Smelling Salts (265),
+Wake-Up Slap (358), Venoshock (474), Hex (506), Barb Barrage (767) and Infernal
+Parade (772), using generated source masks and validated boundary-owned defender
+status1. Integer doubling precedes Technician and Sheer Force. Defender Comatose
+contributes only the source sleep predicate for this exact family; other Comatose
+behavior remains outside scope. Raw status is preserved, post-hit removal/secondary
+status is excluded from the displayed hit, and active Substitute/Doubles remain
+refused. See [slice 6 evidence](HNS_MOVE_COVERAGE_SLICE_6.md). H&S remains ESTIMATED.
+
+
 ## Current move coverage — #130
 
 Authoritative Singles admits exactly Surf (57) and Whirlpool (250) in the separate

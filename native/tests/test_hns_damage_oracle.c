@@ -371,7 +371,7 @@ static int emit_battler(sbuf* sb, const jl_value* scen_b, const jl_value* obs_b,
     if (!get_int(obs_b, "status1", 0, 65535, &status1, err)) return 0;
     sb_append(sb, ",\"hpAtHit\":%ld,\"maxHpAtHit\":%ld", hp_at_hit, max_hp);
     if (strcmp(role, "attacker") == 0) sb_append(sb, ",\"hp\":%ld,\"maxHP\":%ld", hp_at_hit, max_hp);
-    sb_append(sb, ",\"status1\":%ld", status1);
+    sb_append(sb, ",\"status1\":%ld,\"hnsSubstitute\":false,\"hnsEffectiveAbilityId\":%ld", status1, (long)jl_num(jl_get(obs_b, "abilityId")));
     const char* hold_effect = get_str(item_record, "holdEffect", err);
     long hold_effect_param, hold_effect_active, base_species_id, can_evolve, transformed_species, metronome_counter;
     if (!hold_effect || !get_int(item_record, "holdEffectParam", 0, 65535, &hold_effect_param, err) ||
@@ -533,6 +533,9 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         if (strcmp(jl_str(jl_get(scen, "expect")), "immune") && (!jl_is_num(hp) || jl_num(hp) != 0)) return set_err(err, "explosion damage-time HP missing");
         sb_append(sb, ",\"hnsExplosionUserHpAtDamage\":0");
     }
+    const int status_double = !strcmp(source_effect, "EFFECT_DOUBLE_POWER_ON_ARG_STATUS");
+    if (status_double) sb_append(sb, ",\"hnsIsStatusDouble\":true,\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_STATUS_DOUBLE\",\"hnsStatusDoubleMask\":%ld",
+        (long)jl_num(jl_get(o_move, "statusDoubleMask")));
     const int underwater = !strcmp(source_effect, "EFFECT_HIT") &&
         (jl_num(jl_get(o_move, "id")) == 57 || jl_num(jl_get(o_move, "id")) == 250) &&
         strcmp(jl_str(jl_get(scen, "format")), "singles") == 0;
@@ -545,7 +548,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              (status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");

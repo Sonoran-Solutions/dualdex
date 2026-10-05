@@ -3307,6 +3307,18 @@ internal object Hns205MoveEffects {
     /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */
     val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(120, 153)
     val explosionPowerById: Map<Int, Int> = mapOf(120 to 200, 153 to 250)
+    val fixedSingleHitStatusDoubleMoveIds: Set<Int> = setOf(265, 358, 474, 506, 767, 772)
+    val statusDoublePowerMaskById: Map<Int, Int> = mapOf(265 to 64, 358 to 7, 474 to 136, 506 to 4351, 767 to 136, 772 to 4351)
+    const val STATUS1_SLEEP: Int = 7
+    const val STATUS1_POISON: Int = 8
+    const val STATUS1_BURN: Int = 16
+    const val STATUS1_FREEZE: Int = 32
+    const val STATUS1_PARALYSIS: Int = 64
+    const val STATUS1_TOXIC_POISON: Int = 128
+    const val STATUS1_TOXIC_COUNTER: Int = 3840
+    const val STATUS1_FROSTBITE: Int = 4096
+    const val STATUS1_PSN_ANY: Int = 136
+    const val STATUS1_ANY: Int = 4351
     /** Frozen Singles Surf/Whirlpool; neutral or underwater selected hit only. */
     val fixedSingleHitUnderwaterMoveIds: Set<Int> = setOf(57, 250)
     val underwaterPowerById: Map<Int, Int> = mapOf(57 to 90, 250 to 35)

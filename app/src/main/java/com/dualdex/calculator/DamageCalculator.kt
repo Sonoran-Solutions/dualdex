@@ -328,6 +328,8 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.defenderHp?.let { put("hpAtHit", it) }
                 live.defenderMaxHp?.let { put("maxHpAtHit", it) }
                 live.defenderStatus1?.let { put("status1", it) }
+                live.defenderPersistentVolatiles?.let { put("hnsSubstitute", it.substitute) }
+                request.defender.abilityId?.let { put("hnsEffectiveAbilityId", it) }
                 live.defenderSpeciesId?.let { put("hnsSpeciesId", it) }
                 live.defenderNeutralizingGas?.let { put("hnsNeutralizingGas", it) }
                 live.defenderPersistentVolatiles?.let { put("hnsGastroAcid", it.gastroAcid) }
@@ -409,6 +411,11 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitUnderwaterMoveIds) {
                         put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER.name)
                         put("hnsDamagesUnderwater", true)
+                    }
+                    com.dualdex.pokemon.hns.Hns205MoveEffects.statusDoublePowerMaskById[moveId]?.let { mask ->
+                        put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE.name)
+                        put("hnsIsStatusDouble", true)
+                        put("hnsStatusDoubleMask", mask)
                     }
                     put("hnsIsEarthquake", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEarthquakeMoveIds)
                     com.dualdex.pokemon.hns.Hns205MoveEffects.earthquakeDamagesUndergroundById[moveId]?.let { put("hnsDamagesUnderground", it) }

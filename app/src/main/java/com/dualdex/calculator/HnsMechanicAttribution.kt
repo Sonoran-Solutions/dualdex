@@ -7,7 +7,8 @@ import com.dualdex.pokemon.hns.HnsItemCategory
 object HnsMechanicAttribution {
     fun isModelledAbility(decision: HnsAbilityRequestDecision): Boolean =
         decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
-            (decision.globalCategory.isSupportedForDamage || HnsDoublesAuthority.isExactPlusMinus(decision))
+            (decision.globalCategory.isSupportedForDamage || HnsDoublesAuthority.isExactPlusMinus(decision) ||
+                HnsAbilityContextPolicy.isExactStatusDoubleComatose(decision))
 
     fun isModelledItem(decision: HnsItemRequestDecision): Boolean =
         decision.relevance == HnsItemRequestRelevance.MODELLED

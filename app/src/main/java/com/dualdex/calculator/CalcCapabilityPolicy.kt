@@ -455,6 +455,9 @@ enum class CalcLimitation {
      */
     HNS_LIVE_STATUS_NOT_MODELLED,
 
+    /** Required defender status word is unread or outside the pinned status domain. */
+    HNS_DEFENDER_STATUS_UNKNOWN,
+
     /**
      * A conditionally-supported pinch ability (`Overgrow`/`Blaze`/`Torrent`/`Swarm`) applies to the
      * selected move's type, but the authoritative live HP/max HP needed to decide its 1/3-HP
@@ -629,6 +632,7 @@ enum class CalcLimitation {
             HNS_GIMMICK_STATE_UNREADABLE,
             HNS_GIMMICK_ACTIVE_NOT_MODELLED,
             HNS_LIVE_STATUS_NOT_MODELLED,
+            HNS_DEFENDER_STATUS_UNKNOWN,
             HNS_ABILITY_CONDITION_UNVERIFIED,
             HNS_LIVE_WEATHER_UNKNOWN,
             HNS_LIVE_WEATHER_NOT_MODELLED,
@@ -983,6 +987,8 @@ data class CalcCapabilityVerdict(
                 "the battle's gimmick state (Tera/Dynamax/Z) could not be read"
             CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED ->
                 "a battle gimmick (Tera/Dynamax/Z) is active and is not modelled by this calculation"
+            CalcLimitation.HNS_DEFENDER_STATUS_UNKNOWN ->
+                "the defender status required by this move is unread or invalid"
             CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED ->
                 "the attacker's live status condition is not modelled by this ordinary-damage calculation"
             CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED ->
@@ -1884,12 +1890,17 @@ object CalcCapabilityPolicy {
                 false -> Unit
             }
         }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE &&
+            !HnsDefenderStatus.isValid(request.hnsLiveBattleState?.defenderStatus1)) {
+            limitations.add(CalcLimitation.HNS_DEFENDER_STATUS_UNKNOWN)
+        }
         if (mechanics.requiresBlock || (mechanics.category in setOf(
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RECOIL,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_DRAIN,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EARTHQUAKE,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION,
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER) &&
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER,
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE) &&
                 (request.field.gameType != "Singles" || request.hnsLiveBattleState?.observedBattlersCount != 2))) {
             limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
         }
@@ -2149,6 +2160,7 @@ object CalcCapabilityPolicy {
             decisions += decision
             if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
                 decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT &&
+                !HnsAbilityContextPolicy.isExactStatusDoubleComatose(decision) &&
                 !(request.hnsLiveBattleState?.doubles != null &&
                     HnsDoublesAuthority.isExactPlusMinus(decision))
             ) {

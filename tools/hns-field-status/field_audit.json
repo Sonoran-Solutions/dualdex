@@ -1235,6 +1235,24 @@
               "contains": "if (ctx->fieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN && IsBattleMoveSpecial(move))"
             }
           ]
+        },
+        {
+          "rule": "electro_ball_electric_terrain_speed_exact",
+          "predicate": "Singles Electro Ball with exact effective Speeds; exact effective move type/category and authoritative attacker terrain applicability when Electric.",
+          "rationale": "The raw field bit activates Surge Surfer and Speed-selected Quark Drive regardless of grounding; the existing terrain damage boost independently tests authoritative IsBattlerTerrainAffected. Hadron Engine retains its separate Special stat gate.",
+          "evidence": [
+            {
+              "source": "src/battle_main.c:4959",
+              "contains": "else if (ability == ABILITY_SURGE_SURFER && gFieldStatuses & STATUS_FIELD_ELECTRIC_TERRAIN)"
+            }
+          ],
+          "relevance": "MODELLED",
+          "operands": [
+            "effective_move_type",
+            "move_category",
+            "field_statuses",
+            "attacker_terrain_applicability"
+          ]
         }
       ],
       "fallback": "Unknown effective type, unknown attacker/defender ability or non-ordinary move never clears."

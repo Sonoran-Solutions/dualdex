@@ -561,6 +561,28 @@ def parse_gyro_metadata(text, ids):
         makesContact=True, ballisticMove=True, punchingMove=False, sheerForceAffected=False,
         additionalEffects=[], abilityFlags=[], immunityFlags=["ballisticMove"])}
 
+def parse_electro_metadata(text, ids):
+    if ids.get("MOVE_ELECTRO_BALL") != 486:
+        raise ValueError("Changed Electro Ball ID")
+    bodies = ["\n".join(body) for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines())) if symbol == "MOVE_ELECTRO_BALL"]
+    if len(bodies) != 1 or hashlib.sha256(re.sub(r"\s+", "", bodies[0]).encode()).hexdigest() != "42b607263a3488d4237763dd2fb693b4d770c685302015becdc7b755e0b72814":
+        raise ValueError("Changed Electro Ball MoveInfo")
+    _, _, sheer, unknown = parse_contact_and_sheer_force(text)
+    if "MOVE_ELECTRO_BALL" in unknown or sheer.get("MOVE_ELECTRO_BALL") is not False:
+        raise ValueError("Changed Electro Ball Sheer Force")
+    return {486: dict(fixedSingleHitElectroBall=True, effect="EFFECT_ELECTRO_BALL", power=1,
+        type="TYPE_ELECTRIC", category="DAMAGE_CATEGORY_SPECIAL", accuracy=100, pp=10,
+        target="TARGET_SELECTED", priority=0, strikeCount=1, multiHit=False,
+        makesContact=False, ballisticMove=True, punchingMove=False, sheerForceAffected=False,
+        additionalEffects=[], abilityFlags=[], immunityFlags=["ballisticMove"])}
+
+
+def electro_power_table(text):
+    table = re.search(r"static const u8 sSpeedDiffPowerTable\[\] = \{(.*?)\};", text, re.S)
+    if not table or [int(n) for n in re.findall(r"\d+", table.group(1))] != [40, 60, 80, 120, 150]:
+        raise ValueError("Changed Electro Ball Speed power table")
+    return [int(n) for n in re.findall(r"\d+", table.group(1))]
+
 GYRO_SPEED_HELPERS = {
     ("src/battle_main.c", "GetBattlerTotalSpeedStat"): "e362608a2b8e5d21102646ca0410bdc54a8ae34d2d8b247563b0eb58d5adb16d",
     ("src/battle_util.c", "GetBadgeBoostModifier"): "74ddab434d133b95eae047c343408caf129e52bf3beb0171c380f720043c181d",
@@ -571,6 +593,7 @@ GYRO_SPEED_HELPERS = {
 def verify_gyro_speed_contract(upstream_dir):
     for (path, name), digest in GYRO_SPEED_HELPERS.items():
         verify_underwater_helper(open(os.path.join(upstream_dir, path)).read(), name, digest)
+    electro_power_table(open(os.path.join(upstream_dir, "src/battle_util.c")).read())
     pokemon = open(os.path.join(upstream_dir, "src/pokemon.c")).read()
     stages = re.search(r"const u8 gStatStageRatios\[.*?\n};", pokemon, re.S)
     if not stages or hashlib.sha256(stages.group(0).encode()).hexdigest() != "fd5f1f5fd35088585deb145deb802bfd14d30e2a69455dacc3535f6cd131fd1b":
@@ -908,7 +931,7 @@ def build_maps(upstream_dir):
 def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_flags_by_id,
                     priority_by_id, unknown_priority_ids, ability_flags_by_id,
                     unknown_ability_flags_by_id, contact_by_id, unknown_contact_by_id,
-                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=(), underwater_powers=None, status_double=None, status_constants=None, brine=None, gyro=None):
+                    sheer_by_id, unknown_sheer_by_id, recoil_ids=(), recoil_thaws=(), drain_percentages=None, earthquake_flags=None, explosion_powers=None, damp_bans=(), unknown_damp_bans=(), underwater_powers=None, status_double=None, status_constants=None, brine=None, speed_power=None, speed_power_table=()):
     """Render the committed Kotlin artifact, sorted by numeric move ID."""
     # Map from TARGET_* symbols to their EXACT values in the pinned H&S 2.0.5
     # `enum MoveTarget` (pokehns-expansion 1f42b74d, include/constants/battle.h):
@@ -1032,7 +1055,11 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    /** Singles explosion: Damp gate, HP=0 at damage, modern Defense, Parental Bond banned. */")
     lines.append("    val fixedSingleHitExplosionMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(explosion_powers or {}))) + ")")
     lines.append("    val explosionPowerById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((explosion_powers or {}).items())) + ")")
-    lines.append("    val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(gyro or {}))) + ")")
+    lines.append("    val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (speed_power or {}).items() if m.get("fixedSingleHitGyroBall")))) + ")")
+    lines.append("    val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (speed_power or {}).items() if m.get("fixedSingleHitElectroBall")))) + ")")
+    lines.append("    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds")
+    lines.append("    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds")
+    lines.append("    val electroBallPowerTable: List<Int> = listOf(" + ", ".join(map(str, speed_power_table)) + ")")
     lines.append("    val fixedSingleHitBrineMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(brine or {}))) + ")")
     lines.append("    val fixedSingleHitStatusDoubleMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(status_double or {}))) + ")")
     lines.append("    val statusDoublePowerMaskById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v['statusDoubleMask']}" for i, v in sorted((status_double or {}).items())) + ")")
@@ -1100,7 +1127,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
 
 
 def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_ability_flags_by_id,
-                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None, underwater_powers=None, status_double=None, status_constants=None, brine=None, gyro=None):
+                           contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages=None, damage_shapes=None, drain_percentages=None, target_by_id=None, priority_by_id=None, flags_by_id=None, earthquake_flags=None, explosion_powers=None, underwater_powers=None, status_double=None, status_constants=None, brine=None, speed_power=None):
     """Render a compact source-derived move metadata map for the ROM-free oracle harness."""
     result = {}
     for move_id, effect in sorted(effect_by_id.items()):
@@ -1141,7 +1168,7 @@ def generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id, unknown_
             skyBattleBanned=move_id == 57,
             additionalEffects=[] if move_id == 57 else [{"moveEffect":"MOVE_EFFECT_WRAP", "chance":0,
                 "sheerForceOverride":False, "preAttackEffect":False, "multistring":"B_MSG_WRAPPED_WHIRLPOOL"}])
-    for move_id, metadata in (gyro or {}).items():
+    for move_id, metadata in (speed_power or {}).items():
         result[str(move_id)].update(metadata)
     for move_id, metadata in (brine or {}).items():
         result[str(move_id)].update(metadata)
@@ -1192,7 +1219,9 @@ def main():
     if set(status_double) != {265,358,474,506,767,772}:
         raise ValueError("Changed status-double IDs")
     brine = parse_brine_metadata(move_text, ids)
-    gyro = parse_gyro_metadata(move_text, ids)
+    speed_power = parse_gyro_metadata(move_text, ids)
+    speed_power.update(parse_electro_metadata(move_text, ids))
+    speed_power_table = electro_power_table(open(os.path.join(upstream_dir, "src/battle_util.c")).read())
     target_by_id[57] = "TARGET_FOES_AND_ALLY"
     for move_id in drain_percentages:
         flags_by_id.setdefault(move_id, set()).add("healingMove")
@@ -1236,6 +1265,8 @@ def main():
         raise ValueError("Brine selected-hit script changed")
     if not re.search(r"\[EFFECT_GYRO_BALL\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
         raise ValueError("Gyro Ball selected-hit script changed")
+    if not re.search(r"\[EFFECT_ELECTRO_BALL\]\s*=\s*\{\s*\.battleScript = BattleScript_EffectHit,", effects):
+        raise ValueError("Electro Ball selected-hit script changed")
     verify_gyro_speed_contract(upstream_dir)
     verify_helper_contract(upstream_dir, ordinary)
     scripts = open(os.path.join(upstream_dir, "data/battle_scripts_1.s"), encoding="utf-8").read()
@@ -1264,10 +1295,10 @@ def main():
                                 unknown_flags_by_id, priority_by_id, unknown_priority_ids,
                                 ability_flags_by_id, unknown_ability_flags_by_id,
                                 contact_by_id, unknown_contact_by_id,
-                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans}, underwater_powers, status_double, status_constants, brine, gyro)
+                                sheer_by_id, unknown_sheer_by_id, recoil_ids, recoil_thaws, drain_percentages, earthquake_flags, explosion_powers, {ids[s] for s in damp_bans}, {ids[s] for s in unknown_damp_bans}, underwater_powers, status_double, status_constants, brine, speed_power, speed_power_table)
     generated_json = generate_metadata_json(effect_by_id, ordinary, ability_flags_by_id,
                                             unknown_ability_flags_by_id, contact_by_id,
-                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers, underwater_powers, status_double, status_constants, brine, gyro)
+                                            unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id, recoil_percentages, damage_shapes, drain_percentages, target_by_id, priority_by_id, flags_by_id, earthquake_flags, explosion_powers, underwater_powers, status_double, status_constants, brine, speed_power)
 
     # Both inventories are independently regenerated/verified from this same pinned commit.
     inventory_root = os.path.join(DEFAULT_REPO_ROOT, "tools")
@@ -1275,7 +1306,7 @@ def main():
         abilities = {row["id"]: row["display_name"] for row in csv.DictReader(handle, delimiter="\t")}
     with open(os.path.join(inventory_root, "hns-items/item_inventory.tsv")) as handle:
         items = {row["id"]: row["hold_effect"] for row in csv.DictReader(handle, delimiter="\t")}
-    speed_json = json.dumps({"pinnedCommit": PINNED_COMMIT, "abilities": abilities, "holdEffects": items}, sort_keys=True, separators=(",", ":")) + "\n"
+    speed_json = json.dumps({"pinnedCommit": PINNED_COMMIT, "abilities": abilities, "holdEffects": items, "electroBallPowerTable": speed_power_table}, sort_keys=True, separators=(",", ":")) + "\n"
     speed_path = os.path.join(DEFAULT_REPO_ROOT, "tools/hns-move-mechanics/hns_speed_contract.json")
     if args.verify:
         if not os.path.isfile(speed_path) or open(speed_path).read() != speed_json:

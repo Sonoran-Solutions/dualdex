@@ -1,5 +1,20 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
+## Singles Electro Ball — slice 9 (#139)
+
+Electro Ball (486), EFFECT_ELECTRO_BALL, has its own generated fixed-single-hit
+family. It reuses the slice-8 effective-Speed authority and maps integer A/D to
+`[40,60,80,120,150][min(A // D,4)]`. Attacker zero yields BP40; exact defender
+zero refuses with HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO before calculator execution.
+Technician reads dynamic power (40/60 boost, 80 does not), and shared Electric
+modifiers and ballistic immunity remain independent. Raw Electric Terrain Speed
+activation and grounded terrain damage use separate predicates. Source placeholder
+1 displays **Variable**. Neutral status, Singles, no Substitute and neutral
+semi-state remain required; Unburden and unsupported weather refuse.
+See [slice 9 source, oracle and census evidence](HNS_MOVE_COVERAGE_SLICE_9.md).
+H&S remains **ESTIMATED**.
+
+
 ## Singles Gyro Ball — slice 8 (#137)
 
 Gyro Ball (360), EFFECT_GYRO_BALL, uses its separate generated family and exact

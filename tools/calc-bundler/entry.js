@@ -347,6 +347,7 @@ function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
   if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
+        input.move?.hnsMoveEffect === 'EFFECT_ELECTRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ELECTRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitElectroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_GYRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_GYRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitGyroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_BRINE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_BRINE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitBrine === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true ||
@@ -416,6 +417,23 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     const attackerSpeed = hnsEffectiveSpeedAuthority(input.attacker, input, attacker, defender);
     const defenderSpeed = hnsEffectiveSpeedAuthority(input.defender, input, attacker, defender);
     moveBasePower = attackerSpeed === 0 ? 1 : Math.min(Number(25n * BigInt(defenderSpeed) / BigInt(attackerSpeed)) + 1, 150);
+  }
+  const electroMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
+  const electroFamily = electroMetadata?.fixedSingleHitElectroBall === true;
+  if (electroFamily || input.move?.hnsMoveEffect === 'EFFECT_ELECTRO_BALL' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ELECTRO_BALL') {
+    if (!electroFamily || input.move.hnsMoveId !== 486 || input.move.hnsMoveFamily !== 'FIXED_SINGLE_HIT_ELECTRO_BALL' ||
+        input.move.hnsMoveEffect !== electroMetadata.effect || input.move.hnsFixedSingleHit !== true ||
+        input.move.hnsIsOrdinary !== false || gameType !== 'Singles' || semiState !== 0 ||
+        input.defender?.hnsSubstitute !== false || input.move.overrides?.basePower !== 1 || move.bp !== 1 ||
+        input.move.hnsMakesContact !== false || input.move.hnsSheerForceAffected !== false ||
+        JSON.stringify(input.move.hnsMoveFlags) !== JSON.stringify(electroMetadata.immunityFlags) ||
+        JSON.stringify(input.move.hnsMoveAbilityFlags) !== JSON.stringify(electroMetadata.abilityFlags))
+      throw new Error('H&S Electro Ball move or execution authority invalid');
+    const attackerSpeed = hnsEffectiveSpeedAuthority(input.attacker, input, attacker, defender);
+    const defenderSpeed = hnsEffectiveSpeedAuthority(input.defender, input, attacker, defender);
+    if (defenderSpeed === 0) throw new Error('HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO');
+    const index = Number(BigInt(attackerSpeed) / BigInt(defenderSpeed));
+    moveBasePower = hnsSpeedContract.electroBallPowerTable[Math.min(index, 4)];
   }
   if (statusFamily || input.move?.hnsIsStatusDouble === true || input.move?.hnsStatusDoubleMask !== undefined ||
       input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_STATUS_DOUBLE') {
@@ -925,9 +943,8 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     throw new Error('Invalid H&S Charge timer');
   }
   if (effectiveMoveType === 'Electric' && chargeTimer > 0) basePowerModifier.addHalfUp(8192);
-  // `move.bp` is the authoritative H&S move power supplied by the boundary. The ordinary
-  // fixed single-hit surfaces are EFFECT_HIT and EFFECT_RECOIL; CalcMoveBasePower leaves it
-  // unchanged before Technician's `basePower <= 60` check. Matching move flags are generated
+  // Technician reads CalcMoveBasePower's result, including the reviewed Gyro/Electro dynamic
+  // powers above. It never reads their source placeholder power 1. Matching move flags are generated
   // from the pinned MoveInfo table and rebound by move ID; caller move data cannot set them.
   const abilityMoveFlags = new Set(input.move?.hnsMoveAbilityFlags || []);
   const contactAuthority = hnsContactAuthority(move, attacker, input);

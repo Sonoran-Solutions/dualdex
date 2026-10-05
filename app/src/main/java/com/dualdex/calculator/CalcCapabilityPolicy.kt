@@ -459,6 +459,7 @@ enum class CalcLimitation {
     HNS_DEFENDER_HP_UNKNOWN,
 
     HNS_EFFECTIVE_SPEED_UNKNOWN,
+    HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO,
 
     /** Required defender status word is unread or outside the pinned status domain. */
     HNS_DEFENDER_STATUS_UNKNOWN,
@@ -639,6 +640,7 @@ enum class CalcLimitation {
             HNS_LIVE_STATUS_NOT_MODELLED,
             HNS_DEFENDER_HP_UNKNOWN,
             HNS_EFFECTIVE_SPEED_UNKNOWN,
+            HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO,
             HNS_DEFENDER_STATUS_UNKNOWN,
             HNS_ABILITY_CONDITION_UNVERIFIED,
             HNS_LIVE_WEATHER_UNKNOWN,
@@ -994,6 +996,7 @@ data class CalcCapabilityVerdict(
                 "the battle's gimmick state (Tera/Dynamax/Z) could not be read"
             CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED ->
                 "a battle gimmick (Tera/Dynamax/Z) is active and is not modelled by this calculation"
+            CalcLimitation.HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO -> "the pinned Electro Ball formula has no reviewed zero-divisor branch"
             CalcLimitation.HNS_EFFECTIVE_SPEED_UNKNOWN -> "the source effective-Speed operands are unread or unsupported"
             CalcLimitation.HNS_DEFENDER_HP_UNKNOWN ->
                 "the active defender HP/maxHP required by Brine is unread or invalid"
@@ -1916,9 +1919,13 @@ object CalcCapabilityPolicy {
                 else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
             }
         }
-        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_GYRO_BALL) {
-            if (HnsAbilitySide.entries.any { HnsEffectiveSpeedAuthority.forRequest(request, it).speed == null })
+        if (mechanics.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitSpeedPowerMoveIds) {
+            val attackerSpeed = HnsEffectiveSpeedAuthority.forRequest(request, HnsAbilitySide.ATTACKER).speed
+            val defenderSpeed = HnsEffectiveSpeedAuthority.forRequest(request, HnsAbilitySide.DEFENDER).speed
+            if (attackerSpeed == null || defenderSpeed == null)
                 limitations.add(CalcLimitation.HNS_EFFECTIVE_SPEED_UNKNOWN)
+            else if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ELECTRO_BALL && defenderSpeed == 0L)
+                limitations.add(CalcLimitation.HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO)
             when (request.hnsLiveBattleState?.defenderSemiInvulnerableState) {
                 0 -> Unit
                 null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
@@ -1933,7 +1940,8 @@ object CalcCapabilityPolicy {
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE,
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_GYRO_BALL) &&
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_GYRO_BALL,
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ELECTRO_BALL) &&
                 (request.field.gameType != "Singles" || request.hnsLiveBattleState?.observedBattlersCount != 2))) {
             limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
         }
@@ -2331,7 +2339,7 @@ object CalcCapabilityPolicy {
             limitations.add(CalcLimitation.HNS_LIVE_SCREENS_UNKNOWN)
         } else if (live.defenderSideStatuses and
             (com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.SIDE_STATUS_MODELLED or
-                if (selectedMoveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitGyroBallMoveIds) 0x410 else 0).inv() != 0
+                if (selectedMoveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitSpeedPowerMoveIds) 0x410 else 0).inv() != 0
         ) {
             limitations.add(CalcLimitation.HNS_LIVE_SIDE_STATUS_NOT_MODELLED)
         }

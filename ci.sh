@@ -513,6 +513,7 @@ source_check() {
   python3 tools/hns-move-mechanics/generate_hns_move_effects.py \
     --upstream-dir "$upstream" --verify
   python3 tools/hns-move-mechanics/test_gyro_speed_contract.py --upstream-dir "$upstream"
+  python3 tools/hns-move-mechanics/test_electro_speed_contract.py --upstream-dir "$upstream"
 
   # Reviewed per-hold-effect item capability decisions must cover the exact pinned item domain,
   # every pinned HOLD_EFFECT_* reference and every literal item-identity read; the generated

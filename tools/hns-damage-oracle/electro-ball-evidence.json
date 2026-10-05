@@ -1,0 +1,1044 @@
+{
+  "effectiveSpeeds": {
+    "electro-ball-ability-shield": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-attacker-choice-scarf": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 150,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-attacker-iron-ball": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-attacker-tailwind": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 16,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-attacker-zero": {
+      "attacker": {
+        "badge": 0,
+        "raw": 1,
+        "sideStatuses": 0,
+        "stage": -6,
+        "total": 0,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-bulletproof": {
+      "attacker": {
+        "badge": 0,
+        "raw": 500,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 500,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-charge": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-charge-terrain-technician": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-chlorophyll": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-chlorophyll-cloud-nine": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-chlorophyll-umbrella": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-crit": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-defender-choice-scarf": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 150,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-defender-iron-ball": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-defender-tailwind": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 16,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-hadron-engine": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-life-orb": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-light-screen": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 2,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-lightning-rod": {
+      "attacker": {
+        "badge": 0,
+        "raw": 500,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 500,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-magnet": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-mold-breaker": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-motor-drive": {
+      "attacker": {
+        "badge": 0,
+        "raw": 500,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 500,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-normalize": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-paralysis": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 25,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-power-anklet": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-protosynthesis-speed": {
+      "attacker": {
+        "badge": 0,
+        "raw": 300,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 450,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-quark-drive-speed": {
+      "attacker": {
+        "badge": 0,
+        "raw": 300,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 450,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-quick-claw": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-quick-powder-ditto": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-100": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-199": {
+      "attacker": {
+        "badge": 0,
+        "raw": 199,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 199,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-200": {
+      "attacker": {
+        "badge": 0,
+        "raw": 200,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-299": {
+      "attacker": {
+        "badge": 0,
+        "raw": 299,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 299,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-300": {
+      "attacker": {
+        "badge": 0,
+        "raw": 300,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 300,
+        "unburdenActive": 0
+      },
+      "basePower": 120,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-399": {
+      "attacker": {
+        "badge": 0,
+        "raw": 399,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 399,
+        "unburdenActive": 0
+      },
+      "basePower": 120,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-400": {
+      "attacker": {
+        "badge": 0,
+        "raw": 400,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 400,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-500": {
+      "attacker": {
+        "badge": 0,
+        "raw": 500,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 500,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-ratio-99": {
+      "attacker": {
+        "badge": 0,
+        "raw": 99,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 99,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-sheer-force": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-slow-start": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 50,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-stages": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-surge-surfer-grounded": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-surge-surfer-ungrounded": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-swift-swim": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-swift-swim-cloud-nine": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-swift-swim-umbrella": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-technician-40": {
+      "attacker": {
+        "badge": 0,
+        "raw": 99,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 99,
+        "unburdenActive": 0
+      },
+      "basePower": 40,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-technician-60": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-technician-80": {
+      "attacker": {
+        "badge": 0,
+        "raw": 200,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 0
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-terrain-control": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-trick-room": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      },
+      "basePower": 60,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-unburden": {
+      "attacker": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 200,
+        "unburdenActive": 1
+      },
+      "basePower": 80,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    },
+    "electro-ball-volt-absorb": {
+      "attacker": {
+        "badge": 0,
+        "raw": 500,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 500,
+        "unburdenActive": 0
+      },
+      "basePower": 150,
+      "defender": {
+        "badge": 0,
+        "raw": 100,
+        "sideStatuses": 0,
+        "stage": 0,
+        "total": 100,
+        "unburdenActive": 0
+      }
+    }
+  },
+  "engineOnly": 120,
+  "engineReplay": {
+    "byteIdentical": true,
+    "canonicalEntries": 2394,
+    "corpusSha256": "8b205ca6b43adb76d4a8710663cd735b37089c149727c19adf9589a5824a28f4",
+    "reversedEntries": 2394
+  },
+  "gyroHistoricalCount": 76,
+  "gyroHistoricalLinesSha256": "7ccc4a3b6657eb7cce22af13d74275e23b4b05a07734b2f0889333cdfc46de68",
+  "historicalCount": 2341,
+  "historicalEntryLinesUnchanged": true,
+  "modelled": 2274,
+  "negativeControlVerified": true,
+  "newEngineOnly": 3,
+  "newModelled": 50,
+  "newScenarios": 53,
+  "registeredDivergences": 0,
+  "startingSha": "9ab694b99915f13956f0cf652c792bdc92d10409",
+  "total": 2394,
+  "zeroDivisor": {
+    "defenderZeroSourceWitness": "gyro-ball-defender-zero",
+    "electroPowerInvoked": false,
+    "productionLimitation": "HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO",
+    "sourceContract": "Pinned CalcMoveBasePower divides by GetBattlerTotalSpeedStat(defender) with no guard; source-check pins the entire helper.",
+    "sourceObservedDefender": {
+      "badge": 0,
+      "raw": 1,
+      "sideStatuses": 0,
+      "stage": -6,
+      "total": 0,
+      "unburdenActive": 0
+    }
+  }
+}

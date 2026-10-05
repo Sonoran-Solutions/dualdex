@@ -1,0 +1,11 @@
+{
+  "startingSha": "9ab694b99915f13956f0cf652c792bdc92d10409",
+  "command": "DUALDEX_ELECTRO_OLD_HEAD=true ./ci.sh test",
+  "exitStatus": 0,
+  "compiled": true,
+  "tests": 1,
+  "failures": 0,
+  "observedLimitation": "HNS_MOVE_MECHANICS_NOT_MODELLED",
+  "testSourceSha256": "62585fcf07ab386359bd5f269314ca4d2491442a27459b0abc824a760e9d5b81",
+  "hardware": "NOT_RUN"
+}

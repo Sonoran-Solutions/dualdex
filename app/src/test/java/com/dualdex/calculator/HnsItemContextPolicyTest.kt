@@ -621,6 +621,8 @@ class HnsItemContextPolicyTest {
             ctx(HnsItemSide.ATTACKER).copy(moveId=250, fixedSingleHitMove=true)).rule?.let(produced::add)
         assessForTest(HnsItemRegistry.resolveIdByName("Choice Scarf")!!,
             ctx(HnsItemSide.ATTACKER).copy(moveId=360,effectiveSpeedExact=true)).rule?.let(produced::add)
+        assessForTest(HnsItemRegistry.resolveIdByName("Choice Scarf")!!,
+            ctx(HnsItemSide.ATTACKER).copy(moveId=486,effectiveSpeedExact=true)).rule?.let(produced::add)
         assertEquals(HnsItemAuditData.contextRuleNames, produced.filterNot { it.startsWith("group_e_") }.toSet())
         assertTrue(produced.size >= 30)
     }

@@ -286,6 +286,17 @@
             "contains": "GetBattlerTotalSpeedStat"
           }
         ]
+      },
+      {
+        "rule": "electro_ball_speed_ability_exact",
+        "predicate": "Singles Electro Ball; exact source effective-Speed operands for this holder.",
+        "rationale": "This ability contributes to the source-ordered effective Speed before dynamic base power; it is not neutralized.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4935",
+            "contains": "GetBattlerTotalSpeedStat"
+          }
+        ]
       }
     ],
     "always_blocking": [],
@@ -319,6 +330,17 @@
       {
         "rule": "gyro_ball_speed_ability_exact",
         "predicate": "Singles Gyro Ball; exact source effective-Speed operands for this holder.",
+        "rationale": "This ability contributes to the source-ordered effective Speed before dynamic base power; it is not neutralized.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4935",
+            "contains": "GetBattlerTotalSpeedStat"
+          }
+        ]
+      },
+      {
+        "rule": "electro_ball_speed_ability_exact",
+        "predicate": "Singles Electro Ball; exact source effective-Speed operands for this holder.",
         "rationale": "This ability contributes to the source-ordered effective Speed before dynamic base power; it is not neutralized.",
         "evidence": [
           {
@@ -877,6 +899,17 @@
             "contains": "GetBattlerTotalSpeedStat"
           }
         ]
+      },
+      {
+        "rule": "electro_ball_speed_ability_exact",
+        "predicate": "Singles Electro Ball; exact source effective-Speed operands for this holder.",
+        "rationale": "This ability contributes to the source-ordered effective Speed before dynamic base power; it is not neutralized.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4935",
+            "contains": "GetBattlerTotalSpeedStat"
+          }
+        ]
       }
     ],
     "always_blocking": [
@@ -1119,6 +1152,17 @@
             "contains": "GetBattlerTotalSpeedStat"
           }
         ]
+      },
+      {
+        "rule": "electro_ball_speed_ability_exact",
+        "predicate": "Singles Electro Ball; exact source effective-Speed operands for this holder.",
+        "rationale": "This ability contributes to the source-ordered effective Speed before dynamic base power; it is not neutralized.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4935",
+            "contains": "GetBattlerTotalSpeedStat"
+          }
+        ]
       }
     ],
     "always_blocking": [
@@ -1214,6 +1258,17 @@
             "contains": "GetBattlerTotalSpeedStat"
           }
         ]
+      },
+      {
+        "rule": "electro_ball_speed_ability_exact",
+        "predicate": "Singles Electro Ball; exact source effective-Speed operands for this holder.",
+        "rationale": "This ability contributes to the source-ordered effective Speed before dynamic base power; it is not neutralized.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4935",
+            "contains": "GetBattlerTotalSpeedStat"
+          }
+        ]
       }
     ],
     "always_blocking": [
@@ -1302,6 +1357,17 @@
       {
         "rule": "gyro_ball_speed_ability_exact",
         "predicate": "Singles Gyro Ball; exact effective Speeds and independent Analytic authority.",
+        "rationale": "This ability changes action order, is absent from GetBattlerTotalSpeedStat and contributes no selected-hit modifier; Analytic retains its separate current-action gate.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4935",
+            "contains": "GetBattlerTotalSpeedStat"
+          }
+        ]
+      },
+      {
+        "rule": "electro_ball_speed_ability_exact",
+        "predicate": "Singles Electro Ball; exact effective Speeds and independent Analytic authority.",
         "rationale": "This ability changes action order, is absent from GetBattlerTotalSpeedStat and contributes no selected-hit modifier; Analytic retains its separate current-action gate.",
         "evidence": [
           {
@@ -5896,6 +5962,17 @@
             "contains": "GetBattlerTotalSpeedStat"
           }
         ]
+      },
+      {
+        "rule": "electro_ball_speed_ability_exact",
+        "predicate": "Singles Electro Ball; exact source effective-Speed operands for this holder.",
+        "rationale": "This ability contributes to the source-ordered effective Speed before dynamic base power; it is not neutralized.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4935",
+            "contains": "GetBattlerTotalSpeedStat"
+          }
+        ]
       }
     ],
     "always_blocking": [],
@@ -5907,6 +5984,17 @@
       {
         "rule": "gyro_ball_speed_ability_exact",
         "predicate": "Singles Gyro Ball; exact effective Speeds and independent Analytic authority.",
+        "rationale": "This ability changes action order, is absent from GetBattlerTotalSpeedStat and contributes no selected-hit modifier; Analytic retains its separate current-action gate.",
+        "evidence": [
+          {
+            "source": "src/battle_main.c:4935",
+            "contains": "GetBattlerTotalSpeedStat"
+          }
+        ]
+      },
+      {
+        "rule": "electro_ball_speed_ability_exact",
+        "predicate": "Singles Electro Ball; exact effective Speeds and independent Analytic authority.",
         "rationale": "This ability changes action order, is absent from GetBattlerTotalSpeedStat and contributes no selected-hit modifier; Analytic retains its separate current-action gate.",
         "evidence": [
           {

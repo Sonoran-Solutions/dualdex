@@ -80,4 +80,17 @@ if __name__ == '__main__':
         assert 'RandomUniform(RNG_LOADED_DICE, 4, 5)' in source('src/battle_move_resolution.c')
         assert 'RandomUniform(RNG_LOADED_DICE, 4, 10)' in source('src/battle_move_resolution.c')
         assert '#define GEN_LATEST GEN_9' in source('include/config/general.h')
-        print(f'PASS: {len(expected)} pinned move records, {len(links)} exact source anchors, count rules/config')
+        # Status application precedes another strike and can change its defensive operand.
+        handlers = source('src/battle_move_resolution.c').split('sMoveEndHandlers[]', 1)[1]
+        assert handlers.index('[MOVEEND_ABILITIES_ATTACKER]') < handlers.index('[MOVEEND_MULTIHIT_MOVE]')
+        commands = source('src/battle_script_commands.c')
+        assert 'RandomWeighted(RNG_TOXIC_CHAIN, 7, 3)' in commands
+        utility = source('src/battle_util.c')
+        attacker_reactions = utility.split('case ABILITYEFFECT_MOVE_END_ATTACKER:', 1)[1].split('case ABILITYEFFECT_FORM_CHANGE_ON_HIT:', 1)[0]
+        assert 'RandomPercentage(RNG_POISON_TOUCH, 30)' in attacker_reactions
+        assert 'gBattleScripting.moveEffect = MOVE_EFFECT_POISON;' in attacker_reactions
+        assert 'gBattleScripting.moveEffect = MOVE_EFFECT_TOXIC;' in attacker_reactions
+        marvel_scale = utility.split('case ABILITY_MARVEL_SCALE:', 1)[1].split('case ABILITY_FUR_COAT:', 1)[0]
+        assert 'status1 & STATUS1_ANY && usesDefStat' in marvel_scale
+        assert 'UQ_4_12(1.5)' in marvel_scale
+        print(f'PASS: {len(expected)} pinned move records, {len(links)} exact source anchors, count rules/config, attacker-status phase/Defense dependency')

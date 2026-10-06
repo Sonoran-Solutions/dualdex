@@ -214,6 +214,7 @@ and survival predicates still apply on every attempted activation.
 | Resist berries | damage modifier sets berryReduced; pre-attack animation script consumes before HP application and next strike | C; existing initial-hit berry authority is insufficient for totals |
 | Rough Skin / Iron Barbs / Rocky Helmet | each eligible contact strike, before next hit; attacker HP loss/faint possible | C, including threshold modifiers; refuse unless complete suppression/contact proof |
 | Flame Body / Static / Poison Point | each eligible contact strike, RNG/status eligibility; burn can change next damage | C branching; refuse |
+| Poison Touch / Toxic Chain | attacker move-end status handling before repeated-hit loop; Poison Touch requires eligible contact, Toxic Chain priority is rolled in `Cmd_setadditionaleffects` without a contact requirement; can poison defender before next strike | C branching/state evolution; Marvel Scale can raise the Defense used by physical hit two; Slice A refuses unless status application is source-proven impossible or irrelevant to every later-hit damage operand |
 | Effect Spore | per-contact status selection incl. sleep; can terminate loop | C branching; refuse |
 | Mummy / Lingering Aroma / Wandering Spirit | contact ability replacement/swapping before next strike | C; may change modifiers/suppression, count itself stays selected |
 | Color Change / Berserk / Anger Shell | ABILITYEFFECT_COLOR_CHANGE in dedicated handler after loop; type or threshold stage changes | A for sequence if existing initial operands/gates exact; no post-move state claim |
@@ -229,6 +230,28 @@ and survival predicates still apply on every attempted activation.
 | Scale Shot | defense down/speed up at sequence end, battle-continuation guard | B bounded dedicated move-level scope proof; separate slice |
 | Type / category / suppression | type cached at setup, category source accessor; abilities/items refreshed per calc | A when stable; C when ability/item/state changes; unknown bypass D |
 | Substitute, Doubles/smart targets, unsupported gimmicks/weather/execution | existing authority exclusions plus independent sequence concerns | D; preserve all existing refusals |
+
+### Attacker-side status transition counterexample
+
+Poison Touch + physical Double Hit against a healthy, initially unstatused Marvel
+Scale defender is not a stable sequence. Hit one uses unstatused Defense.
+`ABILITYEFFECT_MOVE_END_ATTACKER` checks damage, contact, poison eligibility and
+its 30% RNG roll, then calls `BattleScript_AbilityStatusEffect`, which applies
+nonvolatile status before `MoveEndMultihitMove` can start hit two.
+`CalcDefenseStat` now sees `status1 & STATUS1_ANY` and, when `usesDefStat` is true,
+applies Marvel Scale's 1.5× Defense modifier. With effective abilities active,
+physical category and no Wonder Room, this can change hit two's actual damage.
+A repeated first-hit range therefore cannot represent the executable total.
+
+Toxic Chain is broader: `SetToxicChainPriority` checks a living, damaged, poisonable
+target and uses `RandomWeighted(RNG_TOXIC_CHAIN, 7, 3)`. The attacker move-end
+handler clears that priority and applies toxic status unless target effects are
+blocked. It does not require contact, so physical Bonemerang can produce the
+same Marvel Scale transition. These are status-triggered damage dependencies,
+not merely end-of-move status annotations. The downstream audit must include
+status-sensitive defensive operands and any status-triggered item/ability
+reaction before the next strike. Do not clear these abilities through a current
+single-hit irrelevance rule or an initially healthy defender snapshot.
 
 ## Product display and target survival
 
@@ -322,7 +345,10 @@ must enumerate applicable source handlers using exact metadata/effective ability
 and item identities on both sides, not only currently reported blockers. Deny
 unknown reactions by default. Check HP predicates, forms, contact, type/category,
 status, stages, Charge, gem/berry consumption, weather/terrain and ability/item
-replacement. Source-proven inapplicable reactions may be excluded request-locally;
+replacement. Explicitly include attacker Poison Touch/Toxic Chain and downstream
+Marvel Scale Defense changes; reject them in Slice A unless complete source-backed
+status impossibility or irrelevance to every later-hit operand is established.
+Source-proven inapplicable reactions may be excluded request-locally;
 that exclusion needs both predicate authority and negative engine controls. A successful
 hit condition is explicit, not an accuracy forecast. H&S support stays ESTIMATED.
 
@@ -393,6 +419,7 @@ Evidence plan:
 | Loaded Dice | force 4 and 5; suppress via Klutz/Embargo/Magic Room; Skill Link precedence; distinct Population 4..10 controls kept engine-only |
 | Early KO | HP below first-hit minimum, between rolls, exactly first-hit damage, between first and total; no hit after KO; overkill calculated versus applied loss |
 | State change | engine-only Multiscale, resist berry, Sturdy option on/off, Sash, Stamina/Weak Armor, contact burn/sleep, Helmet attacker KO; complete event ordering |
+| Attacker status / Marvel Scale | physical contact Double Hit + Poison Touch; physical noncontact Bonemerang + Toxic Chain; force trigger/no-trigger RNG with identical noncrit damage-roll plans and ample target HP. Observe healthy hit-one status/Defense, poison/toxic application before next hit, hit-two status and effective Defense, and damage. Choose non-rounding-degenerate stats: positive total must differ from first-hit-based multiplication. Poison Touch + Bonemerang is a no-contact negative; add a poison-ineligible target control for both abilities, with eligibility proven by pinned status predicates. Confirm no status/Defense transition and stable totals only where all other gates clear. Keep positive cases engine-only/refused until supported. |
 | Negative policy | same source scenarios remain refused until transition supported; no unlock via initial stages, hard caveat, Substitute, Doubles or unknown state |
 
 For N>2 do not store a fake sixteen-entry total roll vector or enumerate 16^N
@@ -461,8 +488,10 @@ strikeCount=2 descriptor checks. Reuse current arithmetic for first-hit rolls;
 add structured sequence parser/presentation and a source-backed stable guard;
 produce executable HP-loss totals only with positive authoritative current HP,
 independent-roll proof and all current gates retained. Reject relevant/unknown
-between-hit changes. Explicitly label hit/crit conditions. Add additive pinned
-engine trace evidence, mutation/negative controls, UI scope checks and production
+between-hit changes, including Poison Touch/Toxic Chain → defender status →
+Marvel Scale Defense. Add the positive/negative oracle cases above before claiming
+a stable-sequence admission rule. Explicitly label hit/crit conditions.
+Add additive pinned engine trace evidence, mutation/negative controls, UI scope checks and production
 census replay; historical oracle bytes unchanged. Run canonical `./ci.sh all` for
 that shipping change. No Twineedle, random counts, probability, Doubles/Substitute,
 new profile or hardware claims. Human approval controls merge.
@@ -477,6 +506,9 @@ move flag cross-check and reference anchor verification pass. `git diff --check`
 passes. No production code changes; **`./ci.sh all` NOT_RUN**, per this task's
 explicit design-validation instruction. No original-engine regeneration, battle
 tests or hardware run claimed. No prototype was necessary.
+Senior review revision adds attacker-side Poison Touch/Toxic Chain status transitions, the Marvel Scale dependency and future
+engine controls. These future engine cases have not been run; source checks do
+not substitute for their execution evidence.
 
 ## Pinned source-reference table
 
@@ -536,3 +568,12 @@ are the authority; upstream test files corroborate intent but were not run here.
 | Scale Shot metadata | [src/data/moves_info.h:18661](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/data/moves_info.h#L18661) — `[MOVE_SCALE_SHOT] =` |
 | Loaded Dice item record | [src/data/items.h:14966](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/data/items.h#L14966) — `[ITEM_LOADED_DICE] =` |
 | Upstream count tests (read, not run) | [test/battle/move_effect/multi_hit.c:28](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/test/battle/move_effect/multi_hit.c#L28) — `SINGLE_BATTLE_TEST("Multi hit Moves hit twice` |
+| Toxic Chain priority selection | [src/battle_script_commands.c:3738](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/battle_script_commands.c#L3738) — `static void SetToxicChainPriority(void)` |
+| Attacker move-end dispatch before loop | [src/battle_move_resolution.c:2307](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/battle_move_resolution.c#L2307) — `static enum MoveEndResult MoveEndAbilitiesAttacker(void)` |
+| Attacker-side status reaction phase | [src/battle_util.c:4340](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/battle_util.c#L4340) — `case ABILITYEFFECT_MOVE_END_ATTACKER:` |
+| Poison Touch predicates/RNG | [src/battle_util.c:4343](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/battle_util.c#L4343) — `case ABILITY_POISON_TOUCH:` |
+| Toxic Chain status application | [src/battle_util.c:4360](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/battle_util.c#L4360) — `case ABILITY_TOXIC_CHAIN:` |
+| Status application script | [data/battle_scripts_1.s:6929](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/data/battle_scripts_1.s#L6929) — `BattleScript_AbilityStatusEffect::` |
+| Poison eligibility authority | [src/battle_util.c:5310](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/battle_util.c#L5310) — `bool32 CanBePoisoned(` |
+| Defensive stat selection | [src/battle_util.c:7211](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/battle_util.c#L7211) — `static inline u32 CalcDefenseStat(` |
+| Marvel Scale status-dependent Defense | [src/battle_util.c:7279](https://github.com/PokemonHnS-Development/pokehns-expansion/blob/1f42b74dff0e9fe942419845d040663dd829a973/src/battle_util.c#L7279) — `case ABILITY_MARVEL_SCALE:` |

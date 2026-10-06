@@ -52,6 +52,9 @@ enum class HnsMoveMechanicsCategory {
     /** Plain fixed-two EFFECT_HIT; sequence stability is authorized separately. */
     FIXED_TWO_HIT_PLAIN,
 
+    /** Plain source-selected random 2–5 multiHit EFFECT_HIT family. */
+    VARIABLE_MULTI_HIT_PLAIN,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -83,7 +86,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** Arithmetic eligibility for one strike, never a sequence-stability verdict. */
     val isSupportedSelectedStrike: Boolean
-        get() = isSupportedFixedSingleHit || this == FIXED_TWO_HIT_PLAIN
+        get() = isSupportedFixedSingleHit || this == FIXED_TWO_HIT_PLAIN || this == VARIABLE_MULTI_HIT_PLAIN
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -202,6 +205,11 @@ object HnsMoveMechanicsRegistry {
         if (moveId in Hns205MoveEffects.fixedTwoHitPlainMoveIds) {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT", HnsMoveMechanicsCategory.FIXED_TWO_HIT_PLAIN,
                 "Pinned plain fixed-two strikes; requires independent sequence authority.")
+        }
+
+        if (moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT", HnsMoveMechanicsCategory.VARIABLE_MULTI_HIT_PLAIN,
+                "Pinned plain random-count multiHit strikes; count authority and sequence stability are separate.")
         }
 
         if (moveId in Hns205MoveEffects.ordinaryMoveIds) {

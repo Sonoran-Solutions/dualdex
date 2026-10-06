@@ -1844,7 +1844,7 @@ def verify_upstream(upstream: Path) -> None:
 def _apply_patch(work: Path, patch: Path) -> None:
     text = patch.read_text()
     targets = re.findall(r"^\+\+\+ b/(\S+)", text, re.M)
-    if not targets or any(not t.startswith("test/") and not (patch.name in ("0004-gyro-ball-observation.patch", "0006-electro-ball-observation.patch", "0007-rollout-observation.patch") and t == "src/battle_util.c") and not (patch.name in ("0008-rollout-lifecycle-observation.patch", "0009-hit-escape-observation.patch") and t == "src/battle_move_resolution.c") and not (patch.name == "0009-hit-escape-observation.patch" and t == "src/battle_script_commands.c") for t in targets):
+    if not targets or any(not t.startswith("test/") and not (patch.name in ("0004-gyro-ball-observation.patch", "0006-electro-ball-observation.patch", "0007-rollout-observation.patch") and t == "src/battle_util.c") and not (patch.name in ("0008-rollout-lifecycle-observation.patch", "0009-hit-escape-observation.patch", "0011-variable-multihit-count-observation.patch") and t == "src/battle_move_resolution.c") and not (patch.name == "0009-hit-escape-observation.patch" and t == "src/battle_script_commands.c") for t in targets):
         raise OracleError(f"{patch.name} must only touch the upstream test harness, touches {targets}")
     _run(["patch", "-p1", "--forward", "--batch", "-i", str(patch)], cwd=work)
 

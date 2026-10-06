@@ -3311,6 +3311,9 @@ internal object Hns205MoveEffects {
     val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(486)
     val fixedSingleHitEscapeMoveIds: Set<Int> = setOf(369, 521, 740)
     val fixedTwoHitPlainMoveIds: Set<Int> = setOf(24, 155, 458, 530, 742, 814)
+    /** Exact plain random-count EFFECT_HIT family; Scale Shot and Twineedle are excluded. */
+    val variableMultiHitPlainMoveIds: Set<Int> = setOf(3, 4, 31, 42, 131, 154, 198, 292, 331, 333, 350, 541)
+    val variableMultiHitDescriptorSha256ById: Map<Int, String> = mapOf(3 to "37f1f7ef3c2e33fc86f1daad1abec9e425fedd32778ddc0d42cfc64d7b61cb8e", 4 to "45efa36822888907fdfa562b16087aba3ce4ef400673b2672eefbb8def020731", 31 to "060f699afe5322f95999041a1d82251c12e49403fa8d6ee8f6b45dbc674f8397", 42 to "0a46abdbc00ec2ae9cdd555cf517840a5abdd71ead66e10c744d33434b8c1acd", 131 to "ba1b14d4b373733088b525325148a5c737cf8a8be648fcb8f9bce4f03e206ba9", 154 to "e772a1809fb7e5b77bfcffda2d4808b7e6a8ede6b6be1971edf93b3fd4a8216d", 198 to "68e17169bfe0bc96e47836b9db35fa5ca2480f584a531727686e8250b3ba3100", 292 to "68908eecef1cf68a19f1fbe07bb0fa762e19b1540bfc832b818273ffa3ac7d29", 331 to "403f0cc0df44c4994a8cb81039fafc9e33873179491a594df5b9185964000cc9", 333 to "a229be72d4e28c36a1d0f765137ee3f31e9158a2019f49067847e06a6c0a832f", 350 to "5c4665229897c6efcf12894630b467e0a126e8a61e8910a0154a941ae3973e18", 541 to "d9d37df2f2f4c52f7148cdf3f1745d309c9236dcde23779d2cd7c8b2649f5394")
     val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(205, 301)
     val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds
     val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds
@@ -3383,6 +3386,7 @@ internal object Hns205MoveEffects {
         put(319, setOf("soundMove"))
         put(320, setOf("soundMove"))
         put(331, setOf("ballisticMove"))
+        put(350, setOf("ballisticMove"))
         put(355, setOf("healingMove"))
         put(360, setOf("ballisticMove"))
         put(361, setOf("healingMove"))
@@ -3459,7 +3463,6 @@ internal object Hns205MoveEffects {
         put(138, setOf("healingMove"))
         put(318, setOf("windMove"))
         put(336, setOf("soundMove"))
-        put(350, setOf("ballisticMove"))
         put(466, setOf("windMove"))
         put(570, setOf("healingMove"))
         put(613, setOf("healingMove"))
@@ -5361,7 +5364,11 @@ internal object Hns205MoveEffects {
         put(933, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
         put(934, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
     }
-    val repeatedStrikeStableAbilityIds: Set<Int> = setOf(0, 15, 25, 26, 63, 65, 66, 67, 68, 85, 91, 92, 96, 101, 111, 116, 125, 129, 169, 174, 181, 182, 184, 199, 203, 204, 206, 218, 246)
+    val repeatedStrikeStableAbilityIds: Set<Int> = setOf(0, 6, 15, 25, 26, 63, 65, 66, 67, 68, 85, 91, 92, 96, 101, 111, 116, 125, 129, 169, 174, 181, 182, 184, 199, 203, 204, 206, 218, 246)
     val repeatedStrikeStableHoldEffects: Set<String> = setOf("HOLD_EFFECT_ABILITY_SHIELD", "HOLD_EFFECT_ASSAULT_VEST", "HOLD_EFFECT_CHOICE_BAND", "HOLD_EFFECT_CHOICE_SCARF", "HOLD_EFFECT_CHOICE_SPECS", "HOLD_EFFECT_EVIOLITE", "HOLD_EFFECT_EXPERT_BELT", "HOLD_EFFECT_IRON_BALL", "HOLD_EFFECT_LIFE_ORB", "HOLD_EFFECT_LOADED_DICE", "HOLD_EFFECT_MUSCLE_BAND", "HOLD_EFFECT_NONE", "HOLD_EFFECT_PROTECTIVE_PADS", "HOLD_EFFECT_PUNCHING_GLOVE", "HOLD_EFFECT_SHELL_BELL", "HOLD_EFFECT_TYPE_POWER", "HOLD_EFFECT_WISE_GLASSES")
+    val variableMultiHitOrdinaryNominalCounts: List<Int> = listOf(2, 3, 4, 5)
+    val variableMultiHitOrdinaryWeights: List<Int> = listOf(7, 7, 3, 3)
+    val variableMultiHitLoadedDiceNominalCounts: List<Int> = listOf(4, 5)
+    val variableMultiHitSkillLinkNominalCounts: List<Int> = listOf(5)
     const val selectedMoveCount: Int = 935
 }

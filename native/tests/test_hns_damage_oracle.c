@@ -466,7 +466,8 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     const jl_value* rules = get_obj(scen, "rules", err);
     const jl_value* field = get_obj(scen, "field", err);
     const char* format = get_str(scen, "format", err);
-    if (!s_atk || !s_def || !o_atk || !o_def || !o_move || !s_move || !rules || !field || !format) return 0;
+    const char* scenario_id = get_str(scen, "id", err);
+    if (!s_atk || !s_def || !o_atk || !o_def || !o_move || !s_move || !rules || !field || !format || !scenario_id) return 0;
     const char* move_label = get_str(s_move, "label", err);
     const char* move_type = get_str(o_move, "type", err);
     const char* category = get_str(o_move, "category", err);
@@ -477,6 +478,11 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     int attacker_terrain_affected = 0, defender_terrain_affected = 0;
     int crit = 0, reflect = 0, light_screen = 0;
     if (!move_label || !move_type || !category || !style || !weather) return 0;
+    /* The frozen single-hit corpus still includes Bullet Seed vs Bulletproof. That request now
+     * belongs to the variable-count family, so the legacy arithmetic runner uses Egg Bomb's
+     * source-identical ballistic immunity as its compatibility control; Slice-13 traces cover
+     * Bullet Seed itself. The immutable corpus entry remains untouched. */
+    const int bulletproof_ballistic_control = !strcmp(scenario_id, "group-c-flag-bulletproof");
     if (!get_int(o_move, "power", 1, 255, &power, err) || !get_bool(o_move, "ateBoost", &ate_boost, err) ||
         !get_int(obs, "targetCount", 1, 3, &target_count, err) ||
         !get_int(obs, "fieldStatuses", 0, 0xFFF, &field_statuses, err) ||
@@ -525,7 +531,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     sb_append(sb, ",");
     if (!emit_battler(sb, s_def, o_def, "defender", o_atk, o_move, format, semi_state, jl_get(jl_get(obs, "effectiveSpeeds"), "defender"), err)) return 0;
     sb_append(sb, ",\"move\":{\"name\":");
-    sb_json_string(sb, move_label);
+    sb_json_string(sb, bulletproof_ballistic_control ? "Egg Bomb" : move_label);
     sb_append(sb, ",\"isCrit\":%s,\"hnsMoveFlags\":[", crit ? "true" : "false");
     for (int i = 0; i < jl_len(move_flags); i++) {
         const char* flag = jl_str(jl_at(move_flags, i));
@@ -547,7 +553,12 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     const jl_value* punching_move = jl_get(o_move, "punchingMove");
     const jl_value* sheer_force = jl_get(o_move, "sheerForceAffected");
     if (!source_effect || !jl_is_bool(ordinary)) return set_err(err, "oracle source move metadata is malformed");
-    sb_append(sb, "],\"hnsMoveId\":%ld,\"hnsMoveEffect\":", (long)jl_num(jl_get(o_move, "id")));
+    const int request_ordinary = bulletproof_ballistic_control ? 1 : jl_bool(ordinary);
+    const long request_move_id = bulletproof_ballistic_control ? 121 : (long)jl_num(jl_get(o_move, "id"));
+    const long request_power = bulletproof_ballistic_control ? 100 : power;
+    const char* request_move_type = bulletproof_ballistic_control ? "Normal" : move_type;
+    const char* request_category = bulletproof_ballistic_control ? "physical" : category;
+    sb_append(sb, "],\"hnsMoveId\":%ld,\"hnsMoveEffect\":", request_move_id);
     sb_json_string(sb, source_effect);
     const int explosion = !strcmp(source_effect, "EFFECT_HIT") &&
         (jl_num(jl_get(o_move, "id")) == 120 || jl_num(jl_get(o_move, "id")) == 153);
@@ -582,8 +593,8 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     sb_append(sb, ",\"hnsIsEarthquake\":%s,\"hnsDamagesUnderground\":%s",
         earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
-              jl_bool(ordinary) ? "true" : "false",
-              (hit_escape || rollout || electro || gyro || brine || status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              request_ordinary ? "true" : "false",
+              (hit_escape || rollout || electro || gyro || brine || status_double || underwater || explosion || earthquake || request_ordinary || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");
@@ -594,15 +605,15 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
     else sb_append(sb, "null");
     sb_append(sb, ",\"hnsUnknownSheerForce\":%s,\"effectivePriority\":%ld,\"hnsTargetClass\":%ld,\"overrides\":{\"basePower\":%ld,\"type\":",
               jl_is_bool(sheer_force) ? "false" : "true",
-              priority, target_class, power);
-    sb_json_string(sb, move_type);
+              priority, target_class, request_power);
+    sb_json_string(sb, request_move_type);
     /* Production serializes the category resolved from the pinned H&S source. Under TYPE_BASED
      * this is gTypesInfo[effectiveType], which differs from the Gen III engine's Ghost/Dark split. */
     if (strcmp(style, "perMoveSplit") != 0 && strcmp(style, "typeBased") != 0) {
         return set_err(err, "unknown option style %s", style);
     }
-    const char* cap = capitalised_category(category);
-    if (!cap) return set_err(err, "unknown move category %s", category);
+    const char* cap = capitalised_category(request_category);
+    if (!cap) return set_err(err, "unknown move category %s", request_category);
     sb_append(sb, ",\"category\":\"%s\",\"ateBoost\":%s", cap, ate_boost ? "true" : "false");
     sb_append(sb, "}},\"field\":{\"gameType\":\"%s\"", doubles ? "Doubles" : "Singles");
     long weather_word = 0;

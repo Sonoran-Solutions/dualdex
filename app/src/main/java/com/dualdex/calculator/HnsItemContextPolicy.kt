@@ -768,6 +768,15 @@ object HnsItemContextPolicy {
         val neutralizingGasActive =
             (attackerAbility == NEUTRALIZING_GAS_ABILITY_ID && !attackerGastroAcid) ||
                 (defenderAbility == NEUTRALIZING_GAS_ABILITY_ID && !defenderGastroAcid)
+        if (c.side == HnsItemSide.ATTACKER &&
+            c.moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds && attackerAbility == 92 &&
+            neutralizingGasActive && !attackerGastroAcid &&
+            c.holdEffectResolution?.let { it.state == HnsHoldEffectState.ACTIVE_EXACT && it.effectiveHoldEffect == "HOLD_EFFECT_ABILITY_SHIELD" } == true
+        ) return modelled(
+            rule = "variable_multi_hit_skill_link_ability_shield_count",
+            source = "src/battle_util.c:4996-5027; src/battle_move_resolution.c:1915-1944",
+            rationale = "The exact active Ability Shield keeps effective Skill Link active under Neutralizing Gas; the repeated-strike count authority preserves Skill Link-before-Loaded-Dice precedence."
+        )
         val holderAbilityCanBeSuppressed = holderGastroAcid ||
             (neutralizingGasActive && holderAbility != NEUTRALIZING_GAS_ABILITY_ID)
         val attackerCanBreakDefenderAbility = c.side == HnsItemSide.DEFENDER &&

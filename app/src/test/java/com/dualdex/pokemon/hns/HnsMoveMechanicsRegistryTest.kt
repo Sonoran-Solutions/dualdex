@@ -49,11 +49,22 @@ class HnsMoveMechanicsRegistryTest {
     }
 
     @Test
-    fun `multihit is blocked and explosion has a separate proven family`() {
-        // Bullet Seed is EFFECT_HIT with multiHit = TRUE.
+    fun `plain random multi-hit has selected-strike arithmetic and separate sequence authority`() {
         val bulletSeed = HnsMoveMechanicsRegistry.classify(331)
-        assertTrue(bulletSeed.requiresBlock)
+        assertEquals(HnsMoveMechanicsCategory.VARIABLE_MULTI_HIT_PLAIN, bulletSeed.category)
+        assertFalse(bulletSeed.requiresBlock)
         assertEquals("EFFECT_HIT", bulletSeed.effect)
+        assertTrue(bulletSeed.category.isSupportedSelectedStrike)
+        assertFalse(bulletSeed.category.isSupportedFixedSingleHit)
+        assertFalse(331 in Hns205MoveEffects.ordinaryMoveIds)
+        assertTrue(Hns205MoveEffects.variableMultiHitPlainMoveIds.containsAll(
+            setOf(3, 4, 31, 42, 131, 154, 198, 292, 331, 333, 350, 541)))
+        assertEquals(12, Hns205MoveEffects.variableMultiHitPlainMoveIds.size)
+        for (id in listOf(41, 24, 167, 813, 711, 251, 374)) {
+            assertFalse("distinct family must not inherit variable multi-hit", id in Hns205MoveEffects.variableMultiHitPlainMoveIds)
+        }
+        assertFalse(727 in Hns205MoveEffects.variableMultiHitPlainMoveIds) // Scale Shot
+        assertFalse(41 in Hns205MoveEffects.variableMultiHitPlainMoveIds) // Twineedle
         // Double Kick is EFFECT_HIT with strikeCount = 2.
         assertEquals(HnsMoveMechanicsCategory.FIXED_TWO_HIT_PLAIN, HnsMoveMechanicsRegistry.classify(24).category)
         assertFalse(HnsMoveMechanicsRegistry.classify(24).category.isSupportedFixedSingleHit)

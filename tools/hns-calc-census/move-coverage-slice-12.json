@@ -18,6 +18,4881 @@
     "singlesPairsDisplayable": 656,
     "singlesPairsTotal": 1284
   },
+  "authorizedSlice13Changes": [
+    {
+      "key": "TRAINER_AKALA_CAVE_CAMPER_HNS#1|ref-physical|trainer-to-reference|Arm Thrust",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_AKALA_CAVE_CAMPER_HNS#1|ref-special|trainer-to-reference|Arm Thrust",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_AKALA_SWIMMER_2_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_AKALA_SWIMMER_2_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_AKALA_SWIMMER_2_HNS#2|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_AKALA_SWIMMER_2_HNS#2|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANGELICA_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANGELICA_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANN_AND_ANNE_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANN_AND_ANNE_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANN_AND_ANNE_HNS#1|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANN_AND_ANNE_HNS#1|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANTHONY_3_HNS#0|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANTHONY_3_HNS#0|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANTHONY_3_HNS#2|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANTHONY_3_HNS#2|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANTHONY_4_HNS#0|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANTHONY_4_HNS#0|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANTHONY_4_HNS#2|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ANTHONY_4_HNS#2|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#0|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#0|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#2|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#2|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#3|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#3|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#4|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BAILEY_HNS#4|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BENNY_HNS#1|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BENNY_HNS#1|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BETH_2_HNS#0|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BETH_2_HNS#0|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BETH_3_HNS#0|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BETH_3_HNS#0|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BLUE_POSTOBC_HNS#0|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BLUE_POSTOBC_HNS#0|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BRENDA_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BRENDA_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BRUNO_POSTOBC_HNS#2|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BRUNO_POSTOBC_HNS#2|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BRYAN_HNS#2|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BRYAN_HNS#2|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BUGSY_1_HNS#0|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BUGSY_1_HNS#0|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BUGSY_1_HNS#1|ref-physical|trainer-to-reference|Comet Punch",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_BUGSY_1_HNS#1|ref-special|trainer-to-reference|Comet Punch",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_CARLENE_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_CARLENE_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_CHARLIE_HNS#0|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_CHARLIE_HNS#0|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DANA_HNS#1|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DANA_HNS#1|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DARYL_HNS#0|ref-physical|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DARYL_HNS#0|ref-special|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DARYL_HNS#1|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DARYL_HNS#1|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DARYL_HNS#2|ref-physical|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DARYL_HNS#2|ref-special|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DAVID_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DAVID_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DENIS_HNS#1|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DENIS_HNS#1|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DOUGLAS_HNS#2|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DOUGLAS_HNS#2|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DUFF_AND_EDA_HNS#1|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_DUFF_AND_EDA_HNS#1|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_EDGAR_HNS#2|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_EDGAR_HNS#2|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_EMMA_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_EMMA_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ERIK_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ERIK_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ERNEST_HNS#1|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ERNEST_HNS#1|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ETO_2_HNS#1|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ETO_2_HNS#1|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ETO_3_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ETO_3_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ETO_3_HNS#4|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ETO_3_HNS#4|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_EUGENE_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_EUGENE_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GAVEN_2_HNS#3|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GAVEN_2_HNS#3|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GINA_2_HNS#0|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GINA_2_HNS#0|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GINA_2_HNS#1|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GINA_2_HNS#1|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GINA_3_HNS#0|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GINA_3_HNS#0|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GINA_3_HNS#1|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GINA_3_HNS#1|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRANT_HNS#0|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRANT_HNS#0|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_17_HNS#1|ref-physical|trainer-to-reference|Bone Rush",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_17_HNS#1|ref-special|trainer-to-reference|Bone Rush",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_18_HNS#1|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_18_HNS#1|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_28_HNS#2|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GRUNT_28_HNS#2|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GWEN_HNS#3|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_GWEN_HNS#3|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HAROLD_HNS#0|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HAROLD_HNS#0|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HILLARY_2_HNS#2|ref-physical|trainer-to-reference|Bone Rush",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HILLARY_2_HNS#2|ref-special|trainer-to-reference|Bone Rush",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HILLARY_3_HNS#2|ref-physical|trainer-to-reference|Bone Rush",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HILLARY_3_HNS#2|ref-special|trainer-to-reference|Bone Rush",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HILLARY_HNS#1|ref-physical|trainer-to-reference|Bone Rush",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HILLARY_HNS#1|ref-special|trainer-to-reference|Bone Rush",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HUEY_2_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HUEY_2_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HUEY_2_HNS#1|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HUEY_2_HNS#1|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HUEY_3_HNS#1|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HUEY_3_HNS#1|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HUEY_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_HUEY_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_IAN_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_IAN_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_IRENE_HNS#1|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_IRENE_HNS#1|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JACLYN_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JACLYN_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JAKE_HNS#0|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JAKE_HNS#0|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JASON_HNS#0|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JASON_HNS#0|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JESSICA_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JESSICA_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JOHN_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JOHN_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JONAH_HNS#1|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JONAH_HNS#1|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JONAH_HNS#2|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JONAH_HNS#2|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JOYCE_HNS#3|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JOYCE_HNS#3|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JULIE_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_JULIE_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KATE_HNS#0|ref-physical|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KATE_HNS#0|ref-special|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KATE_HNS#1|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KATE_HNS#1|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KAYLEE_HNS#0|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KAYLEE_HNS#0|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENDRA_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENDRA_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENT_HNS#0|ref-physical|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_KENT_HNS#0|ref-special|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_LEROY_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_LEROY_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_LIZ_2_HNS#1|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_LIZ_2_HNS#1|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_LIZ_3_HNS#1|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_LIZ_3_HNS#1|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_LOIS_HNS#0|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_LOIS_HNS#0|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MARTIN_HNS#0|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MARTIN_HNS#0|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MARTIN_HNS#1|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MARTIN_HNS#1|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MASA_HNS#1|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MASA_HNS#1|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MICHAEL_HNS#0|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MICHAEL_HNS#0|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MICHAEL_HNS#2|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_MICHAEL_HNS#2|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_OLIVIA_HNS#0|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_OLIVIA_HNS#0|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PAULA_HNS#1|ref-physical|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PAULA_HNS#1|ref-special|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_1_HNS#0|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_1_HNS#0|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_1_HNS#0|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_1_HNS#0|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_1_HNS#3|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_1_HNS#3|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_2_HNS#0|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_2_HNS#0|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_2_HNS#0|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_2_HNS#0|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Sturdy:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_2_HNS#3|ref-physical|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_PETREL_2_HNS#3|ref-special|trainer-to-reference|Spike Cannon",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RACHAEL_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RACHAEL_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RALPH_2_HNS#0|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RALPH_2_HNS#0|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RALPH_3_HNS#1|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RALPH_3_HNS#1|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RALPH_4_HNS#0|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RALPH_4_HNS#0|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RALPH_5_HNS#0|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RALPH_5_HNS#0|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RANDALL_HNS#0|ref-physical|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_RANDALL_HNS#0|ref-special|trainer-to-reference|Icicle Spear",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SAMANTHA_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SAMANTHA_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SAMUEL_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SAMUEL_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SAMUEL_HNS#2|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SAMUEL_HNS#2|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SCOTT_HNS#0|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SCOTT_HNS#0|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SCOTT_HNS#1|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SCOTT_HNS#1|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SETH_HNS#1|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SETH_HNS#1|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SHANE_HNS#0|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SHANE_HNS#0|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SPENCER_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SPENCER_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SUSIE_HNS#1|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_SUSIE_HNS#1|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TERRELL_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TERRELL_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_THERESA_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_THERESA_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_THOMAS_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_THOMAS_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIFFANY_2_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIFFANY_2_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIFFANY_3_HNS#0|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIFFANY_3_HNS#0|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIFFANY_4_HNS#1|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIFFANY_4_HNS#1|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIFFANY_HNS#1|ref-physical|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIFFANY_HNS#1|ref-special|trainer-to-reference|Double Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIMOTHY_HNS#2|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TIMOTHY_HNS#2|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TOBY_HNS#0|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TOBY_HNS#0|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TOBY_HNS#1|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TOBY_HNS#1|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TODD_2_HNS#2|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TODD_2_HNS#2|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TODD_3_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TODD_3_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TODD_4_HNS#1|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TODD_4_HNS#1|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TULLY_3_HNS#0|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TULLY_3_HNS#0|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TULLY_3_HNS#1|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TULLY_3_HNS#1|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TULLY_3_HNS#2|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_TULLY_3_HNS#2|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VALERIE_HNS#0|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VALERIE_HNS#0|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VERONICA_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VERONICA_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VICTORIA_HNS#0|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VICTORIA_HNS#0|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VICTORIA_HNS#1|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_VICTORIA_HNS#1|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WADE_2_HNS#0|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WADE_2_HNS#0|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WADE_4_HNS#1|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WADE_4_HNS#1|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WADE_4_HNS#3|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WADE_4_HNS#3|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WADE_5_HNS#4|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WADE_5_HNS#4|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WESSEL_HNS#3|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Heavy Metal:UNKNOWN",
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED",
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Heavy Metal:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WESSEL_HNS#3|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Heavy Metal:UNKNOWN",
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED",
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_ABILITY_EFFECT_NOT_MODELLED:attacker:Heavy Metal:UNKNOWN",
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_EFFECT_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WHITNEY_1_HNS#1|ref-physical|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WHITNEY_1_HNS#1|ref-special|trainer-to-reference|Fury Swipes",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WHITNEY_POSTOBC_HNS#2|ref-physical|trainer-to-reference|Tail Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Technician:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WHITNEY_POSTOBC_HNS#2|ref-special|trainer-to-reference|Tail Slap",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Technician:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_2_HNS#0|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_2_HNS#0|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_2_HNS#1|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_2_HNS#1|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_3_HNS#1|ref-physical|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_3_HNS#1|ref-special|trainer-to-reference|Bullet Seed",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_HNS#0|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_HNS#0|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_HNS#2|ref-physical|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_WILTON_HNS#2|ref-special|trainer-to-reference|Fury Attack",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_STATE_UNKNOWN"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ZACH_HNS#0|ref-physical|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ZACH_HNS#0|ref-special|trainer-to-reference|Rock Blast",
+      "newCauses": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newReasons": [
+        "HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED"
+      ],
+      "newTier": "REFUSED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ZACH_HNS#2|ref-physical|trainer-to-reference|Pin Missile",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    },
+    {
+      "key": "TRAINER_ZACH_HNS#2|ref-special|trainer-to-reference|Pin Missile",
+      "newCauses": [],
+      "newReasons": [],
+      "newTier": "FULLY_MODELLED",
+      "oldCauses": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Swarm:UNKNOWN"
+      ],
+      "oldReasons": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED",
+        "HNS_ABILITY_CONDITION_UNVERIFIED"
+      ],
+      "oldTier": "REFUSED"
+    }
+  ],
+  "authorizedSlice13MoveRequestCount": 284,
+  "authorizedSlice13TransitionCounts": {
+    "REFUSED -> FULLY_MODELLED": 8,
+    "REFUSED -> REFUSED": 276
+  },
   "battlesGainingRequests": 0,
   "before": {
     "CAVEATED_ESTIMATE": 462,
@@ -41,6 +4916,7 @@
   "blankBattlesAfter": 0,
   "blankBattlesBefore": 0,
   "combinedRequestCount": 104,
+  "fixedTwoRequestRowsUnchanged": true,
   "historicalCorpusBytesObjectsLinesUnchanged": true,
   "historicalSpeedRequestsUnchanged": true,
   "moveRequestCounts": {
@@ -53,6 +4929,25 @@
   },
   "newlyDisplayableLeadPairs": [],
   "outsideSliceChanges": [],
+  "postSlice13LeadMatchup": {
+    "battlesExcludedNoEligibleMove": 0,
+    "battlesIncluded": 651,
+    "battlesTotal": 651,
+    "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+    "doublesPairsDisplayable": 6,
+    "doublesPairsTotal": 18,
+    "eligibleRequests": 8450,
+    "pairsDisplayable": 664,
+    "pairsTotal": 1302,
+    "requestsDisplayable": 7550,
+    "singlesPairsDisplayable": 658,
+    "singlesPairsTotal": 1284
+  },
+  "postSlice13ResultTiers": {
+    "CAVEATED_ESTIMATE": 462,
+    "FULLY_MODELLED": 21448,
+    "REFUSED": 2368
+  },
   "potentialCounts": "Unproven upper bounds; NOT production authorization",
   "ranking": [
     {
@@ -66,32 +4961,68 @@
           "id": 292,
           "name": "Arm Thrust",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "68908eecef1cf68a19f1fbe07bb0fa762e19b1540bfc832b818273ffa3ac7d29",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Arm Thrust",
             "ordinary": false,
+            "power": 15,
+            "pp": 20,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_FIGHTING",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 198,
           "name": "Bone Rush",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 90,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "68e17169bfe0bc96e47836b9db35fa5ca2480f584a531727686e8250b3ba3100",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Bone Rush",
             "ordinary": false,
+            "power": 25,
+            "pp": 10,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_GROUND",
+            "variableMultiHitPlain": true
           }
         },
         {
@@ -130,32 +5061,72 @@
           "id": 331,
           "name": "Bullet Seed",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": true,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "403f0cc0df44c4994a8cb81039fafc9e33873179491a594df5b9185964000cc9",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [
+              "ballisticMove"
+            ],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Bullet Seed",
             "ordinary": false,
+            "power": 25,
+            "pp": 30,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_GRASS",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 4,
           "name": "Comet Punch",
           "sourceMetadata": {
+            "abilityFlags": [
+              "punchingMove"
+            ],
+            "accuracy": 85,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "45efa36822888907fdfa562b16087aba3ce4ef400673b2672eefbb8def020731",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Comet Punch",
             "ordinary": false,
+            "power": 18,
+            "pp": 15,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": true,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
@@ -226,16 +5197,34 @@
           "id": 3,
           "name": "Double Slap",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 85,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "37f1f7ef3c2e33fc86f1daad1abec9e425fedd32778ddc0d42cfc64d7b61cb8e",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Double Slap",
             "ordinary": false,
+            "power": 15,
+            "pp": 10,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
@@ -306,80 +5295,172 @@
           "id": 31,
           "name": "Fury Attack",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 85,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "060f699afe5322f95999041a1d82251c12e49403fa8d6ee8f6b45dbc674f8397",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Fury Attack",
             "ordinary": false,
+            "power": 15,
+            "pp": 20,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 154,
           "name": "Fury Swipes",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 80,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "e772a1809fb7e5b77bfcffda2d4808b7e6a8ede6b6be1971edf93b3fd4a8216d",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Fury Swipes",
             "ordinary": false,
+            "power": 18,
+            "pp": 15,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 333,
           "name": "Icicle Spear",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "a229be72d4e28c36a1d0f765137ee3f31e9158a2019f49067847e06a6c0a832f",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Icicle Spear",
             "ordinary": false,
+            "power": 25,
+            "pp": 30,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_ICE",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 42,
           "name": "Pin Missile",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 95,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "0a46abdbc00ec2ae9cdd555cf517840a5abdd71ead66e10c744d33434b8c1acd",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Pin Missile",
             "ordinary": false,
+            "power": 25,
+            "pp": 20,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_BUG",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 350,
           "name": "Rock Blast",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 90,
+            "additionalEffects": [],
+            "ballisticMove": true,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "5c4665229897c6efcf12894630b467e0a126e8a61e8910a0154a941ae3973e18",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [
+              "ballisticMove"
+            ],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Rock Blast",
             "ordinary": false,
+            "power": 25,
+            "pp": 10,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_ROCK",
+            "variableMultiHitPlain": true
           }
         },
         {
@@ -402,32 +5483,68 @@
           "id": 131,
           "name": "Spike Cannon",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "ba1b14d4b373733088b525325148a5c737cf8a8be648fcb8f9bce4f03e206ba9",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Spike Cannon",
             "ordinary": false,
+            "power": 20,
+            "pp": 15,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 541,
           "name": "Tail Slap",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 85,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "d9d37df2f2f4c52f7148cdf3f1745d309c9236dcde23779d2cd7c8b2649f5394",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Tail Slap",
             "ordinary": false,
+            "power": 25,
+            "pp": 10,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
@@ -2783,160 +7900,346 @@
           "id": 292,
           "name": "Arm Thrust",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "68908eecef1cf68a19f1fbe07bb0fa762e19b1540bfc832b818273ffa3ac7d29",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Arm Thrust",
             "ordinary": false,
+            "power": 15,
+            "pp": 20,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_FIGHTING",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 198,
           "name": "Bone Rush",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 90,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "68e17169bfe0bc96e47836b9db35fa5ca2480f584a531727686e8250b3ba3100",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Bone Rush",
             "ordinary": false,
+            "power": 25,
+            "pp": 10,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_GROUND",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 331,
           "name": "Bullet Seed",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": true,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "403f0cc0df44c4994a8cb81039fafc9e33873179491a594df5b9185964000cc9",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [
+              "ballisticMove"
+            ],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Bullet Seed",
             "ordinary": false,
+            "power": 25,
+            "pp": 30,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_GRASS",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 4,
           "name": "Comet Punch",
           "sourceMetadata": {
+            "abilityFlags": [
+              "punchingMove"
+            ],
+            "accuracy": 85,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "45efa36822888907fdfa562b16087aba3ce4ef400673b2672eefbb8def020731",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Comet Punch",
             "ordinary": false,
+            "power": 18,
+            "pp": 15,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": true,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 3,
           "name": "Double Slap",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 85,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "37f1f7ef3c2e33fc86f1daad1abec9e425fedd32778ddc0d42cfc64d7b61cb8e",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Double Slap",
             "ordinary": false,
+            "power": 15,
+            "pp": 10,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 31,
           "name": "Fury Attack",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 85,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "060f699afe5322f95999041a1d82251c12e49403fa8d6ee8f6b45dbc674f8397",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Fury Attack",
             "ordinary": false,
+            "power": 15,
+            "pp": 20,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 154,
           "name": "Fury Swipes",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 80,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "e772a1809fb7e5b77bfcffda2d4808b7e6a8ede6b6be1971edf93b3fd4a8216d",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Fury Swipes",
             "ordinary": false,
+            "power": 18,
+            "pp": 15,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 333,
           "name": "Icicle Spear",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "a229be72d4e28c36a1d0f765137ee3f31e9158a2019f49067847e06a6c0a832f",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Icicle Spear",
             "ordinary": false,
+            "power": 25,
+            "pp": 30,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_ICE",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 42,
           "name": "Pin Missile",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 95,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "0a46abdbc00ec2ae9cdd555cf517840a5abdd71ead66e10c744d33434b8c1acd",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Pin Missile",
             "ordinary": false,
+            "power": 25,
+            "pp": 20,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_BUG",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 350,
           "name": "Rock Blast",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 90,
+            "additionalEffects": [],
+            "ballisticMove": true,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "5c4665229897c6efcf12894630b467e0a126e8a61e8910a0154a941ae3973e18",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [
+              "ballisticMove"
+            ],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Rock Blast",
             "ordinary": false,
+            "power": 25,
+            "pp": 10,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_ROCK",
+            "variableMultiHitPlain": true
           }
         },
         {
@@ -2959,32 +8262,68 @@
           "id": 131,
           "name": "Spike Cannon",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 100,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "ba1b14d4b373733088b525325148a5c737cf8a8be648fcb8f9bce4f03e206ba9",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Spike Cannon",
             "ordinary": false,
+            "power": 20,
+            "pp": 15,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
           "id": 541,
           "name": "Tail Slap",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 85,
+            "additionalEffects": [],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "d9d37df2f2f4c52f7148cdf3f1745d309c9236dcde23779d2cd7c8b2649f5394",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_PLAIN",
+            "immunityFlags": [],
             "makesContact": true,
+            "multiHit": true,
+            "name": "Tail Slap",
             "ordinary": false,
+            "power": 25,
+            "pp": 10,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_NORMAL",
+            "variableMultiHitPlain": true
           }
         },
         {
@@ -6237,6 +11576,7 @@
       ]
     }
   ],
+  "slice13OutsideChangesCount": 0,
   "startingSha": "32c23e858cd9cf38867df668166f18d9167dc495",
   "transitionCounts": {
     "REFUSED -> REFUSED": 104

@@ -88,7 +88,7 @@ class HnsRecoilProductionBoundaryTest {
         }
         val longReach=build(a=observation(true,"Long Reach")) as CalcRequestOutcome.Refused
         assertTrue(CalcLimitation.HNS_ABILITY_EFFECT_NOT_MODELLED in longReach.verdict.blockingLimitations)
-        for (move in listOf("Jump Kick","Struggle","Chloroblast","Double Slap","Magnitude")) {
+        for (move in listOf("Jump Kick","Struggle","Chloroblast","Magnitude")) {
             val o=build(request(move)) as CalcRequestOutcome.Refused
             assertTrue(move, CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED in o.verdict.blockingLimitations)
         }

@@ -301,6 +301,7 @@ internal object HnsItemAuditData {
         "umbrella_other_weather",
         "umbrella_sun_or_rain",
         "ability_shield_no_current_suppression",
+        "variable_multi_hit_skill_link_ability_shield_count",
         "primal_orb_transition_unsettled",
         "primal_orb_form_unobserved",
         "primal_orb_form_authoritative",

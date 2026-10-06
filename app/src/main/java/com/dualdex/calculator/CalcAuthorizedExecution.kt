@@ -46,6 +46,8 @@ object CalcAuthorizedExecution {
     internal fun validRepeatedStrikeResponse(request: DamageCalculationRequest, response: DamageCalculationResponse): Boolean {
         if (!HnsRepeatedStrikeAuthority.isFamily(request)) return response.repeatedStrike == null
         if (HnsRepeatedStrikeAuthority.forRequest(request).stability != HnsRepeatedStrikeAuthority.Stability.STABLE) return false
+        val countAuthority = HnsRepeatedStrikeCountAuthority.forRequest(request)
+        val expectedCounts = countAuthority.nominalCounts ?: return false
         val sequence = response.repeatedStrike ?: return false
         val hp = request.hnsLiveBattleState?.defenderHp ?: return false
         val expectedAssumptions = listOf(
@@ -54,15 +56,27 @@ object CalcAuthorizedExecution {
             "Independent damage rolls; interval endpoints do not imply every interior value is reachable"
         )
         val rolls = sequence.firstStrikeRolls
-        if (sequence.nominalCounts != listOf(2) || rolls.size != 16 || rolls.any { it < 0 } ||
-            rolls != rolls.sorted() || sequence.totals.size != 1 || sequence.assumptions != expectedAssumptions ||
+        if (sequence.nominalCounts != expectedCounts || rolls.size != 16 || rolls.any { it < 0 } ||
+            rolls != rolls.sorted() || sequence.totals.map { it.nominalCount } != expectedCounts ||
+            sequence.assumptions != expectedAssumptions ||
             sequence.totalUnavailableReasons.isNotEmpty() || response.range.isNotEmpty() || response.koChanceText.isNotEmpty()) return false
         val lo = rolls.first()
         val hi = rolls.last()
-        val total = sequence.totals.single()
-        return total == RepeatedStrikeTotal(2, minOf(hp.toLong(), 2L * lo).toInt(), minOf(hp.toLong(), 2L * hi).toInt(),
-            if (hi == 0) 0 else if (hp <= hi) 1 else 2,
-            if (hi == 0) 0 else if (hp <= lo) 1 else 2) &&
-            response.minDamage == total.minHpLoss && response.maxDamage == total.maxHpLoss
+        val totals = expectedCounts.map { count ->
+            val n = count.toLong()
+            val minHits = if (hi == 0) 0 else minOf(n, ceilDiv(hp.toLong(), hi.toLong())).toInt()
+            val maxHits = when {
+                hi == 0 -> 0
+                lo == 0 -> count
+                else -> minOf(n, ceilDiv(hp.toLong(), lo.toLong())).toInt()
+            }
+            RepeatedStrikeTotal(count, minOf(hp.toLong(), n * lo).toInt(),
+                minOf(hp.toLong(), n * hi).toInt(), minHits, maxHits)
+        }
+        return sequence.totals == totals && response.minDamage == totals.minOf { it.minHpLoss } &&
+            response.maxDamage == totals.maxOf { it.maxHpLoss }
     }
+
+    private fun ceilDiv(numerator: Long, denominator: Long): Long =
+        if (denominator == 0L) 0L else 1L + (numerator - 1L) / denominator
 }

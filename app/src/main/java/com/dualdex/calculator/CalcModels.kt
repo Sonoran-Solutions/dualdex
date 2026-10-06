@@ -512,11 +512,22 @@ data class RepeatedStrikeResult(
     val totalUnavailableReasons: List<CalcLimitation> = emptyList()
 ) {
     val presentation: String get() {
-        val total = totals.single()
-        val hits = if (total.minExecutedHits == total.maxExecutedHits) "${total.maxExecutedHits} executed hits"
-            else "${total.minExecutedHits}–${total.maxExecutedHits} executed hits"
-        return "First strike: ${firstStrikeRolls.first()}–${firstStrikeRolls.last()} HP\n" +
-            "Total HP loss: ${total.minHpLoss}–${total.maxHpLoss}\nNominal hits: 2 · $hits"
+        val first = "First strike: ${firstStrikeRolls.first()}–${firstStrikeRolls.last()} HP"
+        if (nominalCounts == listOf(2) && totals.size == 1) {
+            val total = totals.single()
+            val hits = if (total.minExecutedHits == total.maxExecutedHits) "${total.maxExecutedHits} executed hits"
+                else "${total.minExecutedHits}–${total.maxExecutedHits} executed hits"
+            return "$first\nTotal HP loss: ${total.minHpLoss}–${total.maxHpLoss}\nNominal hits: 2 · $hits"
+        }
+        val branches = totals.joinToString("\n") { total ->
+            val hits = if (total.minExecutedHits == total.maxExecutedHits) " · ${total.maxExecutedHits} executed hits"
+                else " · ${total.minExecutedHits}–${total.maxExecutedHits} executed hits"
+            "${total.nominalCount} hits: ${total.minHpLoss}–${total.maxHpLoss} HP$hits"
+        }
+        val aggregate = "Across possible hit counts: ${totals.minOf { it.minHpLoss }}–${totals.maxOf { it.maxHpLoss }} HP"
+        val countLabel = if (nominalCounts.size == 1) nominalCounts.single().toString()
+            else "${nominalCounts.first()}–${nominalCounts.last()}"
+        return "$first\n$branches\n$aggregate\nNominal hits: $countLabel"
     }
 }
 

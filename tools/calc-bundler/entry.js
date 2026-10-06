@@ -346,7 +346,7 @@ const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
 // Shell Side Arm is EFFECT_SHELL_SIDE_ARM and remains outside the ordinary request gate.
 function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
-  if (!Number.isInteger(id) || !(input.move?.hnsFixedRepeatedStrike === true && input.move?.hnsMoveFamily === 'FIXED_TWO_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.fixedTwoHitPlain === true || input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
+  if (!Number.isInteger(id) || !(input.move?.hnsVariableMultiHitPlain === true && input.move?.hnsMoveFamily === 'VARIABLE_MULTI_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.variableMultiHitPlain === true || input.move?.hnsFixedRepeatedStrike === true && input.move?.hnsMoveFamily === 'FIXED_TWO_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.fixedTwoHitPlain === true || input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
         input.move?.hnsMoveEffect === 'EFFECT_HIT_ESCAPE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ESCAPE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitEscape === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ROLLOUT' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ROLLOUT' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitRollout === true ||
@@ -377,25 +377,75 @@ function hnsContactAuthority(move, attacker, input) {
 
 // Recompute from boundary-owned operands; a caller's sequenceStable flag is never authority.
 function hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field) {
+  if (input.typeSystem !== 'hns_2_0_5') return null;
   const m = input.move, metadata = hnsMoveMetadata.moves[String(m?.hnsMoveId)];
-  const named = Object.values(hnsMoveMetadata.moves).find(v => v.fixedTwoHitPlain && v.name.toLowerCase() === m?.name?.toLowerCase());
-  if (!metadata?.fixedTwoHitPlain && !named && m?.hnsMoveFamily !== 'FIXED_TWO_HIT_PLAIN' && m?.hnsFixedRepeatedStrike !== true) return null;
-  if (!metadata?.fixedTwoHitPlain || m.name?.toLowerCase() !== metadata.name.toLowerCase() ||
-      m.hnsMoveFamily !== 'FIXED_TWO_HIT_PLAIN' || m.hnsMoveEffect !== metadata.effect ||
-      m.hnsFixedRepeatedStrike !== true || m.hnsFixedSingleHit !== false || m.hnsIsOrdinary !== false ||
-      m.hnsSourceType !== metadata.type || m.hnsSourceCategory !== metadata.category ||
-      m.hnsSourceTarget !== metadata.target || m.hnsSourcePriority !== metadata.priority ||
-      m.hnsSourceStrikeCount !== 2 || m.hnsMultiHit !== false || typeof m.isCrit !== 'boolean' ||
-      m.overrides?.basePower !== metadata.power || move.bp !== metadata.power ||
-      m.hnsMakesContact !== metadata.makesContact || m.hnsSheerForceAffected !== false ||
+  const fixed = metadata?.fixedTwoHitPlain === true;
+  const variable = metadata?.variableMultiHitPlain === true;
+  const familyHint = ['FIXED_TWO_HIT_PLAIN', 'VARIABLE_MULTI_HIT_PLAIN'].includes(m?.hnsMoveFamily) ||
+    m?.hnsFixedRepeatedStrike === true || m?.hnsVariableMultiHitPlain === true;
+  const named = Object.values(hnsMoveMetadata.moves).find(v =>
+    (v.fixedTwoHitPlain || v.variableMultiHitPlain) && v.name.toLowerCase() === m?.name?.toLowerCase());
+  if (!fixed && !variable && !named && !familyHint) return null;
+  if ((!fixed && !variable) || fixed && variable) throw new Error('H&S repeated-strike move family is not source-authorized');
+  const family = fixed ? 'FIXED_TWO_HIT_PLAIN' : 'VARIABLE_MULTI_HIT_PLAIN';
+  const descriptorValid = fixed
+    ? m.name?.toLowerCase() === metadata.name.toLowerCase() && m.hnsMoveFamily === family &&
+      m.hnsMoveEffect === metadata.effect && m.hnsFixedRepeatedStrike === true &&
+      m.hnsSourceType === metadata.type && m.hnsSourceCategory === metadata.category &&
+      m.hnsSourceTarget === metadata.target && m.hnsSourcePriority === metadata.priority &&
+      m.hnsSourceStrikeCount === 2 && m.hnsMultiHit === false
+    : m.name?.toLowerCase() === metadata.name.toLowerCase() && m.hnsMoveFamily === family &&
+      m.hnsVariableMultiHitPlain === true && m.hnsDescriptorSha256 === metadata.descriptorSha256 &&
+      m.hnsSourceName === metadata.name && m.hnsSourcePower === metadata.power &&
+      m.hnsSourceType === metadata.type && m.hnsSourceCategory === metadata.category &&
+      m.hnsSourceAccuracy === metadata.accuracy && m.hnsSourcePp === metadata.pp &&
+      m.hnsSourceTarget === metadata.target && m.hnsSourcePriority === metadata.priority &&
+      m.hnsSourceStrikeCount === null && m.hnsMultiHit === true && m.hnsFixedRepeatedStrike === false &&
+      JSON.stringify(m.hnsSourceAdditionalEffects) === JSON.stringify(metadata.additionalEffects) &&
+      JSON.stringify(m.hnsSourcePreAttackEffects) === JSON.stringify(metadata.preAttackEffects);
+  const counts = (() => {
+    if (fixed) return {mode: 'FIXED_TWO', values: [2]};
+    const abilityId = input.attacker?.hnsEffectiveAbilityId;
+    const abilityName = hnsSpeedContract.abilities[String(abilityId)];
+    const rules = hnsRepeatedStrikeContract.variableMultiHitCountRules;
+    if (!rules || rules.configMacro !== 'B_MULTI_HIT_CHANCE' || rules.latestGeneration !== 9 ||
+        JSON.stringify(rules.precedence) !== JSON.stringify(['SKILL_LINK', 'LOADED_DICE', 'ORDINARY_RANDOM'])) return null;
+    if (!Number.isInteger(abilityId) || abilityName !== attacker.ability) return null;
+    if (abilityId === 92) {
+      const a = input.attacker, d = input.defender;
+      if (a.hnsGastroAcid === true || typeof a.hnsGastroAcid !== 'boolean' || typeof d?.hnsGastroAcid !== 'boolean' ||
+          typeof a.hnsNeutralizingGas !== 'boolean' || typeof d.hnsNeutralizingGas !== 'boolean' ||
+          typeof a.hnsAbilityShield !== 'boolean') return null;
+      const gasActive = a.hnsNeutralizingGas && !a.hnsGastroAcid || d.hnsNeutralizingGas && !d.hnsGastroAcid;
+      if (!gasActive || a.hnsAbilityShield) return {mode: 'SKILL_LINK', values: rules.skillLink.nominalCounts};
+    }
+    const hold = input.attacker?.hnsEffectiveHoldEffect;
+    if (typeof hold !== 'string') return null;
+    if (hold === 'HOLD_EFFECT_LOADED_DICE') return {mode: 'LOADED_DICE', values: rules.loadedDice.nominalCounts};
+    return {mode: 'ORDINARY_RANDOM', values: rules.ordinary.nominalCounts};
+  })();
+  const countClaimValid = fixed
+    ? input.hnsRepeatedStrikeCountMode === undefined && input.hnsRepeatedStrikeNominalCounts === undefined ||
+      input.hnsRepeatedStrikeCountMode === counts?.mode && JSON.stringify(input.hnsRepeatedStrikeNominalCounts) === JSON.stringify(counts?.values)
+    : input.hnsRepeatedStrikeCountMode === counts?.mode && JSON.stringify(input.hnsRepeatedStrikeNominalCounts) === JSON.stringify(counts?.values);
+  if (!descriptorValid || !counts || !countClaimValid ||
+      m.hnsMoveEffect !== metadata.effect || m.hnsFixedSingleHit !== false || m.hnsIsOrdinary !== false ||
+      typeof m.isCrit !== 'boolean' || m.overrides?.basePower !== metadata.power || move.bp !== metadata.power ||
+      m.hnsMakesContact !== metadata.makesContact || m.hnsSheerForceAffected !== metadata.sheerForceAffected ||
       m.hnsUnknownContact !== false || m.hnsUnknownPunching !== false || m.hnsUnknownSheerForce !== false ||
       JSON.stringify(m.hnsMoveFlags) !== JSON.stringify(metadata.immunityFlags) ||
       JSON.stringify(m.hnsMoveAbilityFlags) !== JSON.stringify(metadata.abilityFlags) ||
+      JSON.stringify(m.hnsUnknownMoveFlags || []) !== JSON.stringify([]) ||
+      JSON.stringify(m.hnsUnknownMoveAbilityFlags || []) !== JSON.stringify([]) ||
       normalizeGameType(field.gameType) !== 'Singles' || input.hnsObservedBattlersCount !== 2 ||
       input.hnsRepeatedStrikePhaseSettled !== true || input.defender?.hnsSemiInvulnerableState !== 0 ||
       input.defender?.hnsSubstitute !== false || input.attacker?.hnsSubstitute !== false || input.attacker?.hnsEndured !== false || input.defender?.hnsEndured !== false ||
-      input.repeatedStrike !== undefined || m.repeatedStrike !== undefined || input.sequenceStable !== undefined || m.sequenceStable !== undefined)
-    throw new Error('H&S fixed-two descriptor or execution authority invalid');
+      input.repeatedStrike !== undefined || m.repeatedStrike !== undefined || input.sequenceStable !== undefined || m.sequenceStable !== undefined ||
+      input.hnsRepeatedStrikeDistribution !== undefined || input.hnsRepeatedStrikeWeights !== undefined ||
+      input.hnsRepeatedStrikeProbabilities !== undefined || input.hnsRepeatedStrikeStable !== undefined ||
+      m.hnsRepeatedStrikeStable !== undefined || m.hnsSequenceStable !== undefined ||
+      m.hnsRepeatedStrikeCountMode !== undefined || m.hnsRepeatedStrikeNominalCounts !== undefined)
+    throw new Error('H&S repeated-strike descriptor, count, or execution authority invalid');
   const sourceType = metadata.type.replace('TYPE_', '').toLowerCase().replace(/^./, c => c.toUpperCase());
   let expectedType = sourceType;
   const id = input.attacker.hnsEffectiveAbilityId;
@@ -428,17 +478,34 @@ function hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field)
     const id = source?.hnsEffectiveAbilityId;
     const rawItem = source.hnsRawItemId, rawEffect = hnsSpeedContract.holdEffects[String(rawItem)];
     const fieldWord = input.field?.hnsFieldStatuses;
+    const magicRoom = Number.isInteger(fieldWord) && (fieldWord & 1) !== 0;
+    const klutzSuppressesItem = id === 103 && source.hnsGastroAcid === false;
+    const holdSuppressed = magicRoom || source.hnsEmbargo === true || klutzSuppressesItem;
+    const abilityShield = rawEffect === 'HOLD_EFFECT_ABILITY_SHIELD' && !magicRoom && source.hnsEmbargo === false;
     if (!Number.isInteger(rawItem) || rawEffect === undefined || !Number.isInteger(fieldWord) ||
-        typeof source.hnsEmbargo !== 'boolean' ||
+        typeof source.hnsEmbargo !== 'boolean' || typeof source.hnsGastroAcid !== 'boolean' ||
+        typeof source.hnsNeutralizingGas !== 'boolean' || source.hnsAbilityShield !== abilityShield ||
         (source.hnsHoldEffectState === 'ACTIVE_EXACT'
-          ? rawEffect !== source.hnsEffectiveHoldEffect || rawItem !== 0 && ((fieldWord & 1) !== 0 || source.hnsEmbargo)
-          : source.hnsEffectiveHoldEffect !== 'HOLD_EFFECT_NONE' || !((fieldWord & 1) !== 0 || source.hnsEmbargo)))
+          ? rawEffect !== source.hnsEffectiveHoldEffect || holdSuppressed
+          : source.hnsHoldEffectState !== 'SUPPRESSED_NONE' || source.hnsEffectiveHoldEffect !== 'HOLD_EFFECT_NONE' || !holdSuppressed))
       throw new Error('H&S repeated-strike effective item authority forged or unread');
-    if (!hnsRepeatedStrikeContract.stableAbilityIds.includes(id) || resolveAbility(hnsSpeedContract.abilities[String(id)], true) !== battler.ability ||
-        source.hnsNeutralizingGas !== false || source.hnsGastroAcid !== false ||
+    const variableSuppressionAbility = !fixed && (id === 103 || id === 256);
+    if (!hnsRepeatedStrikeContract.stableAbilityIds.includes(id) && !variableSuppressionAbility ||
+        resolveAbility(hnsSpeedContract.abilities[String(id)], true) !== battler.ability ||
         !['ACTIVE_EXACT', 'SUPPRESSED_NONE'].includes(source.hnsHoldEffectState) ||
         !hnsRepeatedStrikeContract.stableHoldEffects.includes(source.hnsEffectiveHoldEffect))
       throw new Error('H&S repeated-strike reaction unknown or unsupported');
+  }
+  const attackerAbilityId = input.attacker.hnsEffectiveAbilityId;
+  if (variable) {
+    const sources = [input.attacker, input.defender];
+    if (sources.some(source => source.hnsGastroAcid === true && source.hnsEffectiveAbilityId !== 0))
+      throw new Error('H&S Gastro Acid suppression contradicts effective ability');
+    const gasActive = sources.some(source => source.hnsNeutralizingGas === true && source.hnsGastroAcid !== true);
+    const gasSourceObserved = sources.some(source => source.hnsNeutralizingGas === true &&
+      source.hnsGastroAcid !== true && source.hnsEffectiveAbilityId === 256);
+    if (gasActive && !gasSourceObserved)
+      throw new Error('H&S Neutralizing Gas source is inconsistent with effective ability authority');
   }
   const contact = hnsContactAuthority(move, attacker, input);
   if (contact === null) throw new Error('H&S repeated-strike contact unknown');
@@ -448,19 +515,28 @@ function hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field)
         chosen === hnsRepeatedStrikeContract.beakBlastMoveId)
       throw new Error('H&S repeated-strike contact reaction state unknown or active');
   }
-  return hp;
+  return {hp, fixed, counts, family};
 }
 
-function hnsRepeatedStrikeResponse(response, hp, crit, maxHP) {
+function hnsRepeatedStrikeResponse(response, authority, crit, maxHP) {
+  const hp = authority.hp;
   const rolls = response.maxDamage === 0 ? Array(16).fill(0) : response.damage;
   if (!Array.isArray(rolls) || rolls.length !== 16 || rolls.some(x => !Number.isInteger(x) || x < 0))
     throw new Error('H&S repeated-strike first rolls invalid');
   const lo = Math.min(...rolls), hi = Math.max(...rolls);
-  const total = {nominalCount: 2, minHpLoss: Math.min(hp, 2 * lo), maxHpLoss: Math.min(hp, 2 * hi),
-    minExecutedHits: hi === 0 ? 0 : hp <= hi ? 1 : 2, maxExecutedHits: hi === 0 ? 0 : hp <= lo ? 1 : 2};
-  return {...response, defenderMaxHP: maxHP, damage: [], range: [], minDamage: total.minHpLoss, maxDamage: total.maxHpLoss,
-    desc: 'Fixed two-hit move; conditional on connecting from the observed state',
-    repeatedStrike: {nominalCounts: [2], firstStrikeRolls: rolls, totals: [total],
+  const damaging = response.maxDamage !== 0 && hi > 0;
+  const totals = authority.counts.values.map(n => {
+    const minExecutedHits = !damaging ? 0 : Math.min(n, Math.floor((hp + hi - 1) / hi));
+    const maxExecutedHits = !damaging ? 0 : lo === 0 ? n : Math.min(n, Math.floor((hp + lo - 1) / lo));
+    return {nominalCount: n, minHpLoss: Math.min(hp, n * lo), maxHpLoss: Math.min(hp, n * hi),
+      minExecutedHits, maxExecutedHits};
+  });
+  const minimum = Math.min(...totals.map(total => total.minHpLoss));
+  const maximum = Math.max(...totals.map(total => total.maxHpLoss));
+  return {...response, defenderMaxHP: maxHP, damage: [], range: [], minDamage: minimum, maxDamage: maximum,
+    desc: authority.fixed ? 'Fixed two-hit move; conditional on connecting from the observed state' :
+      'Random-count multi-hit move; conditional on connecting from the observed state',
+    repeatedStrike: {nominalCounts: authority.counts.values, firstStrikeRolls: rolls, totals,
       assumptions: [crit ? 'All executed strikes critical' : 'All executed strikes noncritical',
         'Conditional on successful connection from unchanged observed operands, including chosen move/protection; no intervening action before the selected move',
         'Independent damage rolls; interval endpoints do not imply every interior value is reachable'],
@@ -1645,9 +1721,9 @@ function hnsParadoxHighestStat(battler, wonderRoom) {
       const field = new Field(fieldOptions);
 
       if (input.typeSystem === 'hns_2_0_5') {
-        const hp = hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field);
+        const repeatedAuthority = hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field);
         const response = calculateHnsDamage(gen, attacker, defender, move, field, input);
-        return JSON.stringify(hp === null ? response : hnsRepeatedStrikeResponse(response, hp, input.move.isCrit === true, input.defender.maxHpAtHit));
+        return JSON.stringify(repeatedAuthority === null ? response : hnsRepeatedStrikeResponse(response, repeatedAuthority, input.move.isCrit === true, input.defender.maxHpAtHit));
       }
 
       const result = calculate(gen, attacker, defender, move, field);

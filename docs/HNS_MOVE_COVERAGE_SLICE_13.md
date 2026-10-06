@@ -2,7 +2,7 @@
 
 ## Scope and provenance
 
-This slice starts at `2d57cf8b991b04e676fd6d920ddcdf52159f1735`, the merged Slice 12 head from PR #148. It reuses Slice 12's repeated-strike result, pinned engine hooks, and sequence-stability authority. Implementation issue: [#149](https://github.com/Sonoran-Solutions/dualdex/issues/149). The review PR is tracked from this issue with `Refs #149` and remains open/unmerged for review.
+This slice starts at `2d57cf8b991b04e676fd6d920ddcdf52159f1735`, the merged Slice 12 head from PR #148. It reuses Slice 12's repeated-strike result, pinned engine hooks, and sequence-stability authority. Implementation issue: [#149](https://github.com/Sonoran-Solutions/dualdex/issues/149). Review PR: [#157](https://github.com/Sonoran-Solutions/dualdex/pull/157), kept open and unmerged for senior review.
 
 Mechanics are pinned to `PokemonHnS-Development/pokehns-expansion`, `Release-v2.0.5`, commit `1f42b74dff0e9fe942419845d040663dd829a973`. The generated source contract freezes `SetRandomMultiHitCounter`, `CancelerMultihitMoves`, `MoveEndMultihitMove`, the move table descriptors, `GetBattlerAbility`, `GetBattlerHoldEffect`, and the generation configuration that selects `B_MULTI_HIT_CHANCE`. Source authority is checked by `tools/hns-move-mechanics/generate_hns_move_effects.py` and its mutation tests.
 

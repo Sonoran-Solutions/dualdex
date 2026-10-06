@@ -1474,6 +1474,7 @@ object CalcCapabilityPolicy {
             fieldDecisions = fieldDecisions
         )
         if (HnsRepeatedStrikeAuthority.isFamily(request)) {
+            HnsRepeatedStrikeCountAuthority.forRequest(request).limitation?.let(limitations::add)
             HnsRepeatedStrikeAuthority.forRequest(request).limitation?.let(limitations::add)
             if (ignoredMechanics.isNotEmpty()) limitations.add(CalcLimitation.HNS_REPEATED_STRIKE_CAVEAT_NOT_ALLOWED)
         }
@@ -2283,6 +2284,11 @@ object CalcCapabilityPolicy {
         fieldDecisions: MutableList<HnsFieldRequestDecision>
     ) {
         val live = request.hnsLiveBattleState ?: return
+        val selectedMoveId = pack.getMoveByName(request.move.name)?.id
+        val variableMultiHitSuppressionExact = selectedMoveId?.let {
+            it in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds
+        } == true &&
+            HnsRepeatedStrikeCountAuthority.suppressionStateExactForVariableCount(request)
         val moveAuthority = HnsMoveAuthority.forRequest(request, hnsSelectedStrikeModelled(pack, request))
         val preFieldType = moveAuthority.preFieldType?.displayName
         val effectiveMoveType = moveAuthority.effectiveType?.displayName
@@ -2358,7 +2364,6 @@ object CalcCapabilityPolicy {
         }
         // Recoil self-thaw occurs before damage, unlike recoil/secondary consequences.
         // Do not reuse a menu-time Guts/Frostbite operand across that execution transition.
-        val selectedMoveId = pack.getMoveByName(request.move.name)?.id
         if (selectedMoveId in com.dualdex.pokemon.hns.Hns205MoveEffects.recoilThawsUserMoveIds &&
             (status1 == null || status1 and 0x1020 != 0)) {
             limitations.add(CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED)
@@ -2407,7 +2412,8 @@ object CalcCapabilityPolicy {
             }
             if (attackerPersistent.gastroAcid || defenderPersistent.gastroAcid ||
                 live.attackerNeutralizingGas == true || live.defenderNeutralizingGas == true) {
-                limitations.add(CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED)
+                if (!variableMultiHitSuppressionExact)
+                    limitations.add(CalcLimitation.HNS_ABILITY_SUPPRESSED_NOT_MODELLED)
             }
             if (attackerPersistent.substitute || defenderPersistent.substitute) {
                 limitations.add(CalcLimitation.HNS_SUBSTITUTE_ACTIVE_NOT_MODELLED)

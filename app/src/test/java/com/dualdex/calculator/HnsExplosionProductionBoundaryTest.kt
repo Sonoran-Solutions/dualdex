@@ -116,11 +116,14 @@ class HnsExplosionProductionBoundaryTest {
     }
     @Test fun `Damp has no current hit modifier for supported ordinary attacks`() {
         assertTrue(build(request("Tackle"),a=observation(true,"Damp"),d=observation(false,"Damp")) is CalcRequestOutcome.Ready)
-        for (move in listOf("Dive","Fury Swipes")) {
+        for (move in listOf("Dive")) {
             val out=build(request(move),a=observation(true,"Damp")) as CalcRequestOutcome.Refused
             assertTrue(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED in out.verdict.blockingLimitations)
             assertFalse(CalcLimitation.HNS_ABILITY_CONDITION_UNVERIFIED in out.verdict.blockingLimitations)
         }
+        val contactReady = observation(false).let { it.copy(state = it.state.copy(
+            contactReactionStateObserved = true, chosenMove = 33, protectedMethod = 0)) }
+        assertTrue(build(request("Fury Swipes"),a=observation(true,"Damp"),d=contactReady) is CalcRequestOutcome.Ready)
     }
     @Test fun `source damage-time Defeatist ignores pre-action threshold and preserves live HP`() {
         val a=observation(true,"Defeatist")

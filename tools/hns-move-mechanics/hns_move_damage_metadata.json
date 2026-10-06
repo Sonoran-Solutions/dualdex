@@ -25,7 +25,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Double Slap",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "37f1f7ef3c2e33fc86f1daad1abec9e425fedd32778ddc0d42cfc64d7b61cb8e",
+      "power": 15,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 85,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "4": {
       "effect": "EFFECT_HIT",
@@ -37,7 +55,27 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Comet Punch",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "45efa36822888907fdfa562b16087aba3ce4ef400673b2672eefbb8def020731",
+      "power": 18,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 85,
+      "pp": 15,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [
+        "punchingMove"
+      ],
+      "immunityFlags": []
     },
     "5": {
       "effect": "EFFECT_HIT",
@@ -262,7 +300,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Fury Attack",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "060f699afe5322f95999041a1d82251c12e49403fa8d6ee8f6b45dbc674f8397",
+      "power": 15,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 85,
+      "pp": 20,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "32": {
       "effect": "EFFECT_OHKO",
@@ -356,7 +412,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Pin Missile",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "0a46abdbc00ec2ae9cdd555cf517840a5abdd71ead66e10c744d33434b8c1acd",
+      "power": 25,
+      "type": "TYPE_BUG",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 95,
+      "pp": 20,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "43": {
       "effect": "EFFECT_DEFENSE_DOWN",
@@ -1040,7 +1114,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Spike Cannon",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "ba1b14d4b373733088b525325148a5c737cf8a8be648fcb8f9bce4f03e206ba9",
+      "power": 20,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 100,
+      "pp": 15,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "132": {
       "effect": "EFFECT_HIT",
@@ -1238,7 +1330,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Fury Swipes",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "e772a1809fb7e5b77bfcffda2d4808b7e6a8ede6b6be1971edf93b3fd4a8216d",
+      "power": 18,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 80,
+      "pp": 15,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "155": {
       "effect": "EFFECT_HIT",
@@ -1575,7 +1685,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Bone Rush",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "68e17169bfe0bc96e47836b9db35fa5ca2480f584a531727686e8250b3ba3100",
+      "power": 25,
+      "type": "TYPE_GROUND",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 90,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "199": {
       "effect": "EFFECT_LOCK_ON",
@@ -2316,7 +2444,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Arm Thrust",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "68908eecef1cf68a19f1fbe07bb0fa762e19b1540bfc832b818273ffa3ac7d29",
+      "power": 15,
+      "type": "TYPE_FIGHTING",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 100,
+      "pp": 20,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "293": {
       "effect": "EFFECT_CAMOUFLAGE",
@@ -2625,7 +2771,27 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Bullet Seed",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "403f0cc0df44c4994a8cb81039fafc9e33873179491a594df5b9185964000cc9",
+      "power": 25,
+      "type": "TYPE_GRASS",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 100,
+      "pp": 30,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": true,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [
+        "ballisticMove"
+      ]
     },
     "332": {
       "effect": "EFFECT_HIT",
@@ -2644,7 +2810,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Icicle Spear",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "a229be72d4e28c36a1d0f765137ee3f31e9158a2019f49067847e06a6c0a832f",
+      "power": 25,
+      "type": "TYPE_ICE",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 100,
+      "pp": 30,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "334": {
       "effect": "EFFECT_DEFENSE_UP_2",
@@ -2769,7 +2953,27 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Rock Blast",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "5c4665229897c6efcf12894630b467e0a126e8a61e8910a0154a941ae3973e18",
+      "power": 25,
+      "type": "TYPE_ROCK",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 90,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": true,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [
+        "ballisticMove"
+      ]
     },
     "351": {
       "effect": "EFFECT_HIT",
@@ -4360,7 +4564,25 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "variableMultiHitPlain": true,
+      "name": "Tail Slap",
+      "family": "VARIABLE_MULTI_HIT_PLAIN",
+      "descriptorSha256": "d9d37df2f2f4c52f7148cdf3f1745d309c9236dcde23779d2cd7c8b2649f5394",
+      "power": 25,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 85,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "542": {
       "effect": "EFFECT_HIT",

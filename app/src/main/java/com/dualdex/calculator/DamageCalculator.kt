@@ -142,6 +142,12 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             put("hnsObservedBattlersCount", request.hnsLiveBattleState?.observedBattlersCount)
             put("hnsRepeatedStrikeOptionStyle", request.hnsRuntimeRules?.optionStyle?.name)
             put("hnsRepeatedStrikeElectrified", request.hnsLiveBattleState?.attackerElectrified)
+            val moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
+            if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds) {
+                val countAuthority = HnsRepeatedStrikeCountAuthority.forRequest(request)
+                put("hnsRepeatedStrikeCountMode", countAuthority.mode?.name)
+                put("hnsRepeatedStrikeNominalCounts", countAuthority.nominalCounts?.let { JSONArray(it) } ?: JSONObject.NULL)
+            }
         }
         request.typeSystem?.let { put("typeSystem", it) }
 
@@ -247,8 +253,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             if (request.typeSystem == "hns_2_0_5") {
                 put(
                     "hnsAbilityShield",
-                    HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER).effectiveHoldEffect ==
-                        "HOLD_EFFECT_ABILITY_SHIELD"
+                    HnsHoldEffectAuthority.abilityShieldActiveIgnoringAbilityForRequest(request, HnsItemSide.ATTACKER) == true
                 )
                 putHnsHoldEffectDescriptor(this, request, HnsItemSide.ATTACKER)
             }
@@ -379,8 +384,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             if (request.typeSystem == "hns_2_0_5") {
                 put(
                     "hnsAbilityShield",
-                    HnsHoldEffectAuthority.forRequest(request, HnsItemSide.DEFENDER).effectiveHoldEffect ==
-                        "HOLD_EFFECT_ABILITY_SHIELD"
+                    HnsHoldEffectAuthority.abilityShieldActiveIgnoringAbilityForRequest(request, HnsItemSide.DEFENDER) == true
                 )
                 putHnsHoldEffectDescriptor(this, request, HnsItemSide.DEFENDER)
             }
@@ -443,6 +447,24 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("hnsSourceStrikeCount", 2)
                         put("hnsMultiHit", false)
                         put("hnsFixedRepeatedStrike", true)
+                    }
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds) {
+                        put("hnsMoveFamily", "VARIABLE_MULTI_HIT_PLAIN")
+                        put("hnsVariableMultiHitPlain", true)
+                        put("hnsDescriptorSha256", com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitDescriptorSha256ById[moveId])
+                        put("hnsSourceName", move.name)
+                        put("hnsSourcePower", move.power)
+                        put("hnsSourceType", "TYPE_${move.type.name}")
+                        put("hnsSourceCategory", "DAMAGE_CATEGORY_${move.category.name}")
+                        put("hnsSourceAccuracy", move.accuracy)
+                        put("hnsSourcePp", move.pp)
+                        put("hnsSourceTarget", "TARGET_SELECTED")
+                        put("hnsSourcePriority", 0)
+                        put("hnsSourceStrikeCount", JSONObject.NULL)
+                        put("hnsMultiHit", true)
+                        put("hnsFixedRepeatedStrike", false)
+                        put("hnsSourceAdditionalEffects", JSONArray())
+                        put("hnsSourcePreAttackEffects", JSONArray())
                     }
                     put("hnsIsExplosion", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds) put("hnsExplosionUserHpAtDamage", 0)
@@ -613,11 +635,14 @@ internal fun parseRepeatedStrikeResult(response: JSONObject): RepeatedStrikeResu
     }
     fun ints(a: JSONArray) = (0 until a.length()).map { integer(a.get(it)) }
     val totals = s.getJSONArray("totals")
-    require(totals.length() == 1 && s.getJSONArray("totalUnavailableReasons").length() == 0)
-    val t = totals.getJSONObject(0)
+    require(totals.length() in 1..4 && s.getJSONArray("totalUnavailableReasons").length() == 0)
+    val parsedTotals = (0 until totals.length()).map { index ->
+        val t = totals.getJSONObject(index)
+        RepeatedStrikeTotal(integer(t.get("nominalCount")), integer(t.get("minHpLoss")), integer(t.get("maxHpLoss")),
+            integer(t.get("minExecutedHits")), integer(t.get("maxExecutedHits")))
+    }
     val assumptions = s.getJSONArray("assumptions")
     RepeatedStrikeResult(ints(s.getJSONArray("nominalCounts")), ints(s.getJSONArray("firstStrikeRolls")),
-        listOf(RepeatedStrikeTotal(integer(t.get("nominalCount")), integer(t.get("minHpLoss")), integer(t.get("maxHpLoss")),
-            integer(t.get("minExecutedHits")), integer(t.get("maxExecutedHits")))),
+        parsedTotals,
         (0 until assumptions.length()).map(assumptions::getString))
 }.getOrNull()

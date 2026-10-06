@@ -615,6 +615,10 @@ class HnsItemContextPolicyTest {
             .rule?.let(produced::add)
         assessForTest(umbrella, ctx(HnsItemSide.ATTACKER, weatherWord = 1 shl 5))
             .rule?.let(produced::add)
+        assessForTest(HnsItemRegistry.resolveIdByName("Ability Shield")!!,
+            ctx(HnsItemSide.ATTACKER, attackerAbilityId = 92, defenderAbilityId = 256,
+                attackerGastroAcid = false, defenderGastroAcid = false, observedBattlersCount = 2)
+                .copy(moveId = 331)).rule?.let(produced::add)
         assessForTest(HnsItemRegistry.resolveIdByName("Big Root")!!,
             ctx(HnsItemSide.ATTACKER).copy(moveId=409)).rule?.let(produced::add)
         assessForTest(HnsItemRegistry.resolveIdByName("Binding Band")!!,

@@ -390,6 +390,27 @@ object HnsAbilityContextPolicy {
                 c.selectedStrikeModelled == true -> proof("fixed_two_skill_link_count_unchanged",
                     "src/battle_move_resolution.c:1915-1944",
                     "Skill Link is checked only in the random multiHit branch; these frozen strikeCount=2 records take the separate fixed-count branch.")
+            abilityId == 92 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds &&
+                c.selectedStrikeModelled == true && abilityObserved(c) -> proof("variable_multi_hit_skill_link_count_only",
+                    "src/battle_move_resolution.c:1915-1944",
+                    "Effective Skill Link selects nominal count five; HnsRepeatedStrikeCountAuthority owns that branch, while this decision clears no strike-damage modifier.")
+            abilityId == 103 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds &&
+                c.selectedStrikeModelled == true && abilityObserved(c) &&
+                (if (side == HnsAbilitySide.ATTACKER) c.attackerHoldEffectResolution else c.defenderHoldEffectResolution)
+                    ?.effectiveHoldEffect != null -> proof("variable_multi_hit_klutz_hold_suppression_exact",
+                    "src/battle_util.c:5815-5835",
+                    "Klutz changes only the exact effective hold effect; this request separately resolves that effect before count selection and every strike.")
+            abilityId == 256 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds &&
+                c.selectedStrikeModelled == true && abilityObserved(c) && c.liveBattleState?.let {
+                    it.attackerNeutralizingGas != null && it.defenderNeutralizingGas != null &&
+                        it.attackerPersistentVolatiles?.observed == true && it.defenderPersistentVolatiles?.observed == true
+                } == true -> proof("variable_multi_hit_neutralizing_gas_effective_abilities_exact",
+                    "src/battle_util.c:4996-5027",
+                    "The exact live effective ability IDs and suppression volatiles are rebound at the request boundary; a target faint ends the repeated sequence before later hits.")
+            abilityId == 203 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds &&
+                c.selectedStrikeModelled == true && c.observedBattlersCount == 2 && abilityObserved(c) ->
+                proof("variable_multi_hit_long_reach_noncontact_exact", "src/battle_util.c:5880-5884",
+                    "The exact attacker Long Reach identity proves these contact-capable strikes are non-contact; the repeated-strike authority therefore needs no Beak Blast move witness.")
             abilityId == 203 && (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds ||
                 c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds ||
                 c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedTwoHitPlainMoveIds) &&

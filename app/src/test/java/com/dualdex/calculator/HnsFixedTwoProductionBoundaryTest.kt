@@ -136,7 +136,7 @@ class HnsFixedTwoProductionBoundaryTest {
         assertTrue(build(d=beak) is CalcRequestOutcome.Refused)
         assertTrue(build(d=observation(false).let {it.copy(state=it.state.copy(contactReactionStateObserved=false))}) is CalcRequestOutcome.Refused)
         ready(a=observation(true,"Long Reach"),d=beak);ready(a=observation(true,item="Protective Pads"),d=beak)
-        for(move in listOf("Twineedle","Triple Kick","Double Slap","Triple Axel","Population Bomb","Beat Up","Bullet Seed")) assertTrue(build(move) is CalcRequestOutcome.Refused)
+        for(move in listOf("Twineedle","Triple Kick","Triple Axel","Population Bomb","Beat Up","Scale Shot")) assertTrue(build(move) is CalcRequestOutcome.Refused)
         val actual=ready().request
         val forged=actual.copy(hnsLiveBattleState=actual.hnsLiveBattleState!!.copy(defenderHp=1,defenderChosenMove=0))
         assertEquals(60000,ready(r=forged).request.hnsLiveBattleState!!.defenderHp)

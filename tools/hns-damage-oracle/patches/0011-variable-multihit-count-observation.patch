@@ -1,0 +1,20 @@
+TESTING-only observation of the selected multi-hit count.
+
+--- a/src/battle_move_resolution.c
++++ b/src/battle_move_resolution.c
+@@ -1907,3 +1907,6 @@
+ static enum CancelerResult CancelerMultihitMoves(struct BattleContext *ctx)
+ {
++#if TESTING
++    extern void (*gDdxrCountSelected)(struct BattleContext *ctx);
++#endif
+     SetPossibleNewSmartTarget(ctx->move);
+@@ -1930,5 +1933,8 @@
+             SetRandomMultiHitCounter();
+         }
+
++#if TESTING
++        if (gDdxrCountSelected != NULL) gDdxrCountSelected(ctx);
++#endif
+         PREPARE_BYTE_NUMBER_BUFFER(gBattleScripting.multihitString, 1, 0)
+     }

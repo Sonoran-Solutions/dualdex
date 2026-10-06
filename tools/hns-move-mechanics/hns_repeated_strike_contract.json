@@ -4,6 +4,7 @@
   "pinnedCommit": "1f42b74dff0e9fe942419845d040663dd829a973",
   "stableAbilityIds": [
     0,
+    6,
     15,
     25,
     26,
@@ -51,5 +52,57 @@
     "HOLD_EFFECT_SHELL_BELL",
     "HOLD_EFFECT_TYPE_POWER",
     "HOLD_EFFECT_WISE_GLASSES"
-  ]
+  ],
+  "variableMultiHitCountRules": {
+    "configMacro": "B_MULTI_HIT_CHANCE",
+    "latestGeneration": 9,
+    "loadedDice": {
+      "nominalCounts": [
+        4,
+        5
+      ],
+      "rngTag": "RNG_LOADED_DICE",
+      "uniform": true
+    },
+    "olderGeneration": {
+      "nominalCounts": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "weights": [
+        3,
+        3,
+        1,
+        1
+      ]
+    },
+    "ordinary": {
+      "nominalCounts": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "rngTag": "RNG_HITS",
+      "weights": [
+        7,
+        7,
+        3,
+        3
+      ]
+    },
+    "precedence": [
+      "SKILL_LINK",
+      "LOADED_DICE",
+      "ORDINARY_RANDOM"
+    ],
+    "skillLink": {
+      "countRng": false,
+      "nominalCounts": [
+        5
+      ]
+    }
+  }
 }

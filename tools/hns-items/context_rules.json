@@ -1243,6 +1243,37 @@
           "side": "EITHER"
         },
         {
+          "rule": "variable_multi_hit_skill_link_ability_shield_count",
+          "side": "ATTACKER",
+          "families": [
+            "HOLD_EFFECT_ABILITY_SHIELD"
+          ],
+          "predicate": "The exact active attacker Ability Shield protects effective Skill Link from Neutralizing Gas for one of the twelve plain variable-count multi-hit moves.",
+          "rationale": "Ability Shield preserves Skill Link, whose source branch selects five hits before Loaded Dice is considered; the request-local count authority recomputes this exact precedence and the item does not alter per-strike damage.",
+          "evidence": [
+            {
+              "source": "src/battle_util.c:4998",
+              "contains": "bool32 hasAbilityShield = !noAbilityShield && GetBattlerHoldEffectIgnoreAbility(battler) == HOLD_EFFECT_ABILITY_SHIELD;"
+            },
+            {
+              "source": "src/battle_util.c:5020",
+              "contains": "&& (gBattleMons[battler].ability != ABILITY_NEUTRALIZING_GAS || gBattleMons[battler].volatiles.gastroAcid)"
+            },
+            {
+              "source": "src/battle_move_resolution.c:1919",
+              "contains": "if (ability == ABILITY_SKILL_LINK)"
+            },
+            {
+              "source": "src/battle_move_resolution.c:1921",
+              "contains": "gMultiHitCounter = 5;"
+            },
+            {
+              "source": "src/battle_move_resolution.c:1930",
+              "contains": "SetRandomMultiHitCounter();"
+            }
+          ]
+        },
+        {
           "rule": "primal_orb_transition_unsettled",
           "side": "EITHER",
           "families": [

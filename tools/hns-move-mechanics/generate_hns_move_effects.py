@@ -683,12 +683,36 @@ def parse_hit_escape_metadata(text, ids):
             additionalEffects=[], preAttackEffects=[], abilityFlags=[], immunityFlags=[])
     return result
 
-REPEATED_STRIKE_STABLE_ABILITIES = ['None', 'Insomnia', 'Technician', 'Tough Claws', 'Fluffy', 'Long Reach', 'Skill Link', 'Marvel Scale', 'Overgrow', 'Blaze', 'Torrent', 'Swarm', 'Defeatist', 'Adaptability', 'Normalize', 'Refrigerate', 'Pixilate', 'Aerilate', 'Galvanize', 'Liquid Voice', 'Levitate', 'Wonder Guard', 'Filter', 'Solid Rock', 'Ice Scales', 'Fur Coat', 'Heatproof', 'Water Bubble', 'Sheer Force']
+REPEATED_STRIKE_STABLE_ABILITIES = ['None', 'Damp', 'Insomnia', 'Technician', 'Tough Claws', 'Fluffy', 'Long Reach', 'Skill Link', 'Marvel Scale', 'Overgrow', 'Blaze', 'Torrent', 'Swarm', 'Defeatist', 'Adaptability', 'Normalize', 'Refrigerate', 'Pixilate', 'Aerilate', 'Galvanize', 'Liquid Voice', 'Levitate', 'Wonder Guard', 'Filter', 'Solid Rock', 'Ice Scales', 'Fur Coat', 'Heatproof', 'Water Bubble', 'Sheer Force']
 REPEATED_STRIKE_STABLE_HOLD_EFFECTS = ['HOLD_EFFECT_NONE', 'HOLD_EFFECT_LIFE_ORB', 'HOLD_EFFECT_SHELL_BELL', 'HOLD_EFFECT_CHOICE_BAND', 'HOLD_EFFECT_CHOICE_SPECS', 'HOLD_EFFECT_CHOICE_SCARF', 'HOLD_EFFECT_EXPERT_BELT', 'HOLD_EFFECT_MUSCLE_BAND', 'HOLD_EFFECT_WISE_GLASSES', 'HOLD_EFFECT_TYPE_POWER', 'HOLD_EFFECT_EVIOLITE', 'HOLD_EFFECT_ASSAULT_VEST', 'HOLD_EFFECT_LOADED_DICE', 'HOLD_EFFECT_PROTECTIVE_PADS', 'HOLD_EFFECT_IRON_BALL', 'HOLD_EFFECT_PUNCHING_GLOVE', 'HOLD_EFFECT_ABILITY_SHIELD']
 
 FIXED_TWO_MOVE_CONTRACTS = {'MOVE_DOUBLE_KICK': (24, '625afd319e60a891ea88fbb65f34b825719fa60303b724182228a460fd45a01b'), 'MOVE_BONEMERANG': (155, '93bd69719b1636c336a0a4e9c1e4a2bd31d0fa4e5cd657b5ee298f7f6aada387'), 'MOVE_DOUBLE_HIT': (458, '621d0bc7f46f32601aaca79cb980fa102e07d4edb537ce07a65a6042ffb9e868'), 'MOVE_DUAL_CHOP': (530, '305c7a8c8742479a3e2a98fc7383bdde5c2e1e61f39f4feb4acb7524080adbd6'), 'MOVE_DUAL_WINGBEAT': (742, 'a0663cc82cf78b1b92430cabb6622c62ab783f084b99750968a47c2153bfef02'), 'MOVE_TWIN_BEAM': (814, 'ce79b7466407cbe2bfc92dff62f4992f4f5b63cdd34023dddb265ea2d58cbb32')}
 
 FIXED_TWO_SOURCE_CONTRACTS = {'include/move.h': '015bcf307ec360ce82b0c999647522f2572042261fdecbd83b701ac339debf00', 'src/battle_hold_effects.c': 'db60d458f9de2a30cadbc1e311f0814a6c5439ef8d828bdaa5518ca9b0795ebe', 'src/pokemon.c': '87450aec502e906a3c2ccc5d4051ffc05796c09de0ef6b3b785b55d882721e62', 'src/data/pokemon/form_change_tables.h': 'c28ff4c8195421e09262d78b134b0ae030397b0899116537daf736849431c0d8'}
+
+VARIABLE_MULTI_HIT_MOVE_CONTRACTS = {
+    'MOVE_DOUBLE_SLAP': (3, '37f1f7ef3c2e33fc86f1daad1abec9e425fedd32778ddc0d42cfc64d7b61cb8e'),
+    'MOVE_COMET_PUNCH': (4, '45efa36822888907fdfa562b16087aba3ce4ef400673b2672eefbb8def020731'),
+    'MOVE_FURY_ATTACK': (31, '060f699afe5322f95999041a1d82251c12e49403fa8d6ee8f6b45dbc674f8397'),
+    'MOVE_PIN_MISSILE': (42, '0a46abdbc00ec2ae9cdd555cf517840a5abdd71ead66e10c744d33434b8c1acd'),
+    'MOVE_SPIKE_CANNON': (131, 'ba1b14d4b373733088b525325148a5c737cf8a8be648fcb8f9bce4f03e206ba9'),
+    'MOVE_FURY_SWIPES': (154, 'e772a1809fb7e5b77bfcffda2d4808b7e6a8ede6b6be1971edf93b3fd4a8216d'),
+    'MOVE_BONE_RUSH': (198, '68e17169bfe0bc96e47836b9db35fa5ca2480f584a531727686e8250b3ba3100'),
+    'MOVE_ARM_THRUST': (292, '68908eecef1cf68a19f1fbe07bb0fa762e19b1540bfc832b818273ffa3ac7d29'),
+    'MOVE_BULLET_SEED': (331, '403f0cc0df44c4994a8cb81039fafc9e33873179491a594df5b9185964000cc9'),
+    'MOVE_ICICLE_SPEAR': (333, 'a229be72d4e28c36a1d0f765137ee3f31e9158a2019f49067847e06a6c0a832f'),
+    'MOVE_ROCK_BLAST': (350, '5c4665229897c6efcf12894630b467e0a126e8a61e8910a0154a941ae3973e18'),
+    'MOVE_TAIL_SLAP': (541, 'd9d37df2f2f4c52f7148cdf3f1745d309c9236dcde23779d2cd7c8b2649f5394'),
+}
+
+VARIABLE_MULTI_HIT_SOURCE_CONTRACTS = {
+    ('src/battle_move_resolution.c', 'SetRandomMultiHitCounter'): '23d8dee234194d5c3fc6ec8c378734ca72f89a084fb3eb658c2bb9026b43a721',
+    ('src/battle_move_resolution.c', 'CancelerMultihitMoves'): 'f8acc7eac9753d553fe2da97540938b6a0d61ffadc30c87e7a646d88ca8d0547',
+    ('src/battle_move_resolution.c', 'MoveEndMultihitMove'): 'c6c7bdaea6091968eb3f98e16236bbd72e686b74c3c51e3617ddff59760f731c',
+    ('src/battle_util.c', 'GetBattlerAbilityInternal'): '128a64d0947026c079a6ff2c462962d73dc83f15bda02fed56a237ff90b32f62',
+    ('src/battle_util.c', 'GetBattlerHoldEffect'): 'c7fa75c0f4c7ab73ec8ec271a890e7c28eda0b727c884384ae386fc5c5cfad6a',
+    ('src/battle_util.c', 'GetBattlerHoldEffectIgnoreAbility'): 'f25fd3fcd9ec831a721d5d4756dce6176de8ca208d3358ab2b57bf7de2211136',
+}
 
 def verify_fixed_two_selection_lifecycle(text):
     """Observed MOVE_NONE precedes commitment during the permitted selection callback."""
@@ -727,6 +751,152 @@ def parse_fixed_two_metadata(text, ids):
             punchingMove=False, sheerForceAffected=False, additionalEffects=[], preAttackEffects=[],
             abilityFlags=[], immunityFlags=[], metronomeBanned=move_id == 814)
     return result
+
+def _source_macro(text, name):
+    values = re.findall(r'^\s*#define\s+' + re.escape(name) + r'\s+([^\s/]+)', text, re.M)
+    if len(values) != 1:
+        raise ValueError('Missing or duplicate source macro: ' + name)
+    return values[0]
+
+def _variable_multi_hit_generation_contract(config, general):
+    expected = {
+        'B_MULTI_HIT_CHANCE': 'GEN_LATEST',
+        'B_UPDATED_MOVE_DATA': 'GEN_LATEST',
+        'B_UPDATED_MOVE_FLAGS': 'GEN_LATEST',
+    }
+    for name, value in expected.items():
+        if _source_macro(config, name) != value:
+            raise ValueError('Variable multi-hit descriptor/count config changed: ' + name)
+    if _source_macro(general, 'GEN_LATEST') != 'GEN_9':
+        raise ValueError('Variable multi-hit source config is no longer Gen 9')
+
+def _parse_updated_move_value(value, field, config, general):
+    value = value.strip()
+    if value.isdigit():
+        return int(value)
+    match = re.fullmatch(r'B_UPDATED_MOVE_DATA\s*>=\s*GEN_(\d+)\s*\?\s*(\d+)\s*:\s*(\d+)', value)
+    if not match:
+        raise ValueError('Unreviewed variable multi-hit ' + field + ' expression: ' + value)
+    threshold, latest, older = map(int, match.groups())
+    latest_gen = int(_source_macro(general, 'GEN_LATEST').removeprefix('GEN_'))
+    if latest_gen < threshold:
+        return older
+    return latest
+
+def _parse_variable_move_flag(body, name, config):
+    values = re.findall(r'\.' + re.escape(name) + r'\s*=\s*([^,\n}]+)', body)
+    if not values:
+        return False
+    if len(values) != 1:
+        raise ValueError('Duplicate variable multi-hit move flag: ' + name)
+    value = values[0].strip()
+    if value in ('TRUE', 'FALSE'):
+        return value == 'TRUE'
+    match = re.fullmatch(r'B_UPDATED_MOVE_FLAGS\s*>=\s*GEN_(\d+)', value)
+    if match:
+        latest = int(_source_macro(config, 'B_UPDATED_MOVE_FLAGS').removeprefix('GEN_')) if _source_macro(config, 'B_UPDATED_MOVE_FLAGS') != 'GEN_LATEST' else 9
+        return latest >= int(match.group(1))
+    raise ValueError('Unreviewed variable multi-hit flag expression: ' + name + '=' + value)
+
+def parse_variable_multi_hit_metadata(text, ids, config, general, contact_by_id,
+                                      unknown_contact_by_id, sheer_by_id,
+                                      unknown_sheer_by_id, ability_flags_by_id,
+                                      unknown_ability_flags_by_id, immunity_flags_by_id,
+                                      unknown_immunity_flags_by_id):
+    """Freeze the exact plain random-count EFFECT_HIT subset and compiled descriptor."""
+    _variable_multi_hit_generation_contract(config, general)
+    entries = {symbol: '\n'.join(body) for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines()))}
+    result = {}
+    for symbol, (move_id, digest) in VARIABLE_MULTI_HIT_MOVE_CONTRACTS.items():
+        body = entries.get(symbol, '')
+        if ids.get(symbol) != move_id or hashlib.sha256(re.sub(r'\s+', '', body).encode()).hexdigest() != digest:
+            raise ValueError('Changed variable multi-hit MoveInfo: ' + symbol)
+        def field(name):
+            values = re.findall(r'\.' + re.escape(name) + r'\s*=\s*([^,\n}]+)', body)
+            if len(values) != 1:
+                raise ValueError('Missing/duplicate variable multi-hit field ' + name + ': ' + symbol)
+            return values[0].strip()
+        if field('effect') != 'EFFECT_HIT' or field('multiHit') != 'TRUE' or re.search(r'\.strikeCount\s*=', body):
+            raise ValueError('Variable multi-hit family boundary changed: ' + symbol)
+        if field('target') != 'TARGET_SELECTED' or field('priority') != '0':
+            raise ValueError('Variable multi-hit target/priority changed: ' + symbol)
+        if re.search(r'\.additionalEffects\s*=|\.preAttackEffect\s*=', body):
+            raise ValueError('Variable multi-hit additional/pre-attack effects changed: ' + symbol)
+        if move_id in unknown_sheer_by_id or unknown_ability_flags_by_id.get(move_id):
+            raise ValueError('Variable multi-hit descriptor has unknown source flags: ' + symbol)
+        if unknown_immunity_flags_by_id.get(move_id, set()) - {'ballisticMove'}:
+            raise ValueError('Variable multi-hit descriptor has unreviewed immunity flags: ' + symbol)
+        if move_id not in sheer_by_id:
+            raise ValueError('Variable multi-hit Sheer Force authority missing: ' + symbol)
+        # Omitted MoveInfo.makesContact is an exact false for these pinned source
+        # descriptors; a present initializer must be a single literal TRUE/FALSE.
+        ability_flags = sorted(ability_flags_by_id.get(move_id, set()))
+        ballistic = _parse_variable_move_flag(body, 'ballisticMove', config)
+        immunity_flags = set(immunity_flags_by_id.get(move_id, set()))
+        if ballistic:
+            immunity_flags.add('ballisticMove')
+        else:
+            immunity_flags.discard('ballisticMove')
+        immunity_flags = sorted(immunity_flags)
+        if ('ballisticMove' in immunity_flags) != ballistic or ('punchingMove' in ability_flags) != _parse_variable_move_flag(body, 'punchingMove', config):
+            raise ValueError('Variable multi-hit move flags disagree with helper metadata: ' + symbol)
+        immunity_flags_by_id[move_id] = set(immunity_flags)
+        unknown_immunity_flags_by_id[move_id] = unknown_immunity_flags_by_id.get(move_id, set()) - {'ballisticMove'}
+        if sheer_by_id[move_id] is not False:
+            raise ValueError('Variable multi-hit move unexpectedly has Sheer Force effects: ' + symbol)
+        descriptor = dict(
+            variableMultiHitPlain=True,
+            name=symbol[5:].replace('_', ' ').title(),
+            family='VARIABLE_MULTI_HIT_PLAIN',
+            descriptorSha256=digest,
+            effect=field('effect'),
+            power=_parse_updated_move_value(field('power'), 'power', config, general),
+            type=field('type'),
+            category=field('category'),
+            accuracy=_parse_updated_move_value(field('accuracy'), 'accuracy', config, general),
+            pp=int(field('pp')),
+            target=field('target'),
+            priority=int(field('priority')),
+            strikeCount=None,
+            multiHit=True,
+            makesContact='makesContact' in contact_by_id[move_id],
+            punchingMove='punchingMove' in ability_flags,
+            ballisticMove=ballistic,
+            sheerForceAffected=sheer_by_id[move_id],
+            additionalEffects=[],
+            preAttackEffects=[],
+            abilityFlags=ability_flags,
+            immunityFlags=immunity_flags,
+        )
+        result[move_id] = descriptor
+    if set(result) != {move_id for move_id, _ in VARIABLE_MULTI_HIT_MOVE_CONTRACTS.values()}:
+        raise ValueError('Variable multi-hit descriptor set is not exact')
+    return result
+
+def _verify_function_hash(source, function_name, expected):
+    # Anchor at a C definition line. An unanchored search can mistake a call in an
+    # `if (...) {` condition for the helper definition and hash the wrong block.
+    pattern = (r'(?m)^[ \t]*(?:(?:static|inline)[ \t]+)*'
+               r'(?:enum[ \t]+\w+|[A-Za-z_]\w*(?:[ \t]*\*)?)[ \t]+'
+               + re.escape(function_name) + r'[ \t]*\([^;{}]*\)\s*\{')
+    matches = list(re.finditer(pattern, source))
+    if len(matches) != 1:
+        raise ValueError('Missing variable multi-hit source helper: ' + function_name)
+    match = matches[0]
+    end, depth = match.end(), 1
+    while depth and end < len(source):
+        depth += (source[end] == '{') - (source[end] == '}')
+        end += 1
+    if depth or hashlib.sha256(source[match.start():end].encode()).hexdigest() != expected:
+        raise ValueError('Changed variable multi-hit source helper: ' + function_name)
+
+def verify_variable_multi_hit_source_contract(upstream_dir):
+    config = open(os.path.join(upstream_dir, 'include/config/battle.h'), encoding='utf-8').read()
+    general = open(os.path.join(upstream_dir, 'include/config/general.h'), encoding='utf-8').read()
+    _variable_multi_hit_generation_contract(config, general)
+    for (path, function), digest in VARIABLE_MULTI_HIT_SOURCE_CONTRACTS.items():
+        source = open(os.path.join(upstream_dir, path), encoding='utf-8').read()
+        _verify_function_hash(source, function, digest)
 
 def parse_brine_metadata(text, ids):
     """Freeze the entire reviewed MoveInfo; omitted damage flags are source zeroes."""
@@ -1167,6 +1337,9 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitElectroBall")))) + ")")
     lines.append("    val fixedSingleHitEscapeMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitEscape")))) + ")")
     lines.append("    val fixedTwoHitPlainMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedTwoHitPlain")))) + ")")
+    lines.append("    /** Exact plain random-count EFFECT_HIT family; Scale Shot and Twineedle are excluded. */")
+    lines.append("    val variableMultiHitPlainMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("variableMultiHitPlain")))) + ")")
+    lines.append("    val variableMultiHitDescriptorSha256ById: Map<Int, String> = mapOf(" + ", ".join("{} to {}".format(i, json.dumps(m["descriptorSha256"])) for i, m in sorted((dynamic_power or {}).items()) if m.get("variableMultiHitPlain")) + ")")
     lines.append("    val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitRollout")))) + ")")
     lines.append("    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds")
     lines.append("    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds")
@@ -1306,6 +1479,7 @@ def main():
     ids = parse_move_enum(open(os.path.join(upstream_dir, "include/constants/moves.h"), encoding="utf-8").read())
     recoil_ids = {ids[symbol] for symbol in parse_recoil_symbols(move_text)}
     config = open(os.path.join(upstream_dir, "include/config/battle.h"), encoding="utf-8").read()
+    general = open(os.path.join(upstream_dir, "include/config/general.h"), encoding="utf-8").read()
     if not re.search(r"#define B_HEAL_BLOCKING\s+GEN_LATEST", config):
         raise ValueError("Drain healing flag requires reviewed GEN_LATEST Heal Block configuration")
     drain_percentages = {ids[s]: p for s, p in parse_drain_metadata(move_text, True, True).items()}
@@ -1335,8 +1509,12 @@ def main():
     dynamic_power.update(parse_rollout_metadata(move_text, ids))
     dynamic_power.update(parse_hit_escape_metadata(move_text, ids))
     dynamic_power.update(parse_fixed_two_metadata(move_text, ids))
+    dynamic_power.update(parse_variable_multi_hit_metadata(move_text, ids, config, general,
+        contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id,
+        ability_flags_by_id, unknown_ability_flags_by_id, flags_by_id, unknown_flags_by_id))
     verify_hit_escape_contract(upstream_dir)
     verify_fixed_two_contract(upstream_dir)
+    verify_variable_multi_hit_source_contract(upstream_dir)
     verify_rollout_contract(upstream_dir)
     effects_header = open(os.path.join(upstream_dir, "include/constants/battle_move_effects.h")).read()
     effect_names = re.findall(r"^\s*(EFFECT_[A-Z0-9_]+)\s*,", effects_header, re.M)
@@ -1440,7 +1618,15 @@ def main():
         raise ValueError("Missing repeated-strike stable ability identity")
     repeated_contract = {"pinnedCommit": PINNED_COMMIT, "movesCount": ids["MOVES_COUNT_ALL"],
         "beakBlastMoveId": ids["MOVE_BEAK_BLAST"], "stableAbilityIds": stable_ids,
-        "stableHoldEffects": sorted(REPEATED_STRIKE_STABLE_HOLD_EFFECTS)}
+        "stableHoldEffects": sorted(REPEATED_STRIKE_STABLE_HOLD_EFFECTS),
+        "variableMultiHitCountRules": {
+            "configMacro": "B_MULTI_HIT_CHANCE", "latestGeneration": 9,
+            "ordinary": {"nominalCounts": [2, 3, 4, 5], "weights": [7, 7, 3, 3], "rngTag": "RNG_HITS"},
+            "loadedDice": {"nominalCounts": [4, 5], "uniform": True, "rngTag": "RNG_LOADED_DICE"},
+            "skillLink": {"nominalCounts": [5], "countRng": False},
+            "precedence": ["SKILL_LINK", "LOADED_DICE", "ORDINARY_RANDOM"],
+            "olderGeneration": {"nominalCounts": [2, 3, 4, 5], "weights": [3, 3, 1, 1]}}
+    }
     repeated_json = json.dumps(repeated_contract, indent=2, sort_keys=True) + "\n"
     repeated_path = os.path.join(DEFAULT_REPO_ROOT, "tools/hns-move-mechanics/hns_repeated_strike_contract.json")
     if args.verify:
@@ -1450,6 +1636,10 @@ def main():
         with open(repeated_path, "w") as handle: handle.write(repeated_json)
     repeated_kotlin = "    val repeatedStrikeStableAbilityIds: Set<Int> = setOf(" + ", ".join(map(str, stable_ids)) + ")\n"
     repeated_kotlin += "    val repeatedStrikeStableHoldEffects: Set<String> = setOf(" + ", ".join(json.dumps(e) for e in sorted(REPEATED_STRIKE_STABLE_HOLD_EFFECTS)) + ")\n"
+    repeated_kotlin += "    val variableMultiHitOrdinaryNominalCounts: List<Int> = listOf(2, 3, 4, 5)\n"
+    repeated_kotlin += "    val variableMultiHitOrdinaryWeights: List<Int> = listOf(7, 7, 3, 3)\n"
+    repeated_kotlin += "    val variableMultiHitLoadedDiceNominalCounts: List<Int> = listOf(4, 5)\n"
+    repeated_kotlin += "    val variableMultiHitSkillLinkNominalCounts: List<Int> = listOf(5)\n"
     repeated_kotlin += f"    const val selectedMoveCount: Int = {ids['MOVES_COUNT_ALL']}\n"
     generated = generated.rsplit("}", 1)[0] + repeated_kotlin + "}\n"
 

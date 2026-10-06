@@ -1,0 +1,25 @@
+{
+  "command": "./ci.sh test",
+  "errors": 0,
+  "exitStatus": 0,
+  "failures": 0,
+  "moves": [
+    "Arm Thrust",
+    "Bone Rush",
+    "Bullet Seed",
+    "Comet Punch",
+    "Double Slap",
+    "Fury Attack",
+    "Fury Swipes",
+    "Icicle Spear",
+    "Pin Missile",
+    "Rock Blast",
+    "Spike Cannon",
+    "Tail Slap"
+  ],
+  "refusal": "HNS_MOVE_MECHANICS_NOT_MODELLED",
+  "skipped": 0,
+  "startingSha": "2d57cf8b991b04e676fd6d920ddcdf52159f1735",
+  "testSha256": "c50c7e327473898c3a2f6f21eb1a36bcb21ca3cd4ce8822684c88712b75a40d2",
+  "tests": 1
+}

@@ -12,13 +12,18 @@ object HnsRepeatedStrikeAuthority {
     // Pinned battle_util.c move-end/form/status dispatch has no between-hit writer for these
     // identities. HP-sensitive attacker modifiers are safe only because no admitted reaction
     // changes attacker HP. Existing arithmetic/suppression gates still apply independently.
-    fun isFamily(request: DamageCalculationRequest): Boolean = request.typeSystem == "hns_2_0_5" &&
-        HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id in Hns205MoveEffects.fixedTwoHitPlainMoveIds
+    fun isFamily(request: DamageCalculationRequest): Boolean {
+        val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return false
+        return request.typeSystem == "hns_2_0_5" &&
+            (moveId in Hns205MoveEffects.fixedTwoHitPlainMoveIds || moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds)
+    }
 
     fun forRequest(request: DamageCalculationRequest): Result {
         fun unknown() = Result(Stability.UNKNOWN_TRANSITION, CalcLimitation.HNS_REPEATED_STRIKE_STATE_UNKNOWN)
         fun unsupported() = Result(Stability.UNSUPPORTED_TRANSITION, CalcLimitation.HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED)
         if (!isFamily(request)) return unknown()
+        val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return unknown()
+        val variable = moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds
         val live = request.hnsLiveBattleState ?: return unknown()
         val hp = live.defenderHp
         val maxHp = live.defenderMaxHp
@@ -29,12 +34,12 @@ object HnsRepeatedStrikeAuthority {
             live.attackerPersistentVolatiles?.observed != true || live.defenderPersistentVolatiles?.observed != true ||
             live.defenderSemiInvulnerableState == null || !HnsDefenderStatus.isValid(live.defenderStatus1) || !HnsDefenderStatus.isValid(live.attackerStatus1) ||
             live.attackerNeutralizingGas == null || live.defenderNeutralizingGas == null) return unknown()
-        if (live.attackerStatus1!! and 0x27 != 0 || live.attackerNeutralizingGas == true || live.defenderNeutralizingGas == true ||
-            live.attackerPersistentVolatiles.gastroAcid || live.defenderPersistentVolatiles.gastroAcid ||
+        if (live.attackerStatus1!! and 0x27 != 0 ||
+            !variable && (live.attackerPersistentVolatiles.gastroAcid || live.defenderPersistentVolatiles.gastroAcid ||
+                live.attackerNeutralizingGas == true || live.defenderNeutralizingGas == true) ||
             request.field.gameType != "Singles" || live.defenderSemiInvulnerableState != 0 ||
             live.attackerPersistentVolatiles.endured || live.defenderPersistentVolatiles.endured ||
             live.attackerPersistentVolatiles.substitute || live.defenderPersistentVolatiles.substitute) return unsupported()
-        val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
         val contact = HnsContactRules.assess(moveId, true, request.attacker.abilityId,
             request.attacker.abilityId != null, request.attacker.itemId,
             HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER))
@@ -49,7 +54,8 @@ object HnsRepeatedStrikeAuthority {
         for (participant in listOf(request.attacker, request.defender)) {
             val id = participant.abilityId ?: return unknown()
             if (HnsAbilityRegistry.classify(id).abilityId != id) return unknown()
-            if (id !in Hns205MoveEffects.repeatedStrikeStableAbilityIds) return unsupported()
+            if (id !in Hns205MoveEffects.repeatedStrikeStableAbilityIds && !(variable && id in VARIABLE_MULTI_HIT_STABLE_SUPPRESSION_ABILITY_IDS))
+                return unsupported()
         }
         for (side in HnsItemSide.entries) {
             val effect = HnsHoldEffectAuthority.forRequest(request, side).effectiveHoldEffect ?: return unknown()
@@ -57,4 +63,6 @@ object HnsRepeatedStrikeAuthority {
         }
         return Result(Stability.STABLE)
     }
+
+    private val VARIABLE_MULTI_HIT_STABLE_SUPPRESSION_ABILITY_IDS = setOf(103, 256) // Klutz and Neutralizing Gas are frozen by live effective ability/item authority.
 }

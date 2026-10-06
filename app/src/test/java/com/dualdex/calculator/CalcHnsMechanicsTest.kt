@@ -183,7 +183,7 @@ class CalcHnsMechanicsTest {
     @Test
     fun `Return and Hidden Power are refused by the move mechanics gate`() {
         val (profile, trust) = exactHns()
-        listOf("Return", "Hidden Power", "Low Kick", "Bullet Seed").forEach { move ->
+        listOf("Return", "Hidden Power", "Low Kick").forEach { move ->
             val verdict = refused(profile, trust, move)
             assertTrue(
                 "$move must be refused by HNS_MOVE_MECHANICS_NOT_MODELLED",

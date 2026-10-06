@@ -803,6 +803,44 @@ class HandDerivationTest(unittest.TestCase):
 class CommittedCorpusTest(unittest.TestCase):
     """The normal CI path: committed artifacts only, no subprocess, no upstream, no ROM."""
 
+    def test_slice13_bullet_seed_migration_is_explicit_and_one_to_one(self):
+        migrations = {"group-c-flag-bulletproof": "bullet-seed-bulletproof"}
+        self.assertEqual(1, len(migrations))
+
+        corpus = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
+        entries = [entry for entry in corpus["entries"]
+                   if entry["scenario"]["id"] in migrations]
+        self.assertEqual(1, len(entries))
+        entry = entries[0]
+        scenario = entry["scenario"]
+        self.assertEqual("modelled", scenario["surface"])
+        self.assertEqual("immune", scenario["expect"])
+        self.assertEqual({"label": "Bullet Seed", "symbol": "MOVE_BULLET_SEED"}, scenario["move"])
+        self.assertEqual("ABILITY_BULLETPROOF", scenario["defender"]["ability"])
+        self.assertEqual([0] * schema.ROLL_COUNT, entry["rolls"])
+        observed_move = entry["observed"]["move"]
+        self.assertEqual((331, "Grass", 25, "physical", "EFFECT_HIT"),
+                         (observed_move["id"], observed_move["type"], observed_move["power"],
+                          observed_move["category"], observed_move["effect"]))
+        self.assertEqual(["ballisticMove"], observed_move["flags"])
+
+        evidence = json.loads(Path(__file__).with_name("variable-multihit-evidence.json").read_text())
+        replacements = [case for case in evidence["cases"]
+                        if case["scenario"]["id"] == migrations[scenario["id"]]]
+        self.assertEqual(1, len(replacements))
+        replacement = replacements[0]
+        replacement_scenario = replacement["scenario"]
+        self.assertTrue(replacement["pass"])
+        self.assertEqual(("BULLET_SEED", "BULLETPROOF", True),
+                         (replacement_scenario["move"], replacement_scenario["defenderAbility"],
+                          replacement_scenario["sourceImmune"]))
+        kinds = [event["kind"] for event in replacement["events"]]
+        self.assertEqual(["STOP", "BETWEEN", "FINAL"], kinds)
+        self.assertEqual([[0, 1]], [event["values"] for event in replacement["events"]
+                                   if event["kind"] == "STOP"])
+        final = next(event["values"] for event in replacement["events"] if event["kind"] == "FINAL")
+        self.assertEqual([0, 0, 0], final[:3])
+
     def test_state_backed_operands_are_observed_at_hit_with_all_sixteen_rolls(self):
         doc = schema.load_corpus_text(cli.CORPUS_PATH.read_text())
         for entry in doc["entries"]:

@@ -565,6 +565,8 @@ These statuses are more useful than decorative card colors.
 
 This screen should probably be the visual centerpiece of DualDex.
 
+> **Post-beta direction (October 2026):** the current `PartyScreenView` largely follows the layout below (the stats are two rows of three rather than six columns). The next step is to draw it in the game's own party-menu style — slot frames, backdrop, status icons, mini sprites and small font on the GBA pixel grid at an integer scale, Heart & Soul first from its pinned source where its licence permits bundling, otherwise extracted from the player's ROM at runtime — tracked in [#151](https://github.com/Sonoran-Solutions/dualdex/issues/151) as the Party gate for the Navigator shell in [#133](https://github.com/Sonoran-Solutions/dualdex/issues/133). Keep every data field listed here; the restyle adds an EXP bar and does not remove stats, IVs/EVs, nature or held item.
+
 ### Current Problems
 
 - `Active Party` + `LIVE SYNC` consumes valuable vertical space.

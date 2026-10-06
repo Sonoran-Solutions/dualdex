@@ -596,10 +596,10 @@ Potential split:
 
 ## Phase 11 — Later Improvements
 
-These should **not delay the initial beta**. Items with an issue number were scoped in the October 2026 PokeDaisey review (see the README's post-beta roadmap); the rest are still unscoped.
+These should **not delay the initial beta**. Items with an issue number were scoped in the October 2026 PokeDaisey review (see the README's post-beta roadmap); the rest are still unscoped. Each linked issue keeps its own priority and prerequisites: the beta-relevant fixes that [#153](https://github.com/Sonoran-Solutions/dualdex/issues/153) overlaps stay governed by [#14](https://github.com/Sonoran-Solutions/dualdex/issues/14) and [#75](https://github.com/Sonoran-Solutions/dualdex/issues/75) above, its other additions are post-beta, and [#155](https://github.com/Sonoran-Solutions/dualdex/issues/155) is post-1.0 research that follows the [#154](https://github.com/Sonoran-Solutions/dualdex/issues/154) work.
 
 - [ ] RetroAchievements with the full achievement experience on the companion screen ([#150](https://github.com/Sonoran-Solutions/dualdex/issues/150)).
-- [ ] Party tab drawn in the game's own party-menu style, H&S first ([#151](https://github.com/Sonoran-Solutions/dualdex/issues/151)); the Party gate for the Navigator shell ([#133](https://github.com/Sonoran-Solutions/dualdex/issues/133)).
+- [ ] Party tab drawn in the game's own party-menu style, H&S first with bundled art only if the H&S authors' licence allows it, otherwise runtime extraction from the player's ROM ([#151](https://github.com/Sonoran-Solutions/dualdex/issues/151)); the Party gate for the Navigator shell ([#133](https://github.com/Sonoran-Solutions/dualdex/issues/133)).
 - [ ] Profile-driven native reader, headless fixture capture and transcribed hack address data to bootstrap new games ([#152](https://github.com/Sonoran-Solutions/dualdex/issues/152)).
 - [ ] Smart fast-forward that drops to 1× in menus and on the region map without a per-game table ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
 - [ ] User-configurable controller bindings, hotkey chords, analog-trigger fast-forward ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).

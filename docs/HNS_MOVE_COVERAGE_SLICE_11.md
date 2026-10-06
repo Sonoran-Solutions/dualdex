@@ -178,8 +178,11 @@ remaining ranking is in move-coverage-slice-11.json.
 Validation: full canonical census generation, original-engine regeneration,
 fresh reversed verification, corpus and generated evidence checks, source
 metadata verification, 39 source/descriptor mutation controls, and the real
-production-boundary replay all pass. Final canonical all/source-check results
-are recorded in the review handoff after completion.
+production-boundary replay all pass. `./ci.sh all` and `./ci.sh source-check` pass on implementation commit
+`3648dde6365000bf7a33763565dfd4d4201c9a28`; all runs have zero Kotlin failures
+or skips. Source-check ran in an independent checkout of that commit.
+`git diff --check` passes. The only subsequent change records these results;
+final-head Actions and synthetic merge-tree evidence are in the PR review handoff.
 
 ## Remaining scope and optional hardware validation
 

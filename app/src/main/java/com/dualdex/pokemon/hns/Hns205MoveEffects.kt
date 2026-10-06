@@ -3310,6 +3310,7 @@ internal object Hns205MoveEffects {
     val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(360)
     val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(486)
     val fixedSingleHitEscapeMoveIds: Set<Int> = setOf(369, 521, 740)
+    val fixedTwoHitPlainMoveIds: Set<Int> = setOf(24, 155, 458, 530, 742, 814)
     val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(205, 301)
     val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds
     val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds
@@ -5360,4 +5361,7 @@ internal object Hns205MoveEffects {
         put(933, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
         put(934, SpreadTargetClass.TARGET_SELECTED) // pinned enum value 1
     }
+    val repeatedStrikeStableAbilityIds: Set<Int> = setOf(0, 15, 25, 26, 63, 65, 66, 67, 68, 85, 91, 92, 96, 101, 111, 116, 125, 129, 169, 174, 181, 182, 184, 199, 203, 204, 206, 218, 246)
+    val repeatedStrikeStableHoldEffects: Set<String> = setOf("HOLD_EFFECT_ABILITY_SHIELD", "HOLD_EFFECT_ASSAULT_VEST", "HOLD_EFFECT_CHOICE_BAND", "HOLD_EFFECT_CHOICE_SCARF", "HOLD_EFFECT_CHOICE_SPECS", "HOLD_EFFECT_EVIOLITE", "HOLD_EFFECT_EXPERT_BELT", "HOLD_EFFECT_IRON_BALL", "HOLD_EFFECT_LIFE_ORB", "HOLD_EFFECT_LOADED_DICE", "HOLD_EFFECT_MUSCLE_BAND", "HOLD_EFFECT_NONE", "HOLD_EFFECT_PROTECTIVE_PADS", "HOLD_EFFECT_PUNCHING_GLOVE", "HOLD_EFFECT_SHELL_BELL", "HOLD_EFFECT_TYPE_POWER", "HOLD_EFFECT_WISE_GLASSES")
+    const val selectedMoveCount: Int = 935
 }

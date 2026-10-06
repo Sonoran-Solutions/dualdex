@@ -2863,13 +2863,13 @@ class CalcHnsC4eProductionBoundaryTest {
         )
         assertTrue(unknownSound.verdict.limitations.contains(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED))
         val conditionalSoundAuthority = HnsMoveAuthority.forRequest(
-            liquidVoiceNonSound.request.copy(move = CalcMoveInput(name = "Howl")), fixedSingleHitMove = true
+            liquidVoiceNonSound.request.copy(move = CalcMoveInput(name = "Howl")), selectedStrikeModelled = true
         )
         assertEquals(HnsAbilityTypeRewriteOutcome.UNKNOWN, conditionalSoundAuthority.abilityRewriteOutcome)
 
         val electrifiedState = fairyOff.request.hnsLiveBattleState!!.copy(attackerElectrified = true)
         val stackedAuthority = HnsMoveAuthority.forRequest(
-            fairyOff.request.copy(hnsLiveBattleState = electrifiedState), fixedSingleHitMove = true
+            fairyOff.request.copy(hnsLiveBattleState = electrifiedState), selectedStrikeModelled = true
         )
         assertEquals("Fairy", stackedAuthority.preFieldType?.displayName)
         assertEquals("Electric", stackedAuthority.effectiveType?.displayName)

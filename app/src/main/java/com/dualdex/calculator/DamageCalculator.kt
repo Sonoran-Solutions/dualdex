@@ -64,8 +64,12 @@ object DamageCalculator {
             }
         }
 
+        val sequence = parseRepeatedStrikeResult(resObj)
+        if (HnsRepeatedStrikeAuthority.isFamily(request) && sequence == null)
+            return DamageCalculationResponse(success = false, error = "Repeated-strike result missing or malformed")
         return DamageCalculationResponse(
             success = true,
+            repeatedStrike = sequence,
             minDamage = resObj.optInt("minDamage", 0),
             maxDamage = resObj.optInt("maxDamage", 0),
             range = rangeList,
@@ -133,6 +137,12 @@ object DamageCalculator {
 internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
     JSONObject().apply {
         put("gen", request.gen)
+        if (HnsRepeatedStrikeAuthority.isFamily(request)) {
+            put("hnsRepeatedStrikePhaseSettled", request.hnsLiveBattleState?.switchInEventsSettled == true)
+            put("hnsObservedBattlersCount", request.hnsLiveBattleState?.observedBattlersCount)
+            put("hnsRepeatedStrikeOptionStyle", request.hnsRuntimeRules?.optionStyle?.name)
+            put("hnsRepeatedStrikeElectrified", request.hnsLiveBattleState?.attackerElectrified)
+        }
         request.typeSystem?.let { put("typeSystem", it) }
 
         // Attacker
@@ -200,7 +210,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.attackerStatus1?.let { put("status1", it) }
                 live.attackerSpeciesId?.let { put("hnsSpeciesId", it) }
                 live.attackerNeutralizingGas?.let { put("hnsNeutralizingGas", it) }
-                live.attackerPersistentVolatiles?.let { put("hnsGastroAcid", it.gastroAcid) }
+                live.attackerPersistentVolatiles?.let { put("hnsGastroAcid", it.gastroAcid); put("hnsEndured", it.endured); put("hnsSubstitute", it.substitute) }
                 live.attackerPersonality?.let { put("hnsPersonality", it) }
                 if (live.attackerGender != com.dualdex.pokemon.hns.HnsBattlerGender.UNKNOWN) {
                     put("hnsGender", live.attackerGender.name)
@@ -337,8 +347,12 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.defenderSemiInvulnerableState?.let { put("hnsSemiInvulnerableState", it) }
                 live.defenderHp?.let { put("hpAtHit", it) }
                 live.defenderMaxHp?.let { put("maxHpAtHit", it) }
+                if (HnsRepeatedStrikeAuthority.isFamily(request)) {
+                    live.defenderHp?.let { put("hp", it) }
+                    live.defenderMaxHp?.let { put("maxHP", it) }
+                }
                 live.defenderStatus1?.let { put("status1", it) }
-                live.defenderPersistentVolatiles?.let { put("hnsSubstitute", it.substitute) }
+                live.defenderPersistentVolatiles?.let { put("hnsSubstitute", it.substitute); put("hnsEndured", it.endured) }
                 request.defender.abilityId?.let { put("hnsEffectiveAbilityId", it) }
                 live.defenderSpeciesId?.let { put("hnsSpeciesId", it) }
                 live.defenderNeutralizingGas?.let { put("hnsNeutralizingGas", it) }
@@ -383,6 +397,8 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 })
             }
         }
+        request.hnsLiveBattleState?.defenderChosenMove?.let { defObj.put("hnsChosenMove", it) }
+        request.hnsLiveBattleState?.defenderProtectedMethod?.let { defObj.put("hnsProtectedMethod", it) }
         put("defender", defObj)
 
         // Move
@@ -395,7 +411,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             move.power > 0 && com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category.isSupportedFixedSingleHit
         }
         val hnsMoveAuthority = if (request.typeSystem == "hns_2_0_5") {
-            HnsMoveAuthority.forRequest(request, hnsFixedSingleHitMove)
+            HnsMoveAuthority.forRequest(request, pinnedHnsMove?.let { com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(it.id).category.isSupportedSelectedStrike })
         } else {
             null
         }
@@ -418,6 +434,16 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("hnsMoveEffect", com.dualdex.pokemon.hns.Hns205MoveEffects.effectById[moveId])
                     put("hnsIsOrdinary", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.ordinaryMoveIds)
                     put("hnsFixedSingleHit", hnsFixedSingleHitMove == true)
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedTwoHitPlainMoveIds) {
+                        put("hnsMoveFamily", "FIXED_TWO_HIT_PLAIN")
+                        put("hnsSourceType", "TYPE_${move.type.name}")
+                        put("hnsSourceCategory", "DAMAGE_CATEGORY_${move.category.name}")
+                        put("hnsSourceTarget", "TARGET_SELECTED")
+                        put("hnsSourcePriority", 0)
+                        put("hnsSourceStrikeCount", 2)
+                        put("hnsMultiHit", false)
+                        put("hnsFixedRepeatedStrike", true)
+                    }
                     put("hnsIsExplosion", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds) put("hnsExplosionUserHpAtDamage", 0)
                     put("hnsIsUnderwater", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitUnderwaterMoveIds)
@@ -577,3 +603,21 @@ private fun putHnsHoldEffectDescriptor(
 
 private fun JSONObject.optNullableString(key: String): String? =
     if (!has(key) || isNull(key)) null else optString(key)
+
+/** Strict parser: absence and malformed sequence data never become an old single-hit result. */
+internal fun parseRepeatedStrikeResult(response: JSONObject): RepeatedStrikeResult? = runCatching {
+    val s = response.getJSONObject("repeatedStrike")
+    fun integer(value: Any): Int {
+        require(value is Number && value.toDouble().isFinite() && value.toDouble() == value.toInt().toDouble())
+        return value.toInt()
+    }
+    fun ints(a: JSONArray) = (0 until a.length()).map { integer(a.get(it)) }
+    val totals = s.getJSONArray("totals")
+    require(totals.length() == 1 && s.getJSONArray("totalUnavailableReasons").length() == 0)
+    val t = totals.getJSONObject(0)
+    val assumptions = s.getJSONArray("assumptions")
+    RepeatedStrikeResult(ints(s.getJSONArray("nominalCounts")), ints(s.getJSONArray("firstStrikeRolls")),
+        listOf(RepeatedStrikeTotal(integer(t.get("nominalCount")), integer(t.get("minHpLoss")), integer(t.get("maxHpLoss")),
+            integer(t.get("minExecutedHits")), integer(t.get("maxExecutedHits")))),
+        (0 until assumptions.length()).map(assumptions::getString))
+}.getOrNull()

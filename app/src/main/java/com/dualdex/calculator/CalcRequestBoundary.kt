@@ -789,6 +789,8 @@ object CalcRequestBoundary {
             defenderGender = defenderGender,
             attackerSideStatuses = authoritativeObservedDefenderSideStatuses(request.attacker.partySlot, playerBattlerState, isExactVerified),
             defenderSlowStartTimer = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileSlowStartTimer,
+            defenderChosenMove = defenderRuntime?.chosenMove.takeIf { defenderRuntime?.contactReactionStateObserved == true },
+            defenderProtectedMethod = defenderRuntime?.protectedMethod.takeIf { defenderRuntime?.contactReactionStateObserved == true },
             attackerRolloutState = attackerRuntime?.let { state ->
                 val timer = state.rolloutTimer
                 val curl = state.defenseCurl

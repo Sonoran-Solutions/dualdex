@@ -48,7 +48,7 @@ object HnsFieldContextPolicy {
 
     data class Context(
         /** Source-proven fixed single-hit move with no move/item interaction; null when the move is unknown. */
-        val fixedSingleHitMove: Boolean?,
+        val selectedStrikeModelled: Boolean?,
         /** Pinned move ID, or null when the move is unknown. */
         val moveId: Int?,
         /** Authoritative type before the field/volatile rewrite ([HnsMoveAuthority.preFieldType]). */
@@ -89,12 +89,12 @@ object HnsFieldContextPolicy {
     /** Builds the field context from a request whose live state was rebound by CalcRequestBoundary. */
     fun contextForRequest(
         request: DamageCalculationRequest,
-        fixedSingleHitMove: Boolean?,
+        selectedStrikeModelled: Boolean?,
         moveId: Int?
     ): Context {
-        val authority = HnsMoveAuthority.forRequest(request, fixedSingleHitMove)
+        val authority = HnsMoveAuthority.forRequest(request, selectedStrikeModelled)
         return Context(
-            fixedSingleHitMove = fixedSingleHitMove,
+            selectedStrikeModelled = selectedStrikeModelled,
             effectiveSpeedExact = moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitSpeedPowerMoveIds &&
                 HnsAbilitySide.entries.all { HnsEffectiveSpeedAuthority.forRequest(request,it).speed != null },
             moveId = moveId,
@@ -127,7 +127,7 @@ object HnsFieldContextPolicy {
                 rationale = "Wonder Room swaps the Defense / Sp. Def used by this hit and flips every usesDefStat " +
                     "check; the swap is not modelled."
             )
-            else -> if (c == null || c.fixedSingleHitMove != true) null else ordinary(status, c)
+            else -> if (c == null || c.selectedStrikeModelled != true) null else ordinary(status, c)
         }
         return when (proof) {
             null -> HnsFieldRequestDecision(

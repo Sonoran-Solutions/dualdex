@@ -55,7 +55,8 @@ class HnsMoveMechanicsRegistryTest {
         assertTrue(bulletSeed.requiresBlock)
         assertEquals("EFFECT_HIT", bulletSeed.effect)
         // Double Kick is EFFECT_HIT with strikeCount = 2.
-        assertTrue(HnsMoveMechanicsRegistry.classify(24).requiresBlock)
+        assertEquals(HnsMoveMechanicsCategory.FIXED_TWO_HIT_PLAIN, HnsMoveMechanicsRegistry.classify(24).category)
+        assertFalse(HnsMoveMechanicsRegistry.classify(24).category.isSupportedFixedSingleHit)
 
         // Explosion has its separate modern-Defense family, with independent execution gates.
         assertFalse(HnsMoveMechanicsRegistry.classify(153).requiresBlock)

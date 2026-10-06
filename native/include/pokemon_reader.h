@@ -894,6 +894,9 @@ typedef struct {
     bool     selected_gimmick_observed;
     uint8_t  selected_gimmick; // enum Gimmick: NONE when playerSelect is false
     uint16_t analytic_current_move;
+    bool     contact_reaction_state_observed;
+    uint16_t chosen_move;
+    uint8_t  protected_method;
     bool     rollout_state_observed;
     uint8_t  volatile_rollout_timer;
     uint8_t  volatile_recharge_timer;

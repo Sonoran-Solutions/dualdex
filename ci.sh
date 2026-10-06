@@ -311,11 +311,14 @@ gradle_test() {
   esac
   ./gradlew testDebugUnitTest "${census_args[@]}"
   if [[ "${DUALDEX_CENSUS_GENERATE:-false}" == "true" ]]; then
-    python3 tools/hns-calc-census/report_hit_escape_coverage.py
+    python3 tools/hns-calc-census/report_fixed_two_coverage.py
   else
-    python3 tools/hns-calc-census/report_hit_escape_coverage.py --check
+    python3 tools/hns-calc-census/report_fixed_two_coverage.py --check
   fi
   python3 tools/hns-calc-census/report_hit_escape_negative_control.py --check
+  python3 tools/hns-calc-census/report_fixed_two_negative_control.py --check
+  python3 tools/hns-damage-oracle/repeated_strike_evidence.py check
+  python3 tools/hns-damage-oracle/test_repeated_strike_evidence.py
   python3 tools/hns-damage-oracle/report_hit_escape_evidence.py --check
 }
 
@@ -523,6 +526,7 @@ source_check() {
   python3 tools/hns-move-mechanics/test_electro_speed_contract.py --upstream-dir "$upstream"
   python3 tools/hns-move-mechanics/test_rollout_contract.py --upstream-dir "$upstream"
   python3 tools/hns-move-mechanics/test_hit_escape_contract.py --upstream-dir "$upstream"
+  python3 tools/hns-move-mechanics/test_fixed_two_contract.py --upstream-dir "$upstream"
 
   # Reviewed per-hold-effect item capability decisions must cover the exact pinned item domain,
   # every pinned HOLD_EFFECT_* reference and every literal item-identity read; the generated

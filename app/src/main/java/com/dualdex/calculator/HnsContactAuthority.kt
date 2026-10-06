@@ -9,10 +9,10 @@ enum class HnsContactAuthority { CONTACT, NON_CONTACT, UNKNOWN }
 /** Shared request-local contract used by policy and the calculator serialization boundary. */
 object HnsContactRules {
     fun assess(
-        moveId: Int?, fixedSingleHitMove: Boolean?, attackerAbilityId: Int?, attackerAbilityObserved: Boolean,
+        moveId: Int?, selectedStrikeModelled: Boolean?, attackerAbilityId: Int?, attackerAbilityObserved: Boolean,
         attackerItemId: Int?, attackerHoldEffectResolution: HnsHoldEffectResolution? = null
     ): HnsContactAuthority {
-        if (fixedSingleHitMove != true || moveId == null) return HnsContactAuthority.UNKNOWN
+        if (selectedStrikeModelled != true || moveId == null) return HnsContactAuthority.UNKNOWN
         val data = Hns205MoveEffects
         if (moveId in data.unknownContactMoveIds) return HnsContactAuthority.UNKNOWN
         val makesContact = data.makesContactById[moveId] ?: return HnsContactAuthority.UNKNOWN

@@ -42,7 +42,7 @@ internal object HnsGroupCPolicy {
         // this phase proof the static move priority is not necessarily the effective priority.
         if (live.switchInEventsSettled != true) return null
         var priority = Hns205MoveEffects.basePriorityById[moveId] ?: return null
-        val type = HnsMoveAuthority.forRequest(request, fixedSingleHitDamageMove(moveId)).effectiveType ?: return null
+        val type = HnsMoveAuthority.forRequest(request, selectedStrikeDamageMove(moveId)).effectiveType ?: return null
         val attackerAbility = abilityId(request.attacker) ?: return null
 
         // GetBattleMovePriority: Gale Wings adds one to Flying moves when the live attacker is at
@@ -74,14 +74,14 @@ internal object HnsGroupCPolicy {
         if (request.typeSystem != "hns_2_0_5") return emptySet()
         val move = HeartAndSoul205DataPack.getMoveByName(request.move.name) ?: return emptySet()
         val moveId = move.id
-        val moveAuthority = HnsMoveAuthority.forRequest(request, fixedSingleHitDamageMove(moveId))
+        val moveAuthority = HnsMoveAuthority.forRequest(request, selectedStrikeDamageMove(moveId))
         val moveType = moveAuthority.effectiveType ?: return emptySet()
         val defenderAbility = abilityId(request.defender)
         val attackerAbility = abilityId(request.attacker)
         val defenderItem = itemId(request.defender)
         val flags = Hns205MoveEffects.immunityFlagsById[moveId].orEmpty()
         val unknownFlags = Hns205MoveEffects.unknownImmunityFlagsById[moveId].orEmpty()
-        val damagingOrdinary = HnsMoveMechanicsRegistry.classify(moveId).category.isSupportedFixedSingleHit && move.power > 0
+        val damagingOrdinary = HnsMoveMechanicsRegistry.classify(moveId).category.isSupportedSelectedStrike && move.power > 0
         if (!damagingOrdinary) return emptySet() // the independent move gate already refuses it
 
         val matchingFlag = when (defenderAbility) {
@@ -172,7 +172,7 @@ internal object HnsGroupCPolicy {
             218 -> fluffyWouldChangeHit(request)
             246 -> {
                 val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
-                HnsMoveAuthority.forRequest(request, fixedSingleHitDamageMove(moveId)).category
+                HnsMoveAuthority.forRequest(request, selectedStrikeDamageMove(moveId)).category
                     ?.let { it == com.dualdex.pokemon.MoveCategory.SPECIAL } ?: true
             }
             BULLETPROOF -> "ballisticMove" in flags
@@ -192,7 +192,7 @@ internal object HnsGroupCPolicy {
         if (field and wonderRoom != 0) return true
         val moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
             ?: return true
-        val category = HnsMoveAuthority.forRequest(request, fixedSingleHitDamageMove(moveId)).category
+        val category = HnsMoveAuthority.forRequest(request, selectedStrikeDamageMove(moveId)).category
         return category == null || category == com.dualdex.pokemon.MoveCategory.PHYSICAL
     }
 
@@ -201,7 +201,7 @@ internal object HnsGroupCPolicy {
         val field = live.fieldStatuses ?: return true
         if (field and com.dualdex.pokemon.hns.HnsFieldStatusData.STATUS_FIELD_WONDER_ROOM != 0) return true
         val id = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
-        if (HnsMoveAuthority.forRequest(request, fixedSingleHitDamageMove(id)).category != com.dualdex.pokemon.MoveCategory.PHYSICAL) return false
+        if (HnsMoveAuthority.forRequest(request, selectedStrikeDamageMove(id)).category != com.dualdex.pokemon.MoveCategory.PHYSICAL) return false
         val status = live.defenderStatus1 ?: return true
         if (status and 0x1fff.inv() != 0) return true
         return status and 0x10ff != 0
@@ -212,7 +212,7 @@ internal object HnsGroupCPolicy {
         val species = live.defenderSpeciesId ?: return true
         if (species != com.dualdex.pokemon.hns.HnsAbilityAuditData.CHERRIM_SUNSHINE_SPECIES_ID) return false
         val id = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
-        val authority = HnsMoveAuthority.forRequest(request, fixedSingleHitDamageMove(id))
+        val authority = HnsMoveAuthority.forRequest(request, selectedStrikeDamageMove(id))
         if (authority.category == null) return true
         if (authority.category == com.dualdex.pokemon.MoveCategory.PHYSICAL) return false
         val field = live.fieldStatuses ?: return true
@@ -226,10 +226,10 @@ internal object HnsGroupCPolicy {
 
     private fun fluffyWouldChangeHit(request: DamageCalculationRequest): Boolean {
         val id = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return true
-        val type = HnsMoveAuthority.forRequest(request, fixedSingleHitDamageMove(id)).effectiveType ?: return true
+        val type = HnsMoveAuthority.forRequest(request, selectedStrikeDamageMove(id)).effectiveType ?: return true
         val live = request.hnsLiveBattleState ?: return true
         val contact = HnsContactRules.assess(
-            id, fixedSingleHitDamageMove(id), abilityId(request.attacker),
+            id, selectedStrikeDamageMove(id), abilityId(request.attacker),
             request.attacker.origin == CalcInputOrigin.LIVE_READ && abilityId(request.attacker) != null,
             itemId(request.attacker),
             HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER)
@@ -284,8 +284,8 @@ internal object HnsGroupCPolicy {
     private fun itemId(input: CalcPokemonInput): Int? = input.itemId
         ?: input.item?.let(HnsItemRegistry::resolveIdByName)
 
-    private fun fixedSingleHitDamageMove(moveId: Int): Boolean =
+    private fun selectedStrikeDamageMove(moveId: Int): Boolean =
         HeartAndSoul205DataPack.getMove(moveId)?.let { move ->
-            move.power > 0 && HnsMoveMechanicsRegistry.classify(moveId).category.isSupportedFixedSingleHit
+            move.power > 0 && HnsMoveMechanicsRegistry.classify(moveId).category.isSupportedSelectedStrike
         } == true
 }

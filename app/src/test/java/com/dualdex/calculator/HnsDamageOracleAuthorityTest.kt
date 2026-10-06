@@ -188,27 +188,27 @@ class HnsDamageOracleAuthorityTest {
                 assertEquals("$id: $moveLabel power", oMove.getInt("power"), moveOverride.basePower)
             }
 
-            val fixedSingleHitMove = HnsMoveMechanicsRegistry.classify(move.id).category.isSupportedFixedSingleHit
+            val selectedStrikeModelled = HnsMoveMechanicsRegistry.classify(move.id).category.isSupportedFixedSingleHit
             if (scenario.getJSONArray("tags").strings().contains("move-coverage-slice-1") &&
                 scenario.getString("surface") == "modelled") {
-                assertTrue("$id: modelled recoil needs the real family classification", fixedSingleHitMove)
+                assertTrue("$id: modelled recoil needs the real family classification", selectedStrikeModelled)
                 assertEquals("$id: this slice admits Singles only", "singles", scenario.getString("format"))
             }
             val sourceType = moveOverride.type
             val attackerAbilityId = observed.getJSONObject("attacker").getInt("abilityId")
             val flags = oMove.getJSONArray("flags").strings().toSet()
             val expectedEffectiveType = if (observed.optJSONObject("rollout")?.getInt("electrified") == 1) "Electric" else when (attackerAbilityId) {
-                96 -> if (fixedSingleHitMove) "Normal" else sourceType
-                174 -> if (fixedSingleHitMove && sourceType == "Normal") "Ice" else sourceType
-                182 -> if (fixedSingleHitMove && sourceType == "Normal") "Fairy" else sourceType
-                184 -> if (fixedSingleHitMove && sourceType == "Normal") "Flying" else sourceType
-                204 -> if (fixedSingleHitMove && "soundMove" in flags) "Water" else sourceType
-                206 -> if (fixedSingleHitMove && sourceType == "Normal") "Electric" else sourceType
+                96 -> if (selectedStrikeModelled) "Normal" else sourceType
+                174 -> if (selectedStrikeModelled && sourceType == "Normal") "Ice" else sourceType
+                182 -> if (selectedStrikeModelled && sourceType == "Normal") "Fairy" else sourceType
+                184 -> if (selectedStrikeModelled && sourceType == "Normal") "Flying" else sourceType
+                204 -> if (selectedStrikeModelled && "soundMove" in flags) "Water" else sourceType
+                206 -> if (selectedStrikeModelled && sourceType == "Normal") "Electric" else sourceType
                 else -> sourceType
             }
             assertEquals("$id: $moveLabel effective type (fairy=$fairy)",
                 expectedEffectiveType, oMove.getString("type"))
-            val expectedAteBoost = fixedSingleHitMove && when (attackerAbilityId) {
+            val expectedAteBoost = selectedStrikeModelled && when (attackerAbilityId) {
                 96 -> true
                 174, 182, 184, 206 -> sourceType == "Normal"
                 else -> false

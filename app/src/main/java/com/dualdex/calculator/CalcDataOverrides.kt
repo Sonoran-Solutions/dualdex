@@ -165,9 +165,9 @@ object CalcDataOverrides {
         if (request.typeSystem != "hns_2_0_5") return request
         val move = HeartAndSoul205DataPack.getMoveByName(request.move.name) ?: return request
         if (!HeartAndSoul205DataPack.isMoveAuthoritative(move.id)) return request
-        val fixedSingleHitMove = move.power > 0 &&
-            com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category.isSupportedFixedSingleHit
-        val authority = HnsMoveAuthority.forRequest(request, fixedSingleHitMove)
+        val selectedStrikeModelled = move.power > 0 &&
+            com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category.isSupportedSelectedStrike
+        val authority = HnsMoveAuthority.forRequest(request, selectedStrikeModelled)
         val base = request.moveOverride ?: return request
         return request.copy(
             moveOverride = base.copy(

@@ -1,0 +1,118 @@
+TESTING-only ordered RNG control and read-only repeated-strike observation.
+
+--- a/test/test_runner_battle.c
++++ b/test/test_runner_battle.c
+@@ -41,6 +41,7 @@
+ #define DATA gBattleTestRunnerState->data
+ 
+ #define RNG_SEED_DEFAULT {0, 0, 0, 0}
++bool32 (*gDdxrRng)(u32 tag, u32 lo, u32 hi, u32 *value);
+ void (*gDdxoBeforeCriticalHit)(void);
+ s32 gDdxoQuickClawMode;
+ void (*gDdxoBeforeAbilityPopup)(void);
+@@ -691,6 +692,9 @@
+ 
+ static u32 BattleTest_RandomUniform(enum RandomTag tag, u32 lo, u32 hi, bool32 (*reject)(u32), void *caller)
+ {
++    u32 ddxrValue;
++    if (gDdxrRng != NULL && gDdxrRng(tag, lo, hi, &ddxrValue))
++        return ddxrValue;
+     //rigged
+     const struct BattlerTurn *turn = NULL;
+     if (gCurrentTurnActionNumber < gBattlersCount)
+@@ -753,6 +757,9 @@
+ 
+ static u32 BattleTest_RandomWeightedArray(enum RandomTag tag, u32 sum, u32 n, const u16 *weights, void *caller)
+ {
++    u32 ddxrValue;
++    if (gDdxrRng != NULL && gDdxrRng(tag, 0, n - 1, &ddxrValue))
++        return ddxrValue;
+     if (tag == RNG_QUICK_CLAW && gDdxoQuickClawMode > 0)
+         return gDdxoQuickClawMode - 1;
+     if (tag == RNG_CRITICAL_HIT && gDdxoBeforeCriticalHit != NULL)
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -7801,6 +7801,11 @@
+     dmg = uq4_12_multiply_by_int_half_down(modifier, dmg); \
+ } while (0)
+ 
++#if TESTING
++void (*gDdxrOperands)(struct BattleContext *ctx, u32 attack, u32 defense);
++void (*gDdxrBefore)(struct BattleContext *ctx);
++void (*gDdxrCalculated)(struct BattleContext *ctx, s32 raw, s32 adjusted);
++#endif
+ static inline s32 DoMoveDamageCalcVars(struct BattleContext *ctx)
+ {
+     s32 dmg;
+@@ -7814,6 +7819,9 @@
+ 
+     userFinalAttack = CalcAttackStat(ctx);
+     targetFinalDefense = CalcDefenseStat(ctx);
++#if TESTING
++    if (gDdxrOperands != NULL) gDdxrOperands(ctx, userFinalAttack, targetFinalDefense);
++#endif
+ 
+     dmg = CalculateBaseDamage(gBattleMovePower, userFinalAttack, gBattleMons[ctx->battlerAtk].level, targetFinalDefense);
+     DAMAGE_APPLY_MODIFIER(GetTargetDamageModifier(ctx));
+@@ -8283,6 +8291,9 @@
+     ctx->holdEffectAtk = GetBattlerHoldEffect(ctx->battlerAtk);
+     ctx->holdEffectDef = GetBattlerHoldEffect(ctx->battlerDef);
+ 
++    #if TESTING
++    if (gDdxrBefore != NULL) gDdxrBefore(ctx);
++    #endif
+     ctx->typeEffectivenessModifier = CalcTypeEffectivenessMultiplier(ctx);
+     ctx->isCrit = IsCriticalHit(ctx);
+ 
+@@ -8291,7 +8302,11 @@
+     else
+         damage = DoMoveDamageCalc(ctx);
+ 
+-    return GetAdjustedDamage(ctx, damage);
++    s32 adjusted = GetAdjustedDamage(ctx, damage);
++#if TESTING
++    if (gDdxrCalculated != NULL) gDdxrCalculated(ctx, damage, adjusted);
++#endif
++    return adjusted;
+ }
+ 
+ // for AI so that typeEffectivenessModifier, weather, abilities and holdEffects are calculated only once
+--- a/src/battle_script_commands.c
++++ b/src/battle_script_commands.c
+@@ -1761,6 +1761,9 @@
+     gBattlescriptCurrInstr = nextInstr;
+ }
+ 
++#if TESTING
++void (*gDdxrHp)(enum BattlerId battler);
++#endif
+ static void MoveDamageDataHpUpdate(enum BattlerId battler, u32 scriptBattler, const u8 *nextInstr)
+ {
+     if (IsBattlerUnaffectedByMove(gBattlerTarget))
+@@ -1830,6 +1833,9 @@
+                 gBattleStruct->moveDamage[battler] = gBattleMons[battler].hp;
+                 gBattleMons[battler].hp = 0;
+             }
++#if TESTING
++            if (gDdxrHp != NULL) gDdxrHp(battler);
++#endif
+             gProtectStructs[battler].assuranceDoubled = TRUE;
+             gProtectStructs[battler].revengeDoubled |= 1u << gBattlerAttacker;
+ 
+--- a/src/battle_move_resolution.c
++++ b/src/battle_move_resolution.c
+@@ -2821,8 +2821,14 @@
+     return result;
+ }
+ 
++#if TESTING
++void (*gDdxrBetween)(void);
++#endif
+ static enum MoveEndResult MoveEndMultihitMove(void)
+ {
++#if TESTING
++    if (gDdxrBetween != NULL) gDdxrBetween();
++#endif
+     enum MoveEndResult result = MOVEEND_RESULT_CONTINUE;
+ 
+     if (!IsBattlerUnaffectedByMove(gBattlerTarget)

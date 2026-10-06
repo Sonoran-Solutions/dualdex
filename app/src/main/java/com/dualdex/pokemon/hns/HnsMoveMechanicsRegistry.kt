@@ -49,6 +49,9 @@ enum class HnsMoveMechanicsCategory {
     /** Fixed selected hit; subsequent pivot is outside the damage result. */
     FIXED_SINGLE_HIT_ESCAPE,
 
+    /** Plain fixed-two EFFECT_HIT; sequence stability is authorized separately. */
+    FIXED_TWO_HIT_PLAIN,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -78,6 +81,10 @@ enum class HnsMoveMechanicsCategory {
     val isSupportedFixedSingleHit: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT || this == FIXED_SINGLE_HIT_ESCAPE
 
+    /** Arithmetic eligibility for one strike, never a sequence-stability verdict. */
+    val isSupportedSelectedStrike: Boolean
+        get() = isSupportedFixedSingleHit || this == FIXED_TWO_HIT_PLAIN
+
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
 }
@@ -101,7 +108,7 @@ data class HnsMoveMechanicsEntry(
      * is excluded because the C3 item audit already refuses it.
      */
     val requiresBlock: Boolean
-        get() = !category.isSupportedFixedSingleHit &&
+        get() = !category.isSupportedSelectedStrike &&
             category != HnsMoveMechanicsCategory.ITEM_DEPENDENT_HANDLED_ELSEWHERE
 }
 
@@ -190,6 +197,11 @@ object HnsMoveMechanicsRegistry {
                 category = HnsMoveMechanicsCategory.ITEM_DEPENDENT_HANDLED_ELSEWHERE,
                 rationale = "Move reads held-item state; refused by the C3 item-interaction audit."
             )
+        }
+
+        if (moveId in Hns205MoveEffects.fixedTwoHitPlainMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT", HnsMoveMechanicsCategory.FIXED_TWO_HIT_PLAIN,
+                "Pinned plain fixed-two strikes; requires independent sequence authority.")
         }
 
         if (moveId in Hns205MoveEffects.ordinaryMoveIds) {

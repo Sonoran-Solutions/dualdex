@@ -63,7 +63,7 @@ object HnsItemContextPolicy {
     data class Context(
         val side: HnsItemSide,
         /** Source-proven fixed single-hit move with no move/item interaction; null when the move is unknown. */
-        val fixedSingleHitMove: Boolean?,
+        val selectedStrikeModelled: Boolean?,
         /** Authoritative effective move type ([HnsMoveAuthority.effectiveType]), or null. */
         val moveType: PokemonType?,
         /** Authoritative effective category ([HnsMoveAuthority.category]), or null. */
@@ -158,11 +158,11 @@ object HnsItemContextPolicy {
                 holdEffect == "HOLD_EFFECT_BOOSTER_ENERGY" -> boosterEnergy(c)
                 holdEffect == "HOLD_EFFECT_BIG_ROOT" && c.moveId in
                     com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitDrainMoveIds ->
-                    if (c.fixedSingleHitMove == true) proof("drain_big_root_post_hit_only",
+                    if (c.selectedStrikeModelled == true) proof("drain_big_root_post_hit_only",
                         "src/battle_util.c:1837-1845; src/battle_move_resolution.c:2167-2240",
                         "Big Root scales recovery after measured damage and before Liquid Ooze; no healing or attacker survival is displayed.") else null
                 holdEffect == "HOLD_EFFECT_BINDING_BAND" && c.moveId == 250 ->
-                    if (c.fixedSingleHitMove == true) proof("whirlpool_binding_band_post_hit_only",
+                    if (c.selectedStrikeModelled == true) proof("whirlpool_binding_band_post_hit_only",
                         "src/battle_end_turn.c:620; src/battle_script_commands.c:2650",
                         "Binding Band changes only later wrap residual, outside Whirlpool's selected hit.") else null
                 // A held item can still be waiting to execute in an active but unsettled
@@ -176,14 +176,14 @@ object HnsItemContextPolicy {
                 )
             }
             "turn_order" -> turnOrder(c)
-            "weight_only" -> if (c.fixedSingleHitMove == true) proof(
+            "weight_only" -> if (c.selectedStrikeModelled == true) proof(
                 rule = "weight_item_ordinary_move",
                 source = "src/battle_util.c:6079",
                 rationale = "Float Stone is read only by GetBattlerWeight, which no ordinary move uses."
             ) else null
             "grounding" -> grounding(holdEffect, c)
             "weather_shield" -> when {
-                c.fixedSingleHitMove != true || c.weatherWord == null -> null
+                c.selectedStrikeModelled != true || c.weatherWord == null -> null
                 (c.weatherWord and (WEATHER_RAIN_MASK or WEATHER_SUN_MASK)) == 0 -> proof(
                     rule = if (c.weatherWord == 0) "umbrella_clear_weather" else "umbrella_other_weather",
                     source = if (c.weatherWord == 0) "src/battle_util.c:7436" else "src/battle_util.c:9530",
@@ -202,7 +202,7 @@ object HnsItemContextPolicy {
             "form_or_ability_changer" -> when (holdEffect) {
                 "HOLD_EFFECT_ABILITY_SHIELD" -> abilityShield(c)
                 "HOLD_EFFECT_MEGA_STONE", "HOLD_EFFECT_Z_CRYSTAL" -> when {
-                    c.fixedSingleHitMove != true -> null
+                    c.selectedStrikeModelled != true -> null
                     c.attackerSelectedGimmick == 0 && c.attackerActiveGimmick == 0 -> proof(
                         rule = "mega_z_no_selected_or_active_gimmick",
                         source = "src/battle_terastal.c:103",
@@ -312,10 +312,10 @@ object HnsItemContextPolicy {
     fun contextForRequest(
         request: DamageCalculationRequest,
         side: HnsItemSide,
-        fixedSingleHitMove: Boolean?
+        selectedStrikeModelled: Boolean?
     ): Context {
         val live = request.hnsLiveBattleState
-        val authority = HnsMoveAuthority.forRequest(request, fixedSingleHitMove)
+        val authority = HnsMoveAuthority.forRequest(request, selectedStrikeModelled)
         val moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
         val moveIgnoresTargetAbility = moveId?.let {
             "ignoresTargetAbility" in Hns205MoveEffects.immunityFlagsById[it].orEmpty()
@@ -325,7 +325,7 @@ object HnsItemContextPolicy {
             moveId = moveId,
             effectiveSpeedExact = moveId in Hns205MoveEffects.fixedSingleHitSpeedPowerMoveIds &&
                 HnsEffectiveSpeedAuthority.forRequest(request, if (side == HnsItemSide.ATTACKER) HnsAbilitySide.ATTACKER else HnsAbilitySide.DEFENDER).speed != null,
-            fixedSingleHitMove = fixedSingleHitMove,
+            selectedStrikeModelled = selectedStrikeModelled,
             moveType = authority.effectiveType,
             moveCategory = authority.category,
             fieldState = live?.fieldStatuses?.let(HnsFieldState::decode),
@@ -524,18 +524,18 @@ object HnsItemContextPolicy {
                     else -> signatureSpeciesQualification(holdEffect, c)
                 }
             }
-            "HOLD_EFFECT_LIFE_ORB" -> if (c.fixedSingleHitMove == true) modelled(
+            "HOLD_EFFECT_LIFE_ORB" -> if (c.selectedStrikeModelled == true) modelled(
                 rule = "attacker_final_damage_item_modelled",
                 source = "src/battle_util.c:7673",
                 rationale = "Life Orb uses the source's exact UQ_4_12_FLOORED(1.3) value 5324 in GetOtherModifiers."
             ) else null
-            "HOLD_EFFECT_EXPERT_BELT" -> if (c.fixedSingleHitMove == true) modelled(
+            "HOLD_EFFECT_EXPERT_BELT" -> if (c.selectedStrikeModelled == true) modelled(
                 rule = "attacker_final_damage_item_modelled",
                 source = "src/battle_util.c:7669",
                 rationale = "Expert Belt uses the H&S engine's exact type-effectiveness result and UQ_4_12(1.2) in GetOtherModifiers."
             ) else null
             "HOLD_EFFECT_METRONOME" -> when {
-                c.fixedSingleHitMove != true -> null
+                c.selectedStrikeModelled != true -> null
                 c.attackerMetronomeItemCounter == null -> unknownRule(
                     rule = "metronome_counter_unobserved",
                     source = "src/battle_util.c:7662",
@@ -548,7 +548,7 @@ object HnsItemContextPolicy {
                 )
             }
             "HOLD_EFFECT_SCOPE_LENS", "HOLD_EFFECT_LUCKY_PUNCH", "HOLD_EFFECT_LEEK" ->
-                if (c.fixedSingleHitMove == true) proof(
+                if (c.selectedStrikeModelled == true) proof(
                     rule = "fixed_crit_stage_item",
                     source = "src/battle_util.c:8047",
                     rationale = "The item changes critical-hit odds only; the selected hit's crit flag is fixed."
@@ -757,7 +757,7 @@ object HnsItemContextPolicy {
     }
 
     private fun abilityShield(c: Context): Proof? {
-        if (c.fixedSingleHitMove != true || c.observedBattlersCount != 2) return null
+        if (c.selectedStrikeModelled != true || c.observedBattlersCount != 2) return null
         val attackerAbility = c.attackerAbilityId ?: return null
         val defenderAbility = c.defenderAbilityId ?: return null
         val attackerGastroAcid = c.attackerGastroAcid ?: return null
@@ -804,7 +804,7 @@ object HnsItemContextPolicy {
     }
 
     private fun turnOrder(c: Context): Proof? = when {
-        c.fixedSingleHitMove != true || c.attackerAbilityId == null -> null
+        c.selectedStrikeModelled != true || c.attackerAbilityId == null -> null
         c.attackerAbilityId == ANALYTIC_ABILITY_ID -> relevant(
             rule = "turn_order_item_attacker_analytic",
             source = "src/battle_util.c:6691",
@@ -833,7 +833,7 @@ object HnsItemContextPolicy {
         // Groundedness reaches an ordinary hit through the Ground-move branches and the terrain
         // checks (IsBattlerTerrainAffected returns FALSE without a terrain bit, src/battle_util.c:5142).
         val noTerrain = c.fieldState?.let { it.fullyDecoded && !it.terrainActive } == true
-        if (c.fixedSingleHitMove != true) return null
+        if (c.selectedStrikeModelled != true) return null
         if (c.fieldState?.let { it.fullyDecoded && it.terrainActive } == true) {
             val applicability = when (c.side) {
                 HnsItemSide.ATTACKER -> c.attackerTerrainApplicability

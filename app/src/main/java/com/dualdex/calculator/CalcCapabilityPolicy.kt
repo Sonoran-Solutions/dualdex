@@ -455,7 +455,11 @@ enum class CalcLimitation {
      */
     HNS_LIVE_STATUS_NOT_MODELLED,
 
-    /** Brine requires a positive, valid authoritative live defender HP/maxHP pair. */
+    /** Repeated totals require affirmative sequence authority and no ignored mechanics. */
+    HNS_REPEATED_STRIKE_STATE_UNKNOWN,
+    HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED,
+    HNS_REPEATED_STRIKE_CAVEAT_NOT_ALLOWED,
+    /** HP-dependent calculations require a positive authoritative live HP/maxHP pair. */
     HNS_DEFENDER_HP_UNKNOWN,
 
     HNS_EFFECTIVE_SPEED_UNKNOWN,
@@ -640,6 +644,9 @@ enum class CalcLimitation {
             HNS_GIMMICK_STATE_UNREADABLE,
             HNS_GIMMICK_ACTIVE_NOT_MODELLED,
             HNS_LIVE_STATUS_NOT_MODELLED,
+            HNS_REPEATED_STRIKE_STATE_UNKNOWN,
+            HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED,
+            HNS_REPEATED_STRIKE_CAVEAT_NOT_ALLOWED,
             HNS_DEFENDER_HP_UNKNOWN,
             HNS_EFFECTIVE_SPEED_UNKNOWN,
             HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO,
@@ -1004,8 +1011,11 @@ data class CalcCapabilityVerdict(
             CalcLimitation.HNS_ROLLOUT_PHASE_OR_LOCK_INCONSISTENT -> "Rollout / Ice Ball phase, counter, recharge or active move lock is unsupported or inconsistent"
             CalcLimitation.HNS_ELECTRO_BALL_DEFENDER_SPEED_ZERO -> "the pinned Electro Ball formula has no reviewed zero-divisor branch"
             CalcLimitation.HNS_EFFECTIVE_SPEED_UNKNOWN -> "the source effective-Speed operands are unread or unsupported"
+            CalcLimitation.HNS_REPEATED_STRIKE_STATE_UNKNOWN -> "a required between-strike operand is unread or unproven"
+            CalcLimitation.HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED -> "a repeated-strike state transition is not modelled"
+            CalcLimitation.HNS_REPEATED_STRIKE_CAVEAT_NOT_ALLOWED -> "repeated strikes require complete mechanics authority"
             CalcLimitation.HNS_DEFENDER_HP_UNKNOWN ->
-                "the active defender HP/maxHP required by Brine is unread or invalid"
+                "the active defender HP/maxHP required by this move is unread or invalid"
             CalcLimitation.HNS_DEFENDER_STATUS_UNKNOWN ->
                 "the defender status required by this move is unread or invalid"
             CalcLimitation.HNS_LIVE_STATUS_NOT_MODELLED ->
@@ -1463,6 +1473,10 @@ object CalcCapabilityPolicy {
             itemDecisions = itemDecisions,
             fieldDecisions = fieldDecisions
         )
+        if (HnsRepeatedStrikeAuthority.isFamily(request)) {
+            HnsRepeatedStrikeAuthority.forRequest(request).limitation?.let(limitations::add)
+            if (ignoredMechanics.isNotEmpty()) limitations.add(CalcLimitation.HNS_REPEATED_STRIKE_CAVEAT_NOT_ALLOWED)
+        }
         val blocked = limitations.any { limitation ->
             when (limitation.disposition) {
                 CalcLimitationDisposition.HARD_REFUSAL -> true
@@ -1990,7 +2004,7 @@ object CalcCapabilityPolicy {
         input: CalcPokemonInput,
         isAttacker: Boolean,
         request: DamageCalculationRequest,
-        fixedSingleHitMove: Boolean?,
+        selectedStrikeModelled: Boolean?,
         limitations: MutableSet<CalcLimitation>,
         decisions: MutableList<HnsItemRequestDecision>
     ) {
@@ -2010,7 +2024,7 @@ object CalcCapabilityPolicy {
             val side = if (isAttacker) HnsItemSide.ATTACKER else HnsItemSide.DEFENDER
             val decision = HnsItemContextPolicy.assess(
                 itemId = id,
-                context = HnsItemContextPolicy.contextForRequest(request, side, fixedSingleHitMove)
+                context = HnsItemContextPolicy.contextForRequest(request, side, selectedStrikeModelled)
             )
             decisions += decision
             if (entry.category == com.dualdex.pokemon.hns.HnsItemCategory.UNCLASSIFIED) {
@@ -2073,9 +2087,9 @@ object CalcCapabilityPolicy {
      * state, false for any other pinned move, and null when the move is not in the pinned pack.
      * This is an OPERAND of item relevance only; it never clears the move's own gates.
      */
-    private fun hnsFixedSingleHitMove(pack: GameDataPack, request: DamageCalculationRequest): Boolean? {
+    private fun hnsSelectedStrikeModelled(pack: GameDataPack, request: DamageCalculationRequest): Boolean? {
         val move = pack.getMoveByName(request.move.name) ?: return null
-        return com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category.isSupportedFixedSingleHit &&
+        return com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(move.id).category.isSupportedSelectedStrike &&
             !com.dualdex.pokemon.hns.HnsMoveItemInteractionRegistry.classify(move.id).isItemDependent
     }
 
@@ -2156,11 +2170,11 @@ object CalcCapabilityPolicy {
         classification: com.dualdex.pokemon.hns.HnsAbilityEntry,
         isAttacker: Boolean,
         request: DamageCalculationRequest,
-        fixedSingleHitMove: Boolean?,
+        selectedStrikeModelled: Boolean?,
         limitations: MutableSet<CalcLimitation>,
         decisions: MutableList<HnsAbilityRequestDecision>
     ) {
-        val moveAuthority = HnsMoveAuthority.forRequest(request, fixedSingleHitMove)
+        val moveAuthority = HnsMoveAuthority.forRequest(request, selectedStrikeModelled)
         // Mold Breaker only matters when the current defender has an immunity that would
         // otherwise participate. The request-local Group C gate adds a hard blocker for that
         // precise interaction; the global unsupported label alone would incorrectly refuse
@@ -2219,7 +2233,7 @@ object CalcCapabilityPolicy {
             val side = if (isAttacker) HnsAbilitySide.ATTACKER else HnsAbilitySide.DEFENDER
             val decision = HnsAbilityContextPolicy.assess(
                 abilityId = classification.abilityId ?: -1,
-                context = HnsAbilityContextPolicy.contextForRequest(request, side, fixedSingleHitMove)
+                context = HnsAbilityContextPolicy.contextForRequest(request, side, selectedStrikeModelled)
             )
             decisions += decision
             if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
@@ -2269,7 +2283,7 @@ object CalcCapabilityPolicy {
         fieldDecisions: MutableList<HnsFieldRequestDecision>
     ) {
         val live = request.hnsLiveBattleState ?: return
-        val moveAuthority = HnsMoveAuthority.forRequest(request, hnsFixedSingleHitMove(pack, request))
+        val moveAuthority = HnsMoveAuthority.forRequest(request, hnsSelectedStrikeModelled(pack, request))
         val preFieldType = moveAuthority.preFieldType?.displayName
         val effectiveMoveType = moveAuthority.effectiveType?.displayName
         val fieldStatuses = live.fieldStatuses
@@ -2281,7 +2295,7 @@ object CalcCapabilityPolicy {
             val move = pack.getMoveByName(request.move.name)
             val decisions = HnsFieldContextPolicy.assess(
                 state = com.dualdex.pokemon.hns.HnsFieldState.decode(fieldStatuses),
-                context = HnsFieldContextPolicy.contextForRequest(request, hnsFixedSingleHitMove(pack, request), move?.id)
+                context = HnsFieldContextPolicy.contextForRequest(request, hnsSelectedStrikeModelled(pack, request), move?.id)
             )
             fieldDecisions += decisions
             for (decision in decisions) {
@@ -2327,7 +2341,7 @@ object CalcCapabilityPolicy {
             limitations.add(CalcLimitation.HNS_GIMMICK_ACTIVE_NOT_MODELLED)
         }
         val status1 = live.attackerStatus1
-        val hnsCategory = HnsMoveAuthority.forRequest(request, hnsFixedSingleHitMove(pack, request)).category
+        val hnsCategory = HnsMoveAuthority.forRequest(request, hnsSelectedStrikeModelled(pack, request)).category
         val gutsPhysicalStatusIsModelled = request.attacker.abilityId == 62 &&
             hnsCategory == com.dualdex.pokemon.MoveCategory.PHYSICAL &&
             status1 != null &&
@@ -2464,7 +2478,7 @@ object CalcCapabilityPolicy {
         itemDecisions: MutableList<HnsItemRequestDecision>
     ) {
         val pack = GameDataPackRegistry.getForProfile(profile)
-        val fixedSingleHitMove = if (capability.ruleset == CalcRuleset.HNS_2_0_5) hnsFixedSingleHitMove(pack, request) else null
+        val selectedStrikeModelled = if (capability.ruleset == CalcRuleset.HNS_2_0_5) hnsSelectedStrikeModelled(pack, request) else null
 
         // The bridge selects content by name. If a name is not in this build's pinned data, the
         // engine would fall back to its own record and produce a confident number from another
@@ -2545,7 +2559,7 @@ object CalcCapabilityPolicy {
                             classification = com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(input.abilityId),
                             isAttacker = isAttacker,
                             request = request,
-                            fixedSingleHitMove = fixedSingleHitMove,
+                            selectedStrikeModelled = selectedStrikeModelled,
                             limitations = limitations,
                             decisions = abilityDecisions
                         )
@@ -2563,14 +2577,14 @@ object CalcCapabilityPolicy {
                             classification = classification,
                             isAttacker = isAttacker,
                             request = request,
-                            fixedSingleHitMove = fixedSingleHitMove,
+                            selectedStrikeModelled = selectedStrikeModelled,
                             limitations = limitations,
                             decisions = abilityDecisions
                         )
                     }
                 }
 
-                collectHnsItemLimitation(input, isAttacker, request, fixedSingleHitMove, limitations, itemDecisions)
+                collectHnsItemLimitation(input, isAttacker, request, selectedStrikeModelled, limitations, itemDecisions)
             } else {
                 input.ability?.takeIf { it.isNotBlank() }?.let { ability ->
                     if (!isAbilityModelled(capability.ruleset, ability)) {

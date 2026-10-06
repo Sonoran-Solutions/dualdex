@@ -1,0 +1,19 @@
+{
+  "command": "./ci.sh test",
+  "errors": 0,
+  "exitStatus": 0,
+  "failures": 0,
+  "moves": [
+    24,
+    155,
+    458,
+    530,
+    742,
+    814
+  ],
+  "refusal": "HNS_MOVE_MECHANICS_NOT_MODELLED",
+  "skipped": 0,
+  "startingSha": "32c23e858cd9cf38867df668166f18d9167dc495",
+  "testSha256": "612150d2b75f865266db2694db4828d5729dccec6b5a32638889ae992e42141a",
+  "tests": 1
+}

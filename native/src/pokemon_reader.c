@@ -2827,6 +2827,14 @@ static bool read_doubles_operands(DualDexGbaReadFn read, void* user,
     return true;
 }
 
+/* Compiler-packed fields may cross a byte boundary (Rollout starts at bit 212). */
+static uint16_t hns_volatile_field(const uint8_t* bytes, unsigned bit, unsigned width) {
+    uint16_t value = 0;
+    for (unsigned i = 0; i < width; i++)
+        value |= (uint16_t)(((bytes[(bit + i) / 8] >> ((bit + i) % 8)) & 1u) << i);
+    return value;
+}
+
 bool pokemon_read_battler_runtime_state_gba(
     DualDexGbaReadFn read,
     void* user,
@@ -3057,7 +3065,7 @@ bool pokemon_read_battler_runtime_state_gba(
         #define HNS_LIVE_VOLATILE_BIT(bytes, bit) \
             (((bytes)[(bit) / 8] >> ((bit) % 8)) & 1u)
         #define HNS_LIVE_VOLATILE_FIELD(bytes, bit, width) \
-            (uint8_t)(((bytes)[(bit) / 8] >> ((bit) % 8)) & ((1u << (width)) - 1u))
+            hns_volatile_field(bytes, bit, width)
         out_state->volatile_electrified =
             HNS_LIVE_VOLATILE_BIT(volatile_bytes, HNS_LIVE_BP_VOLATILE_ELECTRIFIED_BIT) != 0;
         out_state->volatile_glaive_rush =
@@ -3127,6 +3135,20 @@ bool pokemon_read_battler_runtime_state_gba(
         out_state->volatile_transformed_mon_species = (uint16_t)HNS_LIVE_VOLATILE_FIELD(
             volatile_bytes, HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_BIT,
             HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH);
+        uint8_t locked_move_bytes[HNS_LIVE_LOCKED_MOVE_STRIDE];
+        if (read(user, HNS_LIVE_GLOCKEDMOVES_GBA_ADDRESS + battler * HNS_LIVE_LOCKED_MOVE_STRIDE,
+                 locked_move_bytes, sizeof(locked_move_bytes))) {
+            out_state->rollout_state_observed = true;
+            out_state->volatile_recharge_timer = (uint8_t)HNS_LIVE_VOLATILE_FIELD(volatile_bytes,
+                HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_BIT, HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_WIDTH);
+            out_state->locked_move = (uint16_t)(locked_move_bytes[0] | (locked_move_bytes[1] << 8));
+            out_state->volatile_rollout_timer = (uint8_t)HNS_LIVE_VOLATILE_FIELD(volatile_bytes,
+                HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_BIT, HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_WIDTH);
+            out_state->volatile_defense_curl = HNS_LIVE_VOLATILE_BIT(volatile_bytes,
+                HNS_LIVE_BP_VOLATILE_DEFENSE_CURL_BIT) != 0;
+            out_state->volatile_multiple_turns = HNS_LIVE_VOLATILE_BIT(volatile_bytes,
+                HNS_LIVE_BP_VOLATILE_MULTIPLE_TURNS_BIT) != 0;
+        }
         #undef HNS_LIVE_VOLATILE_BIT
         #undef HNS_LIVE_VOLATILE_FIELD
     }

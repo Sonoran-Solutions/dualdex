@@ -804,7 +804,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
 /* Legacy 103 words preserved. [103] packet presence; [104..161] version 1:
  * version/count/absent/followMe[2]/actionFlags + 4 x 13 indexed records.
  * See read_doubles_operands and HnsDoublesRuntimeState.decode. */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 165
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 174
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -1025,6 +1025,16 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[162] = 1;
     values[163] = state.heal_block_observed ? 1 : 0;
     values[164] = state.volatile_heal_block ? 1 : 0;
+    /* Rollout payload v1; all legacy indices preserved. */
+    values[165] = 1;
+    values[166] = state.rollout_state_observed ? 1 : 0;
+    values[167] = state.volatile_rollout_timer;
+    values[168] = state.volatile_defense_curl ? 1 : 0;
+    values[169] = state.volatile_multiple_turns ? 1 : 0;
+    values[170] = state.locked_move;
+    values[171] = HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_WIDTH;
+    values[172] = state.volatile_recharge_timer;
+    values[173] = HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_WIDTH;
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;
     (*env)->SetIntArrayRegion(env, result, 0, BATTLER_RUNTIME_STATE_TUPLE_LEN, values);

@@ -58,7 +58,7 @@ ITEM_RECORDS = {
 
 TOOL_DIR = Path(__file__).resolve().parent
 PATCH_DIR = TOOL_DIR / "patches"
-HARNESS_PATCHES = ("0001-test-runner-include-order.patch", "0002-pre-damage-state-hook.patch", "0003-immunity-observation-hook.patch", "0004-gyro-ball-observation.patch", "0005-quick-claw-rng-control.patch", "0006-electro-ball-observation.patch")
+HARNESS_PATCHES = ("0001-test-runner-include-order.patch", "0002-pre-damage-state-hook.patch", "0003-immunity-observation-hook.patch", "0004-gyro-ball-observation.patch", "0005-quick-claw-rng-control.patch", "0006-electro-ball-observation.patch", "0007-rollout-observation.patch", "0008-rollout-lifecycle-observation.patch")
 TEST_SUBDIR = "test/dualdex_oracle"
 TEST_PREFIX = "DDXO "
 SCENARIOS_PER_FILE = 100
@@ -250,6 +250,7 @@ u32 GetMoveTargetCount(struct BattleContext *ctx);
 extern s32 gDdxoQuickClawMode;
 extern u32 DdxoGyroBallBasePower(enum BattlerId atk, enum BattlerId def);
 extern u32 DdxoElectroBallBasePower(enum BattlerId atk, enum BattlerId def);
+extern u32 DdxoRolloutBasePower(enum BattlerId atk, enum BattlerId def, enum Move move);
 extern void (*gDdxoBeforeCriticalHit)(void);
 extern void (*gDdxoBeforeAbilityPopup)(void);
 static u16 sDdxoSpeciesAtHit[MAX_BATTLERS_COUNT];
@@ -548,8 +549,10 @@ def render_scenario(s: dict) -> str:
         hit = f"MOVE({def_ref}, MOVE_DIG); " + hit
     if state_setup.get("underwater"):
         hit = f"MOVE({def_ref}, MOVE_DIVE); " + hit
-    if "move-coverage-slice-5" in s["tags"]:
+    if any(t in s["tags"] for t in ("move-coverage-slice-5", "move-coverage-slice-10")):
         hit = hit.replace("secondaryEffect: FALSE", "secondaryEffect: FALSE, hit: TRUE")
+    if state_setup.get("rollout", {}).get("electrify"):
+        hit = f"MOVE({def_ref}, MOVE_ELECTRIFY); " + hit
     turns.append("TURN { " + hit + " }")
 
     ticking = s["attacker"]["status"] in ("burn", "poison", "toxic")
@@ -601,7 +604,7 @@ def render_scenario(s: dict) -> str:
     lines.append(ind + "gDdxoBeforeAbilityPopup = NULL;")
     proc = (state_setup.get("gyroSpeed") or {}).get("quickClawProc")
     lines.append(ind + f"gDdxoQuickClawMode = {0 if proc is None else 1 + int(proc)};")
-    if any(t in s["tags"] for t in ("move-coverage-slice-7", "move-coverage-slice-8", "move-coverage-slice-9")) and s["expect"] == "immune":
+    if any(t in s["tags"] for t in ("move-coverage-slice-7", "move-coverage-slice-8", "move-coverage-slice-9", "move-coverage-slice-10")) and s["expect"] == "immune":
         lines.append(ind + f"gDdxoBeforeAbilityPopup = {callback_name};")
     lines.append("    } WHEN {")
     for turn in turns:
@@ -745,6 +748,17 @@ def render_scenario(s: dict) -> str:
                 setup.append(f"    gSideStatuses[GetBattlerSide((enum BattlerId){pos})] |= {operands['sideStatuses']};")
         if state_setup["gyroSpeed"].get("trickRoom"):
             setup.append("    gFieldStatuses |= STATUS_FIELD_TRICK_ROOM;")
+    if "move-coverage-slice-10" in s["tags"]:
+        chain = state_setup["rollout"]
+        setup += [f"    gBattleMons[{atk_pos}].volatiles.rolloutTimer = {chain['timer']};",
+                  f"    gBattleMons[{atk_pos}].volatiles.defenseCurl = {chain['defenseCurl']};",
+                  f"    gBattleMons[{atk_pos}].volatiles.multipleTurns = {int(chain['timer'] > 0)};",
+                  f"    gLockedMoves[{atk_pos}] = {move};"]
+        args = ["gBattlerAttacker", "gCurrentMove", "GetMoveEffect(gCurrentMove)", f"gBattleMons[{atk_pos}].volatiles.rolloutTimer",
+                f"gBattleMons[{atk_pos}].volatiles.defenseCurl", f"gBattleMons[{atk_pos}].volatiles.multipleTurns",
+                f"gLockedMoves[{atk_pos}]", f"gBattleMons[{atk_pos}].volatiles.rechargeTimer", f"gBattleMons[{atk_pos}].volatiles.electrified", f"DdxoRolloutBasePower(gBattlerAttacker, (enum BattlerId){def_pos}, gCurrentMove)", "DdxoType(GetBattleMoveType(gCurrentMove))"]
+        setup.append(f'    Test_MgbaPrintf("DDXO|{sid}|%d|L|' + "|".join(["%d"] * (len(args)-1) + ["%s"]) + '", sDdxoRoll, ' + ", ".join(args) + ');')
+        setup.append("    gDdxoBeforeAbilityPopup = NULL;")
     if any(t in s["tags"] for t in ("move-coverage-slice-8", "move-coverage-slice-9")):
         if "move-coverage-slice-9" in s["tags"]:
             setup.append(f'    if (GetBattlerTotalSpeedStat((enum BattlerId){def_pos}, GetBattlerAbility((enum BattlerId){def_pos}), GetBattlerHoldEffect((enum BattlerId){def_pos})) == 0) Test_ExitWithResult(TEST_RESULT_FAIL, __LINE__, "Unsafe Electro Ball divisor");')
@@ -777,7 +791,7 @@ def _is_spread_capable(s: dict) -> bool:
                                   "Earthquake", "Surf", "Petal Blizzard"}
 
 
-EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi", "execution-explosion", "execution-underwater", "execution-whirlpool-wrap", "execution-status-removal", "execution-status-secondary")
+EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi", "execution-explosion", "execution-underwater", "execution-whirlpool-wrap", "execution-status-removal", "execution-status-secondary", "execution-rollout-chain", "execution-rollout-protect", "execution-rollout-inability", "execution-rollout-switch", "execution-rollout-unaffected", "execution-rollout-faint")
 EXECUTION_SOURCE = r'''#include "global.h"
 #include "test/battle.h"
 #include "battle.h"
@@ -786,6 +800,7 @@ EXECUTION_SOURCE = r'''#include "global.h"
 #include "move.h"
 extern u32 DdxoGyroBallBasePower(enum BattlerId atk, enum BattlerId def);
 extern u32 DdxoElectroBallBasePower(enum BattlerId atk, enum BattlerId def);
+extern u32 DdxoRolloutBasePower(enum BattlerId atk, enum BattlerId def, enum Move move);
 extern void (*gDdxoBeforeCriticalHit)(void);
 extern void (*gDdxoBeforeAbilityPopup)(void);
 
@@ -1063,6 +1078,171 @@ SINGLE_BATTLE_TEST("DDXO execution-status-secondary", s16 hit)
 '''
 
 
+
+ROLLOUT_EXECUTION_SOURCE = r"""
+extern u32 DdxoRolloutBasePower(enum BattlerId atk, enum BattlerId def, enum Move move);
+extern void (*gDdxoRolloutMoveEnd)(void);
+static u32 sRolloutPreCount, sRolloutPostCount;
+static u32 sRolloutPre[8], sRolloutPost[8], sRolloutPower[8], sRolloutCurl[8], sRolloutMulti[8], sRolloutLock[8];
+static void DdxoRolloutPre(void)
+{
+    if (gBattlerAttacker != 0 || GetMoveEffect(gCurrentMove) != EFFECT_ROLLOUT) return;
+    u32 i=sRolloutPreCount++;
+    EXPECT_LT(i,8);
+    sRolloutPre[i]=gBattleMons[0].volatiles.rolloutTimer;
+    sRolloutCurl[i]=gBattleMons[0].volatiles.defenseCurl;
+    sRolloutMulti[i]=gBattleMons[0].volatiles.multipleTurns;
+    sRolloutLock[i]=gLockedMoves[0];
+    sRolloutPower[i]=DdxoRolloutBasePower(0,1,gCurrentMove);
+}
+static void DdxoRolloutPost(void)
+{
+    if (gBattlerAttacker != 0 || GetMoveEffect(gCurrentMove) != EFFECT_ROLLOUT) return;
+    u32 i=sRolloutPostCount++;
+    EXPECT_LT(i,8);
+    sRolloutPost[i]=gBattleMons[0].volatiles.rolloutTimer;
+}
+SINGLE_BATTLE_TEST("DDXO execution-rollout-chain")
+{
+    u32 move,setup;
+    PARAMETRIZE { move=MOVE_ROLLOUT; setup=MOVE_CELEBRATE; }
+    PARAMETRIZE { move=MOVE_ICE_BALL; setup=MOVE_CELEBRATE; }
+    PARAMETRIZE { move=MOVE_ROLLOUT; setup=MOVE_DEFENSE_CURL; }
+    PARAMETRIZE { move=MOVE_ICE_BALL; setup=MOVE_DEFENSE_CURL; }
+    PARAMETRIZE { move=MOVE_ROLLOUT; setup=MOVE_HARDEN; }
+    PARAMETRIZE { move=MOVE_ICE_BALL; setup=MOVE_HARDEN; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_NO_GUARD); Speed(40); Level(50); Attack(151); HP(60000); MaxHP(60000); }
+        OPPONENT(SPECIES_BLASTOISE) { Ability(ABILITY_INSOMNIA); Speed(100); Defense(109); HP(60000); MaxHP(60000); }
+        sRolloutPreCount=sRolloutPostCount=0;
+        gDdxoBeforeCriticalHit=DdxoRolloutPre;
+        gDdxoRolloutMoveEnd=DdxoRolloutPost;
+    } WHEN {
+        TURN { MOVE(player,setup); }
+        TURN { MOVE(player,move,hit:TRUE); }
+        TURN { SKIP_TURN(player); }
+        TURN { SKIP_TURN(player); }
+        TURN { SKIP_TURN(player); }
+        TURN { SKIP_TURN(player); }
+        TURN { MOVE(player,move,hit:TRUE); }
+    } SCENE {
+        for(u32 i=0;i<6;i++) HP_BAR(opponent);
+    } THEN {
+        EXPECT_EQ(sRolloutLock[0],0);
+        EXPECT_EQ(sRolloutPreCount,6);
+        EXPECT_EQ(sRolloutPostCount,6);
+        for(u32 i=0;i<6;i++) {
+            EXPECT_EQ(sRolloutPre[i],i%5);
+            EXPECT_EQ(sRolloutPost[i],(i+1)%5);
+            EXPECT_EQ(sRolloutCurl[i],setup==MOVE_DEFENSE_CURL);
+            EXPECT_EQ(sRolloutPower[i],30*(1u<<(i%5))*(setup==MOVE_DEFENSE_CURL ? 2 : 1));
+            EXPECT_EQ(sRolloutMulti[i],i%5!=0);
+            if(i%5!=0) EXPECT_EQ(sRolloutLock[i],move);
+            Test_MgbaPrintf("DDXL|chain|%d|%d|%d|%d|%d|%d|%d",move,setup,i,sRolloutPre[i],sRolloutPost[i],sRolloutCurl[i],sRolloutPower[i]);
+        }
+        EXPECT_EQ(gBattleMons[0].statStages[STAT_DEF],DEFAULT_STAT_STAGE+(setup!=MOVE_CELEBRATE));
+        gDdxoBeforeCriticalHit=NULL; gDdxoRolloutMoveEnd=NULL;
+    }
+}
+SINGLE_BATTLE_TEST("DDXO execution-rollout-protect")
+{
+    u32 move;
+    PARAMETRIZE { move=MOVE_ROLLOUT; }
+    PARAMETRIZE { move=MOVE_ICE_BALL; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_NO_GUARD); HP(60000); MaxHP(60000); }
+        OPPONENT(SPECIES_BLASTOISE) { Ability(ABILITY_INSOMNIA); HP(60000); MaxHP(60000); }
+        sRolloutPreCount=sRolloutPostCount=0;
+        gDdxoBeforeCriticalHit=DdxoRolloutPre; gDdxoRolloutMoveEnd=DdxoRolloutPost;
+    } WHEN {
+        TURN { MOVE(player,MOVE_DEFENSE_CURL); }
+        TURN { MOVE(player,move,hit:TRUE); }
+        TURN { MOVE(opponent,MOVE_PROTECT); SKIP_TURN(player); }
+        TURN { MOVE(player,move,hit:TRUE); }
+    } SCENE { HP_BAR(opponent); HP_BAR(opponent); }
+    THEN {
+        EXPECT_EQ(sRolloutPostCount,3); EXPECT_EQ(sRolloutPost[0],1); EXPECT_EQ(sRolloutPost[1],0); EXPECT_EQ(sRolloutPost[2],1);
+        EXPECT_EQ(sRolloutPreCount,2); EXPECT_EQ(sRolloutPre[1],0); EXPECT_EQ(sRolloutCurl[1],1);
+        gDdxoBeforeCriticalHit=NULL; gDdxoRolloutMoveEnd=NULL;
+    }
+}
+SINGLE_BATTLE_TEST("DDXO execution-rollout-inability")
+{
+    u32 move;
+    PARAMETRIZE { move=MOVE_ROLLOUT; }
+    PARAMETRIZE { move=MOVE_ICE_BALL; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_NO_GUARD); Speed(100); HP(60000); MaxHP(60000); }
+        OPPONENT(SPECIES_BLASTOISE) { Ability(ABILITY_INSOMNIA); Speed(40); HP(60000); MaxHP(60000); }
+        sRolloutPreCount=sRolloutPostCount=0;
+        gDdxoBeforeCriticalHit=DdxoRolloutPre; gDdxoRolloutMoveEnd=DdxoRolloutPost;
+    } WHEN {
+        TURN { MOVE(player,move,hit:TRUE); MOVE(opponent,MOVE_SPORE,WITH_RNG(RNG_SLEEP_TURNS,2)); }
+        TURN { SKIP_TURN(player); }
+    } SCENE { HP_BAR(opponent); }
+    THEN {
+        EXPECT_EQ(sRolloutPreCount,1); EXPECT_EQ((u32)gBattleMons[0].volatiles.rolloutTimer,0);
+        EXPECT_EQ((u32)gBattleMons[0].volatiles.multipleTurns,0);
+        EXPECT_NE(gBattleMons[0].status1 & STATUS1_SLEEP,0);
+        gDdxoBeforeCriticalHit=NULL; gDdxoRolloutMoveEnd=NULL;
+    }
+}
+SINGLE_BATTLE_TEST("DDXO execution-rollout-switch")
+{
+    u32 move;
+    PARAMETRIZE { move=MOVE_ROLLOUT; }
+    PARAMETRIZE { move=MOVE_ICE_BALL; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_NO_GUARD); HP(60000); MaxHP(60000); }
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_NO_GUARD); HP(60000); MaxHP(60000); }
+        OPPONENT(SPECIES_BLASTOISE) { Ability(ABILITY_INSOMNIA); Item(ITEM_RED_CARD); HP(60000); MaxHP(60000); }
+        gDdxoBeforeCriticalHit=NULL; gDdxoRolloutMoveEnd=NULL;
+    } WHEN {
+        TURN { MOVE(player,MOVE_DEFENSE_CURL); }
+        TURN { MOVE(player,move,hit:TRUE); }
+    } SCENE { HP_BAR(opponent); }
+    THEN {
+        EXPECT_EQ(gBattlerPartyIndexes[0],1); EXPECT_EQ((u32)gBattleMons[0].volatiles.rolloutTimer,0);
+        EXPECT_EQ((u32)gBattleMons[0].volatiles.defenseCurl,0); EXPECT_EQ((u32)gBattleMons[0].volatiles.multipleTurns,0);
+    }
+}
+SINGLE_BATTLE_TEST("DDXO execution-rollout-faint")
+{
+    u32 move;
+    PARAMETRIZE { move=MOVE_ROLLOUT; }
+    PARAMETRIZE { move=MOVE_ICE_BALL; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_NO_GUARD); HP(60000); MaxHP(60000); Speed(200); }
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_NO_GUARD); HP(60000); MaxHP(60000); Speed(200); }
+        OPPONENT(SPECIES_BLASTOISE) { Ability(ABILITY_INSOMNIA); HP(60000); MaxHP(60000); Speed(100); }
+        gDdxoBeforeCriticalHit=NULL; gDdxoRolloutMoveEnd=NULL;
+    } WHEN {
+        TURN { MOVE(player,MOVE_DEFENSE_CURL); }
+        TURN { MOVE(player,move,hit:TRUE); }
+        TURN { SKIP_TURN(player); MOVE(opponent,MOVE_FISSURE,hit:TRUE); SEND_OUT(player,1); }
+        TURN { MOVE(player,MOVE_CELEBRATE); }
+    } SCENE { HP_BAR(opponent); HP_BAR(opponent); HP_BAR(player); }
+    THEN {
+        EXPECT_EQ(gBattlerPartyIndexes[0],1); EXPECT_EQ((u32)gBattleMons[0].volatiles.rolloutTimer,0);
+        EXPECT_EQ((u32)gBattleMons[0].volatiles.defenseCurl,0); EXPECT_EQ((u32)gBattleMons[0].volatiles.multipleTurns,0);
+    }
+}
+SINGLE_BATTLE_TEST("DDXO execution-rollout-unaffected")
+{
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_NO_GUARD); }
+        OPPONENT(SPECIES_BLASTOISE) { Ability(ABILITY_BULLETPROOF); }
+        sRolloutPreCount=sRolloutPostCount=0;
+        gDdxoBeforeCriticalHit=NULL; gDdxoRolloutMoveEnd=DdxoRolloutPost;
+    } WHEN { TURN { MOVE(player,MOVE_ICE_BALL,hit:TRUE); } }
+    SCENE { NONE_OF { HP_BAR(opponent); } }
+    THEN {
+        EXPECT_EQ(sRolloutPostCount,1); EXPECT_EQ(sRolloutPost[0],0);
+        EXPECT_EQ((u32)gBattleMons[0].volatiles.multipleTurns,0); gDdxoRolloutMoveEnd=NULL;
+    }
+}
+"""
+
 def render_sources(scenarios: list[dict]) -> dict[str, str]:
     """Generated C sources, keyed by path relative to the pinned tree root. Deterministic."""
     type_table = "\n".join(f'    [{C_TYPE_TABLE[n]}] = "{n}",' for n in TYPE_NAMES)
@@ -1072,7 +1252,7 @@ def render_sources(scenarios: list[dict]) -> dict[str, str]:
         chunk = scenarios[index:index + SCENARIOS_PER_FILE]
         name = f"{TEST_SUBDIR}/oracle_{index // SCENARIOS_PER_FILE:03d}.c"
         files[name] = prelude + "\n" + "\n".join(render_scenario(s) for s in chunk)
-    files[f"{TEST_SUBDIR}/execution.c"] = EXECUTION_SOURCE
+    files[f"{TEST_SUBDIR}/execution.c"] = EXECUTION_SOURCE + ROLLOUT_EXECUTION_SOURCE
     return files
 
 
@@ -1133,9 +1313,9 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
         roll = _int(roll_text, f"{sid} roll index")
         if not 0 <= roll < ROLL_COUNT:
             raise OracleError(f"{sid}: roll index {roll} out of range")
-        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K", "Q", "E", "W", "S", "G"):
+        if kind not in LINE_FIELDS and kind not in ("AG", "DG", "K", "Q", "E", "W", "S", "G", "L"):
             raise OracleError(f"{sid}: unknown oracle line kind {kind!r}")
-        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else 1 if kind in ("Q", "E") else 4 if kind == "W" else 2 if kind == "S" else 13 if kind == "G" else LINE_FIELDS[kind]
+        expected_length = len(RUNTIME_DOMAINS) if kind in ("AG", "DG") else 7 if kind == "K" else 1 if kind in ("Q", "E") else 4 if kind == "W" else 2 if kind == "S" else 13 if kind == "G" else 11 if kind == "L" else LINE_FIELDS[kind]
         if len(fields) != expected_length:
             raise OracleError(f"{sid}: {kind} line has {len(fields)} fields, expected {expected_length}")
         slot = records[sid].setdefault(roll, {})
@@ -1153,7 +1333,7 @@ def parse_runner_output(text: str, scenario_ids: list[str]) -> dict[str, dict[in
             missing = sorted(set(range(ROLL_COUNT)) - set(rolls))
             raise OracleError(f"{sid}: missing oracle output for rng value(s) {missing}")
         for roll, slot in rolls.items():
-            if set(slot) - {"AG", "DG", "K", "Q", "E", "W", "S", "G"} != set(LINE_FIELDS):
+            if set(slot) - {"AG", "DG", "K", "Q", "E", "W", "S", "G", "L"} != set(LINE_FIELDS):
                 raise OracleError(f"{sid}: roll {roll} is missing line(s) {sorted(set(LINE_FIELDS) - set(slot))}")
     unexpected = sorted(set(statuses) - wanted)
     if unexpected:
@@ -1504,6 +1684,18 @@ def assemble_entry(scenario: dict, per_roll: dict[int, dict[str, list[str]]]) ->
                 raise OracleError(f"{sid}: source dynamic Speed power disagrees with source total Speeds")
             observed["effectiveSpeeds"] = speeds
         elif "G" in slot: raise OracleError(f"{sid}: unexpected Speed observation")
+        if "move-coverage-slice-10" in scenario["tags"]:
+            if "L" not in slot: raise OracleError(f"{sid}: missing source Rollout operands")
+            chain = dict(zip(("attacker", "moveId", "effectId", "timer", "defenseCurl", "multipleTurns", "lockedMove", "rechargeTimer", "electrified", "basePower"),
+                [_int(v, sid) for v in slot["L"][:-1]]))
+            chain["effectiveType"] = slot["L"][-1]
+            if chain["effectiveType"] not in TYPE_NAMES: raise OracleError(f"{sid}: unknown source effective type")
+            observed["move"]["type"] = chain["effectiveType"]
+            expected = source_move["power"] * 2 ** chain["timer"] * (2 if chain["defenseCurl"] else 1)
+            if chain["attacker"] != (0 if scenario["attackerSide"] == "player" else 1) or chain["rechargeTimer"] != 0 or chain["timer"] not in range(5) or chain["basePower"] != expected or chain["moveId"] != int(m[0]) or chain["effectId"] != source_move["effectId"]:
+                raise OracleError(f"{sid}: inconsistent source-observed Rollout power")
+            observed["rollout"] = chain
+        elif "L" in slot: raise OracleError(f"{sid}: unexpected Rollout observation")
         if canonical is None:
             canonical = observed
         elif observed != canonical:
@@ -1552,7 +1744,7 @@ def verify_upstream(upstream: Path) -> None:
 def _apply_patch(work: Path, patch: Path) -> None:
     text = patch.read_text()
     targets = re.findall(r"^\+\+\+ b/(\S+)", text, re.M)
-    if not targets or any(not t.startswith("test/") and not (patch.name in ("0004-gyro-ball-observation.patch", "0006-electro-ball-observation.patch") and t == "src/battle_util.c") for t in targets):
+    if not targets or any(not t.startswith("test/") and not (patch.name in ("0004-gyro-ball-observation.patch", "0006-electro-ball-observation.patch", "0007-rollout-observation.patch") and t == "src/battle_util.c") and not (patch.name == "0008-rollout-lifecycle-observation.patch" and t == "src/battle_move_resolution.c") for t in targets):
         raise OracleError(f"{patch.name} must only touch the upstream test harness, touches {targets}")
     _run(["patch", "-p1", "--forward", "--batch", "-i", str(patch)], cwd=work)
 

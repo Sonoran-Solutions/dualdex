@@ -507,6 +507,21 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
      * adapter cannot authorize production; the Kotlin boundary never substitutes neutral. */
     sb_append(sb, "{\"gen\":3,\"typeSystem\":\"hns_2_0_5\",");
     if (!emit_battler(sb, s_atk, o_atk, "attacker", o_def, o_move, format, 0, jl_get(jl_get(obs, "effectiveSpeeds"), "attacker"), err)) return 0;
+    const char* source_effect = get_str(o_move, "effect", err);
+    if (!source_effect) return 0;
+    const jl_value* chain = jl_get(obs, "rollout");
+    if (!chain && !strcmp(source_effect, "EFFECT_ROLLOUT"))
+        return set_err(err, "source Rollout operands missing");
+    if (chain) {
+        long timer, curl, multiple, locked, recharge;
+        if (strcmp(source_effect, "EFFECT_ROLLOUT") ||
+            !get_int(chain,"timer",0,4,&timer,err) || !get_int(chain,"defenseCurl",0,1,&curl,err) ||
+            !get_int(chain,"multipleTurns",0,1,&multiple,err) || !get_int(chain,"lockedMove",0,65535,&locked,err) ||
+            !get_int(chain,"rechargeTimer",0,0,&recharge,err)) return 0;
+        sb->len--; sb->data[sb->len] = '\0';
+        sb_append(sb, ",\"hnsRolloutTimer\":%ld,\"hnsDefenseCurl\":%s,\"hnsMultipleTurns\":%s,\"hnsLockedMove\":%ld,\"hnsRechargeTimer\":%ld,\"hnsRolloutStablePhase\":true}",
+            timer, curl ? "true" : "false", multiple ? "true" : "false", locked, recharge);
+    }
     sb_append(sb, ",");
     if (!emit_battler(sb, s_def, o_def, "defender", o_atk, o_move, format, semi_state, jl_get(jl_get(obs, "effectiveSpeeds"), "defender"), err)) return 0;
     sb_append(sb, ",\"move\":{\"name\":");
@@ -527,7 +542,6 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         if (i) sb_append(sb, ",");
         sb_json_string(sb, flag);
     }
-    const char* source_effect = get_str(o_move, "effect", err);
     const jl_value* ordinary = jl_get(o_move, "ordinary");
     const jl_value* makes_contact = jl_get(o_move, "makesContact");
     const jl_value* punching_move = jl_get(o_move, "punchingMove");
@@ -543,6 +557,9 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         if (strcmp(jl_str(jl_get(scen, "expect")), "immune") && (!jl_is_num(hp) || jl_num(hp) != 0)) return set_err(err, "explosion damage-time HP missing");
         sb_append(sb, ",\"hnsExplosionUserHpAtDamage\":0");
     }
+    const int rollout = !strcmp(source_effect, "EFFECT_ROLLOUT");
+    if (rollout) sb_append(sb, ",\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_ROLLOUT\",\"hnsSourceType\":\"%s\",\"hnsSourceCategory\":\"DAMAGE_CATEGORY_PHYSICAL\",\"hnsSourceTarget\":\"TARGET_SELECTED\",\"hnsSourcePriority\":0,\"hnsSourceStrikeCount\":1",
+        jl_num(jl_get(o_move,"id")) == 205 ? "TYPE_ROCK" : "TYPE_ICE");
     const int electro = !strcmp(source_effect, "EFFECT_ELECTRO_BALL");
     if (electro) sb_append(sb, ",\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_ELECTRO_BALL\"");
     const int gyro = !strcmp(source_effect, "EFFECT_GYRO_BALL");
@@ -564,7 +581,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (electro || gyro || brine || status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              (rollout || electro || gyro || brine || status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");

@@ -821,6 +821,36 @@ class HnsBattlerRuntimeStateTest {
     fun `unavailable state resolves no item identity`() {
         assertNull(HnsBattlerRuntimeState.fromNativeArray(null).resolveItemIdentity())
     }
+    @Test fun `Rollout packet preserves raw domain false and zero without neutralizing old tuples`() {
+        val raw = c4eObservedTuple().copyOf(174)
+        raw[100] = HnsGroupDLayout.SPECIES_COUNT
+        raw[101] = HnsGroupDLayout.METRONOME_ITEM_COUNTER_WIDTH
+        raw[102] = HnsGroupDLayout.TRANSFORMED_MON_SPECIES_WIDTH
+        raw[173] = HnsGroupDLayout.RECHARGE_TIMER_WIDTH
+        raw[165] = 1; raw[166] = 1; raw[171] = HnsGroupDLayout.ROLLOUT_TIMER_WIDTH
+        for(timer in listOf(0,1,4,5,255)) {
+            raw[167] = timer
+            val state = HnsBattlerRuntimeState.fromNativeArray(raw)
+            assertEquals(timer,state.rolloutTimer)
+            assertEquals(false,state.defenseCurl)
+        }
+        for (recharge in 0..HnsGroupDLayout.RECHARGE_TIMER_MAX) {
+            raw[172] = recharge
+            assertEquals(recharge, HnsBattlerRuntimeState.fromNativeArray(raw).rechargeTimer)
+        }
+        raw[172] = 0
+        raw[168] = 1; raw[169] = 1; raw[170] = 301
+        val positive = HnsBattlerRuntimeState.fromNativeArray(raw)
+        assertEquals(true,positive.defenseCurl); assertEquals(true,positive.multipleTurns); assertEquals(301,positive.lockedMove)
+        assertNull(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(165)).rolloutTimer)
+        assertNull(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(171)).defenseCurl)
+        assertNull(HnsBattlerRuntimeState.fromNativeArray(raw.copyOf(173)).rechargeTimer)
+        for((index,value) in listOf(165 to 2,166 to 0,166 to 2,167 to -1,167 to 256,168 to 2,169 to -1,170 to 65536,171 to 7,172 to 4,173 to 1)) {
+            val changed = raw.copyOf(); changed[index] = value
+            val state = HnsBattlerRuntimeState.fromNativeArray(changed)
+            assertNull(state.rolloutTimer); assertNull(state.defenseCurl); assertNull(state.multipleTurns); assertNull(state.lockedMove)
+        }
+    }
     @Test fun `Heal Block additive tuple observes false true and rejects old malformed payloads`() {
         val raw = c4eObservedTuple().copyOf(165)
         raw[100] = HnsGroupDLayout.SPECIES_COUNT

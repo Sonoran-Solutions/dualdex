@@ -71,6 +71,8 @@ SPECIES = {
 
 # label -> (planning type, planning per-move category, planning power)
 MOVES = {
+    "Rollout": ("Rock", "physical", 30),
+    "Ice Ball": ("Ice", "physical", 30),
     "Brine": ("Water", "special", 65),
     "Gyro Ball": ("Steel", "physical", 1),
     "Electro Ball": ("Electric", "special", 1),
@@ -2598,12 +2600,50 @@ def _electro_ball():
     return out
 
 
+def _rollout():
+    out = []
+    def case(move, name, timer=0, curl=0, ability="Insomnia", defender_ability="Insomnia", item=None, defender_item=None, species="Machamp", surface="modelled", expect="damage", setup=None, **kw):
+        a = attacker(species, atk=151, spa=151, ability=(symbol("ABILITY",ability),ability), item=(symbol("ITEM",item),item) if item else None)
+        d = defender("Blastoise", dfn=109, spd=109, ability=(symbol("ABILITY",defender_ability),defender_ability), item=(symbol("ITEM",defender_item),defender_item) if defender_item else None)
+        out.append(scenario("rollout-"+slug(move)+"-"+name, ["move-coverage-slice-10"], a, d, move, surface=surface, expect=expect, **kw))
+        out[-1]["stateSetup"] = {"rollout":{"timer":timer,"defenseCurl":curl,"electrify":0}, **(setup or {})}
+    for move in ("Rollout","Ice Ball"):
+        for curl in (0,1):
+            for timer in range(5):
+                case(move, f"counter-{timer}-curl-{curl}",timer,curl)
+                if timer < 3:
+                    case(move, f"technician-{timer}-curl-{curl}",timer,curl,ability="Technician")
+        for ability in ("Tough Claws","Long Reach","Sheer Force","Normalize"):
+            case(move,slug(ability),timer=2,ability=ability)
+        for ability in ("Fluffy","Fur Coat","Multiscale","Solid Rock","Bulletproof"):
+            case(move,slug(ability),timer=1,defender_ability=ability,expect="immune" if ability=="Bulletproof" and move=="Ice Ball" else "damage")
+        case(move,"adaptability-stab",timer=2,ability="Adaptability",species="Glaceon" if move=="Ice Ball" else "Tyranitar")
+        case(move,"stab",timer=2,species="Glaceon" if move=="Ice Ball" else "Tyranitar")
+        case(move,"type-item",timer=1,item="Never-Melt Ice" if move=="Ice Ball" else "Hard Stone")
+        case(move,"life-orb",timer=3,curl=1,item="Life Orb")
+        case(move,"reflect",timer=1,reflect=True)
+        case(move,"critical-reflect",timer=1,reflect=True,crit=True)
+        case(move,"rounding",timer=1,curl=1,ability="Tough Claws",item="Life Orb",reflect=True,
+             setup={"attackerStatStages":{"attack":1},"defenderStatStages":{"defense":1}})
+        out[-1]["attacker"]["stats"]["attack"]=153
+        out[-1]["attacker"]["stages"]["attack"]=1
+        out[-1]["defender"]["stages"]["defense"]=1
+        case(move,"normalize-charge",timer=1,ability="Normalize",terrain="electric",setup={"attacker":{"chargeTimer":1}})
+        case(move,"electrify-charge-terrain",timer=1,ability="Technician",terrain="electric",surface="engine-only",setup={"attacker":{"chargeTimer":1}})
+        out[-1]["stateSetup"]["rollout"]["electrify"]=1
+        out[-1]["attacker"]["stats"]["speed"]=40
+        out[-1]["defender"]["stats"]["speed"]=100
+        case(move,"mold-breaker",timer=1,ability="Mold Breaker",defender_ability="Bulletproof" if move=="Ice Ball" else "Fluffy",surface="engine-only")
+        case(move,"ability-shield",timer=1,ability="Mold Breaker",defender_ability="Bulletproof",defender_item="Ability Shield",expect="immune" if move=="Ice Ball" else "damage")
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine, _gyro_ball, _electro_ball)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine, _gyro_ball, _electro_ball, _rollout)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

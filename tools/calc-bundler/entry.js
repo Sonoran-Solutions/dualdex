@@ -347,6 +347,7 @@ function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
   if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
+        input.move?.hnsMoveEffect === 'EFFECT_ROLLOUT' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ROLLOUT' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitRollout === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ELECTRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ELECTRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitElectroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_GYRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_GYRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitGyroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_BRINE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_BRINE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitBrine === true ||
@@ -403,6 +404,29 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const statusMetadata = hnsStatusContract.moves[String(input.move?.hnsMoveId)];
   const statusFamily = statusMetadata?.fixedSingleHitStatusDouble === true;
   let moveBasePower = move.bp;
+  const rolloutMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
+  const rolloutFamily = rolloutMetadata?.fixedSingleHitRollout === true;
+  if (rolloutFamily || input.move?.hnsMoveEffect === 'EFFECT_ROLLOUT' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ROLLOUT') {
+    const a = input.attacker, timer = a?.hnsRolloutTimer;
+    if (!rolloutFamily || input.move.name?.toLowerCase() !== (input.move.hnsMoveId === 205 ? 'rollout' : 'ice ball') ||
+        input.move.hnsMoveFamily !== 'FIXED_SINGLE_HIT_ROLLOUT' ||
+        input.move.hnsMoveEffect !== rolloutMetadata.effect || input.move.hnsFixedSingleHit !== true ||
+        input.move.hnsSourceType !== rolloutMetadata.type || input.move.hnsSourceCategory !== rolloutMetadata.category ||
+        input.move.hnsSourceTarget !== rolloutMetadata.target || input.move.hnsSourcePriority !== rolloutMetadata.priority ||
+        input.move.hnsSourceStrikeCount !== rolloutMetadata.strikeCount ||
+        input.move.hnsIsOrdinary !== false || gameType !== 'Singles' || semiState !== 0 ||
+        input.defender?.hnsSubstitute !== false || input.move.overrides?.basePower !== rolloutMetadata.power ||
+        move.bp !== rolloutMetadata.power || input.move.hnsMakesContact !== rolloutMetadata.makesContact ||
+        input.move.hnsSheerForceAffected !== rolloutMetadata.sheerForceAffected ||
+        JSON.stringify(input.move.hnsMoveFlags) !== JSON.stringify(rolloutMetadata.immunityFlags) ||
+        JSON.stringify(input.move.hnsMoveAbilityFlags) !== JSON.stringify(rolloutMetadata.abilityFlags) ||
+        a?.hnsRechargeTimer !== 0 || !Number.isInteger(timer) || timer < 0 || timer > 4 || typeof a.hnsDefenseCurl !== 'boolean' ||
+        typeof a.hnsMultipleTurns !== 'boolean' || a.hnsMultipleTurns !== (timer > 0) ||
+        !Number.isInteger(a.hnsLockedMove) || a.hnsLockedMove < 0 || a.hnsLockedMove > 65535 ||
+        a.hnsMultipleTurns && a.hnsLockedMove !== input.move.hnsMoveId || a.hnsRolloutStablePhase !== true)
+      throw new Error('H&S Rollout current state or move authority invalid');
+    moveBasePower = rolloutMetadata.power * 2 ** timer * (a.hnsDefenseCurl ? 2 : 1);
+  }
   const gyroMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
   const gyroFamily = gyroMetadata?.fixedSingleHitGyroBall === true;
   if (gyroFamily || input.move?.hnsMoveEffect === 'EFFECT_GYRO_BALL' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_GYRO_BALL') {

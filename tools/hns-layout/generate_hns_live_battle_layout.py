@@ -60,6 +60,7 @@ BATTLE_MAIN_FUNC_GBA_ADDRESS = PHASE_EVIDENCE["gBattleMainFunc"]["address"]
 ACTION_SELECTION_FUNC_PTR = PHASE_EVIDENCE["functions"]["HandleTurnActionSelectionState"]["releaseAddress"] | 1
 RUN_TURN_ACTIONS_FUNC_PTR = PHASE_EVIDENCE["functions"]["RunTurnActionsFunctions"]["releaseAddress"] | 1
 TURN_ORDER_GLOBAL_ADDRESSES = {
+    "gLockedMoves": 0x02000378,
     "gProtectStructs": 0x020000B8,
     "gSideTimers": 0x02000258,
     "gBattlersCount": 0x020000B0,
@@ -179,6 +180,11 @@ def build_probe_c() -> str:
             "const unsigned long ddx_gimmick_count = GIMMICKS_COUNT;",
             "const unsigned long ddx_gimmick_dynamax = GIMMICK_DYNAMAX;",
             "const unsigned long ddx_num_stats = NUM_STATS;",
+            "const unsigned long ddx_locked_move_stride = sizeof(gLockedMoves[0]);",
+            "const struct Volatiles ddx_v_recharge_timer = { .rechargeTimer = ~0u };",
+            "const struct Volatiles ddx_v_rollout_timer = { .rolloutTimer = UINT8_MAX };",
+            "const struct Volatiles ddx_v_defense_curl = { .defenseCurl = 1 };",
+            "const struct Volatiles ddx_v_multiple_turns = { .multipleTurns = 1 };",
             "const struct Volatiles ddx_v_none = {0};",
             "const struct Volatiles ddx_v_neutralizing_gas = { .neutralizingGas = 1 };",
             "const struct Volatiles ddx_v_electrified = { .electrified = 1 };",
@@ -577,6 +583,13 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT {compiled['volatile_sword_of_ruin_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT {compiled['volatile_tablets_of_ruin_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT {compiled['volatile_beads_of_ruin_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_BIT {compiled['volatile_recharge_timer_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_WIDTH {compiled['volatile_recharge_timer_width']}",
+        f"#define HNS_LIVE_LOCKED_MOVE_STRIDE {compiled['locked_move_stride']}",
+        f"#define HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_BIT {compiled['volatile_rollout_timer_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_WIDTH {compiled['volatile_rollout_timer_width']}",
+        f"#define HNS_LIVE_BP_VOLATILE_DEFENSE_CURL_BIT {compiled['volatile_defense_curl_bit']}",
+        f"#define HNS_LIVE_BP_VOLATILE_MULTIPLE_TURNS_BIT {compiled['volatile_multiple_turns_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_HEAL_BLOCK_BIT {compiled['volatile_heal_block_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_EMBARGO_BIT {compiled['volatile_embargo_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_BIT {compiled['volatile_metronome_item_counter_bit']}",
@@ -671,6 +684,10 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         "HNS_LIVE_BP_VOLATILE_SWORD_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_TABLETS_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_BEADS_OF_RUIN_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_BIT + HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_WIDTH > 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_BIT + HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_WIDTH > 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_DEFENSE_CURL_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
+        "HNS_LIVE_BP_VOLATILE_MULTIPLE_TURNS_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_EMBARGO_BIT >= 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_BIT + HNS_LIVE_BP_VOLATILE_METRONOME_ITEM_COUNTER_WIDTH > 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES || "
         "HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_BIT + HNS_LIVE_BP_VOLATILE_TRANSFORMED_MON_SPECIES_WIDTH > 8 * HNS_LIVE_BP_VOLATILE_WINDOW_BYTES",
@@ -834,6 +851,8 @@ def main() -> None:
         if first_turn_width != 2:
             fail(f"BattlerState.isFirstTurn probe found width {first_turn_width}, expected 2")
         for field, probe in (
+            ("volatile_defense_curl_bit", "ddx_v_defense_curl"),
+            ("volatile_multiple_turns_bit", "ddx_v_multiple_turns"),
             ("volatile_flash_fire_boosted_bit", "ddx_v_flash_fire_boosted"),
             ("volatile_transformed_bit", "ddx_v_transformed"),
             ("volatile_booster_energy_activated_bit", "ddx_v_booster_energy_activated"),
@@ -843,6 +862,11 @@ def main() -> None:
             ("volatile_beads_of_ruin_bit", "ddx_v_beads_of_ruin"),
         ):
             compiled[field] = single_bit(blob, base_addr, syms, probe)
+        compiled["volatile_recharge_timer_bit"], compiled["volatile_recharge_timer_width"] = multi_bit(blob, base_addr, syms, "ddx_v_recharge_timer")
+        compiled["locked_move_stride"] = scalar(blob, base_addr, syms, "ddx_locked_move_stride")
+        if compiled["locked_move_stride"] != 2:
+            fail("gLockedMoves element width changed")
+        compiled["volatile_rollout_timer_bit"], compiled["volatile_rollout_timer_width"] = multi_bit(blob, base_addr, syms, "ddx_v_rollout_timer")
         slow_start_bit, slow_start_width = multi_bit(blob, base_addr, syms, "ddx_v_slow_start_timer")
         compiled["volatile_slow_start_timer_bit"] = slow_start_bit
         compiled["volatile_slow_start_timer_width"] = slow_start_width
@@ -864,6 +888,9 @@ def main() -> None:
         # `tarShot` (and any later damage-relevant volatile), so the window is derived from the
         # bit positions the reader actually consumes rather than hand-maintained.
         volatile_last_bits = [
+            compiled["volatile_recharge_timer_bit"] + compiled["volatile_recharge_timer_width"] - 1,
+            compiled["volatile_defense_curl_bit"], compiled["volatile_multiple_turns_bit"],
+            compiled["volatile_rollout_timer_bit"] + compiled["volatile_rollout_timer_width"] - 1,
             compiled["volatile_electrified_bit"],
             compiled["volatile_glaive_rush_bit"],
             compiled["volatile_minimize_bit"],
@@ -907,7 +934,7 @@ def main() -> None:
     generated = render_header(arm_gcc, compiled, pins, None)
     generated = generated.replace("#endif /* DUALDEX_HNS_LIVE_BATTLE_LAYOUT_GEN_H */", "".join(f"#define HNS_LIVE_{name} {value}\n" for name, value in semi_domain.items()) + "\n#endif /* DUALDEX_HNS_LIVE_BATTLE_LAYOUT_GEN_H */")
     out_path = Path(args.output) if args.output else (repo_root / OUTPUT_HEADER)
-    domains = {"NUM_STATS": compiled["num_stats"], "GIMMICKS_COUNT": compiled["gimmick_count"],
+    domains = {"RECHARGE_TIMER_MAX": (1 << compiled["volatile_recharge_timer_width"]) - 1, "RECHARGE_TIMER_WIDTH": compiled["volatile_recharge_timer_width"], "ROLLOUT_TIMER_MAX": (1 << compiled["volatile_rollout_timer_width"]) - 1, "ROLLOUT_TIMER_WIDTH": compiled["volatile_rollout_timer_width"], "NUM_STATS": compiled["num_stats"], "GIMMICKS_COUNT": compiled["gimmick_count"],
                "GIMMICK_DYNAMAX": compiled["gimmick_dynamax"],
                "METRONOME_ITEM_COUNTER_MAX": (1 << compiled["volatile_metronome_item_counter_width"]) - 1,
                "METRONOME_ITEM_COUNTER_WIDTH": compiled["volatile_metronome_item_counter_width"],

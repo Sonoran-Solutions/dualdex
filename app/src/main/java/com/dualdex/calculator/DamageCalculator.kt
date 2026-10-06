@@ -206,6 +206,14 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                     put("hnsGender", live.attackerGender.name)
                 }
                 live.attackerSideStatuses?.let { put("hnsSideStatuses", it) }
+                HnsRolloutAuthority.forRequest(request).operands?.let { state ->
+                    put("hnsRolloutTimer", state.timer)
+                    put("hnsRechargeTimer", state.rechargeTimer)
+                    put("hnsDefenseCurl", state.defenseCurl)
+                    put("hnsMultipleTurns", state.multipleTurns)
+                    put("hnsLockedMove", state.lockedMove)
+                    put("hnsRolloutStablePhase", true)
+                }
                 live.attackerSlowStartTimer?.let { put("hnsSlowStartTimer", it) }
                 live.attackerChargeTimer?.let { put("hnsChargeTimer", it) }
                 live.attackerFlashFireBoosted?.let { put("hnsFlashFireBoosted", it) }
@@ -426,6 +434,14 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_GYRO_BALL.name)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitElectroBallMoveIds)
                         put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ELECTRO_BALL.name)
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds) {
+                        put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ROLLOUT.name)
+                        put("hnsSourceType", "TYPE_${move.type.name}")
+                        put("hnsSourceCategory", "DAMAGE_CATEGORY_${move.category.name}")
+                        put("hnsSourceTarget", "TARGET_SELECTED")
+                        put("hnsSourcePriority", com.dualdex.pokemon.hns.Hns205MoveEffects.basePriorityById[moveId])
+                        put("hnsSourceStrikeCount", 1)
+                    }
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitBrineMoveIds) {
                         put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE.name)
                     }

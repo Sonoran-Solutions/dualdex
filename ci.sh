@@ -310,6 +310,12 @@ gradle_test() {
     *) echo "error: DUALDEX_CENSUS_FULL must be true or false" >&2; return 2 ;;
   esac
   ./gradlew testDebugUnitTest "${census_args[@]}"
+  if [[ "${DUALDEX_CENSUS_GENERATE:-false}" == "true" ]]; then
+    python3 tools/hns-calc-census/report_rollout_coverage.py
+  else
+    python3 tools/hns-calc-census/report_rollout_coverage.py --check
+  fi
+  python3 tools/hns-damage-oracle/report_rollout_evidence.py --check
 }
 
 # Explicit source validation against the pinned Heart & Soul 2.0.5 checkout.
@@ -514,6 +520,7 @@ source_check() {
     --upstream-dir "$upstream" --verify
   python3 tools/hns-move-mechanics/test_gyro_speed_contract.py --upstream-dir "$upstream"
   python3 tools/hns-move-mechanics/test_electro_speed_contract.py --upstream-dir "$upstream"
+  python3 tools/hns-move-mechanics/test_rollout_contract.py --upstream-dir "$upstream"
 
   # Reviewed per-hold-effect item capability decisions must cover the exact pinned item domain,
   # every pinned HOLD_EFFECT_* reference and every literal item-identity read; the generated

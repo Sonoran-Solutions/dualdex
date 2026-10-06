@@ -628,7 +628,8 @@ data class MovePresentation(
     val damageIgnoredMechanics: List<DamageBlockerPresentation> = emptyList(),
     /** Short human-readable reason shown after the generic unavailable label when available. */
     val damageUnavailableReason: String? = null,
-    val calculatorSupport: CalcSupport? = null
+    val calculatorSupport: CalcSupport? = null,
+    val variablePowerDescription: String? = null
 ) {
     val isStatMove: Boolean get() = category == MoveCategory.STATUS
     val hasDamage: Boolean get() = damageConfidence == DamageConfidence.VERIFIED && maxDamage > 0
@@ -650,7 +651,7 @@ data class MovePresentation(
         else -> "??/—"
     }
 
-    val powerDisplay: String get() = com.dualdex.pokemon.movePowerDisplay(moveId, basePower)
+    val powerDisplay: String get() = variablePowerDescription ?: com.dualdex.pokemon.movePowerDisplay(moveId, basePower)
     val accuracyDisplay: String get() = accuracy?.takeIf { it > 0 }?.let { "$it%" } ?: "—"
 
     val categoryDisplay: String get() = when (category) {
@@ -999,6 +1000,7 @@ object BattlePresentationBuilder {
             },
             category = category,
             basePower = if (moveKnown) resolvedMoveInfo.power else null,
+            variablePowerDescription = if (moveKnown) resolvedMoveInfo.variablePowerDescription else null,
             accuracy = if (moveKnown) resolvedMoveInfo.accuracy else null,
             maxPp = if (moveKnown) resolvedMoveInfo.pp else null,
             currentPp = currentPp,

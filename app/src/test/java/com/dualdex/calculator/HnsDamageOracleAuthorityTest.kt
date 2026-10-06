@@ -197,7 +197,7 @@ class HnsDamageOracleAuthorityTest {
             val sourceType = moveOverride.type
             val attackerAbilityId = observed.getJSONObject("attacker").getInt("abilityId")
             val flags = oMove.getJSONArray("flags").strings().toSet()
-            val expectedEffectiveType = when (attackerAbilityId) {
+            val expectedEffectiveType = if (observed.optJSONObject("rollout")?.getInt("electrified") == 1) "Electric" else when (attackerAbilityId) {
                 96 -> if (fixedSingleHitMove) "Normal" else sourceType
                 174 -> if (fixedSingleHitMove && sourceType == "Normal") "Ice" else sourceType
                 182 -> if (fixedSingleHitMove && sourceType == "Normal") "Fairy" else sourceType

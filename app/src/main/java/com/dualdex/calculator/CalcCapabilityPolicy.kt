@@ -1527,7 +1527,8 @@ object CalcCapabilityPolicy {
                     it.globalCategory == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
                         it.abilityId != null && it.abilityId >= 0 && it.abilityName.isNotBlank() &&
                         it.relevance == HnsAbilityRequestRelevance.RELEVANT &&
-                        !HnsDoublesAuthority.isExactPlusMinus(it)
+                        !HnsDoublesAuthority.isExactPlusMinus(it) &&
+                        !HnsAbilityContextPolicy.isExactHitEscapeLongReach(it)
                 }
                 .distinctBy { it.side to it.abilityId }
                 .mapTo(this) { IgnoredCalcMechanic.Ability(it) }
@@ -1925,6 +1926,13 @@ object CalcCapabilityPolicy {
                 else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
             }
         }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ESCAPE) {
+            when (request.hnsLiveBattleState?.defenderSemiInvulnerableState) {
+                0 -> Unit
+                null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
+                else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+            }
+        }
         if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ROLLOUT) {
             HnsRolloutAuthority.forRequest(request).limitation?.let(limitations::add)
             when (request.hnsLiveBattleState?.defenderSemiInvulnerableState) {
@@ -1955,7 +1963,8 @@ object CalcCapabilityPolicy {
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_STATUS_DOUBLE,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BRINE,
                 com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_GYRO_BALL,
-                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ELECTRO_BALL) &&
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ELECTRO_BALL,
+                com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ESCAPE) &&
                 (request.field.gameType != "Singles" || request.hnsLiveBattleState?.observedBattlersCount != 2))) {
             limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
         }
@@ -2216,6 +2225,7 @@ object CalcCapabilityPolicy {
             if (classification.category == com.dualdex.pokemon.hns.HnsAbilityCategory.UNSUPPORTED_DAMAGE_RELEVANT &&
                 decision.relevance != HnsAbilityRequestRelevance.PROVEN_IRRELEVANT &&
                 !HnsAbilityContextPolicy.isExactStatusDoubleComatose(decision) &&
+                !HnsAbilityContextPolicy.isExactHitEscapeLongReach(decision) &&
                 !(request.hnsLiveBattleState?.doubles != null &&
                     HnsDoublesAuthority.isExactPlusMinus(decision))
             ) {

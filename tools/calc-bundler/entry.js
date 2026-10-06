@@ -347,6 +347,7 @@ function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
   if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
+        input.move?.hnsMoveEffect === 'EFFECT_HIT_ESCAPE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ESCAPE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitEscape === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ROLLOUT' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ROLLOUT' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitRollout === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ELECTRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ELECTRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitElectroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_GYRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_GYRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitGyroBall === true ||
@@ -374,6 +375,22 @@ function hnsContactAuthority(move, attacker, input) {
 }
 
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
+  const escapeMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
+  const escapeFamily = escapeMetadata?.fixedSingleHitEscape === true;
+  if (escapeFamily || input.move?.hnsMoveEffect === 'EFFECT_HIT_ESCAPE' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ESCAPE') {
+    if (!escapeFamily || input.move.name?.toLowerCase() !== ({369: 'u-turn', 521: 'volt switch', 740: 'flip turn'})[input.move.hnsMoveId] ||
+        input.move.hnsMoveFamily !== 'FIXED_SINGLE_HIT_ESCAPE' ||
+        input.move.hnsMoveEffect !== escapeMetadata.effect || input.move.hnsFixedSingleHit !== true ||
+        input.move.hnsIsOrdinary !== false || move.bp !== escapeMetadata.power ||
+        input.move.hnsMakesContact !== escapeMetadata.makesContact || input.move.hnsUnknownContact !== false ||
+        input.move.hnsUnknownPunching !== false || input.move.hnsUnknownSheerForce !== false ||
+        input.move.hnsSheerForceAffected !== false ||
+        !Array.isArray(input.move.hnsMoveFlags) || input.move.hnsMoveFlags.length !== 0 ||
+        !Array.isArray(input.move.hnsMoveAbilityFlags) || input.move.hnsMoveAbilityFlags.length !== 0 ||
+        input.defender?.hnsSemiInvulnerableState !== 0 || input.defender?.hnsSubstitute !== false ||
+        normalizeGameType(field.gameType || input.field?.gameType) !== 'Singles')
+      throw new Error('H&S hit-escape requires pinned selected-hit metadata');
+  }
   const gameType = normalizeGameType(field.gameType || input.field?.gameType);
   const semiState = input.defender?.hnsSemiInvulnerableState;
   const underwaterFamily = input.move?.hnsIsUnderwater === true;

@@ -46,6 +46,9 @@ enum class HnsMoveMechanicsCategory {
     /** One selected hit from current live chain / Defense Curl operands. */
     FIXED_SINGLE_HIT_ROLLOUT,
 
+    /** Fixed selected hit; subsequent pivot is outside the damage result. */
+    FIXED_SINGLE_HIT_ESCAPE,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -73,7 +76,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT || this == FIXED_SINGLE_HIT_ESCAPE
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -250,6 +253,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_ROLLOUT",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ROLLOUT,
                 "Pinned Singles selected hit from authoritative current chain state.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitEscapeMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT_ESCAPE",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ESCAPE,
+                "Pinned fixed selected hit; later pivot handling does not change damage.")
         }
         val effect = Hns205MoveEffects.effectById[moveId]
         if (effect == null) {

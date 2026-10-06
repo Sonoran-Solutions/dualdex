@@ -71,6 +71,9 @@ SPECIES = {
 
 # label -> (planning type, planning per-move category, planning power)
 MOVES = {
+    "U-Turn": ("Bug", "physical", 70),
+    "Volt Switch": ("Electric", "special", 70),
+    "Flip Turn": ("Water", "physical", 60),
     "Rollout": ("Rock", "physical", 30),
     "Ice Ball": ("Ice", "physical", 30),
     "Brine": ("Water", "special", 65),
@@ -2638,12 +2641,48 @@ def _rollout():
     return out
 
 
+def _hit_escape():
+    out = []
+    def case(move, name, ability="Insomnia", defender_ability="Insomnia", item=None, species="Machamp", setup=None, expect="damage", **kw):
+        a = attacker(species, atk=151, spa=151, ability=(symbol("ABILITY",ability),ability), item=(symbol("ITEM",item),item) if item else None)
+        d = defender("Snorlax", dfn=109, spd=109, ability=(symbol("ABILITY",defender_ability),defender_ability))
+        out.append(scenario("hit-escape-"+slug(move)+"-"+name, ["move-coverage-slice-11"], a, d, move, expect=expect, **kw))
+        out[-1]["stateSetup"] = setup or {"capture":True}
+    for move in ("U-Turn","Volt Switch","Flip Turn"):
+        case(move,"neutral")
+        case(move,"opponent",side="opponent")
+        for ability in ("Technician","Tough Claws","Long Reach","Sheer Force","Normalize"):
+            case(move,slug(ability),ability=ability)
+        case(move,"fluffy",defender_ability="Fluffy")
+        case(move,"long-reach-fluffy",ability="Long Reach",defender_ability="Fluffy")
+        case(move,"stab",species={"U-Turn":"Heracross","Volt Switch":"Pikachu","Flip Turn":"Blastoise"}[move])
+        case(move,"adaptability",ability="Adaptability",species={"U-Turn":"Heracross","Volt Switch":"Pikachu","Flip Turn":"Blastoise"}[move])
+        case(move,"screen",**({"light_screen":True} if move=="Volt Switch" else {"reflect":True}))
+        case(move,"crit-screen",crit=True,**({"light_screen":True} if move=="Volt Switch" else {"reflect":True}))
+        case(move,"life-orb",item="Life Orb")
+        case(move,"type-item",item={"U-Turn":"Silver Powder","Volt Switch":"Magnet","Flip Turn":"Mystic Water"}[move])
+        stat,defstat=("spAttack","spDefense") if move=="Volt Switch" else ("attack","defense")
+        case(move,"rounding",ability="Tough Claws",item="Life Orb",setup={"attackerStatStages":{stat:1},"defenderStatStages":{defstat:1}},**({"light_screen":True} if move=="Volt Switch" else {"reflect":True}))
+        out[-1]["attacker"]["stats"][stat]=153
+        out[-1]["attacker"]["stages"][stat]=1
+        out[-1]["defender"]["stages"][defstat]=1
+    case("Volt Switch","charge",setup={"attacker":{"chargeTimer":1}})
+    case("Volt Switch","electric-terrain",terrain="electric")
+    case("Volt Switch","charge-terrain",terrain="electric",setup={"attacker":{"chargeTimer":1}})
+    for ability in ("Volt Absorb","Motor Drive","Lightning Rod"):
+        case("Volt Switch",slug(ability),defender_ability=ability,expect="immune")
+    case("Flip Turn","rain",weather="rain")
+    case("Flip Turn","sun",weather="sun")
+    case("Flip Turn","water-absorb",defender_ability="Water Absorb",expect="immune")
+    return out
+
+
 def build_scenarios() -> list[dict]:
     """The complete, deterministic scenario list (sorted by ID)."""
     groups = (_xref, _chart_mono, _chart_dual, _arithmetic, _min_damage, _crit, _stages, _burn,
               _weather, _screens, _pinch, _group_c_immunities, _wise_glasses, _badges, _attack_stat_abilities,
               _base_power_abilities, _low_state_stat_abilities, _rules, _final_modifiers_and_stab, _engine_abilities,
               _engine_items, _doubles, _authoritative_doubles, _mixed_rounding_attack_stat_abilities, _field_backed_stat_abilities,
-              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine, _gyro_ball, _electro_ball, _rollout)
+              _terrain_move_modifiers, _remaining_group_d, _state_backed_group_d, _group_d_held_items, _group_e_charge, _fixed_single_hit_recoil, _fixed_single_hit_drain, _fixed_single_hit_earthquake, _fixed_single_hit_explosion, _fixed_single_hit_underwater, _fixed_single_hit_status_double, _fixed_single_hit_brine, _gyro_ball, _electro_ball, _rollout, _hit_escape)
     scenarios = [s for group in groups for s in group()]
     return sorted(scenarios, key=lambda s: s["id"])

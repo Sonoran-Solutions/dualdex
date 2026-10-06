@@ -83,6 +83,11 @@ object HnsAbilityContextPolicy {
         18, 79, 112, 148, 198, 255, 281, 282, 293, 186, 187, 188, 284, 285, 286, 287
     )
 
+    fun isExactHitEscapeLongReach(decision: HnsAbilityRequestDecision): Boolean =
+        decision.abilityId == 203 && decision.side == HnsAbilitySide.ATTACKER &&
+            decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
+            decision.rule == "hit_escape_long_reach_contact"
+
     fun isExactStatusDoubleComatose(decision: HnsAbilityRequestDecision): Boolean =
         decision.abilityId == 213 && decision.side == HnsAbilitySide.DEFENDER &&
             decision.relevance == HnsAbilityRequestRelevance.RELEVANT &&
@@ -381,11 +386,12 @@ object HnsAbilityContextPolicy {
         val doublesExact = c.liveBattleState?.doubles != null && c.observedBattlersCount == 4 &&
             c.fixedSingleHitMove == true && abilityObserved(c)
         val proof: Proof? = when {
-            abilityId == 203 && c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds &&
+            abilityId == 203 && (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds ||
+                c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds) &&
                 c.fixedSingleHitMove == true && c.observedBattlersCount == 2 && abilityObserved(c) ->
-                if (side == HnsAbilitySide.ATTACKER) relevant("rollout_long_reach_contact", "src/battle_util.c:5880-5884",
+                if (side == HnsAbilitySide.ATTACKER) relevant(if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds) "hit_escape_long_reach_contact" else "rollout_long_reach_contact", "src/battle_util.c:5880-5884",
                     "The reviewed selected hit uses IsMoveMakingContact: effective attacker Long Reach clears contact before Tough Claws/Fluffy; subsequent contact reactions are outside this result.")
-                else proof("rollout_defender_long_reach", "src/battle_util.c:5880-5884",
+                else proof(if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds) "hit_escape_defender_long_reach" else "rollout_defender_long_reach", "src/battle_util.c:5880-5884",
                     "The contact predicate reads attacker ability; defender Long Reach cannot modify this selected hit.")
             c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitSpeedPowerMoveIds &&
                 abilityId in setOf(33, 34, 95, 100, 146, 202, 207, 259) ->
@@ -696,12 +702,16 @@ object HnsAbilityContextPolicy {
                     "technician_attacker_bp_at_most_60", "src/battle_util.c:6655",
                     if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds)
                         "The validated Rollout integer dynamic power is at most 60 before Technician."
+                    else if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds)
+                        "The pinned hit-escape hit preserves source power before Technician's <=60 check."
                     else "The pinned ordinary EFFECT_HIT path preserves source move power before Technician's <=60 check; this move receives the modeled 1.5 base-power modifier."
                 )
                 else -> proof(
                     "technician_attacker_bp_over_60", "src/battle_util.c:6655",
                     if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds)
                         "The validated Rollout integer dynamic power exceeds 60 before Technician."
+                    else if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds)
+                        "The authoritative hit-escape power exceeds 60 before Technician."
                     else "The authoritative ordinary move power entering the ability stage exceeds 60, so Technician does not modify this hit."
                 )
             }
@@ -1928,7 +1938,7 @@ object HnsAbilityContextPolicy {
             (relevance == HnsAbilityRequestRelevance.RELEVANT &&
                 disposition?.tier == com.dualdex.pokemon.hns.HnsGroupETier.HARD_REFUSAL &&
                 !(id in setOf(57, 58) && rule == "doubles_plus_minus_exact") &&
-                !(id == 203 && rule == "rollout_long_reach_contact") &&
+                !(id == 203 && rule in setOf("rollout_long_reach_contact", "hit_escape_long_reach_contact")) &&
                 !(id == 213 && rule == "status_double_comatose_sleep"))
         return HnsAbilityRequestDecision(id, name, side, category,
             if (refused) HnsAbilityRequestRelevance.UNKNOWN else relevance,

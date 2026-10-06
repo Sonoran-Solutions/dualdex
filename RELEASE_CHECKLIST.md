@@ -210,6 +210,8 @@ Before promoting a release candidate:
 - [ ] Stop relying on a new hard-coded native `gameId` for every ROM hack.
 - [ ] Separate **engine/layout profiles** from **individual ROM profiles**.
 
+> Tracked in [#8](https://github.com/Sonoran-Solutions/dualdex/issues/8). The concrete list of fields a profile-driven reader needs to cover the common hack families, plus the headless RAM-fixture capture tooling that verifies them without ROMs in CI, is in [#152](https://github.com/Sonoran-Solutions/dualdex/issues/152).
+
 #### Engine / Layout Profile
 
 Should define things such as:
@@ -273,7 +275,7 @@ Should define:
 - [ ] Wire the advertised X/Y shortcuts to their actual functions.
 - [ ] Wire the fast-forward shortcut to the emulator speed toggle.
 - [ ] Ensure shortcut buttons do not accidentally get passed to the GBA core when they are meant to trigger DualDex functions.
-- [ ] Add optional button remapping later if practical.
+- [ ] Add optional button remapping later if practical. Hotkey chords, analog L2/R2 as hold fast-forward / slow motion, and an AYN/Retroid A/B default are post-beta in [#153](https://github.com/Sonoran-Solutions/dualdex/issues/153).
 - [ ] Verify every controller feature advertised in README and Settings actually works.
 
 ## Phase 2 — Public Beta Infrastructure
@@ -420,8 +422,8 @@ Should define:
 - [ ] Show detected profile/compatibility state beside each ROM.
 - [ ] Show hack/version when known.
 - [ ] Optionally remember last-played date.
-- [ ] Consider optional recursive scanning for nested ROM folders.
-- [ ] Consider cover art much later; not needed for beta.
+- [ ] Consider optional recursive scanning for nested ROM folders ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] Consider cover art much later; not needed for beta ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
 
 ### Save UI
 
@@ -429,7 +431,7 @@ Should define:
 - [ ] Explain that save states may not remain compatible between emulator/core versions.
 - [ ] Add confirmation before overwriting save-state slots.
 - [ ] Separate automatic resume state from the user's manual quicksave so `onPause()` cannot overwrite an intentional quicksave.
-- [ ] Consider save-state screenshots later.
+- [ ] Consider save-state screenshots, ten slots and one-level undo later ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)). Note: the automatic resume state is currently written on pause but never loaded; see the same issue.
 
 ### About Page
 
@@ -594,18 +596,31 @@ Potential split:
 
 ## Phase 11 — Later Improvements
 
-These should **not delay the initial beta**.
+These should **not delay the initial beta**. Items with an issue number were scoped in the October 2026 PokeDaisey review (see the README's post-beta roadmap); the rest are still unscoped.
 
-- [ ] User-configurable controller bindings.
-- [ ] Automatic update checker for GitHub builds.
+- [ ] RetroAchievements with the full achievement experience on the companion screen ([#150](https://github.com/Sonoran-Solutions/dualdex/issues/150)).
+- [ ] Party tab drawn in the game's own party-menu style, H&S first ([#151](https://github.com/Sonoran-Solutions/dualdex/issues/151)); the Party gate for the Navigator shell ([#133](https://github.com/Sonoran-Solutions/dualdex/issues/133)).
+- [ ] Profile-driven native reader, headless fixture capture and transcribed hack address data to bootstrap new games ([#152](https://github.com/Sonoran-Solutions/dualdex/issues/152)).
+- [ ] Smart fast-forward that drops to 1× in menus and on the region map without a per-game table ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] User-configurable controller bindings, hotkey chords, analog-trigger fast-forward ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] On-screen touch controls shown only when no gamepad is attached ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] Automatic update checker for GitHub builds ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] Frontend launch intents for ES-DE, Cocoon, iiSU and Daijisho ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] Plain `.sav`/`.srm` save sharing with RetroArch and other emulators, with dated backups on save replacement ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153); coordinate with [#75](https://github.com/Sonoran-Solutions/dualdex/issues/75)).
+- [ ] Save-state screenshots, ten slots, one-level undo ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] Optional status bar above the game: location, money, clock, battery ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] Foe-team panel with the trainer's next pick ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153)).
+- [ ] Touch battle controls driven by `gBattlerControllerFuncs` state and normalise-then-walk input, no cursor reads ([#154](https://github.com/Sonoran-Solutions/dualdex/issues/154)).
+- [ ] Hint-first, spoiler-safe guide tab generated from decomp map data, with save-flag done-ticks ([#154](https://github.com/Sonoran-Solutions/dualdex/issues/154)); supersedes "better offline hack documentation".
+- [ ] Pokédex tab with seen/caught flags that honour the anti-cheat copies ([#154](https://github.com/Sonoran-Solutions/dualdex/issues/154)).
+- [ ] Expanded map support: the game's own region map, player marker and tap-to-name ([#154](https://github.com/Sonoran-Solutions/dualdex/issues/154)).
+- [ ] Bag tab and trainer-card data ([#154](https://github.com/Sonoran-Solutions/dualdex/issues/154)).
+- [ ] Normal-tempo music during fast-forward, pixel-exact trainer card, ROM-side telemetry struct, rewind, calculator-based switch suggestions ([#155](https://github.com/Sonoran-Solutions/dualdex/issues/155), research).
 - [ ] In-app compatibility database updates.
 - [ ] Downloadable ROM profiles without releasing a new APK.
 - [ ] Community-maintained profile repository.
-- [ ] Save-state screenshots.
 - [ ] Multiple save backup generations.
 - [ ] Cloud save support.
-- [ ] Better offline hack documentation.
-- [ ] Expanded map support.
 - [ ] Per-game companion customization.
 - [ ] More calculator mechanics for modern ROM hacks.
 - [ ] More emulator cores/systems only if the Pokémon companion concept eventually justifies it.

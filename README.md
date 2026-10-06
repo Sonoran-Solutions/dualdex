@@ -195,6 +195,17 @@ The immediate goal is a stable **AYN Thor GBA beta**, but new ROM support is del
 
 This ordering intentionally prevents a new ROM integration from distracting from the current hardening pass, while also using R.O.W.E. and Unbound to validate that DualDex's compatibility architecture can scale beyond H&S before the first wider beta.
 
+### Post-beta roadmap
+
+These are scoped and tracked as GitHub issues so they can start the moment the release candidate is cut. None of them are allowed to interrupt the pre-beta order above. They came out of an October 2026 review of [PokeDaisey](https://github.com/lidor30/pokedaisey), a comparable dual-screen GBA companion; that project is GPLv3 with an attribution clause, so DualDex re-implements the ideas and transcribes only factual data (addresses, struct offsets) with citation.
+
+- [#150](https://github.com/Sonoran-Solutions/dualdex/issues/150) **RetroAchievements.** The full achievement list, progress, rich presence and unlock popups live on the companion screen instead of covering the game. Hardcore mode has to disable state loading, cheats and interactive battle controls.
+- [#151](https://github.com/Sonoran-Solutions/dualdex/issues/151) **Party tab in the game's own party-menu style.** Slot frames, backdrop, status icons, mini sprites and small font drawn on the GBA pixel grid at an integer scale; Heart & Soul first because its pinned source already supplies every asset. This is the Party gate for the Navigator shell in [#133](https://github.com/Sonoran-Solutions/dualdex/issues/133).
+- [#152](https://github.com/Sonoran-Solutions/dualdex/issues/152) **Bootstrap additional games.** Make the profile JSON drive the native reader ([#8](https://github.com/Sonoran-Solutions/dualdex/issues/8)), add headless RAM-fixture capture tooling, and use transcribed address data as a head start for [#59](https://github.com/Sonoran-Solutions/dualdex/issues/59) and [#60](https://github.com/Sonoran-Solutions/dualdex/issues/60). Verification stays fixture-backed and exact-hash gated.
+- [#153](https://github.com/Sonoran-Solutions/dualdex/issues/153) **Quick wins.** Smart fast-forward, hotkey chords, touch overlay, auto-resume, save-state thumbnails and undo, status bar, frontend launch intents, save sharing with other emulators, a GitHub Releases updater, and a foe-team panel.
+- [#154](https://github.com/Sonoran-Solutions/dualdex/issues/154) **Medium-effort additions.** Touch battle controls without cursor reads, a hint-first spoiler-safe guide, a Pokédex tab, the game's own region map, pixel-style chrome, bag and trainer-card data.
+- [#155](https://github.com/Sonoran-Solutions/dualdex/issues/155) **Ambitious or research.** Normal-tempo music during fast-forward, a pixel-exact trainer card, a ROM-side telemetry struct, rewind, and calculator-based switch suggestions.
+
 - [Public beta release checklist](RELEASE_CHECKLIST.md)
 - [UI design audit](UI_DESIGN_AUDIT.md)
 - [Future platform roadmap](FUTURE_PLATFORM_ROADMAP.md)

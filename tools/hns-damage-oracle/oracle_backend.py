@@ -58,7 +58,7 @@ ITEM_RECORDS = {
 
 TOOL_DIR = Path(__file__).resolve().parent
 PATCH_DIR = TOOL_DIR / "patches"
-HARNESS_PATCHES = ("0001-test-runner-include-order.patch", "0002-pre-damage-state-hook.patch", "0003-immunity-observation-hook.patch", "0004-gyro-ball-observation.patch", "0005-quick-claw-rng-control.patch", "0006-electro-ball-observation.patch", "0007-rollout-observation.patch", "0008-rollout-lifecycle-observation.patch")
+HARNESS_PATCHES = ("0001-test-runner-include-order.patch", "0002-pre-damage-state-hook.patch", "0003-immunity-observation-hook.patch", "0004-gyro-ball-observation.patch", "0005-quick-claw-rng-control.patch", "0006-electro-ball-observation.patch", "0007-rollout-observation.patch", "0008-rollout-lifecycle-observation.patch", "0009-hit-escape-observation.patch")
 TEST_SUBDIR = "test/dualdex_oracle"
 TEST_PREFIX = "DDXO "
 SCENARIOS_PER_FILE = 100
@@ -604,7 +604,7 @@ def render_scenario(s: dict) -> str:
     lines.append(ind + "gDdxoBeforeAbilityPopup = NULL;")
     proc = (state_setup.get("gyroSpeed") or {}).get("quickClawProc")
     lines.append(ind + f"gDdxoQuickClawMode = {0 if proc is None else 1 + int(proc)};")
-    if any(t in s["tags"] for t in ("move-coverage-slice-7", "move-coverage-slice-8", "move-coverage-slice-9", "move-coverage-slice-10")) and s["expect"] == "immune":
+    if any(t in s["tags"] for t in ("move-coverage-slice-7", "move-coverage-slice-8", "move-coverage-slice-9", "move-coverage-slice-10", "move-coverage-slice-11")) and s["expect"] == "immune":
         lines.append(ind + f"gDdxoBeforeAbilityPopup = {callback_name};")
     lines.append("    } WHEN {")
     for turn in turns:
@@ -791,7 +791,7 @@ def _is_spread_capable(s: dict) -> bool:
                                   "Earthquake", "Surf", "Petal Blizzard"}
 
 
-EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi", "execution-explosion", "execution-underwater", "execution-whirlpool-wrap", "execution-status-removal", "execution-status-secondary", "execution-rollout-chain", "execution-rollout-protect", "execution-rollout-inability", "execution-rollout-switch", "execution-rollout-unaffected", "execution-rollout-faint")
+EXECUTION_NAMES = ("execution-heal-block", "execution-triage", "execution-earthquake-semi", "execution-explosion", "execution-underwater", "execution-whirlpool-wrap", "execution-status-removal", "execution-status-secondary", "execution-rollout-chain", "execution-rollout-protect", "execution-rollout-inability", "execution-rollout-switch", "execution-rollout-unaffected", "execution-rollout-faint", "execution-hit-escape-success", "execution-hit-escape-faint", "execution-hit-escape-failed")
 EXECUTION_SOURCE = r'''#include "global.h"
 #include "test/battle.h"
 #include "battle.h"
@@ -1243,6 +1243,106 @@ SINGLE_BATTLE_TEST("DDXO execution-rollout-unaffected")
 }
 """
 
+HIT_ESCAPE_EXECUTION_SOURCE = r"""
+extern void (*gDdxoHitEscapeBeforePivot)(void);
+extern void (*gDdxoHitEscapeCalculated)(s32 damage);
+static s32 sHitEscapeComputed;
+static void DdxoHitEscapeCalculated(s32 damage) { sHitEscapeComputed=damage; }
+static s32 sHitEscapeDamage;
+static u32 sHitEscapeHp, sHitEscapeParty, sHitEscapeCalls;
+static void DdxoBeforePivot(void)
+{
+    sHitEscapeCalls++;
+    sHitEscapeDamage=gBattleStruct->moveDamage[gBattlerTarget];
+    sHitEscapeHp=gBattleMons[gBattlerTarget].hp;
+    sHitEscapeParty=gBattlerPartyIndexes[gBattlerAttacker];
+}
+SINGLE_BATTLE_TEST("DDXO execution-hit-escape-success", s16 damage)
+{
+    u32 move; u32 bench; u32 replacement;
+    PARAMETRIZE { move=MOVE_U_TURN; bench=0; replacement=SPECIES_MACHAMP; }
+    PARAMETRIZE { move=MOVE_U_TURN; bench=1; replacement=SPECIES_MACHAMP; }
+    PARAMETRIZE { move=MOVE_U_TURN; bench=1; replacement=SPECIES_BLASTOISE; }
+    PARAMETRIZE { move=MOVE_VOLT_SWITCH; bench=0; replacement=SPECIES_MACHAMP; }
+    PARAMETRIZE { move=MOVE_VOLT_SWITCH; bench=1; replacement=SPECIES_MACHAMP; }
+    PARAMETRIZE { move=MOVE_VOLT_SWITCH; bench=1; replacement=SPECIES_BLASTOISE; }
+    PARAMETRIZE { move=MOVE_FLIP_TURN; bench=0; replacement=SPECIES_MACHAMP; }
+    PARAMETRIZE { move=MOVE_FLIP_TURN; bench=1; replacement=SPECIES_MACHAMP; }
+    PARAMETRIZE { move=MOVE_FLIP_TURN; bench=1; replacement=SPECIES_BLASTOISE; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_INSOMNIA); Attack(151); SpAttack(151); Level(50);  Speed(200); }
+        if (bench) PLAYER(replacement) { Ability(ABILITY_DRIZZLE); Speed(200); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); Defense(109); SpDefense(109); HP(60000); MaxHP(60000);  Speed(100); }
+        gDdxoBeforeCriticalHit=NULL; gDdxoBeforeAbilityPopup=NULL;
+        sHitEscapeCalls=0; sHitEscapeComputed=-1; gDdxoHitEscapeCalculated=DdxoHitEscapeCalculated; gDdxoHitEscapeBeforePivot=DdxoBeforePivot;
+    } WHEN {
+        TURN { MOVE(player,move,hit:TRUE,criticalHit:FALSE,WITH_RNG(RNG_DAMAGE_MODIFIER,0)); if (bench) SEND_OUT(player,1); }
+    } SCENE {
+        HP_BAR(opponent,captureDamage:&results[i].damage);
+        if (bench) ABILITY_POPUP(player,ABILITY_DRIZZLE);
+    } THEN {
+        EXPECT_EQ(gBattleMons[1].hp,60000-results[i].damage);
+        EXPECT_EQ(gBattlerPartyIndexes[0],bench);
+        EXPECT_EQ(sHitEscapeCalls,1); EXPECT_EQ(sHitEscapeParty,0);
+        EXPECT_EQ(sHitEscapeHp,60000-results[i].damage);
+        DebugPrintf("DDXH|success|%u|%u|%u|%d|%ld|%u|%u|%ld\n",move,bench,replacement,results[i].damage,sHitEscapeDamage,sHitEscapeHp,sHitEscapeParty,sHitEscapeComputed);
+        gDdxoHitEscapeBeforePivot=NULL; gDdxoHitEscapeCalculated=NULL;
+        if (i % 3) EXPECT_EQ(results[i].damage,results[i-i%3].damage);
+    }
+}
+SINGLE_BATTLE_TEST("DDXO execution-hit-escape-faint", s16 damage)
+{
+    u32 move;
+    PARAMETRIZE { move=MOVE_U_TURN; }
+    PARAMETRIZE { move=MOVE_VOLT_SWITCH; }
+    PARAMETRIZE { move=MOVE_FLIP_TURN; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_INSOMNIA); Attack(151); SpAttack(151); Level(50); Speed(200); }
+        PLAYER(SPECIES_BLASTOISE) { Ability(ABILITY_DRIZZLE); Speed(200); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); Defense(109); SpDefense(109); HP(1); MaxHP(60000); Speed(100); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(ABILITY_INSOMNIA); HP(60000); MaxHP(60000); Speed(100); }
+        gDdxoBeforeCriticalHit=NULL; gDdxoBeforeAbilityPopup=NULL;
+        sHitEscapeCalls=0; sHitEscapeComputed=-1; gDdxoHitEscapeCalculated=DdxoHitEscapeCalculated; gDdxoHitEscapeBeforePivot=DdxoBeforePivot;
+    } WHEN {
+        TURN { MOVE(player,move,hit:TRUE,criticalHit:FALSE,WITH_RNG(RNG_DAMAGE_MODIFIER,0)); SEND_OUT(player,1); SEND_OUT(opponent,1); }
+    } SCENE {
+        HP_BAR(opponent,captureDamage:&results[i].damage);
+        ABILITY_POPUP(player,ABILITY_DRIZZLE);
+    } THEN {
+        EXPECT_EQ(gBattlerPartyIndexes[0],1);
+        EXPECT_EQ(gBattlerPartyIndexes[1],1);
+        EXPECT_EQ(sHitEscapeCalls,1); EXPECT_EQ(sHitEscapeParty,0); EXPECT_EQ(sHitEscapeHp,0);
+        DebugPrintf("DDXH|faint|%u|%d|%ld|%u|%u|%ld\n",move,results[i].damage,sHitEscapeDamage,sHitEscapeHp,sHitEscapeParty,sHitEscapeComputed);
+        gDdxoHitEscapeBeforePivot=NULL; gDdxoHitEscapeCalculated=NULL;
+    }
+}
+SINGLE_BATTLE_TEST("DDXO execution-hit-escape-failed")
+{
+    u32 move; u32 path;
+    PARAMETRIZE { move=MOVE_U_TURN; path=0; }
+    PARAMETRIZE { move=MOVE_U_TURN; path=1; }
+    PARAMETRIZE { move=MOVE_VOLT_SWITCH; path=0; }
+    PARAMETRIZE { move=MOVE_VOLT_SWITCH; path=1; }
+    PARAMETRIZE { move=MOVE_VOLT_SWITCH; path=2; }
+    PARAMETRIZE { move=MOVE_FLIP_TURN; path=0; }
+    PARAMETRIZE { move=MOVE_FLIP_TURN; path=1; }
+    PARAMETRIZE { move=MOVE_FLIP_TURN; path=2; }
+    GIVEN {
+        PLAYER(SPECIES_MACHAMP) { Ability(ABILITY_INSOMNIA);  Speed(200); }
+        PLAYER(SPECIES_BLASTOISE) { Ability(ABILITY_DRIZZLE); Speed(200); }
+        OPPONENT(SPECIES_SNORLAX) { Ability(path==2 ? (move==MOVE_VOLT_SWITCH ? ABILITY_VOLT_ABSORB : ABILITY_WATER_ABSORB) : ABILITY_INSOMNIA); HP(60000); MaxHP(60000);  Speed(100); }
+        gDdxoBeforeCriticalHit=NULL; gDdxoBeforeAbilityPopup=NULL;
+        sHitEscapeCalls=0; sHitEscapeComputed=-1; gDdxoHitEscapeCalculated=DdxoHitEscapeCalculated; gDdxoHitEscapeBeforePivot=DdxoBeforePivot;
+    } WHEN {
+        if (path==0) TURN { MOVE(opponent,MOVE_DOUBLE_TEAM); MOVE(player,MOVE_CELEBRATE); }
+        TURN { if (path==1) MOVE(opponent,MOVE_PROTECT); MOVE(player,move,hit:path!=0); }
+    } SCENE {
+        NONE_OF { HP_BAR(opponent); ABILITY_POPUP(player,ABILITY_DRIZZLE); }
+    } THEN { EXPECT_EQ(gBattlerPartyIndexes[0],0); EXPECT_EQ(gBattleMons[1].hp,60000); gDdxoHitEscapeBeforePivot=NULL; gDdxoHitEscapeCalculated=NULL; }
+}
+"""
+
+
 def render_sources(scenarios: list[dict]) -> dict[str, str]:
     """Generated C sources, keyed by path relative to the pinned tree root. Deterministic."""
     type_table = "\n".join(f'    [{C_TYPE_TABLE[n]}] = "{n}",' for n in TYPE_NAMES)
@@ -1252,7 +1352,7 @@ def render_sources(scenarios: list[dict]) -> dict[str, str]:
         chunk = scenarios[index:index + SCENARIOS_PER_FILE]
         name = f"{TEST_SUBDIR}/oracle_{index // SCENARIOS_PER_FILE:03d}.c"
         files[name] = prelude + "\n" + "\n".join(render_scenario(s) for s in chunk)
-    files[f"{TEST_SUBDIR}/execution.c"] = EXECUTION_SOURCE + ROLLOUT_EXECUTION_SOURCE
+    files[f"{TEST_SUBDIR}/execution.c"] = EXECUTION_SOURCE + ROLLOUT_EXECUTION_SOURCE + HIT_ESCAPE_EXECUTION_SOURCE
     return files
 
 
@@ -1744,7 +1844,7 @@ def verify_upstream(upstream: Path) -> None:
 def _apply_patch(work: Path, patch: Path) -> None:
     text = patch.read_text()
     targets = re.findall(r"^\+\+\+ b/(\S+)", text, re.M)
-    if not targets or any(not t.startswith("test/") and not (patch.name in ("0004-gyro-ball-observation.patch", "0006-electro-ball-observation.patch", "0007-rollout-observation.patch") and t == "src/battle_util.c") and not (patch.name == "0008-rollout-lifecycle-observation.patch" and t == "src/battle_move_resolution.c") for t in targets):
+    if not targets or any(not t.startswith("test/") and not (patch.name in ("0004-gyro-ball-observation.patch", "0006-electro-ball-observation.patch", "0007-rollout-observation.patch") and t == "src/battle_util.c") and not (patch.name in ("0008-rollout-lifecycle-observation.patch", "0009-hit-escape-observation.patch") and t == "src/battle_move_resolution.c") and not (patch.name == "0009-hit-escape-observation.patch" and t == "src/battle_script_commands.c") for t in targets):
         raise OracleError(f"{patch.name} must only touch the upstream test harness, touches {targets}")
     _run(["patch", "-p1", "--forward", "--batch", "-i", str(patch)], cwd=work)
 

@@ -652,6 +652,37 @@ def verify_gyro_speed_contract(upstream_dir):
     if not re.search(r"\.holdEffect\s*=\s*HOLD_EFFECT_POWER_ITEM", anklet) or not re.search(r"\.secondaryId\s*=\s*STAT_SPEED", anklet):
         raise ValueError("Changed representative Power Item")
 
+
+def verify_hit_escape_contract(upstream_dir):
+    # Shared pinned files contain damage, contact, Technician and the later pivot path.
+    for path in ("src/battle_util.c", "src/battle_move_resolution.c", "src/battle_script_commands.c",
+                 "data/battle_scripts_1.s", "src/data/battle_move_effects.h",
+                 "include/constants/battle_move_effects.h"):
+        if hashlib.sha256(open(os.path.join(upstream_dir, path), "rb").read()).hexdigest() != ROLLOUT_SOURCE_CONTRACTS[path]:
+            raise ValueError("Changed hit-escape selected-hit/pivot contract: " + path)
+
+
+def parse_hit_escape_metadata(text, ids):
+    """Only the three reviewed fixed hits; switching is a later move-end effect."""
+    entries = {symbol: "\n".join(body) for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines()))}
+    contracts = {'MOVE_U_TURN': '10b3918ebc129c62ef1c0638f7712d83b22926b3fcbac7e4cae54f18a2bd04b0', 'MOVE_VOLT_SWITCH': '8509eab2cc078ec09ff1edb0cbbc264bc72b79d986912a1113a2f6ecd322def1', 'MOVE_FLIP_TURN': '127a89e448b5df34beeb1246b6c7a90b6f930d2e8e4503e68037fa013ea776a2'}
+    _, _, sheer, unknown = parse_contact_and_sheer_force(text)
+    result = {}
+    for symbol, move_id in (("MOVE_U_TURN",369), ("MOVE_VOLT_SWITCH",521), ("MOVE_FLIP_TURN",740)):
+        body = entries.get(symbol, "")
+        if ids.get(symbol) != move_id or hashlib.sha256(re.sub(r"\s+", "", body).encode()).hexdigest() != contracts[symbol]:
+            raise ValueError("Changed hit-escape MoveInfo: " + symbol)
+        if symbol in unknown or sheer.get(symbol) is not False:
+            raise ValueError("Changed hit-escape Sheer Force: " + symbol)
+        def field(name):
+            return re.search(r"\." + name + r"\s*=\s*([^,\n}]+)", body).group(1).strip()
+        result[move_id] = dict(fixedSingleHitEscape=True, effect=field("effect"), power=int(field("power")),
+            type=field("type"), category=field("category"), accuracy=int(field("accuracy")), pp=int(field("pp")),
+            target=field("target"), priority=int(field("priority")), strikeCount=1, multiHit=False,
+            makesContact=move_id != 521, punchingMove=False, sheerForceAffected=False,
+            additionalEffects=[], preAttackEffects=[], abilityFlags=[], immunityFlags=[])
+    return result
+
 def parse_brine_metadata(text, ids):
     """Freeze the entire reviewed MoveInfo; omitted damage flags are source zeroes."""
     if ids.get("MOVE_BRINE") != 362:
@@ -1089,6 +1120,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    val explosionPowerById: Map<Int, Int> = mapOf(" + ", ".join(f"{i} to {v}" for i, v in sorted((explosion_powers or {}).items())) + ")")
     lines.append("    val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitGyroBall")))) + ")")
     lines.append("    val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitElectroBall")))) + ")")
+    lines.append("    val fixedSingleHitEscapeMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitEscape")))) + ")")
     lines.append("    val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitRollout")))) + ")")
     lines.append("    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds")
     lines.append("    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds")
@@ -1255,6 +1287,8 @@ def main():
     dynamic_power = parse_gyro_metadata(move_text, ids)
     dynamic_power.update(parse_electro_metadata(move_text, ids))
     dynamic_power.update(parse_rollout_metadata(move_text, ids))
+    dynamic_power.update(parse_hit_escape_metadata(move_text, ids))
+    verify_hit_escape_contract(upstream_dir)
     verify_rollout_contract(upstream_dir)
     effects_header = open(os.path.join(upstream_dir, "include/constants/battle_move_effects.h")).read()
     effect_names = re.findall(r"^\s*(EFFECT_[A-Z0-9_]+)\s*,", effects_header, re.M)

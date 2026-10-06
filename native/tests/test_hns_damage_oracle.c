@@ -557,6 +557,8 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         if (strcmp(jl_str(jl_get(scen, "expect")), "immune") && (!jl_is_num(hp) || jl_num(hp) != 0)) return set_err(err, "explosion damage-time HP missing");
         sb_append(sb, ",\"hnsExplosionUserHpAtDamage\":0");
     }
+    const int hit_escape = !strcmp(source_effect, "EFFECT_HIT_ESCAPE");
+    if (hit_escape) sb_append(sb, ",\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_ESCAPE\"");
     const int rollout = !strcmp(source_effect, "EFFECT_ROLLOUT");
     if (rollout) sb_append(sb, ",\"hnsMoveFamily\":\"FIXED_SINGLE_HIT_ROLLOUT\",\"hnsSourceType\":\"%s\",\"hnsSourceCategory\":\"DAMAGE_CATEGORY_PHYSICAL\",\"hnsSourceTarget\":\"TARGET_SELECTED\",\"hnsSourcePriority\":0,\"hnsSourceStrikeCount\":1",
         jl_num(jl_get(o_move,"id")) == 205 ? "TYPE_ROCK" : "TYPE_ICE");
@@ -581,7 +583,7 @@ static int build_request(const jl_value* entry, sbuf* sb, err_t* err) {
         earthquake ? "true" : "false", jl_num(jl_get(o_move, "id")) == 89 ? "true" : "false");
     sb_append(sb, ",\"hnsIsOrdinary\":%s,\"hnsFixedSingleHit\":%s,\"hnsIsDrain\":%s,\"hnsMakesContact\":",
               jl_bool(ordinary) ? "true" : "false",
-              (rollout || electro || gyro || brine || status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
+              (hit_escape || rollout || electro || gyro || brine || status_double || underwater || explosion || earthquake || jl_bool(ordinary) || !strcmp(source_effect, "EFFECT_RECOIL") || !strcmp(source_effect, "EFFECT_ABSORB")) ? "true" : "false",
               !strcmp(source_effect, "EFFECT_ABSORB") ? "true" : "false");
     if (jl_is_bool(makes_contact)) sb_append(sb, "%s", jl_bool(makes_contact) ? "true" : "false");
     else sb_append(sb, "null");

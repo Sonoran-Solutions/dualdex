@@ -1,0 +1,41 @@
+--- a/src/battle_move_resolution.c
++++ b/src/battle_move_resolution.c
+@@ -3454,9 +3454,16 @@
+     return result;
+ }
+ 
++#if TESTING
++void (*gDdxoHitEscapeBeforePivot)(void);
++#endif
+ static enum MoveEndResult MoveEndHitEscape(void)
+ {
+     enum MoveEndResult result = MOVEEND_RESULT_CONTINUE;
++#if TESTING
++    if (GetMoveEffect(gCurrentMove) == EFFECT_HIT_ESCAPE && gDdxoHitEscapeBeforePivot != NULL)
++        gDdxoHitEscapeBeforePivot();
++#endif
+ 
+     if (GetMoveEffect(gCurrentMove) == EFFECT_HIT_ESCAPE
+      && !gBattleStruct->unableToUseMove
+--- a/src/battle_script_commands.c
++++ b/src/battle_script_commands.c
+@@ -1280,12 +1280,19 @@
+     gBattlescriptCurrInstr = cmd->nextInstr;
+ }
+ 
++#if TESTING
++void (*gDdxoHitEscapeCalculated)(s32 damage);
++#endif
+ static inline void CalculateAndSetMoveDamage(struct BattleContext *ctx)
+ {
+     SetDynamicMoveCategory(gBattlerAttacker, ctx->battlerDef, gCurrentMove);
+     ctx->isCrit = gSpecialStatuses[ctx->battlerDef].criticalHit;
+     ctx->fixedBasePower = 0;
+     gBattleStruct->moveDamage[ctx->battlerDef] = CalculateMoveDamage(ctx);
++#if TESTING
++    if (GetMoveEffect(gCurrentMove) == EFFECT_HIT_ESCAPE && gDdxoHitEscapeCalculated != NULL)
++        gDdxoHitEscapeCalculated(gBattleStruct->moveDamage[ctx->battlerDef]);
++#endif
+ 
+     // Slighly hacky but we need to check move result flags for distortion match-up as well but it can only be done after damage calcs
+     if (gSpecialStatuses[ctx->battlerDef].distortedTypeMatchups && IsBattlerUnaffectedByMove(ctx->battlerDef))

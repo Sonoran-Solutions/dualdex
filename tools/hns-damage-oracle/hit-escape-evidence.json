@@ -1,0 +1,212 @@
+{
+  "engineOnly": 124,
+  "execution": {
+    "faint": [
+      [
+        369,
+        1,
+        1,
+        0,
+        0,
+        44
+      ],
+      [
+        521,
+        1,
+        1,
+        0,
+        0,
+        44
+      ],
+      [
+        740,
+        1,
+        1,
+        0,
+        0,
+        38
+      ]
+    ],
+    "proofs": [
+      "execution-hit-escape-success",
+      "execution-hit-escape-faint",
+      "execution-hit-escape-failed"
+    ],
+    "success": [
+      [
+        369,
+        0,
+        68,
+        44,
+        44,
+        59956,
+        0,
+        44
+      ],
+      [
+        369,
+        1,
+        68,
+        44,
+        44,
+        59956,
+        0,
+        44
+      ],
+      [
+        369,
+        1,
+        9,
+        44,
+        44,
+        59956,
+        0,
+        44
+      ],
+      [
+        521,
+        0,
+        68,
+        44,
+        44,
+        59956,
+        0,
+        44
+      ],
+      [
+        521,
+        1,
+        68,
+        44,
+        44,
+        59956,
+        0,
+        44
+      ],
+      [
+        521,
+        1,
+        9,
+        44,
+        44,
+        59956,
+        0,
+        44
+      ],
+      [
+        740,
+        0,
+        68,
+        38,
+        38,
+        59962,
+        0,
+        38
+      ],
+      [
+        740,
+        1,
+        68,
+        38,
+        38,
+        59962,
+        0,
+        38
+      ],
+      [
+        740,
+        1,
+        9,
+        38,
+        38,
+        59962,
+        0,
+        38
+      ]
+    ]
+  },
+  "executionSourceSha256": "6aee5f3f849c3f36c04cd68a6e2e8a659e61d6371ac0a1ca621cadbb52fd3c7c",
+  "hardware": "NOT_RUN",
+  "historicalCount": 2466,
+  "historicalEntryLinesSha256": "1f4441f9a3ea596f99ada657067f8a90b01fbc5358f8ea2c56e550e9adf1cfe4",
+  "historicalObjectsAndCanonicalLinesUnchanged": true,
+  "modelled": 2399,
+  "negativeControlVerified": true,
+  "newEngineOnly": 0,
+  "newModelled": 57,
+  "newScenarios": 57,
+  "pinnedCommit": "1f42b74dff0e9fe942419845d040663dd829a973",
+  "pinnedMoveMetadata": {
+    "369": {
+      "abilityFlags": [],
+      "accuracy": 100,
+      "additionalEffects": [],
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "effect": "EFFECT_HIT_ESCAPE",
+      "fixedSingleHitEscape": true,
+      "immunityFlags": [],
+      "makesContact": true,
+      "multiHit": false,
+      "ordinary": false,
+      "power": 70,
+      "pp": 20,
+      "preAttackEffects": [],
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": false,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_BUG"
+    },
+    "521": {
+      "abilityFlags": [],
+      "accuracy": 100,
+      "additionalEffects": [],
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "effect": "EFFECT_HIT_ESCAPE",
+      "fixedSingleHitEscape": true,
+      "immunityFlags": [],
+      "makesContact": false,
+      "multiHit": false,
+      "ordinary": false,
+      "power": 70,
+      "pp": 20,
+      "preAttackEffects": [],
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": false,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_ELECTRIC"
+    },
+    "740": {
+      "abilityFlags": [],
+      "accuracy": 100,
+      "additionalEffects": [],
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "effect": "EFFECT_HIT_ESCAPE",
+      "fixedSingleHitEscape": true,
+      "immunityFlags": [],
+      "makesContact": true,
+      "multiHit": false,
+      "ordinary": false,
+      "power": 60,
+      "pp": 20,
+      "preAttackEffects": [],
+      "priority": 0,
+      "punchingMove": false,
+      "sheerForceAffected": false,
+      "strikeCount": 1,
+      "target": "TARGET_SELECTED",
+      "type": "TYPE_WATER"
+    }
+  },
+  "registeredDivergences": 0,
+  "reversedReplay": {
+    "byteIdentical": true,
+    "corpusSha256": "9f38413dd64ce0f73162f84db1f7f3cd7d84a6bf74bb38d09fb5b336947e1580",
+    "entries": 2523
+  },
+  "startingSha": "27205d4a1f84521c55e038dbe3ca0db8d0657ea6",
+  "total": 2523
+}

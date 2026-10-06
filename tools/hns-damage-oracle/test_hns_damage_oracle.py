@@ -748,7 +748,13 @@ class HarnessGuardTest(unittest.TestCase):
                 self.assertIn("#if TESTING", added)
                 self.assertIn("return CalcMoveBasePower(&ctx);", added)
                 self.assertNotIn("gBattleMons[", added)
-            self.assertEqual(targets, [expected])
+            if name.startswith("0009"):
+                added = "\n".join(line[1:] for line in text.splitlines() if line.startswith("+") and not line.startswith("+++"))
+                self.assertEqual(added.count("#if TESTING"), 4)
+                self.assertNotRegex(added, r"(?<![=!<>])=(?!=)")
+                self.assertNotIn("CalculateMoveDamage(", added)
+                self.assertNotIn("BattleScriptCall(", added)
+            self.assertEqual(targets, ["src/battle_move_resolution.c", "src/battle_script_commands.c"] if name.startswith("0009") else [expected])
 
     def test_export_replaces_a_modified_cached_source_tree(self):
         with tempfile.TemporaryDirectory() as tmp:

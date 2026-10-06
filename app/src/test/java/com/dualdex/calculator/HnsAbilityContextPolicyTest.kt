@@ -12,7 +12,7 @@ import org.junit.Test
 class HnsAbilityContextPolicyTest {
     private fun context(
         side: HnsAbilitySide = HnsAbilitySide.ATTACKER,
-        fixedSingleHitMove: Boolean? = true,
+        selectedStrikeModelled: Boolean? = true,
         isCrit: Boolean? = false,
         attackerAbilityId: Int? = 0,
         moveType: PokemonType? = PokemonType.NORMAL,
@@ -55,7 +55,7 @@ class HnsAbilityContextPolicyTest {
         liveBattleState: CalcHnsLiveBattleState? = null
     ) = HnsAbilityContextPolicy.Context(
         side = side,
-        fixedSingleHitMove = fixedSingleHitMove,
+        selectedStrikeModelled = selectedStrikeModelled,
         isCrit = isCrit,
         attackerAbilityId = attackerAbilityId,
         moveType = moveType,
@@ -269,7 +269,7 @@ class HnsAbilityContextPolicyTest {
             bp(85, context(side = HnsAbilitySide.DEFENDER, moveType = PokemonType.FIRE,
                 moveAuthority = HnsMoveAuthority.NONE)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            bp(85, context(side = HnsAbilitySide.DEFENDER, fixedSingleHitMove = false,
+            bp(85, context(side = HnsAbilitySide.DEFENDER, selectedStrikeModelled = false,
                 moveType = PokemonType.FIRE)))
         assertEquals(HnsAbilityRequestRelevance.RELEVANT,
             bp(200, context(moveType = PokemonType.STEEL)))
@@ -326,7 +326,7 @@ class HnsAbilityContextPolicyTest {
             punk(HnsAbilitySide.ATTACKER, false,
                 contextMoveAuthority(PokemonType.NORMAL, soundMove = true)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(244, context(fixedSingleHitMove = false, soundMove = true)))
+            relevance(244, context(selectedStrikeModelled = false, soundMove = true)))
     }
 
     @Test
@@ -745,11 +745,11 @@ class HnsAbilityContextPolicyTest {
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(3, context(attackerAbilityObserved = false)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(3, context(fixedSingleHitMove = false, switchInEventsSettled = false)))
+            relevance(3, context(selectedStrikeModelled = false, switchInEventsSettled = false)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(3, context(switchInEventsSettled = false)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(3, context(side = HnsAbilitySide.DEFENDER, fixedSingleHitMove = false,
+            relevance(3, context(side = HnsAbilitySide.DEFENDER, selectedStrikeModelled = false,
                 attackerAbilityId = 148, switchInEventsSettled = false)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(22, context(switchInEventsSettled = false)))
@@ -830,7 +830,7 @@ class HnsAbilityContextPolicyTest {
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(36, context(attackerAbilityObserved = false)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(222, context(fixedSingleHitMove = null)))
+            relevance(222, context(selectedStrikeModelled = null)))
     }
 
     @Test
@@ -881,7 +881,7 @@ class HnsAbilityContextPolicyTest {
             assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
                 relevance(id, context()))
             assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
-                relevance(id, context(fixedSingleHitMove = false)))
+                relevance(id, context(selectedStrikeModelled = false)))
         }
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(192, context(defenderStatStages = null)))
@@ -908,7 +908,7 @@ class HnsAbilityContextPolicyTest {
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
             relevance(247, context(side = HnsAbilitySide.DEFENDER, defenderItemId = null)))
         assertEquals(HnsAbilityRequestRelevance.UNKNOWN,
-            relevance(247, context(side = HnsAbilitySide.DEFENDER, fixedSingleHitMove = false, defenderItemId = 0)))
+            relevance(247, context(side = HnsAbilitySide.DEFENDER, selectedStrikeModelled = false, defenderItemId = 0)))
     }
 
     @Test
@@ -969,7 +969,7 @@ class HnsAbilityContextPolicyTest {
     fun `Chlorophyll and Swift Swim use current order and do not duplicate unsupported move blockers`() {
         for (id in listOf(33, 34)) {
             assertEquals("ability $id", HnsAbilityRequestRelevance.PROVEN_IRRELEVANT,
-                relevance(id, context(side = HnsAbilitySide.DEFENDER, fixedSingleHitMove = false,
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, selectedStrikeModelled = false,
                     attackerAbilityId = null)))
             assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
                 relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = 148)))
@@ -991,7 +991,7 @@ class HnsAbilityContextPolicyTest {
             assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
                 relevance(id, context(side = HnsAbilitySide.DEFENDER, attackerAbilityId = null)))
             assertEquals("ability $id", HnsAbilityRequestRelevance.UNKNOWN,
-                relevance(id, context(side = HnsAbilitySide.DEFENDER, fixedSingleHitMove = false)))
+                relevance(id, context(side = HnsAbilitySide.DEFENDER, selectedStrikeModelled = false)))
         }
     }
 

@@ -61,6 +61,7 @@ ACTION_SELECTION_FUNC_PTR = PHASE_EVIDENCE["functions"]["HandleTurnActionSelecti
 RUN_TURN_ACTIONS_FUNC_PTR = PHASE_EVIDENCE["functions"]["RunTurnActionsFunctions"]["releaseAddress"] | 1
 TURN_ORDER_GLOBAL_ADDRESSES = {
     "gLockedMoves": 0x02000378,
+    "gChosenMoveByBattler": 0x020002DC,
     "gProtectStructs": 0x020000B8,
     "gSideTimers": 0x02000258,
     "gBattlersCount": 0x020000B0,
@@ -181,6 +182,10 @@ def build_probe_c() -> str:
             "const unsigned long ddx_gimmick_dynamax = GIMMICK_DYNAMAX;",
             "const unsigned long ddx_num_stats = NUM_STATS;",
             "const unsigned long ddx_locked_move_stride = sizeof(gLockedMoves[0]);",
+            "const unsigned long ddx_chosen_move_stride = sizeof(gChosenMoveByBattler[0]);",
+            "const unsigned long ddx_moves_count = MOVES_COUNT_ALL;",
+            "const unsigned long ddx_move_beak_blast = MOVE_BEAK_BLAST;",
+            "const struct ProtectStruct ddx_protected = { .protected = ~0u };",
             "const struct Volatiles ddx_v_recharge_timer = { .rechargeTimer = ~0u };",
             "const struct Volatiles ddx_v_rollout_timer = { .rolloutTimer = UINT8_MAX };",
             "const struct Volatiles ddx_v_defense_curl = { .defenseCurl = 1 };",
@@ -410,6 +415,12 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
             fail(f"release phase source changed: {path}")
     if any(binding["matches"] != 1 for binding in PHASE_EVIDENCE["functions"].values()):
         fail("release phase binding is not unique")
+    # Reuse the committed official-release map excerpt, independent of a locally built .sym.
+    release_symbols = (Path(__file__).resolve().parents[1] /
+                       "hns-runtime-probe/evidence/hns205-field-layout-symbols.txt").read_text()
+    if PINNED_COMMIT not in release_symbols or not re.search(
+            r"^\s*0x020002dc\s+gChosenMoveByBattler\s*$", release_symbols, re.M):
+        fail("official chosen-move release-symbol evidence changed")
     # EWRAM globals retain source-build addresses, independently checked by live
     # reader transitions. Do not use the ignored source-build .sym as release code authority.
     symbols_path = upstream_path / "pokehns.sym"
@@ -586,6 +597,11 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_BIT {compiled['volatile_recharge_timer_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_RECHARGE_TIMER_WIDTH {compiled['volatile_recharge_timer_width']}",
         f"#define HNS_LIVE_LOCKED_MOVE_STRIDE {compiled['locked_move_stride']}",
+        f"#define HNS_LIVE_CHOSEN_MOVE_STRIDE {compiled['chosen_move_stride']}",
+        f"#define HNS_LIVE_MOVES_COUNT {compiled['moves_count']}",
+        f"#define HNS_LIVE_MOVE_BEAK_BLAST {compiled['move_beak_blast']}",
+        f"#define HNS_LIVE_PROTECTED_BIT {compiled['protected_bit']}",
+        f"#define HNS_LIVE_PROTECTED_WIDTH {compiled['protected_width']}",
         f"#define HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_BIT {compiled['volatile_rollout_timer_bit']}",
         f"#define HNS_LIVE_BP_VOLATILE_ROLLOUT_TIMER_WIDTH {compiled['volatile_rollout_timer_width']}",
         f"#define HNS_LIVE_BP_VOLATILE_DEFENSE_CURL_BIT {compiled['volatile_defense_curl_bit']}",
@@ -863,6 +879,12 @@ def main() -> None:
         ):
             compiled[field] = single_bit(blob, base_addr, syms, probe)
         compiled["volatile_recharge_timer_bit"], compiled["volatile_recharge_timer_width"] = multi_bit(blob, base_addr, syms, "ddx_v_recharge_timer")
+        compiled["chosen_move_stride"] = scalar(blob, base_addr, syms, "ddx_chosen_move_stride")
+        compiled["moves_count"] = scalar(blob, base_addr, syms, "ddx_moves_count")
+        compiled["move_beak_blast"] = scalar(blob, base_addr, syms, "ddx_move_beak_blast")
+        compiled["protected_bit"], compiled["protected_width"] = multi_bit(blob, base_addr, syms, "ddx_protected")
+        if compiled["chosen_move_stride"] != 2 or compiled["protected_bit"] != 0 or compiled["protected_width"] != 7:
+            fail("Changed chosen move / protect domain")
         compiled["locked_move_stride"] = scalar(blob, base_addr, syms, "ddx_locked_move_stride")
         if compiled["locked_move_stride"] != 2:
             fail("gLockedMoves element width changed")

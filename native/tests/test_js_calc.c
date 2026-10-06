@@ -4277,6 +4277,61 @@ static void check_gap_c4f_wise_glasses(void) {
 #undef HNS_WISE_GLASSES_REQUEST
 }
 
+/* Requests are emitted by the trusted Kotlin boundary, with vectors/endpoints from
+ * the additive original-engine trace. No hand-built JSON or copied arithmetic. */
+static void check_hns_fixed_two_production_vectors(void) {
+    char* text = read_file_to_string("tools/hns-damage-oracle/repeated-strike-production-vectors.json");
+    jl_value* vectors = text ? jl_parse(text) : NULL;
+    g_fixture = "fixed_two_production_vectors";
+    check_condition("74 trusted requests", vectors && jl_is_arr(vectors) && jl_len(vectors) == 74);
+    if (!vectors || !jl_is_arr(vectors)) { jl_free(vectors); free(text); return; }
+    for (int i = 0; i < jl_len(vectors); i++) {
+        const jl_value* v = jl_at(vectors, i);
+        g_fixture = jl_str(jl_get(v, "id"));
+        const char* request = jl_str(jl_get(v, "requestJson"));
+        check_condition("trusted request string", request != NULL);
+        if (!request) continue;
+        char* raw = js_calc_calculate(request);
+        jl_value* response = raw ? jl_parse(raw) : NULL;
+        check_condition("native QuickJS success", response && jl_bool(jl_get(response, "success")));
+        if (response) {
+            const jl_value* seq = jl_get(response, "repeatedStrike");
+            const jl_value* rolls = jl_get(seq, "firstStrikeRolls");
+            const jl_value* totals = jl_get(seq, "totals");
+            const jl_value* expected = jl_get(v, "firstStrikeRolls");
+            check_condition("sixteen first-strike rolls", jl_is_arr(rolls) && jl_len(rolls) == 16);
+            check_condition("one total", jl_is_arr(totals) && jl_len(totals) == 1);
+            const jl_value* total = jl_at(totals, 0);
+            check_number("nominal count", 2, jl_at(jl_get(seq, "nominalCounts"), 0));
+            check_number("total count", 2, jl_get(total, "nominalCount"));
+            for (int r = 0; r < 16; r++) check_number("source first-strike roll", (long)jl_num(jl_at(expected, r)), jl_at(rolls, r));
+            const char* fields[] = {"minHpLoss", "maxHpLoss", "minExecutedHits", "maxExecutedHits"};
+            for (int f = 0; f < 4; f++) check_number(fields[f], (long)jl_num(jl_get(v, fields[f])), jl_get(total, fields[f]));
+            check_number("top-level minimum total", (long)jl_num(jl_get(v, "minHpLoss")), jl_get(response, "minDamage"));
+            check_number("top-level maximum total", (long)jl_num(jl_get(v, "maxHpLoss")), jl_get(response, "maxDamage"));
+            jl_value* input = jl_parse(request);
+            check_number("authoritative maximum HP", (long)jl_num(jl_get(jl_get(input, "defender"), "maxHpAtHit")), jl_get(response, "defenderMaxHP"));
+            jl_free(input);
+            check_condition("legacy arrays empty", jl_is_arr(jl_get(response, "damage")) && jl_len(jl_get(response, "damage")) == 0 &&
+                jl_is_arr(jl_get(response, "range")) && jl_len(jl_get(response, "range")) == 0);
+            check_condition("no KO probability", jl_str(jl_get(response, "koChanceText")) && !*jl_str(jl_get(response, "koChanceText")));
+        }
+        jl_free(response); free(raw);
+        char* changed = strdup(request);
+        char* count = changed ? strstr(changed, "\"hnsSourceStrikeCount\":2") : NULL;
+        check_condition("source strike-count authority present", count != NULL);
+        if (count) {
+            count[strlen("\"hnsSourceStrikeCount\":")] = '3';
+            raw = js_calc_calculate(changed); response = raw ? jl_parse(raw) : NULL;
+            check_condition("forged source count refused by native QuickJS", response && !jl_bool(jl_get(response, "success")));
+            jl_free(response); free(raw);
+        }
+        free(changed);
+    }
+    g_fixture = "fixed_two_production_vectors";
+    jl_free(vectors); free(text);
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -4311,6 +4366,7 @@ int main(void) {
     check_gap_c1_type_system();
 
     check_group_c_immunity_causes();
+    check_hns_fixed_two_production_vectors();
 
     printf("-- Gap C2: authoritative effective ability input + conditional ability support --\n");
     check_gap_c2_abilities();

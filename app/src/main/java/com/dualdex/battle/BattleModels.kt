@@ -611,6 +611,7 @@ data class MovePresentation(
     val effectiveness: String,
     val effectivenessConfidence: DataConfidence,
     val damageConfidence: DamageConfidence,
+    val repeatedStrike: com.dualdex.calculator.RepeatedStrikeResult? = null,
     val minDamage: Int,
     val maxDamage: Int,
     val damageRange: List<Int>,
@@ -670,8 +671,8 @@ data class MovePresentation(
             }
         }
         DamageConfidence.ESTIMATE -> {
-            if (maxDamage > 0) {
-                "$minDamage-$maxDamage (Estimate)" +
+            if (repeatedStrike != null || maxDamage > 0) {
+                (repeatedStrike?.let { "${it.presentation} (Estimate)" } ?: "$minDamage-$maxDamage (Estimate)") +
                     (if (koChanceText.isNotBlank()) " · $koChanceText" else "") +
                     DamageBlockerPresentation.ignoredText(damageIgnoredMechanics)
             } else {
@@ -942,6 +943,7 @@ object BattlePresentationBuilder {
 
         // Evaluate damage
         var damageConfidence = DamageConfidence.UNAVAILABLE
+        var repeatedStrike: com.dualdex.calculator.RepeatedStrikeResult? = null
         var minDamage = 0
         var maxDamage = 0
         var range: List<Int> = emptyList()
@@ -962,6 +964,7 @@ object BattlePresentationBuilder {
 
         if (hnsDamage != null) {
             damageConfidence = hnsDamage.confidence
+            repeatedStrike = hnsDamage.repeatedStrike
             minDamage = hnsDamage.minDamage
             maxDamage = hnsDamage.maxDamage
             range = hnsDamage.range
@@ -983,6 +986,7 @@ object BattlePresentationBuilder {
                 // Live battle context omits abilities, weather and side effects.  A useful range
                 // is still an estimate, never an asserted final battle result.
                 damageConfidence = DamageConfidence.ESTIMATE
+                repeatedStrike = response.repeatedStrike
                 minDamage = response.minDamage
                 maxDamage = response.maxDamage
                 range = response.range
@@ -1008,6 +1012,7 @@ object BattlePresentationBuilder {
             effectiveness = effLabel?.displayName ?: MoveEffectiveness.UNAVAILABLE,
             effectivenessConfidence = effConfidence,
             damageConfidence = damageConfidence,
+            repeatedStrike = repeatedStrike,
             minDamage = minDamage,
             maxDamage = maxDamage,
             damageRange = range,

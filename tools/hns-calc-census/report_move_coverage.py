@@ -17,7 +17,7 @@ START = '3821066e898652509b826526bb8418e8c42adbe2'
 CENSUS = 'tools/hns-calc-census/census.json.gz'
 
 
-def report(before, after, inventory, metadata, selected_effect="EFFECT_RECOIL", starting_sha=START):
+def report(before, after, inventory, metadata, selected_effect="EFFECT_RECOIL", starting_sha=START, selected_moves=None):
     ids = {m['name']: m['id'] for m in inventory['moves']}
     families = collections.defaultdict(list)
     for r in before['requests']:
@@ -52,7 +52,7 @@ def report(before, after, inventory, metadata, selected_effect="EFFECT_RECOIL", 
                if (old[k]['tier'], old[k]['limitations'], old[k]['causes']) !=
                   (new[k]['tier'], new[k]['limitations'], new[k]['causes'])]
     gaining = {old[r['key']]['trainer'] for r in changes if r['oldTier']=='REFUSED' and r['newTier']!='REFUSED'}
-    selected = {m['name'] for f in ranking if f['effect']==selected_effect for m in f['moves']}
+    selected = set(selected_moves) if selected_moves is not None else {m['name'] for f in ranking if f['effect']==selected_effect for m in f['moves']}
     still = [dict(key=r['key'], reasons=r['limitations'], causes=r['causes']) for r in after['requests']
              if r['move'] in selected and r['tier']=='REFUSED']
     def pairs(c):

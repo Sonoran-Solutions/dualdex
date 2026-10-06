@@ -3153,6 +3153,25 @@ bool pokemon_read_battler_runtime_state_gba(
         #undef HNS_LIVE_VOLATILE_FIELD
     }
 
+    /* Conservative Beak Blast predicate: any chosen Beak Blast is unresolved regardless of
+     * action kind/order. No guessed gChosenActionByBattler address is read. Two identical reads
+     * bind chosen move and protection to this active battler, with unread kept distinct from 0. */
+    uint8_t contact_before[3], contact_after[3];
+    uint32_t chosen_address = HNS_LIVE_GCHOSENMOVEBYBATTLER_GBA_ADDRESS + battler * HNS_LIVE_CHOSEN_MOVE_STRIDE;
+    uint32_t protect_address = HNS_LIVE_GPROTECTSTRUCTS_GBA_ADDRESS + battler * HNS_LIVE_DOUBLES_PROTECT_SIZE;
+    if (read(user, chosen_address, contact_before, 2) &&
+        read(user, protect_address, contact_before + 2, 1) &&
+        read(user, chosen_address, contact_after, 2) &&
+        read(user, protect_address, contact_after + 2, 1) &&
+        memcmp(contact_before, contact_after, sizeof(contact_before)) == 0) {
+        uint16_t chosen = (uint16_t)(contact_before[0] | (contact_before[1] << 8));
+        if (chosen < HNS_LIVE_MOVES_COUNT) {
+            out_state->contact_reaction_state_observed = true;
+            out_state->chosen_move = chosen;
+            out_state->protected_method = contact_before[2] & ((1u << HNS_LIVE_PROTECTED_WIDTH) - 1u);
+        }
+    }
+
     out_state->battler_index = battler;
     out_state->party_slot = (int8_t)party_slot;
     out_state->party_slot_known = true;

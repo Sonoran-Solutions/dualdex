@@ -664,17 +664,17 @@ class CalcTabScreenView(
 
         if (res.success) {
             val rangeStr = if (res.range.isNotEmpty()) "${res.minDamage} - ${res.maxDamage} HP" else "N/A"
-            val rollsStr = res.range.joinToString(", ")
+            val rollsStr = (res.repeatedStrike?.firstStrikeRolls ?: res.range).joinToString(", ")
             val koText = if (res.koChanceText.isNotBlank()) "\nKO Chance: ${res.koChanceText}" else ""
             val critText = if (isCrit) " [Critical Hit!]" else ""
             val weatherText = if (currentWeather != null) " [Weather: $currentWeather]" else ""
 
             resultTextView.text = "${presentation.headline}\n\n" +
                     "${res.desc}$critText$weatherText\n\n" +
-                    "Damage Range: $rangeStr\n" +
+                    (res.repeatedStrike?.let { "${it.presentation}\n${it.assumptions.joinToString("; ")}\n" } ?: "Damage Range: $rangeStr\n") +
                     "Move: ${res.moveName} (${res.moveType} ${res.moveCategory}, ${res.movePower} Power)\n" +
                     "Defender Max HP: ${res.defenderMaxHP} HP$koText\n\n" +
-                    "Damage Rolls (16): [$rollsStr]"
+                    "${if (res.repeatedStrike != null) "First-strike rolls" else "Damage Rolls"} (16): [$rollsStr]"
         } else {
             resultTextView.text = if (res.error == CalcAuthorizedExecution.ECHO_FAILURE) {
                 "Damage unavailable · ${res.error}"

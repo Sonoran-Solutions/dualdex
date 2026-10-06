@@ -683,6 +683,51 @@ def parse_hit_escape_metadata(text, ids):
             additionalEffects=[], preAttackEffects=[], abilityFlags=[], immunityFlags=[])
     return result
 
+REPEATED_STRIKE_STABLE_ABILITIES = ['None', 'Insomnia', 'Technician', 'Tough Claws', 'Fluffy', 'Long Reach', 'Skill Link', 'Marvel Scale', 'Overgrow', 'Blaze', 'Torrent', 'Swarm', 'Defeatist', 'Adaptability', 'Normalize', 'Refrigerate', 'Pixilate', 'Aerilate', 'Galvanize', 'Liquid Voice', 'Levitate', 'Wonder Guard', 'Filter', 'Solid Rock', 'Ice Scales', 'Fur Coat', 'Heatproof', 'Water Bubble', 'Sheer Force']
+REPEATED_STRIKE_STABLE_HOLD_EFFECTS = ['HOLD_EFFECT_NONE', 'HOLD_EFFECT_LIFE_ORB', 'HOLD_EFFECT_SHELL_BELL', 'HOLD_EFFECT_CHOICE_BAND', 'HOLD_EFFECT_CHOICE_SPECS', 'HOLD_EFFECT_CHOICE_SCARF', 'HOLD_EFFECT_EXPERT_BELT', 'HOLD_EFFECT_MUSCLE_BAND', 'HOLD_EFFECT_WISE_GLASSES', 'HOLD_EFFECT_TYPE_POWER', 'HOLD_EFFECT_EVIOLITE', 'HOLD_EFFECT_ASSAULT_VEST', 'HOLD_EFFECT_LOADED_DICE', 'HOLD_EFFECT_PROTECTIVE_PADS', 'HOLD_EFFECT_IRON_BALL', 'HOLD_EFFECT_PUNCHING_GLOVE', 'HOLD_EFFECT_ABILITY_SHIELD']
+
+FIXED_TWO_MOVE_CONTRACTS = {'MOVE_DOUBLE_KICK': (24, '625afd319e60a891ea88fbb65f34b825719fa60303b724182228a460fd45a01b'), 'MOVE_BONEMERANG': (155, '93bd69719b1636c336a0a4e9c1e4a2bd31d0fa4e5cd657b5ee298f7f6aada387'), 'MOVE_DOUBLE_HIT': (458, '621d0bc7f46f32601aaca79cb980fa102e07d4edb537ce07a65a6042ffb9e868'), 'MOVE_DUAL_CHOP': (530, '305c7a8c8742479a3e2a98fc7383bdde5c2e1e61f39f4feb4acb7524080adbd6'), 'MOVE_DUAL_WINGBEAT': (742, 'a0663cc82cf78b1b92430cabb6622c62ab783f084b99750968a47c2153bfef02'), 'MOVE_TWIN_BEAM': (814, 'ce79b7466407cbe2bfc92dff62f4992f4f5b63cdd34023dddb265ea2d58cbb32')}
+
+FIXED_TWO_SOURCE_CONTRACTS = {'include/move.h': '015bcf307ec360ce82b0c999647522f2572042261fdecbd83b701ac339debf00', 'src/battle_hold_effects.c': 'db60d458f9de2a30cadbc1e311f0814a6c5439ef8d828bdaa5518ca9b0795ebe', 'src/pokemon.c': '87450aec502e906a3c2ccc5d4051ffc05796c09de0ef6b3b785b55d882721e62', 'src/data/pokemon/form_change_tables.h': 'c28ff4c8195421e09262d78b134b0ae030397b0899116537daf736849431c0d8'}
+
+def verify_fixed_two_selection_lifecycle(text):
+    """Observed MOVE_NONE precedes commitment during the permitted selection callback."""
+    turn = text[text.index('void BattleTurnPassed(void)'):text.index('u8 IsRunningFromBattleImpossible(')]
+    reset = turn.find('gChosenMoveByBattler[battler] = MOVE_NONE;')
+    selection = turn.find('gBattleMainFunc = HandleTurnActionSelectionState;')
+    commitment = 'gBattleStruct->chosenMovePositions[battler] = gBattleResources->bufferB[battler][2] & ~RET_GIMMICK;\n                            gChosenMoveByBattler[battler] = GetBattlerChosenMove(battler);'
+    if not 0 <= reset < selection or commitment not in text:
+        raise ValueError('Changed chosen-move reset/selection/commit lifecycle')
+
+def verify_fixed_two_contract(upstream_dir):
+    verify_rollout_contract(upstream_dir)
+    verify_fixed_two_selection_lifecycle(open(os.path.join(upstream_dir, 'src/battle_main.c')).read())
+    for path, digest in FIXED_TWO_SOURCE_CONTRACTS.items():
+        if hashlib.sha256(open(os.path.join(upstream_dir, path), "rb").read()).hexdigest() != digest:
+            raise ValueError("Changed fixed-two execution contract: " + path)
+
+
+def parse_fixed_two_metadata(text, ids):
+    """Freeze complete MoveInfo initializers, including omitted zero-valued flags."""
+    entries = {symbol: "\n".join(body) for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines()))}
+    _, _, sheer, unknown = parse_contact_and_sheer_force(text)
+    result = {}
+    for symbol, (move_id, digest) in FIXED_TWO_MOVE_CONTRACTS.items():
+        body = entries.get(symbol, "")
+        if ids.get(symbol) != move_id or hashlib.sha256(re.sub(r"\s+", "", body).encode()).hexdigest() != digest:
+            raise ValueError("Changed fixed-two MoveInfo: " + symbol)
+        if symbol in unknown or sheer.get(symbol) is not False:
+            raise ValueError("Changed fixed-two Sheer Force: " + symbol)
+        def field(name):
+            return re.search(r"\." + name + r"\s*=\s*([^,\n}]+)", body).group(1).strip()
+        result[move_id] = dict(fixedTwoHitPlain=True, name=symbol[5:].replace("_", " ").title(),
+            effect=field("effect"), power=int(field("power")), type=field("type"), category=field("category"),
+            accuracy=int(field("accuracy")), pp=int(field("pp")), target=field("target"), priority=int(field("priority")),
+            strikeCount=int(field("strikeCount")), multiHit=False, makesContact=bool(re.search(r"\.makesContact\s*=\s*TRUE", body)),
+            punchingMove=False, sheerForceAffected=False, additionalEffects=[], preAttackEffects=[],
+            abilityFlags=[], immunityFlags=[], metronomeBanned=move_id == 814)
+    return result
+
 def parse_brine_metadata(text, ids):
     """Freeze the entire reviewed MoveInfo; omitted damage flags are source zeroes."""
     if ids.get("MOVE_BRINE") != 362:
@@ -1121,6 +1166,7 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitGyroBall")))) + ")")
     lines.append("    val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitElectroBall")))) + ")")
     lines.append("    val fixedSingleHitEscapeMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitEscape")))) + ")")
+    lines.append("    val fixedTwoHitPlainMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedTwoHitPlain")))) + ")")
     lines.append("    val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitRollout")))) + ")")
     lines.append("    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds")
     lines.append("    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds")
@@ -1288,7 +1334,9 @@ def main():
     dynamic_power.update(parse_electro_metadata(move_text, ids))
     dynamic_power.update(parse_rollout_metadata(move_text, ids))
     dynamic_power.update(parse_hit_escape_metadata(move_text, ids))
+    dynamic_power.update(parse_fixed_two_metadata(move_text, ids))
     verify_hit_escape_contract(upstream_dir)
+    verify_fixed_two_contract(upstream_dir)
     verify_rollout_contract(upstream_dir)
     effects_header = open(os.path.join(upstream_dir, "include/constants/battle_move_effects.h")).read()
     effect_names = re.findall(r"^\s*(EFFECT_[A-Z0-9_]+)\s*,", effects_header, re.M)
@@ -1386,6 +1434,24 @@ def main():
             raise ValueError("Effective-Speed identity contract stale")
     else:
         with open(speed_path, "w") as handle: handle.write(speed_json)
+
+    stable_ids = sorted(int(i) for i, name in abilities.items() if name in REPEATED_STRIKE_STABLE_ABILITIES)
+    if len(stable_ids) != len(REPEATED_STRIKE_STABLE_ABILITIES):
+        raise ValueError("Missing repeated-strike stable ability identity")
+    repeated_contract = {"pinnedCommit": PINNED_COMMIT, "movesCount": ids["MOVES_COUNT_ALL"],
+        "beakBlastMoveId": ids["MOVE_BEAK_BLAST"], "stableAbilityIds": stable_ids,
+        "stableHoldEffects": sorted(REPEATED_STRIKE_STABLE_HOLD_EFFECTS)}
+    repeated_json = json.dumps(repeated_contract, indent=2, sort_keys=True) + "\n"
+    repeated_path = os.path.join(DEFAULT_REPO_ROOT, "tools/hns-move-mechanics/hns_repeated_strike_contract.json")
+    if args.verify:
+        if not os.path.isfile(repeated_path) or open(repeated_path).read() != repeated_json:
+            raise ValueError("Stale repeated-strike authority contract")
+    else:
+        with open(repeated_path, "w") as handle: handle.write(repeated_json)
+    repeated_kotlin = "    val repeatedStrikeStableAbilityIds: Set<Int> = setOf(" + ", ".join(map(str, stable_ids)) + ")\n"
+    repeated_kotlin += "    val repeatedStrikeStableHoldEffects: Set<String> = setOf(" + ", ".join(json.dumps(e) for e in sorted(REPEATED_STRIKE_STABLE_HOLD_EFFECTS)) + ")\n"
+    repeated_kotlin += f"    const val selectedMoveCount: Int = {ids['MOVES_COUNT_ALL']}\n"
+    generated = generated.rsplit("}", 1)[0] + repeated_kotlin + "}\n"
 
     status_path = os.path.join(DEFAULT_REPO_ROOT, "tools/hns-move-mechanics/hns_status_contract.json")
     status_json = json.dumps({"statuses": status_constants, "moves": status_double}, indent=2, sort_keys=True) + "\n"

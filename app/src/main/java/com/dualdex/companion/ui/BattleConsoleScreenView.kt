@@ -1038,6 +1038,7 @@ class BattleConsoleScreenView(
             val ignoredSuffix = DamageBlockerPresentation.ignoredText(pres.damageIgnoredMechanics)
             val damageText = when {
                 pres.isStatMove -> "Status move"
+                pres.repeatedStrike != null -> pres.repeatedStrike.presentation + estimateSuffix
                 pres.maxDamage > 0 && defender != null && defender.maxHp > 0 -> {
                     val minPct = (pres.minDamage * 100) / defender.maxHp
                     val maxPct = (pres.maxDamage * 100) / defender.maxHp

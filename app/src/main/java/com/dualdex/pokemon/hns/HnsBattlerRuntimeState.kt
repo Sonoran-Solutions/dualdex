@@ -358,6 +358,10 @@ data class HnsBattlerRuntimeState(
      * battler. Only meaningful when [persistentVolatilesObserved].
      */
     val volatileEndured: Boolean = false,
+    /** Additive v1 chosen-move/protection packet; unread is distinct from observed zero. */
+    val contactReactionStateObserved: Boolean = false,
+    val chosenMove: Int? = null,
+    val protectedMethod: Int? = null,
     /** Additive v1 Rollout packet; null retains unread/malformed raw operands. */
     val rolloutTimer: Int? = null,
     val rechargeTimer: Int? = null,
@@ -637,7 +641,12 @@ data class HnsBattlerRuntimeState(
                 raw[173] == HnsGroupDLayout.RECHARGE_TIMER_WIDTH && raw[172] in 0..HnsGroupDLayout.RECHARGE_TIMER_MAX &&
                 raw[167] in 0..HnsGroupDLayout.ROLLOUT_TIMER_MAX && raw[168] in 0..1 &&
                 raw[169] in 0..1 && raw[170] in 0..65535
+            val contactReactionObserved = raw.size >= 178 && raw[174] == 1 && raw[175] == 1 &&
+                raw[176] in 0 until Hns205MoveEffects.selectedMoveCount && raw[177] in 0..127
             val decoded = HnsBattlerRuntimeState(
+                contactReactionStateObserved = contactReactionObserved,
+                chosenMove = raw.getOrNull(176).takeIf { contactReactionObserved },
+                protectedMethod = raw.getOrNull(177).takeIf { contactReactionObserved },
                 rolloutTimer = raw.getOrNull(167).takeIf { rolloutObserved },
                 rechargeTimer = raw.getOrNull(172).takeIf { rolloutObserved },
                 defenseCurl = raw.getOrNull(168)?.let { it == 1 }.takeIf { rolloutObserved },

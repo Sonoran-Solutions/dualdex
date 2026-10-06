@@ -192,7 +192,23 @@
         "strikeCount": [
           "2"
         ]
-      }
+      },
+      "fixedTwoHitPlain": true,
+      "name": "Double Kick",
+      "power": 30,
+      "type": "TYPE_FIGHTING",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 100,
+      "pp": 30,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 2,
+      "multiHit": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "metronomeBanned": false
     },
     "25": {
       "effect": "EFFECT_HIT",
@@ -1234,7 +1250,23 @@
         "strikeCount": [
           "2"
         ]
-      }
+      },
+      "fixedTwoHitPlain": true,
+      "name": "Bonemerang",
+      "power": 50,
+      "type": "TYPE_GROUND",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 90,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 2,
+      "multiHit": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "metronomeBanned": false
     },
     "156": {
       "effect": "EFFECT_REST",
@@ -3582,7 +3614,23 @@
         "strikeCount": [
           "2"
         ]
-      }
+      },
+      "fixedTwoHitPlain": true,
+      "name": "Double Hit",
+      "power": 35,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 90,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 2,
+      "multiHit": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "metronomeBanned": false
     },
     "459": {
       "effect": "EFFECT_HIT",
@@ -4190,7 +4238,23 @@
         "strikeCount": [
           "2"
         ]
-      }
+      },
+      "fixedTwoHitPlain": true,
+      "name": "Dual Chop",
+      "power": 40,
+      "type": "TYPE_DRAGON",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 90,
+      "pp": 15,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 2,
+      "multiHit": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "metronomeBanned": false
     },
     "531": {
       "effect": "EFFECT_HIT",
@@ -5829,7 +5893,23 @@
         "strikeCount": [
           "2"
         ]
-      }
+      },
+      "fixedTwoHitPlain": true,
+      "name": "Dual Wingbeat",
+      "power": 40,
+      "type": "TYPE_FLYING",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 90,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 2,
+      "multiHit": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "metronomeBanned": false
     },
     "743": {
       "effect": "EFFECT_HIT",
@@ -6408,7 +6488,23 @@
         "strikeCount": [
           "2"
         ]
-      }
+      },
+      "fixedTwoHitPlain": true,
+      "name": "Twin Beam",
+      "power": 40,
+      "type": "TYPE_PSYCHIC",
+      "category": "DAMAGE_CATEGORY_SPECIAL",
+      "accuracy": 100,
+      "pp": 10,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 2,
+      "multiHit": false,
+      "additionalEffects": [],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "metronomeBanned": true
     },
     "815": {
       "effect": "EFFECT_RAGE_FIST",

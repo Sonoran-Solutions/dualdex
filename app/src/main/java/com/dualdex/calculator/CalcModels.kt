@@ -309,6 +309,9 @@ data class CalcHnsLiveBattleState(
     val defenderGender: HnsBattlerGender = HnsBattlerGender.UNKNOWN,
     val attackerSideStatuses: Int? = null,
     val defenderSlowStartTimer: Int? = null,
+    /** Conservative Beak Blast/protection authority; null for legacy/unread packets. */
+    val defenderChosenMove: Int? = null,
+    val defenderProtectedMethod: Int? = null,
     val attackerRolloutState: HnsRolloutAuthority.Operands? = null,
     val attackerSlowStartTimer: Int? = null,
     val attackerFlashFireBoosted: Boolean? = null,
@@ -471,6 +474,8 @@ data class DamageCalculationRequest(
 
 data class DamageCalculationResponse(
     val success: Boolean,
+    /** Present only for authorized repeats; legacy endpoints then mean executable total HP loss. */
+    val repeatedStrike: RepeatedStrikeResult? = null,
     val minDamage: Int = 0,
     val maxDamage: Int = 0,
     val range: List<Int> = emptyList(),
@@ -490,6 +495,30 @@ data class DamageCalculationResponse(
     val engineEcho: CalcEngineOperandEcho? = null,
     val error: String? = null
 )
+
+data class RepeatedStrikeTotal(
+    val nominalCount: Int,
+    val minHpLoss: Int,
+    val maxHpLoss: Int,
+    val minExecutedHits: Int,
+    val maxExecutedHits: Int
+)
+
+data class RepeatedStrikeResult(
+    val nominalCounts: List<Int>,
+    val firstStrikeRolls: List<Int>,
+    val totals: List<RepeatedStrikeTotal>,
+    val assumptions: List<String>,
+    val totalUnavailableReasons: List<CalcLimitation> = emptyList()
+) {
+    val presentation: String get() {
+        val total = totals.single()
+        val hits = if (total.minExecutedHits == total.maxExecutedHits) "${total.maxExecutedHits} executed hits"
+            else "${total.minExecutedHits}–${total.maxExecutedHits} executed hits"
+        return "First strike: ${firstStrikeRolls.first()}–${firstStrikeRolls.last()} HP\n" +
+            "Total HP loss: ${total.minHpLoss}–${total.maxHpLoss}\nNominal hits: 2 · $hits"
+    }
+}
 
 data class CalcImmunityCause(
     val kind: String,

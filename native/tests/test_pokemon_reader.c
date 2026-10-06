@@ -6570,6 +6570,42 @@ static void test_hns_indexed_doubles_operands(void) {
     TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_INDEX_0, &st), "absent selected index refuses");
 }
 
+typedef struct { DualDexGbaRegionTable* table; unsigned chosen_reads; bool missing; bool torn; } ContactReadProbe;
+static bool contact_probe_read(void* user, uint32_t addr, uint8_t* out, size_t n) {
+    ContactReadProbe* p=user;
+    if (addr==0x020002DEu && n==2) {
+        if (p->missing) return false;
+        p->chosen_reads++;
+        if (!fake_gba_read(p->table,addr,out,n)) return false;
+        if (p->torn && p->chosen_reads==2) out[0]^=1;
+        return true;
+    }
+    return fake_gba_read(p->table,addr,out,n);
+}
+static void test_hns_contact_reaction_observation(void) {
+    const GameMemoryConfig* cfg=pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba; HnsBattleFixture fx; BattlerRuntimeState st;
+    hns_battler_fixture_two_battlers(&fx,&gba,cfg);
+    TEST_ASSERT(HNS_LIVE_GCHOSENMOVEBYBATTLER_GBA_ADDRESS==0x020002DCu &&
+        HNS_LIVE_CHOSEN_MOVE_STRIDE==2 && HNS_LIVE_PROTECTED_BIT==0 && HNS_LIVE_PROTECTED_WIDTH==7,
+        "chosen move and protection source layout independently pinned");
+    gba.ewram[0x2DE]=653 & 255; gba.ewram[0x2DF]=653 >> 8;
+    gba.ewram[0xB8+12]=0x83;
+    TEST_ASSERT(read_battler_state(&fx,BATTLER_ROLE_INDEX_1,&st) && st.contact_reaction_state_observed &&
+        st.chosen_move==653 && st.protected_method==3,"indexed chosen move and seven protection bits bound to defender");
+    TEST_ASSERT(read_battler_state(&fx,BATTLER_ROLE_INDEX_0,&st) && st.contact_reaction_state_observed &&
+        st.chosen_move==0 && st.protected_method==0,"MOVE_NONE is observed memory, not committed-action authorization");
+    ContactReadProbe probe={&gba.table,0,true,false};
+    TEST_ASSERT(pokemon_read_battler_runtime_state_gba(contact_probe_read,&probe,gba.ewram,sizeof(gba.ewram),cfg,
+        BATTLER_ROLE_INDEX_1,&st) && !st.contact_reaction_state_observed,"unread chosen move stays unknown");
+    probe.missing=false;probe.torn=true;
+    TEST_ASSERT(pokemon_read_battler_runtime_state_gba(contact_probe_read,&probe,gba.ewram,sizeof(gba.ewram),cfg,
+        BATTLER_ROLE_INDEX_1,&st) && !st.contact_reaction_state_observed,"torn chosen move stays unknown");
+    gba.ewram[0x2DE]=255;gba.ewram[0x2DF]=255;
+    TEST_ASSERT(read_battler_state(&fx,BATTLER_ROLE_INDEX_1,&st) && !st.contact_reaction_state_observed,
+        "out-of-domain chosen move stays unknown");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -6689,6 +6725,7 @@ int main(void) {
     test_hns_target_count_computation();
     test_hns_target_count_anti_spoof();
     test_hns_indexed_doubles_operands();
+    test_hns_contact_reaction_observation();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);

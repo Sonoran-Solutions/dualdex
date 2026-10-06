@@ -24,6 +24,18 @@ import org.junit.Test
  */
 class HnsBattlerRuntimeStateTest {
 
+    @Test fun `contact reaction tail never defaults an unread chosen move`() {
+        val raw=observedTuple().copyOf(178)
+        raw[174]=1;raw[175]=1;raw[176]=653;raw[177]=0
+        val observed=HnsBattlerRuntimeState.fromNativeArray(raw)
+        assertTrue(observed.contactReactionStateObserved);assertEquals(653,observed.chosenMove);assertEquals(0,observed.protectedMethod)
+        for(changed in listOf(raw.copyOf(174),raw.copyOf().also {it[175]=0},raw.copyOf().also {it[174]=2},
+            raw.copyOf().also {it[176]=935},raw.copyOf().also {it[177]=128})) {
+            val unknown=HnsBattlerRuntimeState.fromNativeArray(changed)
+            assertFalse(unknown.contactReactionStateObserved);assertNull(unknown.chosenMove);assertNull(unknown.protectedMethod)
+        }
+    }
+
     // ------------------------------------------------------------------
     // Tuple decode
     // ------------------------------------------------------------------

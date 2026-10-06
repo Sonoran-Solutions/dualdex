@@ -22,7 +22,7 @@ class HnsFieldContextPolicyTest {
     private val analytic = HnsFieldStatusData.ABILITY_ANALYTIC
 
     private fun ctx(
-        fixedSingleHitMove: Boolean? = true,
+        selectedStrikeModelled: Boolean? = true,
         moveId: Int? = tackle,
         preField: PokemonType? = PokemonType.NORMAL,
         effective: PokemonType? = PokemonType.NORMAL,
@@ -35,7 +35,7 @@ class HnsFieldContextPolicyTest {
         attackerTerrain: HnsTerrainApplicability? = HnsTerrainApplicability.AFFECTED,
         defenderTerrain: HnsTerrainApplicability? = HnsTerrainApplicability.AFFECTED
     ) = HnsFieldContextPolicy.Context(
-        fixedSingleHitMove, moveId, preField, effective, attackerAbility, defenderAbility, attackerItem, defenderItem,
+        selectedStrikeModelled, moveId, preField, effective, attackerAbility, defenderAbility, attackerItem, defenderItem,
         category, fieldStatuses, attackerTerrain, defenderTerrain,
         attackerHoldEffectResolution = holdEffectResolution(attackerItem),
         defenderHoldEffectResolution = holdEffectResolution(defenderItem)
@@ -85,7 +85,7 @@ class HnsFieldContextPolicyTest {
 
     @Test
     fun `Fairy Lock is always irrelevant and Wonder Room always relevant`() {
-        for (context in listOf(ctx(), null, ctx(fixedSingleHitMove = false, effective = null))) {
+        for (context in listOf(ctx(), null, ctx(selectedStrikeModelled = false, effective = null))) {
             assertRule(irrelevant, "fairy_lock_escape_only", decide(HnsFieldStatus.FAIRY_LOCK, context))
             assertRule(relevant, "wonder_room_swaps_defensive_stat", decide(HnsFieldStatus.WONDER_ROOM, context))
         }
@@ -95,8 +95,8 @@ class HnsFieldContextPolicyTest {
     fun `non-ordinary or missing moves never clear a contextual bit`() {
         val contextual = HnsFieldStatus.entries - HnsFieldStatus.FAIRY_LOCK - HnsFieldStatus.WONDER_ROOM
         for (status in contextual) {
-            assertEquals("$status", unknown, decide(status, ctx(fixedSingleHitMove = false)).relevance)
-            assertEquals("$status", unknown, decide(status, ctx(fixedSingleHitMove = null)).relevance)
+            assertEquals("$status", unknown, decide(status, ctx(selectedStrikeModelled = false)).relevance)
+            assertEquals("$status", unknown, decide(status, ctx(selectedStrikeModelled = null)).relevance)
             assertEquals("$status", unknown, decide(status, null).relevance)
         }
     }

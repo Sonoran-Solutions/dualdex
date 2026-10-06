@@ -1,6 +1,7 @@
 import { calculate, Generations, Pokemon, Move, Field, Side } from '@smogon/calc';
 import hnsStatusContract from '../hns-move-mechanics/hns_status_contract.json';
 const hnsStatus = hnsStatusContract.statuses;
+import hnsRepeatedStrikeContract from '../hns-move-mechanics/hns_repeated_strike_contract.json';
 import hnsMoveMetadata from '../hns-move-mechanics/hns_move_damage_metadata.json';
 import hnsSpeedContract from '../hns-move-mechanics/hns_speed_contract.json';
 import hnsGroupDDomains from '../hns-layout/group_d_domains.json';
@@ -345,7 +346,7 @@ const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
 // Shell Side Arm is EFFECT_SHELL_SIDE_ARM and remains outside the ordinary request gate.
 function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
-  if (!Number.isInteger(id) || !(input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
+  if (!Number.isInteger(id) || !(input.move?.hnsFixedRepeatedStrike === true && input.move?.hnsMoveFamily === 'FIXED_TWO_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.fixedTwoHitPlain === true || input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
         input.move?.hnsMoveEffect === 'EFFECT_HIT_ESCAPE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ESCAPE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitEscape === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ROLLOUT' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ROLLOUT' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitRollout === true ||
@@ -372,6 +373,98 @@ function hnsContactAuthority(move, attacker, input) {
   }
   if (attacker.ability === 'Long Reach') return false;
   return true;
+}
+
+// Recompute from boundary-owned operands; a caller's sequenceStable flag is never authority.
+function hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field) {
+  const m = input.move, metadata = hnsMoveMetadata.moves[String(m?.hnsMoveId)];
+  const named = Object.values(hnsMoveMetadata.moves).find(v => v.fixedTwoHitPlain && v.name.toLowerCase() === m?.name?.toLowerCase());
+  if (!metadata?.fixedTwoHitPlain && !named && m?.hnsMoveFamily !== 'FIXED_TWO_HIT_PLAIN' && m?.hnsFixedRepeatedStrike !== true) return null;
+  if (!metadata?.fixedTwoHitPlain || m.name?.toLowerCase() !== metadata.name.toLowerCase() ||
+      m.hnsMoveFamily !== 'FIXED_TWO_HIT_PLAIN' || m.hnsMoveEffect !== metadata.effect ||
+      m.hnsFixedRepeatedStrike !== true || m.hnsFixedSingleHit !== false || m.hnsIsOrdinary !== false ||
+      m.hnsSourceType !== metadata.type || m.hnsSourceCategory !== metadata.category ||
+      m.hnsSourceTarget !== metadata.target || m.hnsSourcePriority !== metadata.priority ||
+      m.hnsSourceStrikeCount !== 2 || m.hnsMultiHit !== false || typeof m.isCrit !== 'boolean' ||
+      m.overrides?.basePower !== metadata.power || move.bp !== metadata.power ||
+      m.hnsMakesContact !== metadata.makesContact || m.hnsSheerForceAffected !== false ||
+      m.hnsUnknownContact !== false || m.hnsUnknownPunching !== false || m.hnsUnknownSheerForce !== false ||
+      JSON.stringify(m.hnsMoveFlags) !== JSON.stringify(metadata.immunityFlags) ||
+      JSON.stringify(m.hnsMoveAbilityFlags) !== JSON.stringify(metadata.abilityFlags) ||
+      normalizeGameType(field.gameType) !== 'Singles' || input.hnsObservedBattlersCount !== 2 ||
+      input.hnsRepeatedStrikePhaseSettled !== true || input.defender?.hnsSemiInvulnerableState !== 0 ||
+      input.defender?.hnsSubstitute !== false || input.attacker?.hnsSubstitute !== false || input.attacker?.hnsEndured !== false || input.defender?.hnsEndured !== false ||
+      input.repeatedStrike !== undefined || m.repeatedStrike !== undefined || input.sequenceStable !== undefined || m.sequenceStable !== undefined)
+    throw new Error('H&S fixed-two descriptor or execution authority invalid');
+  const sourceType = metadata.type.replace('TYPE_', '').toLowerCase().replace(/^./, c => c.toUpperCase());
+  let expectedType = sourceType;
+  const id = input.attacker.hnsEffectiveAbilityId;
+  const ateTypes = {174: 'Ice', 182: 'Fairy', 184: 'Flying', 206: 'Electric'};
+  const ateBoost = id === 96 || sourceType === 'Normal' && ateTypes[id] !== undefined;
+  if (id === 96) expectedType = 'Normal';
+  else if (sourceType === 'Normal' && ateTypes[id]) expectedType = ateTypes[id];
+  const fieldWord = input.field?.hnsFieldStatuses, terrain = fieldWord & 0x3c0;
+  if (input.gen !== 3 || !Number.isInteger(fieldWord) || (fieldWord < 0 || fieldWord > 0xfff) || (terrain & (terrain - 1)) !== 0 ||
+      typeof input.hnsRepeatedStrikeElectrified !== 'boolean' || input.attacker.hnsActiveGimmick !== 0 || input.defender.hnsActiveGimmick !== 0 ||
+      !['PER_MOVE_SPLIT', 'TYPE_BASED'].includes(input.hnsRepeatedStrikeOptionStyle))
+    throw new Error('H&S repeated-strike type/category operands unknown');
+  if (input.hnsRepeatedStrikeElectrified || expectedType === 'Normal' && (fieldWord & 0x400) !== 0) expectedType = 'Electric';
+  // The existing Gen III Move type-category table supplies the reviewed type-based mode.
+  const expectedCategory = input.hnsRepeatedStrikeOptionStyle === 'TYPE_BASED'
+    ? new Move(gen, 'Tackle', {overrides: {type: expectedType}}).category
+    : metadata.category.replace('DAMAGE_CATEGORY_', '').toLowerCase().replace(/^./, c => c.toUpperCase());
+  if (m.overrides.type !== expectedType || m.overrides.category !== expectedCategory || m.overrides.ateBoost !== ateBoost ||
+      move.type !== expectedType || move.category !== expectedCategory)
+    throw new Error('H&S repeated-strike effective type/category forged');
+  const hp = input.defender.hpAtHit, max = input.defender.maxHpAtHit;
+  if (!Number.isInteger(hp) || !Number.isInteger(max) || max < 1 || max > 65535 || hp < 1 || hp > max || input.defender.hp !== hp || input.defender.maxHP !== max ||
+      !Number.isInteger(input.attacker.hp) || !Number.isInteger(input.attacker.maxHP) || input.attacker.maxHP > 65535 || input.attacker.hp < 1 || input.attacker.hp > input.attacker.maxHP || !Number.isInteger(input.attacker.status1) || (input.attacker.status1 & 0x27) !== 0)
+    throw new Error('H&S fixed-two authoritative HP invalid');
+  for (const [source, battler] of [[input.attacker, attacker], [input.defender, defender]]) {
+    const status = source.status1, primary = status & 0x10ff, sleep = primary & 7, other = primary & ~7;
+    if (!Number.isInteger(status) || status < 0 || status > 0x1fff ||
+        (status & 0xf00) !== 0 && (status & 0x80) === 0 || (sleep ? other !== 0 : (other & (other - 1)) !== 0))
+      throw new Error('H&S repeated-strike status word invalid');
+    const id = source?.hnsEffectiveAbilityId;
+    const rawItem = source.hnsRawItemId, rawEffect = hnsSpeedContract.holdEffects[String(rawItem)];
+    const fieldWord = input.field?.hnsFieldStatuses;
+    if (!Number.isInteger(rawItem) || rawEffect === undefined || !Number.isInteger(fieldWord) ||
+        typeof source.hnsEmbargo !== 'boolean' ||
+        (source.hnsHoldEffectState === 'ACTIVE_EXACT'
+          ? rawEffect !== source.hnsEffectiveHoldEffect || rawItem !== 0 && ((fieldWord & 1) !== 0 || source.hnsEmbargo)
+          : source.hnsEffectiveHoldEffect !== 'HOLD_EFFECT_NONE' || !((fieldWord & 1) !== 0 || source.hnsEmbargo)))
+      throw new Error('H&S repeated-strike effective item authority forged or unread');
+    if (!hnsRepeatedStrikeContract.stableAbilityIds.includes(id) || resolveAbility(hnsSpeedContract.abilities[String(id)], true) !== battler.ability ||
+        source.hnsNeutralizingGas !== false || source.hnsGastroAcid !== false ||
+        !['ACTIVE_EXACT', 'SUPPRESSED_NONE'].includes(source.hnsHoldEffectState) ||
+        !hnsRepeatedStrikeContract.stableHoldEffects.includes(source.hnsEffectiveHoldEffect))
+      throw new Error('H&S repeated-strike reaction unknown or unsupported');
+  }
+  const contact = hnsContactAuthority(move, attacker, input);
+  if (contact === null) throw new Error('H&S repeated-strike contact unknown');
+  if (contact && !hnsActiveHoldEffect(input.attacker, 'HOLD_EFFECT_PROTECTIVE_PADS', 'protective pads')) {
+    const chosen = input.defender.hnsChosenMove, protect = input.defender.hnsProtectedMethod;
+    if (!Number.isInteger(chosen) || chosen <= 0 || chosen >= hnsRepeatedStrikeContract.movesCount || protect !== 0 ||
+        chosen === hnsRepeatedStrikeContract.beakBlastMoveId)
+      throw new Error('H&S repeated-strike contact reaction state unknown or active');
+  }
+  return hp;
+}
+
+function hnsRepeatedStrikeResponse(response, hp, crit, maxHP) {
+  const rolls = response.maxDamage === 0 ? Array(16).fill(0) : response.damage;
+  if (!Array.isArray(rolls) || rolls.length !== 16 || rolls.some(x => !Number.isInteger(x) || x < 0))
+    throw new Error('H&S repeated-strike first rolls invalid');
+  const lo = Math.min(...rolls), hi = Math.max(...rolls);
+  const total = {nominalCount: 2, minHpLoss: Math.min(hp, 2 * lo), maxHpLoss: Math.min(hp, 2 * hi),
+    minExecutedHits: hi === 0 ? 0 : hp <= hi ? 1 : 2, maxExecutedHits: hi === 0 ? 0 : hp <= lo ? 1 : 2};
+  return {...response, defenderMaxHP: maxHP, damage: [], range: [], minDamage: total.minHpLoss, maxDamage: total.maxHpLoss,
+    desc: 'Fixed two-hit move; conditional on connecting from the observed state',
+    repeatedStrike: {nominalCounts: [2], firstStrikeRolls: rolls, totals: [total],
+      assumptions: [crit ? 'All executed strikes critical' : 'All executed strikes noncritical',
+        'Conditional on successful connection from unchanged observed operands, including chosen move/protection; no intervening action before the selected move',
+        'Independent damage rolls; interval endpoints do not imply every interior value is reachable'],
+      totalUnavailableReasons: []}};
 }
 
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
@@ -1552,7 +1645,9 @@ function hnsParadoxHighestStat(battler, wonderRoom) {
       const field = new Field(fieldOptions);
 
       if (input.typeSystem === 'hns_2_0_5') {
-        return JSON.stringify(calculateHnsDamage(gen, attacker, defender, move, field, input));
+        const hp = hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field);
+        const response = calculateHnsDamage(gen, attacker, defender, move, field, input);
+        return JSON.stringify(hp === null ? response : hnsRepeatedStrikeResponse(response, hp, input.move.isCrit === true, input.defender.maxHpAtHit));
       }
 
       const result = calculate(gen, attacker, defender, move, field);

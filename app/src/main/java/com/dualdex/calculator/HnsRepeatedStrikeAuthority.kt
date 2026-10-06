@@ -40,7 +40,8 @@ object HnsRepeatedStrikeAuthority {
             HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER))
         if (contact == HnsContactAuthority.UNKNOWN) return unknown()
         if (contact == HnsContactAuthority.CONTACT && HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER).effectiveHoldEffect != "HOLD_EFFECT_PROTECTIVE_PADS") {
-            if (live.defenderChosenMove == null || live.defenderChosenMove !in 0 until Hns205MoveEffects.selectedMoveCount ||
+            // MOVE_NONE is observed before current-turn selection commits, not a harmless move.
+            if (live.defenderChosenMove == null || live.defenderChosenMove !in 1 until Hns205MoveEffects.selectedMoveCount ||
                 live.defenderProtectedMethod == null || live.defenderProtectedMethod !in 0..127) return unknown()
             if (live.defenderProtectedMethod != 0 ||
                 Hns205MoveEffects.effectById[live.defenderChosenMove] == "EFFECT_BEAK_BLAST") return unsupported()

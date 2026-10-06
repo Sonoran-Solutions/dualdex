@@ -690,8 +690,18 @@ FIXED_TWO_MOVE_CONTRACTS = {'MOVE_DOUBLE_KICK': (24, '625afd319e60a891ea88fbb65f
 
 FIXED_TWO_SOURCE_CONTRACTS = {'include/move.h': '015bcf307ec360ce82b0c999647522f2572042261fdecbd83b701ac339debf00', 'src/battle_hold_effects.c': 'db60d458f9de2a30cadbc1e311f0814a6c5439ef8d828bdaa5518ca9b0795ebe', 'src/pokemon.c': '87450aec502e906a3c2ccc5d4051ffc05796c09de0ef6b3b785b55d882721e62', 'src/data/pokemon/form_change_tables.h': 'c28ff4c8195421e09262d78b134b0ae030397b0899116537daf736849431c0d8'}
 
+def verify_fixed_two_selection_lifecycle(text):
+    """Observed MOVE_NONE precedes commitment during the permitted selection callback."""
+    turn = text[text.index('void BattleTurnPassed(void)'):text.index('u8 IsRunningFromBattleImpossible(')]
+    reset = turn.find('gChosenMoveByBattler[battler] = MOVE_NONE;')
+    selection = turn.find('gBattleMainFunc = HandleTurnActionSelectionState;')
+    commitment = 'gBattleStruct->chosenMovePositions[battler] = gBattleResources->bufferB[battler][2] & ~RET_GIMMICK;\n                            gChosenMoveByBattler[battler] = GetBattlerChosenMove(battler);'
+    if not 0 <= reset < selection or commitment not in text:
+        raise ValueError('Changed chosen-move reset/selection/commit lifecycle')
+
 def verify_fixed_two_contract(upstream_dir):
     verify_rollout_contract(upstream_dir)
+    verify_fixed_two_selection_lifecycle(open(os.path.join(upstream_dir, 'src/battle_main.c')).read())
     for path, digest in FIXED_TWO_SOURCE_CONTRACTS.items():
         if hashlib.sha256(open(os.path.join(upstream_dir, path), "rb").read()).hexdigest() != digest:
             raise ValueError("Changed fixed-two execution contract: " + path)

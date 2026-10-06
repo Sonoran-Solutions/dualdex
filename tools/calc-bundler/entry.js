@@ -444,7 +444,7 @@ function hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field)
   if (contact === null) throw new Error('H&S repeated-strike contact unknown');
   if (contact && !hnsActiveHoldEffect(input.attacker, 'HOLD_EFFECT_PROTECTIVE_PADS', 'protective pads')) {
     const chosen = input.defender.hnsChosenMove, protect = input.defender.hnsProtectedMethod;
-    if (!Number.isInteger(chosen) || chosen < 0 || chosen >= hnsRepeatedStrikeContract.movesCount || protect !== 0 ||
+    if (!Number.isInteger(chosen) || chosen <= 0 || chosen >= hnsRepeatedStrikeContract.movesCount || protect !== 0 ||
         chosen === hnsRepeatedStrikeContract.beakBlastMoveId)
       throw new Error('H&S repeated-strike contact reaction state unknown or active');
   }

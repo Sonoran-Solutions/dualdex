@@ -12,6 +12,12 @@ def refused(call):
     try:call()
     except ValueError:count+=1
     else:raise AssertionError('source mutation accepted')
+main=(up/'src/battle_main.c').read_text()
+gen.verify_fixed_two_selection_lifecycle(main)
+for old,new in [('gChosenMoveByBattler[battler] = MOVE_NONE;', 'gChosenMoveByBattler[battler] = MOVE_TACKLE;'),
+    ('gBattleMainFunc = HandleTurnActionSelectionState;', 'gBattleMainFunc = RunTurnActionsFunctions;'),
+    ('gChosenMoveByBattler[battler] = GetBattlerChosenMove(battler);', 'gChosenMoveByBattler[battler] = MOVE_NONE;')]:
+    refused(lambda:gen.verify_fixed_two_selection_lifecycle(main.replace(old,new)))
 for symbol in gen.FIXED_TWO_MOVE_CONTRACTS:
     start=moves.index('['+symbol+']');end=moves.index('\n    },',start)+7
     body=moves[start:end]

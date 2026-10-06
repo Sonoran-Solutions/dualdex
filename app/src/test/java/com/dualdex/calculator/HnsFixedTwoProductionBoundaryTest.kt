@@ -18,7 +18,7 @@ class HnsFixedTwoProductionBoundaryTest {
             Hns205ItemCatalogue.get(item?.let(HnsItemRegistry::resolveIdByName) ?: 0),2).let { o ->
             o.copy(state=o.state.copy(rawAttack=151,rawSpAttack=151,rawDefense=109,rawSpDefense=109,
                 rawSpeed=if(a) 200 else 100, hp=if(a) 200 else hp,maxHp=if(a) 200 else hp,
-                contactReactionStateObserved=true,chosenMove=0,protectedMethod=0)) }
+                contactReactionStateObserved=true,chosenMove=33,protectedMethod=0)) }
     private fun request(move: String)=DamageCalculationRequest(
         attacker=CalcPokemonInput(species="Machamp",level=50,origin=CalcInputOrigin.LIVE_READ,partySlot=0),
         defender=CalcPokemonInput(species="Snorlax",level=50,origin=CalcInputOrigin.LIVE_READ,partySlot=1),
@@ -33,6 +33,25 @@ class HnsFixedTwoProductionBoundaryTest {
         val result=JSONObject(p.inputStream.bufferedReader().readText()); assertEquals(0,p.waitFor()); return result
     }
     private fun result(r: DamageCalculationRequest): JSONObject = calculate(buildCalcRequestJson(r)).also { assertTrue(it.toString(),it.getBoolean("success")) }
+    @Test fun `observed MOVE_NONE cannot authorize contact but exact suppression can`() {
+        val uncommitted=observation(false).let {it.copy(state=it.state.copy(chosenMove=0))}
+        for(move in listOf("Double Hit","Double Kick","Dual Chop","Dual Wingbeat")) {
+            val known=ready(move).request
+            assertEquals(HnsRepeatedStrikeAuthority.Stability.STABLE,HnsRepeatedStrikeAuthority.forRequest(known).stability)
+            val unknown=HnsRepeatedStrikeAuthority.forRequest(known.copy(hnsLiveBattleState=known.hnsLiveBattleState!!.copy(defenderChosenMove=0)))
+            assertEquals(HnsRepeatedStrikeAuthority.Stability.UNKNOWN_TRANSITION,unknown.stability)
+            assertEquals(CalcLimitation.HNS_REPEATED_STRIKE_STATE_UNKNOWN,unknown.limitation)
+            assertTrue(build(move,d=uncommitted) is CalcRequestOutcome.Refused)
+            val beak=known.copy(hnsLiveBattleState=known.hnsLiveBattleState!!.copy(defenderChosenMove=653))
+            assertEquals(HnsRepeatedStrikeAuthority.Stability.UNSUPPORTED_TRANSITION,HnsRepeatedStrikeAuthority.forRequest(beak).stability)
+            for(a in listOf(observation(true,"Long Reach"),observation(true,item="Protective Pads"))) {
+                val suppressed=ready(move,a=a,d=uncommitted).request
+                assertEquals(HnsRepeatedStrikeAuthority.Stability.STABLE,HnsRepeatedStrikeAuthority.forRequest(suppressed).stability)
+                result(suppressed)
+            }
+        }
+        ready("Bonemerang",d=uncommitted);ready("Twin Beam",d=uncommitted)
+    }
     @Test fun `six exact descriptors produce separate first strike and HP capped totals`() {
         for(move in moves) {
             val bound=ready(move).request;val j=JSONObject(buildCalcRequestJson(bound)).getJSONObject("move")
@@ -136,7 +155,7 @@ class HnsFixedTwoProductionBoundaryTest {
             {it.getJSONObject("field").put("hnsFieldStatuses",4294967296L)},
             {it.put("gen",8)}, {it.remove("hnsRepeatedStrikeOptionStyle")},
             {it.getJSONObject("defender").remove("hpAtHit")}, {it.getJSONObject("defender").put("hpAtHit",0)}, {it.getJSONObject("defender").put("hpAtHit",1)},
-            {it.getJSONObject("defender").put("hnsChosenMove",653)}, {it.getJSONObject("defender").remove("hnsProtectedMethod")},
+            {it.getJSONObject("defender").put("hnsChosenMove",0)}, {it.getJSONObject("defender").put("hnsChosenMove",653)}, {it.getJSONObject("defender").remove("hnsProtectedMethod")},
             {it.put("sequenceStable",true)}, {it.put("repeatedStrike",JSONObject())},
             {it.put("hnsObservedBattlersCount",4)}, {it.put("hnsRepeatedStrikePhaseSettled",false)},
             {it.getJSONObject("defender").put("hnsEffectiveHoldEffect","HOLD_EFFECT_ROCKY_HELMET")})) {

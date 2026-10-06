@@ -6594,7 +6594,7 @@ static void test_hns_contact_reaction_observation(void) {
     TEST_ASSERT(read_battler_state(&fx,BATTLER_ROLE_INDEX_1,&st) && st.contact_reaction_state_observed &&
         st.chosen_move==653 && st.protected_method==3,"indexed chosen move and seven protection bits bound to defender");
     TEST_ASSERT(read_battler_state(&fx,BATTLER_ROLE_INDEX_0,&st) && st.contact_reaction_state_observed &&
-        st.chosen_move==0 && st.protected_method==0,"observed zero is distinct from unread");
+        st.chosen_move==0 && st.protected_method==0,"MOVE_NONE is observed memory, not committed-action authorization");
     ContactReadProbe probe={&gba.table,0,true,false};
     TEST_ASSERT(pokemon_read_battler_runtime_state_gba(contact_probe_read,&probe,gba.ewram,sizeof(gba.ewram),cfg,
         BATTLER_ROLE_INDEX_1,&st) && !st.contact_reaction_state_observed,"unread chosen move stays unknown");

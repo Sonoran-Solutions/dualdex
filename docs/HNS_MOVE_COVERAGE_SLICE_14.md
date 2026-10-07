@@ -2,7 +2,7 @@
 
 ## Scope and starting state
 
-Slice 14 starts from `c91f024ad50f428fdd99b537e2caa6dab3abd431`, the merge commit for PR #157 (Slice 13). PR #157 was merged and senior-reviewed; issue #149 was closed with its requested completion record. The implementation is tracked by [issue #158](https://github.com/Sonoran-Solutions/dualdex/issues/158); the review PR URL is added here after opening the branch PR. The branch is based on the fetched `origin/main` at that exact SHA.
+Slice 14 starts from `c91f024ad50f428fdd99b537e2caa6dab3abd431`, the merge commit for PR #157 (Slice 13). PR #157 was merged and senior-reviewed; issue #149 was closed with its requested completion record. The implementation is tracked by [issue #158](https://github.com/Sonoran-Solutions/dualdex/issues/158) and [PR #159](https://github.com/Sonoran-Solutions/dualdex/pull/159), which is open for senior review. The branch is based on the fetched `origin/main` at that exact SHA.
 
 The baseline census is the immutable Slice-13 artifact: 651 battles, 24,278 eligible requests, 21,448 `FULLY_MODELLED`, 462 `CAVEATED_ESTIMATE`, and 2,368 `REFUSED`; 664/1,302 lead pairs are fully displayable, 7,550/8,450 lead requests display, and no battle is blank. The opportunity contains two Scale Shot requests in one battle, affecting no lead pairs or lead requests; this is a ceiling, not a promised unlock.
 

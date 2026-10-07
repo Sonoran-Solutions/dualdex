@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Only newer runs for the same PR supersede one another. Main pushes stay unique.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Native & Unit Tests
@@ -18,20 +23,46 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Coverage evidence compares immutable starting-head artifacts.
+          fetch-depth: 0 # Classification and immutable coverage starting-head evidence.
+
+      - name: Classify changes
+        id: changes
+        run: python3 tools/ci/classify_changes.py
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
+
+      - name: Test change classification
+        run: python3 -m unittest discover -s tools/ci -p 'test_classify_changes.py' -v
+
+      - name: Validate allowlisted documentation
+        if: steps.changes.outputs.full == 'false'
+        run: git diff --check "$CI_BASE" "$CI_HEAD" --
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up JDK 17
+        if: steps.changes.outputs.full != 'false'
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
+          cache-dependency-path: |
+            **/*.gradle*
+            gradle/wrapper/gradle-wrapper.properties
+            gradle.properties
 
       - name: Setup Android SDK
+        if: steps.changes.outputs.full != 'false'
         uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools'
 
       - name: Run canonical tests (self-contained)
+        if: steps.changes.outputs.full != 'false'
         run: ./ci.sh test
 
   build:
@@ -41,19 +72,47 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Resolve both immutable PR endpoints.
+
+      - name: Classify changes
+        id: changes
+        run: python3 tools/ci/classify_changes.py
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
+
+      - name: Test change classification
+        run: python3 -m unittest discover -s tools/ci -p 'test_classify_changes.py' -v
+
+      - name: Validate allowlisted documentation
+        if: steps.changes.outputs.full == 'false'
+        run: git diff --check "$CI_BASE" "$CI_HEAD" --
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up JDK 17
+        if: steps.changes.outputs.full != 'false'
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
+          cache-dependency-path: |
+            **/*.gradle*
+            gradle/wrapper/gradle-wrapper.properties
+            gradle.properties
 
       - name: Setup Android SDK
+        if: steps.changes.outputs.full != 'false'
         uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools'
 
       - name: Run canonical build
+        if: steps.changes.outputs.full != 'false'
         run: ./ci.sh build
 
   source-validation:
@@ -67,14 +126,41 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Resolve both immutable PR endpoints.
+
+      - name: Classify changes
+        id: changes
+        run: python3 tools/ci/classify_changes.py
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
+
+      - name: Test change classification
+        run: python3 -m unittest discover -s tools/ci -p 'test_classify_changes.py' -v
+
+      - name: Validate allowlisted documentation
+        if: steps.changes.outputs.full == 'false'
+        run: git diff --check "$CI_BASE" "$CI_HEAD" --
+        env:
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
 
       - name: Set up JDK 17
+        if: steps.changes.outputs.full != 'false'
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: 'gradle'
+          cache-dependency-path: |
+            **/*.gradle*
+            gradle/wrapper/gradle-wrapper.properties
+            gradle.properties
 
       - name: Setup Android SDK
+        if: steps.changes.outputs.full != 'false'
         uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools'
@@ -88,6 +174,7 @@ jobs:
       # `ci.sh source-check` locates the toolchain fail-closed and refuses to
       # skip the check.
       - name: Install ARM preprocessor and newlib headers (data-pack verification)
+        if: steps.changes.outputs.full != 'false'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends gcc-arm-none-eabi libnewlib-arm-none-eabi
 
       # Pinned public upstream at the exact Release-v2.0.5 commit, limited to
@@ -99,6 +186,7 @@ jobs:
       # and the full data/ tree the tutor-learnset generation scans for .inc
       # scripts (data/maps and data/layouts are read for the map headers).
       - name: Fetch pinned Heart & Soul 2.0.5 source
+        if: steps.changes.outputs.full != 'false'
         uses: actions/checkout@v4
         with:
           repository: PokemonHnS-Development/pokehns-expansion
@@ -117,6 +205,7 @@ jobs:
           sparse-checkout-cone-mode: true
 
       - name: Run H&S source validation
+        if: steps.changes.outputs.full != 'false'
         run: ./ci.sh source-check
         env:
           HNS_UPSTREAM_DIR: upstream-hns/pokehns-expansion

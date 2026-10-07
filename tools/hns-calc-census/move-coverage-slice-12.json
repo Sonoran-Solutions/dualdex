@@ -5467,16 +5467,39 @@
           "id": 727,
           "name": "Scale Shot",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 90,
+            "additionalEffects": [
+              {
+                "moveEffect": "MOVE_EFFECT_SCALE_SHOT"
+              }
+            ],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "cf06a2be103ecbb1f1ba4e1a47d48b8f06d45e37844514d65b7e361ee7d0f42a",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_SCALE_SHOT",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Scale Shot",
             "ordinary": false,
+            "postSequenceTimingSha256": "2fb16df90c8ce3fcc8f441154bd00493485405db9668226ef639c483497c7f39",
+            "power": 25,
+            "pp": 20,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "scaleShot": true,
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_DRAGON"
           }
         },
         {
@@ -8246,16 +8269,39 @@
           "id": 727,
           "name": "Scale Shot",
           "sourceMetadata": {
+            "abilityFlags": [],
+            "accuracy": 90,
+            "additionalEffects": [
+              {
+                "moveEffect": "MOVE_EFFECT_SCALE_SHOT"
+              }
+            ],
+            "ballisticMove": false,
+            "category": "DAMAGE_CATEGORY_PHYSICAL",
             "damageFlags": {
               "multiHit": [
                 "TRUE"
               ]
             },
+            "descriptorSha256": "cf06a2be103ecbb1f1ba4e1a47d48b8f06d45e37844514d65b7e361ee7d0f42a",
             "effect": "EFFECT_HIT",
+            "family": "VARIABLE_MULTI_HIT_SCALE_SHOT",
+            "immunityFlags": [],
             "makesContact": false,
+            "multiHit": true,
+            "name": "Scale Shot",
             "ordinary": false,
+            "postSequenceTimingSha256": "2fb16df90c8ce3fcc8f441154bd00493485405db9668226ef639c483497c7f39",
+            "power": 25,
+            "pp": 20,
+            "preAttackEffects": [],
+            "priority": 0,
             "punchingMove": false,
-            "sheerForceAffected": false
+            "scaleShot": true,
+            "sheerForceAffected": false,
+            "strikeCount": null,
+            "target": "TARGET_SELECTED",
+            "type": "TYPE_DRAGON"
           }
         },
         {

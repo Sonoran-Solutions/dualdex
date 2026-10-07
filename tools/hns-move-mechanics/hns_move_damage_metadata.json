@@ -5981,7 +5981,30 @@
         "multiHit": [
           "TRUE"
         ]
-      }
+      },
+      "scaleShot": true,
+      "name": "Scale Shot",
+      "family": "VARIABLE_MULTI_HIT_SCALE_SHOT",
+      "descriptorSha256": "cf06a2be103ecbb1f1ba4e1a47d48b8f06d45e37844514d65b7e361ee7d0f42a",
+      "power": 25,
+      "type": "TYPE_DRAGON",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 90,
+      "pp": 20,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": null,
+      "multiHit": true,
+      "ballisticMove": false,
+      "additionalEffects": [
+        {
+          "moveEffect": "MOVE_EFFECT_SCALE_SHOT"
+        }
+      ],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": [],
+      "postSequenceTimingSha256": "2fb16df90c8ce3fcc8f441154bd00493485405db9668226ef639c483497c7f39"
     },
     "728": {
       "effect": "EFFECT_TWO_TURNS_ATTACK",

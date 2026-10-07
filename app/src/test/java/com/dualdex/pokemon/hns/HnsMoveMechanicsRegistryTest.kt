@@ -64,6 +64,10 @@ class HnsMoveMechanicsRegistryTest {
             assertFalse("distinct family must not inherit variable multi-hit", id in Hns205MoveEffects.variableMultiHitPlainMoveIds)
         }
         assertFalse(727 in Hns205MoveEffects.variableMultiHitPlainMoveIds) // Scale Shot
+        assertTrue(727 in Hns205MoveEffects.variableMultiHitScaleShotMoveIds)
+        assertEquals(HnsMoveMechanicsCategory.VARIABLE_MULTI_HIT_SCALE_SHOT,
+            HnsMoveMechanicsRegistry.classify(727).category)
+        assertEquals(setOf(727), Hns205MoveEffects.variableMultiHitScaleShotMoveIds)
         assertFalse(41 in Hns205MoveEffects.variableMultiHitPlainMoveIds) // Twineedle
         // Double Kick is EFFECT_HIT with strikeCount = 2.
         assertEquals(HnsMoveMechanicsCategory.FIXED_TWO_HIT_PLAIN, HnsMoveMechanicsRegistry.classify(24).category)

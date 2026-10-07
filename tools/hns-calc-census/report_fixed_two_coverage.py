@@ -5,9 +5,10 @@ from report_move_coverage import ROOT,CENSUS,report
 
 START='32c23e858cd9cf38867df668166f18d9167dc495'
 SLICE12='2d57cf8b991b04e676fd6d920ddcdf52159f1735'
+SLICE13='c91f024ad50f428fdd99b537e2caa6dab3abd431'
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--check',action='store_true');a=p.parse_args()
 before=json.loads(gzip.decompress(subprocess.check_output(['git','show',f'{START}:{CENSUS}'],cwd=ROOT)))
-current=json.loads(gzip.decompress((ROOT/CENSUS).read_bytes()))
+current=json.loads(gzip.decompress(subprocess.check_output(['git','show',f'{SLICE13}:{CENSUS}'],cwd=ROOT)))
 after=json.loads(gzip.decompress(subprocess.check_output(['git','show',f'{SLICE12}:{CENSUS}'],cwd=ROOT)))
 inventory=json.loads((ROOT/'tools/hns-calc-census/trainer_inventory.json').read_text())
 assert inventory==json.loads(subprocess.check_output(['git','show',f'{START}:tools/hns-calc-census/trainer_inventory.json'],cwd=ROOT))

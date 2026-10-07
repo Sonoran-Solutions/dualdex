@@ -705,6 +705,69 @@ VARIABLE_MULTI_HIT_MOVE_CONTRACTS = {
     'MOVE_TAIL_SLAP': (541, 'd9d37df2f2f4c52f7148cdf3f1745d309c9236dcde23779d2cd7c8b2649f5394'),
 }
 
+# Scale Shot remains a distinct family: its only additional effect is source-proven to run
+# after MoveEndMultihitMove exits the repeated damage loop.
+SCALE_SHOT_MOVE_CONTRACT = (727, 'cf06a2be103ecbb1f1ba4e1a47d48b8f06d45e37844514d65b7e361ee7d0f42a')
+SCALE_SHOT_SCRIPT_HASHES = {
+    'BattleScript_ScaleShot': '1854ecbd952ecd549cb27fc36b103a2217d74d1341b939bcd87456fc785b6d2e',
+    'BattleScript_DefDownSpeedUp': '7d05afc899772eefedc185f07a448018b46d5ed1ea31bccaee946654c23715dc',
+}
+SCALE_SHOT_TIMING_CONTRACT_SHA256 = '2fb16df90c8ce3fcc8f441154bd00493485405db9668226ef639c483497c7f39'
+
+def parse_scale_shot_metadata(text, ids, contact_by_id, sheer_by_id, ability_flags_by_id):
+    symbol, (move_id, digest) = 'MOVE_SCALE_SHOT', SCALE_SHOT_MOVE_CONTRACT
+    entries = {s: '\n'.join(body) for s, body in _entry_body(text.splitlines(), 0, len(text.splitlines()))}
+    body = entries.get(symbol, '')
+    if ids.get(symbol) != move_id or hashlib.sha256(re.sub(r'\s+', '', body).encode()).hexdigest() != digest:
+        raise ValueError('Changed Scale Shot MoveInfo descriptor')
+    def field(name):
+        values = re.findall(r'\.' + re.escape(name) + r'\s*=\s*([^,\n}]+)', body)
+        if len(values) != 1:
+            raise ValueError('Missing/duplicate Scale Shot field: ' + name)
+        return values[0].strip()
+    expected = {'effect':'EFFECT_HIT','power':'25','type':'TYPE_DRAGON','accuracy':'90','pp':'20',
+        'target':'TARGET_SELECTED','priority':'0','category':'DAMAGE_CATEGORY_PHYSICAL','multiHit':'TRUE'}
+    if any(field(name) != value for name, value in expected.items()) or re.search(r'\.strikeCount\s*=', body):
+        raise ValueError('Scale Shot is no longer the reviewed random 2-5 move')
+    effect_body = re.search(r'\.additionalEffects\s*=\s*ADDITIONAL_EFFECTS\(\s*\{(.*?)\}\s*\)', body, re.S)
+    if not effect_body or re.findall(r'\.moveEffect\s*=\s*([^,\n}]+)', effect_body.group(1)) != ['MOVE_EFFECT_SCALE_SHOT']:
+        raise ValueError('Scale Shot additional effect changed')
+    if re.search(r'\.preAttackEffect\s*=', body) or 'MOVE_EFFECT_SCALE_SHOT' not in body:
+        raise ValueError('Scale Shot pre-attack/additional-effect boundary changed')
+    if move_id in ability_flags_by_id and ability_flags_by_id[move_id] or sheer_by_id.get(move_id) is not False:
+        raise ValueError('Scale Shot punching/Sheer Force authority changed')
+    if 'makesContact' in contact_by_id.get(move_id, set()):
+        raise ValueError('Scale Shot contact authority changed')
+    return {move_id: dict(scaleShot=True, name='Scale Shot', family='VARIABLE_MULTI_HIT_SCALE_SHOT',
+        descriptorSha256=digest, effect='EFFECT_HIT', power=25, type='TYPE_DRAGON',
+        category='DAMAGE_CATEGORY_PHYSICAL', accuracy=90, pp=20, target='TARGET_SELECTED', priority=0,
+        strikeCount=None, multiHit=True, makesContact=False, punchingMove=False, ballisticMove=False,
+        sheerForceAffected=False, additionalEffects=[{'moveEffect':'MOVE_EFFECT_SCALE_SHOT'}],
+        preAttackEffects=[], abilityFlags=[], immunityFlags=[],
+        postSequenceTimingSha256=SCALE_SHOT_TIMING_CONTRACT_SHA256)}
+
+def verify_scale_shot_script_contract(upstream_dir):
+    scripts = open(os.path.join(upstream_dir, 'data/battle_scripts_1.s'), encoding='utf-8').read()
+    verify_scale_shot_script_contract_text(scripts)
+
+def verify_scale_shot_script_contract_text(scripts):
+    for name, digest in SCALE_SHOT_SCRIPT_HASHES.items():
+        start = scripts.find(name + '::')
+        if start < 0:
+            raise ValueError('Missing Scale Shot completion script: ' + name)
+        if name == 'BattleScript_ScaleShot':
+            end = scripts.find('\n\n', start)
+            block = scripts[start:end + 2]
+        else:
+            end = scripts.find('BattleScript_DefDownSpeedUpRet::\n\treturn', start)
+            if end < 0: raise ValueError('Missing Scale Shot stat script return')
+            block = scripts[start:end + len('BattleScript_DefDownSpeedUpRet::\n\treturn\n')]
+        if hashlib.sha256(block.encode()).hexdigest() != digest:
+            raise ValueError('Scale Shot completion timing/stat script changed: ' + name)
+    scale = scripts[scripts.index('BattleScript_ScaleShot::'):scripts.index('\n\n', scripts.index('BattleScript_ScaleShot::'))]
+    if scale != 'BattleScript_ScaleShot::\n\tcall BattleScript_MultiHitPrintStrings\n\tgoto BattleScript_DefDownSpeedUp':
+        raise ValueError('Scale Shot must print hit count before its post-sequence stat script')
+
 VARIABLE_MULTI_HIT_SOURCE_CONTRACTS = {
     ('src/battle_move_resolution.c', 'SetRandomMultiHitCounter'): '23d8dee234194d5c3fc6ec8c378734ca72f89a084fb3eb658c2bb9026b43a721',
     ('src/battle_move_resolution.c', 'CancelerMultihitMoves'): 'f8acc7eac9753d553fe2da97540938b6a0d61ffadc30c87e7a646d88ca8d0547',
@@ -1340,6 +1403,10 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    /** Exact plain random-count EFFECT_HIT family; Scale Shot and Twineedle are excluded. */")
     lines.append("    val variableMultiHitPlainMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("variableMultiHitPlain")))) + ")")
     lines.append("    val variableMultiHitDescriptorSha256ById: Map<Int, String> = mapOf(" + ", ".join("{} to {}".format(i, json.dumps(m["descriptorSha256"])) for i, m in sorted((dynamic_power or {}).items()) if m.get("variableMultiHitPlain")) + ")")
+    lines.append("    /** Dedicated post-sequence Scale Shot family; never part of the plain variable family. */")
+    lines.append("    val variableMultiHitScaleShotMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("scaleShot")))) + ")")
+    lines.append("    val scaleShotDescriptorSha256: String = " + json.dumps(next(m["descriptorSha256"] for m in (dynamic_power or {}).values() if m.get("scaleShot"))))
+    lines.append("    val scaleShotTimingSha256: String = " + json.dumps(SCALE_SHOT_TIMING_CONTRACT_SHA256))
     lines.append("    val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitRollout")))) + ")")
     lines.append("    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds")
     lines.append("    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds")
@@ -1512,6 +1579,8 @@ def main():
     dynamic_power.update(parse_variable_multi_hit_metadata(move_text, ids, config, general,
         contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id,
         ability_flags_by_id, unknown_ability_flags_by_id, flags_by_id, unknown_flags_by_id))
+    dynamic_power.update(parse_scale_shot_metadata(move_text, ids, contact_by_id, sheer_by_id, ability_flags_by_id))
+    verify_scale_shot_script_contract(upstream_dir)
     verify_hit_escape_contract(upstream_dir)
     verify_fixed_two_contract(upstream_dir)
     verify_variable_multi_hit_source_contract(upstream_dir)

@@ -15,7 +15,8 @@ object HnsRepeatedStrikeAuthority {
     fun isFamily(request: DamageCalculationRequest): Boolean {
         val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return false
         return request.typeSystem == "hns_2_0_5" &&
-            (moveId in Hns205MoveEffects.fixedTwoHitPlainMoveIds || moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds)
+            (moveId in Hns205MoveEffects.fixedTwoHitPlainMoveIds || moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds ||
+                moveId in Hns205MoveEffects.variableMultiHitScaleShotMoveIds)
     }
 
     fun forRequest(request: DamageCalculationRequest): Result {
@@ -23,7 +24,7 @@ object HnsRepeatedStrikeAuthority {
         fun unsupported() = Result(Stability.UNSUPPORTED_TRANSITION, CalcLimitation.HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED)
         if (!isFamily(request)) return unknown()
         val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return unknown()
-        val variable = moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds
+        val variable = moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds || moveId in Hns205MoveEffects.variableMultiHitScaleShotMoveIds
         val live = request.hnsLiveBattleState ?: return unknown()
         val hp = live.defenderHp
         val maxHp = live.defenderMaxHp

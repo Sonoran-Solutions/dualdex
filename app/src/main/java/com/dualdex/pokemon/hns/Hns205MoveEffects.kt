@@ -3314,6 +3314,10 @@ internal object Hns205MoveEffects {
     /** Exact plain random-count EFFECT_HIT family; Scale Shot and Twineedle are excluded. */
     val variableMultiHitPlainMoveIds: Set<Int> = setOf(3, 4, 31, 42, 131, 154, 198, 292, 331, 333, 350, 541)
     val variableMultiHitDescriptorSha256ById: Map<Int, String> = mapOf(3 to "37f1f7ef3c2e33fc86f1daad1abec9e425fedd32778ddc0d42cfc64d7b61cb8e", 4 to "45efa36822888907fdfa562b16087aba3ce4ef400673b2672eefbb8def020731", 31 to "060f699afe5322f95999041a1d82251c12e49403fa8d6ee8f6b45dbc674f8397", 42 to "0a46abdbc00ec2ae9cdd555cf517840a5abdd71ead66e10c744d33434b8c1acd", 131 to "ba1b14d4b373733088b525325148a5c737cf8a8be648fcb8f9bce4f03e206ba9", 154 to "e772a1809fb7e5b77bfcffda2d4808b7e6a8ede6b6be1971edf93b3fd4a8216d", 198 to "68e17169bfe0bc96e47836b9db35fa5ca2480f584a531727686e8250b3ba3100", 292 to "68908eecef1cf68a19f1fbe07bb0fa762e19b1540bfc832b818273ffa3ac7d29", 331 to "403f0cc0df44c4994a8cb81039fafc9e33873179491a594df5b9185964000cc9", 333 to "a229be72d4e28c36a1d0f765137ee3f31e9158a2019f49067847e06a6c0a832f", 350 to "5c4665229897c6efcf12894630b467e0a126e8a61e8910a0154a941ae3973e18", 541 to "d9d37df2f2f4c52f7148cdf3f1745d309c9236dcde23779d2cd7c8b2649f5394")
+    /** Dedicated post-sequence Scale Shot family; never part of the plain variable family. */
+    val variableMultiHitScaleShotMoveIds: Set<Int> = setOf(727)
+    val scaleShotDescriptorSha256: String = "cf06a2be103ecbb1f1ba4e1a47d48b8f06d45e37844514d65b7e361ee7d0f42a"
+    val scaleShotTimingSha256: String = "2fb16df90c8ce3fcc8f441154bd00493485405db9668226ef639c483497c7f39"
     val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(205, 301)
     val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds
     val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds

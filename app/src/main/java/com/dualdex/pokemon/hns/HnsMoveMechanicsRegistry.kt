@@ -55,6 +55,9 @@ enum class HnsMoveMechanicsCategory {
     /** Plain source-selected random 2–5 multiHit EFFECT_HIT family. */
     VARIABLE_MULTI_HIT_PLAIN,
 
+    /** Scale Shot: random 2–5 damage; its unique stat script is source-proven after loop exit. */
+    VARIABLE_MULTI_HIT_SCALE_SHOT,
+
     /**
      * The move reads battle state the request cannot express (current HP, friendship, weight,
      * speed, consecutive use, airborne/underground target, chosen move). Its damage is not a
@@ -86,7 +89,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** Arithmetic eligibility for one strike, never a sequence-stability verdict. */
     val isSupportedSelectedStrike: Boolean
-        get() = isSupportedFixedSingleHit || this == FIXED_TWO_HIT_PLAIN || this == VARIABLE_MULTI_HIT_PLAIN
+        get() = isSupportedFixedSingleHit || this == FIXED_TWO_HIT_PLAIN || this == VARIABLE_MULTI_HIT_PLAIN || this == VARIABLE_MULTI_HIT_SCALE_SHOT
 
     val isSupportedForOrdinaryDamage: Boolean
         get() = this == ORDINARY_PROVEN_EQUIVALENT
@@ -210,6 +213,11 @@ object HnsMoveMechanicsRegistry {
         if (moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds) {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT", HnsMoveMechanicsCategory.VARIABLE_MULTI_HIT_PLAIN,
                 "Pinned plain random-count multiHit strikes; count authority and sequence stability are separate.")
+        }
+
+        if (moveId in Hns205MoveEffects.variableMultiHitScaleShotMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT", HnsMoveMechanicsCategory.VARIABLE_MULTI_HIT_SCALE_SHOT,
+                "Scale Shot descriptor is exact; its stat effect runs only after the repeated damage loop exits.")
         }
 
         if (moveId in Hns205MoveEffects.ordinaryMoveIds) {

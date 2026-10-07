@@ -1,0 +1,17 @@
+--- a/src/battle_move_resolution.c
++++ b/src/battle_move_resolution.c
+@@ -2836,7 +2836,14 @@
+         if (gMultiHitCounter == 0)
+         {
+             if (MoveHasAdditionalEffect(gCurrentMove, MOVE_EFFECT_SCALE_SHOT) && !NoAliveMonsForEitherParty())
++            {
+                 BattleScriptCall(BattleScript_ScaleShot);
++#if TESTING
++                extern void (*gDdxrScaleShotComplete)(void);
++                if (gDdxrScaleShotComplete != NULL)
++                    gDdxrScaleShotComplete();
++#endif
++            }
+             else
+                 BattleScriptCall(BattleScript_MultiHitPrintStrings);
+             result = MOVEEND_RESULT_RUN_SCRIPT;

@@ -66,7 +66,7 @@ The census reports what the Battle tab would display, which is deliberately NOT 
 | - reference lead -> trainer | 14656 |
 | - trainer -> reference lead | 9622 |
 | Moves excluded, not damaging | 4782 |
-| Of the eligible requests, refused by `HNS_MOVE_MECHANICS_NOT_MODELLED` | 1598 |
+| Of the eligible requests, refused by `HNS_MOVE_MECHANICS_NOT_MODELLED` | 1596 |
 
 **Eligibility rule.** A pinned move is eligible when its own record declares a base power greater than zero: it deals damage, so the production policy has a real verdict for it. A move whose damage shape is outside the admitted fixed single-hit subset is therefore **evaluated and refused** with `HNS_MOVE_MECHANICS_NOT_MODELLED`, and it counts in the denominator and in the blocker ranking. Only a move with no base power at all is excluded, because there is no damage number to display or refuse for it; those are recorded in `excludedMoves` with their reason and excluded from every damage metric above.
 
@@ -101,10 +101,10 @@ Ranked by the number of distinct trainer battles affected, then by requests. A b
 
 | # | Blocker | Limitation | Side | Battles | Requests |
 |---:|---|---|---|---:|---:|
-| 1 | HNS_MOVE_MECHANICS_NOT_MODELLED | `HNS_MOVE_MECHANICS_NOT_MODELLED` | - | 387 | 1598 |
+| 1 | HNS_MOVE_MECHANICS_NOT_MODELLED | `HNS_MOVE_MECHANICS_NOT_MODELLED` | - | 387 | 1596 |
 | 2 | HNS_REPEATED_STRIKE_STATE_UNKNOWN | `HNS_REPEATED_STRIKE_STATE_UNKNOWN` | - | 94 | 224 |
 | 3 | HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | - | 68 | 152 |
-| 4 | HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED | `HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED` | - | 57 | 156 |
+| 4 | HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED | `HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED` | - | 58 | 158 |
 | 5 | Sturdy | `HNS_ABILITY_EFFECT_NOT_MODELLED` | attacker | 20 | 66 |
 | 6 | Swarm | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 19 | 64 |
 | 7 | Torrent | `HNS_ABILITY_CONDITION_UNVERIFIED` | attacker | 11 | 22 |
@@ -143,11 +143,11 @@ These named abilities and items are neutralized by production policy before the 
 
 | Limitation | Battles | Requests |
 |---|---:|---:|
-| `HNS_MOVE_MECHANICS_NOT_MODELLED` | 387 | 1598 |
+| `HNS_MOVE_MECHANICS_NOT_MODELLED` | 387 | 1596 |
 | `HNS_REPEATED_STRIKE_STATE_UNKNOWN` | 94 | 224 |
 | `HNS_ITEM_DEPENDENT_MOVE_NOT_MODELLED` | 68 | 152 |
 | `HNS_ABILITY_CONDITION_UNVERIFIED` | 64 | 178 |
-| `HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED` | 57 | 156 |
+| `HNS_REPEATED_STRIKE_TRANSITION_NOT_MODELLED` | 58 | 158 |
 | `HNS_ABILITY_EFFECT_NOT_MODELLED` | 46 | 352 |
 | `HNS_ITEM_EFFECT_NOT_MODELLED` | 41 | 138 |
 | `HNS_DOUBLES_SELECTED_TARGET_UNRESOLVED` | 2 | 4 |

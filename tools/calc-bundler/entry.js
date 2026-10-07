@@ -346,7 +346,7 @@ const HNS_BREAKABLE_DEFENDER_ABILITIES = new Set([
 // Shell Side Arm is EFFECT_SHELL_SIDE_ARM and remains outside the ordinary request gate.
 function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
-  if (!Number.isInteger(id) || !(input.move?.hnsVariableMultiHitPlain === true && input.move?.hnsMoveFamily === 'VARIABLE_MULTI_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.variableMultiHitPlain === true || input.move?.hnsFixedRepeatedStrike === true && input.move?.hnsMoveFamily === 'FIXED_TWO_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.fixedTwoHitPlain === true || input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
+  if (!Number.isInteger(id) || !(input.move?.hnsScaleShot === true && input.move?.hnsMoveFamily === 'VARIABLE_MULTI_HIT_SCALE_SHOT' && hnsMoveMetadata.moves[String(id)]?.scaleShot === true || input.move?.hnsVariableMultiHitPlain === true && input.move?.hnsMoveFamily === 'VARIABLE_MULTI_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.variableMultiHitPlain === true || input.move?.hnsFixedRepeatedStrike === true && input.move?.hnsMoveFamily === 'FIXED_TWO_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.fixedTwoHitPlain === true || input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
         input.move?.hnsMoveEffect === 'EFFECT_HIT_ESCAPE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ESCAPE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitEscape === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ROLLOUT' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ROLLOUT' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitRollout === true ||
@@ -380,20 +380,39 @@ function hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field)
   if (input.typeSystem !== 'hns_2_0_5') return null;
   const m = input.move, metadata = hnsMoveMetadata.moves[String(m?.hnsMoveId)];
   const fixed = metadata?.fixedTwoHitPlain === true;
-  const variable = metadata?.variableMultiHitPlain === true;
-  const familyHint = ['FIXED_TWO_HIT_PLAIN', 'VARIABLE_MULTI_HIT_PLAIN'].includes(m?.hnsMoveFamily) ||
-    m?.hnsFixedRepeatedStrike === true || m?.hnsVariableMultiHitPlain === true;
+  const scaleShot = metadata?.scaleShot === true;
+  const variable = metadata?.variableMultiHitPlain === true || scaleShot;
+  const familyHint = ['FIXED_TWO_HIT_PLAIN', 'VARIABLE_MULTI_HIT_PLAIN', 'VARIABLE_MULTI_HIT_SCALE_SHOT'].includes(m?.hnsMoveFamily) ||
+    m?.hnsFixedRepeatedStrike === true || m?.hnsVariableMultiHitPlain === true || m?.hnsScaleShot === true;
   const named = Object.values(hnsMoveMetadata.moves).find(v =>
-    (v.fixedTwoHitPlain || v.variableMultiHitPlain) && v.name.toLowerCase() === m?.name?.toLowerCase());
+    (v.fixedTwoHitPlain || v.variableMultiHitPlain || v.scaleShot) && v.name.toLowerCase() === m?.name?.toLowerCase());
   if (!fixed && !variable && !named && !familyHint) return null;
-  if ((!fixed && !variable) || fixed && variable) throw new Error('H&S repeated-strike move family is not source-authorized');
-  const family = fixed ? 'FIXED_TWO_HIT_PLAIN' : 'VARIABLE_MULTI_HIT_PLAIN';
+  if (Number(fixed) + Number(metadata?.variableMultiHitPlain === true) + Number(scaleShot) !== 1)
+    throw new Error('H&S repeated-strike move family is not source-authorized');
+  const family = fixed ? 'FIXED_TWO_HIT_PLAIN' : scaleShot ? 'VARIABLE_MULTI_HIT_SCALE_SHOT' : 'VARIABLE_MULTI_HIT_PLAIN';
   const descriptorValid = fixed
     ? m.name?.toLowerCase() === metadata.name.toLowerCase() && m.hnsMoveFamily === family &&
       m.hnsMoveEffect === metadata.effect && m.hnsFixedRepeatedStrike === true &&
       m.hnsSourceType === metadata.type && m.hnsSourceCategory === metadata.category &&
       m.hnsSourceTarget === metadata.target && m.hnsSourcePriority === metadata.priority &&
       m.hnsSourceStrikeCount === 2 && m.hnsMultiHit === false
+    : scaleShot
+    ? m.name?.toLowerCase() === metadata.name.toLowerCase() && m.hnsMoveFamily === family && m.hnsScaleShot === true &&
+      m.hnsDescriptorSha256 === metadata.descriptorSha256 && m.hnsSourceName === metadata.name &&
+      m.hnsSourcePower === metadata.power && m.hnsSourceType === metadata.type &&
+      m.hnsSourceCategory === metadata.category && m.hnsSourceAccuracy === metadata.accuracy &&
+      m.hnsSourcePp === metadata.pp && m.hnsSourceTarget === metadata.target &&
+      m.hnsSourcePriority === metadata.priority && m.hnsMoveEffect === metadata.effect && metadata.effect === 'EFFECT_HIT' &&
+      metadata.postSequenceTimingSha256 === '2fb16df90c8ce3fcc8f441154bd00493485405db9668226ef639c483497c7f39' &&
+      m.hnsSourceStrikeCount === null && m.hnsMultiHit === true && m.hnsFixedRepeatedStrike === false &&
+      metadata.strikeCount === null && metadata.multiHit === true && metadata.makesContact === false &&
+      metadata.punchingMove === false && metadata.ballisticMove === false && metadata.sheerForceAffected === false &&
+      m.hnsMakesContact === metadata.makesContact && m.hnsUnknownContact === false && m.hnsUnknownPunching === false &&
+      m.hnsSheerForceAffected === metadata.sheerForceAffected && m.hnsUnknownSheerForce === false &&
+      JSON.stringify(m.hnsMoveAbilityFlags || []) === JSON.stringify(metadata.abilityFlags) &&
+      JSON.stringify(m.hnsSourceAdditionalEffects) === JSON.stringify(metadata.additionalEffects) &&
+      JSON.stringify(m.hnsSourcePreAttackEffects) === JSON.stringify(metadata.preAttackEffects) &&
+      m.hnsVariableMultiHitPlain !== true
     : m.name?.toLowerCase() === metadata.name.toLowerCase() && m.hnsMoveFamily === family &&
       m.hnsVariableMultiHitPlain === true && m.hnsDescriptorSha256 === metadata.descriptorSha256 &&
       m.hnsSourceName === metadata.name && m.hnsSourcePower === metadata.power &&
@@ -441,6 +460,8 @@ function hnsRepeatedStrikeAuthority(gen, input, attacker, defender, move, field)
       input.hnsRepeatedStrikePhaseSettled !== true || input.defender?.hnsSemiInvulnerableState !== 0 ||
       input.defender?.hnsSubstitute !== false || input.attacker?.hnsSubstitute !== false || input.attacker?.hnsEndured !== false || input.defender?.hnsEndured !== false ||
       input.repeatedStrike !== undefined || m.repeatedStrike !== undefined || input.sequenceStable !== undefined || m.sequenceStable !== undefined ||
+      input.hnsScaleShotCompletion !== undefined || m.hnsScaleShotCompletion !== undefined ||
+      input.hnsPostSequenceStages !== undefined || m.hnsPostSequenceStages !== undefined ||
       input.hnsRepeatedStrikeDistribution !== undefined || input.hnsRepeatedStrikeWeights !== undefined ||
       input.hnsRepeatedStrikeProbabilities !== undefined || input.hnsRepeatedStrikeStable !== undefined ||
       m.hnsRepeatedStrikeStable !== undefined || m.hnsSequenceStable !== undefined ||

@@ -143,7 +143,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
             put("hnsRepeatedStrikeOptionStyle", request.hnsRuntimeRules?.optionStyle?.name)
             put("hnsRepeatedStrikeElectrified", request.hnsLiveBattleState?.attackerElectrified)
             val moveId = com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id
-            if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds) {
+            if (moveId != null && HnsRepeatedStrikeCountAuthority.isVariableCountMove(moveId)) {
                 val countAuthority = HnsRepeatedStrikeCountAuthority.forRequest(request)
                 put("hnsRepeatedStrikeCountMode", countAuthority.mode?.name)
                 put("hnsRepeatedStrikeNominalCounts", countAuthority.nominalCounts?.let { JSONArray(it) } ?: JSONObject.NULL)
@@ -464,6 +464,24 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("hnsMultiHit", true)
                         put("hnsFixedRepeatedStrike", false)
                         put("hnsSourceAdditionalEffects", JSONArray())
+                        put("hnsSourcePreAttackEffects", JSONArray())
+                    }
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitScaleShotMoveIds) {
+                        put("hnsMoveFamily", "VARIABLE_MULTI_HIT_SCALE_SHOT")
+                        put("hnsScaleShot", true)
+                        put("hnsDescriptorSha256", com.dualdex.pokemon.hns.Hns205MoveEffects.scaleShotDescriptorSha256)
+                        put("hnsSourceName", move.name)
+                        put("hnsSourcePower", move.power)
+                        put("hnsSourceType", "TYPE_${move.type.name}")
+                        put("hnsSourceCategory", "DAMAGE_CATEGORY_${move.category.name}")
+                        put("hnsSourceAccuracy", move.accuracy)
+                        put("hnsSourcePp", move.pp)
+                        put("hnsSourceTarget", "TARGET_SELECTED")
+                        put("hnsSourcePriority", 0)
+                        put("hnsSourceStrikeCount", JSONObject.NULL)
+                        put("hnsMultiHit", true)
+                        put("hnsFixedRepeatedStrike", false)
+                        put("hnsSourceAdditionalEffects", JSONArray().put(JSONObject().put("moveEffect", "MOVE_EFFECT_SCALE_SHOT")))
                         put("hnsSourcePreAttackEffects", JSONArray())
                     }
                     put("hnsIsExplosion", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds)

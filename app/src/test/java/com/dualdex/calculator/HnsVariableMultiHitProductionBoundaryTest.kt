@@ -167,8 +167,13 @@ class HnsVariableMultiHitProductionBoundaryTest {
     @Test fun `fixed two and distinct repeated families remain outside variable count path`() {
         val fixed = ready("Double Kick", observation(true, "Skill Link", "Loaded Dice")).request
         assertEquals(listOf(2), HnsRepeatedStrikeCountAuthority.forRequest(fixed).nominalCounts)
-        for (move in listOf("Scale Shot", "Twineedle", "Triple Kick", "Triple Axel", "Population Bomb", "Beat Up"))
+        for (move in listOf("Twineedle", "Triple Kick", "Triple Axel", "Population Bomb", "Beat Up"))
             assertTrue(move, build(move) is CalcRequestOutcome.Refused)
+        val scaleShot = ready("Scale Shot").request
+        assertEquals(listOf(2, 3, 4, 5), HnsRepeatedStrikeCountAuthority.forRequest(scaleShot).nominalCounts)
+        assertEquals(HnsMoveMechanicsCategory.VARIABLE_MULTI_HIT_SCALE_SHOT,
+            HnsMoveMechanicsRegistry.classify(727).category)
+        assertFalse(727 in Hns205MoveEffects.variableMultiHitPlainMoveIds)
         assertTrue("Parental Bond-created extra hit", build("Bullet Seed", a = observation(true, "Parental Bond")) is CalcRequestOutcome.Refused)
     }
 

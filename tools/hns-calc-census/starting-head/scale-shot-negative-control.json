@@ -1,0 +1,14 @@
+{
+  "assertion": "Scale Shot refuses with exactly HNS_MOVE_MECHANICS_NOT_MODELLED through the existing move mechanics gate",
+  "command": "./gradlew testDebugUnitTest --tests 'com.dualdex.calculator.HnsScaleShotStartingHeadTest'",
+  "errors": 0,
+  "failures": 0,
+  "junitXmlSha256": "6d3c0ad9308042ad603485a1465189c4e71c32d68aaf8bd93367b7b313e23603",
+  "result": "PASS",
+  "schemaVersion": 1,
+  "startingHead": "c91f024ad50f428fdd99b537e2caa6dab3abd431",
+  "testClass": "com.dualdex.calculator.HnsScaleShotStartingHeadTest",
+  "testSourceSha256": "43837e0ecda82e86a241baf800ae70e5e7da3f72088ff5bdc68d63666f1e7b05",
+  "tests": 1,
+  "workingTree": "detached worktree at startingHead"
+}

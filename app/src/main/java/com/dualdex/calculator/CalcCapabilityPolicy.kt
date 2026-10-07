@@ -2286,7 +2286,7 @@ object CalcCapabilityPolicy {
         val live = request.hnsLiveBattleState ?: return
         val selectedMoveId = pack.getMoveByName(request.move.name)?.id
         val variableMultiHitSuppressionExact = selectedMoveId?.let {
-            it in com.dualdex.pokemon.hns.Hns205MoveEffects.variableMultiHitPlainMoveIds
+            HnsRepeatedStrikeCountAuthority.isVariableCountMove(it)
         } == true &&
             HnsRepeatedStrikeCountAuthority.suppressionStateExactForVariableCount(request)
         val moveAuthority = HnsMoveAuthority.forRequest(request, hnsSelectedStrikeModelled(pack, request))

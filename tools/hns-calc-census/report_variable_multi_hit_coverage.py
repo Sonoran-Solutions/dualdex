@@ -10,6 +10,7 @@ from pathlib import Path
 from report_move_coverage import CENSUS, ROOT, report
 
 START = "2d57cf8b991b04e676fd6d920ddcdf52159f1735"
+SLICE13 = "c91f024ad50f428fdd99b537e2caa6dab3abd431"
 TARGET = {
     "Arm Thrust": 2, "Bone Rush": 8, "Bullet Seed": 32, "Comet Punch": 2,
     "Double Slap": 30, "Fury Attack": 44, "Fury Swipes": 48, "Icicle Spear": 12,
@@ -21,7 +22,7 @@ p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("--check", action="store_true")
 a = p.parse_args()
 before = json.loads(gzip.decompress(subprocess.check_output(["git", "show", f"{START}:{CENSUS}"], cwd=ROOT)))
-after = json.loads(gzip.decompress((ROOT / CENSUS).read_bytes()))
+after = json.loads(gzip.decompress(subprocess.check_output(["git", "show", f"{SLICE13}:{CENSUS}"], cwd=ROOT)))
 inventory = json.loads((ROOT / "tools/hns-calc-census/trainer_inventory.json").read_text())
 assert inventory == json.loads(subprocess.check_output(
     ["git", "show", f"{START}:tools/hns-calc-census/trainer_inventory.json"], cwd=ROOT))

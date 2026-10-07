@@ -769,7 +769,7 @@ object HnsItemContextPolicy {
             (attackerAbility == NEUTRALIZING_GAS_ABILITY_ID && !attackerGastroAcid) ||
                 (defenderAbility == NEUTRALIZING_GAS_ABILITY_ID && !defenderGastroAcid)
         if (c.side == HnsItemSide.ATTACKER &&
-            c.moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds && attackerAbility == 92 &&
+            HnsRepeatedStrikeCountAuthority.isVariableCountMove(c.moveId ?: -1) && attackerAbility == 92 &&
             neutralizingGasActive && !attackerGastroAcid &&
             c.holdEffectResolution?.let { it.state == HnsHoldEffectState.ACTIVE_EXACT && it.effectiveHoldEffect == "HOLD_EFFECT_ABILITY_SHIELD" } == true
         ) return modelled(

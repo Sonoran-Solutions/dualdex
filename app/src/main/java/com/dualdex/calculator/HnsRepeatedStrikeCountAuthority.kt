@@ -14,12 +14,15 @@ object HnsRepeatedStrikeCountAuthority {
         val limitation: CalcLimitation? = null
     )
 
+    fun isVariableCountMove(moveId: Int): Boolean =
+        moveId in Hns205MoveEffects.variableMultiHitPlainMoveIds || moveId in Hns205MoveEffects.variableMultiHitScaleShotMoveIds
+
     fun forRequest(request: DamageCalculationRequest): Result {
         if (request.typeSystem != "hns_2_0_5") return unknown()
         val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return unknown()
         if (moveId in Hns205MoveEffects.fixedTwoHitPlainMoveIds)
             return Result(listOf(2), Mode.FIXED_TWO)
-        if (moveId !in Hns205MoveEffects.variableMultiHitPlainMoveIds) return unknown()
+        if (!isVariableCountMove(moveId)) return unknown()
 
         val live = request.hnsLiveBattleState ?: return unknown()
         val attackerVolatiles = live.attackerPersistentVolatiles ?: return unknown()
@@ -61,7 +64,7 @@ object HnsRepeatedStrikeCountAuthority {
      */
     fun suppressionStateExactForVariableCount(request: DamageCalculationRequest): Boolean {
         val moveId = HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id ?: return false
-        if (moveId !in Hns205MoveEffects.variableMultiHitPlainMoveIds || forRequest(request).nominalCounts == null) return false
+        if (!isVariableCountMove(moveId) || forRequest(request).nominalCounts == null) return false
         val live = request.hnsLiveBattleState ?: return false
         val attackerVolatiles = live.attackerPersistentVolatiles ?: return false
         val defenderVolatiles = live.defenderPersistentVolatiles ?: return false

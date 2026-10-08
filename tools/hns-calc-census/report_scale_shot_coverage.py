@@ -10,16 +10,17 @@ from pathlib import Path
 from report_move_coverage import CENSUS, ROOT, report
 
 START="c91f024ad50f428fdd99b537e2caa6dab3abd431"
+SLICE14="d9aca830d0ebcd89cbf6d1dcb47d19e8040c8bf9"
 TARGET={"Scale Shot":2}
 PLAIN={"Arm Thrust":2,"Bone Rush":8,"Bullet Seed":32,"Comet Punch":2,"Double Slap":30,
     "Fury Attack":44,"Fury Swipes":48,"Icicle Spear":12,"Pin Missile":30,"Rock Blast":52,"Spike Cannon":22,"Tail Slap":2}
 REPEATED=set(PLAIN)|{"Scale Shot","Twineedle"}
 p=argparse.ArgumentParser();p.add_argument("--check",action="store_true");args=p.parse_args()
 before=json.loads(gzip.decompress(subprocess.check_output(["git","show",f"{START}:{CENSUS}"],cwd=ROOT)))
-after=json.loads(gzip.decompress((ROOT/CENSUS).read_bytes()))
+after=json.loads(gzip.decompress(subprocess.check_output(["git","show",f"{SLICE14}:{CENSUS}"],cwd=ROOT)))
 inventory=json.loads((ROOT/"tools/hns-calc-census/trainer_inventory.json").read_text())
 assert inventory==json.loads(subprocess.check_output(["git","show",f"{START}:tools/hns-calc-census/trainer_inventory.json"],cwd=ROOT))
-metadata=json.loads((ROOT/"tools/hns-move-mechanics/hns_move_damage_metadata.json").read_text())
+metadata=json.loads(subprocess.check_output(["git","show",f"{SLICE14}:tools/hns-move-mechanics/hns_move_damage_metadata.json"],cwd=ROOT))
 out=report(before,after,inventory,metadata,"EFFECT_HIT",START,selected_moves=TARGET)
 assert before["resultTiers"]=={"FULLY_MODELLED":21448,"CAVEATED_ESTIMATE":462,"REFUSED":2368}
 assert len(before["requests"])==len(after["requests"])==24278

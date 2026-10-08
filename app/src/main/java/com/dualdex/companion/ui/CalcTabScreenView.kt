@@ -670,7 +670,7 @@ class CalcTabScreenView(
             val weatherText = if (currentWeather != null) " [Weather: $currentWeather]" else ""
 
             resultTextView.text = "${presentation.headline}\n\n" +
-                    "${res.desc}$critText$weatherText\n\n" +
+                    "${res.damageScope?.let { "$it\n" } ?: ""}${res.desc}$critText$weatherText\n\n" +
                     (res.repeatedStrike?.let { "${it.presentation}\n${it.assumptions.joinToString("; ")}\n" } ?: "Damage Range: $rangeStr\n") +
                     "Move: ${res.moveName} (${res.moveType} ${res.moveCategory}, ${res.movePower} Power)\n" +
                     "Defender Max HP: ${res.defenderMaxHP} HP$koText\n\n" +

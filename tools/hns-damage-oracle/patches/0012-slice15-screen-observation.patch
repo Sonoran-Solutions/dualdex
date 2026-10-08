@@ -1,0 +1,20 @@
+TESTING-only read-only observation of pinned screen inputs and final damage modifier.
+
+--- a/src/battle_util.c
++++ b/src/battle_util.c
+@@ -5,0 +6,5 @@
++
++#if TESTING
++void (*gDdxrScreens)(struct BattleContext *ctx, u32 sideStatus, bool32 reflect, bool32 lightScreen, bool32 isCrit);
++void (*gDdxrOtherModifier)(struct BattleContext *ctx, uq4_12_t modifier);
++#endif
+@@ -7583,0 +7589,4 @@
++#if TESTING
++    if (gDdxrScreens != NULL)
++        gDdxrScreens(ctx, sideStatus, reflect, lightScreen, ctx->isCrit);
++#endif
+@@ -7795,0 +7805,4 @@
++#if TESTING
++    if (gDdxrOtherModifier != NULL)
++        gDdxrOtherModifier(ctx, finalModifier);
++#endif

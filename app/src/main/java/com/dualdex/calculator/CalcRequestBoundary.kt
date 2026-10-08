@@ -768,6 +768,9 @@ object CalcRequestBoundary {
             defenderGlaiveRush = defenderGlaiveRush,
             defenderSemiInvulnerableState = defenderRuntime?.takeIf { it.volatilesObserved &&
                 it.volatileSemiInvulnerable in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.SEMI_INVULNERABLE_COUNT }?.volatileSemiInvulnerable,
+            attackerSemiInvulnerableState = attackerRuntime?.takeIf { it.volatilesObserved &&
+                it.volatileSemiInvulnerable in 0 until com.dualdex.pokemon.hns.HnsGroupDLayout.SEMI_INVULNERABLE_COUNT }?.volatileSemiInvulnerable,
+            attackerMultipleTurns = attackerRuntime?.multipleTurns,
             attackerHealBlock = attackerRuntime?.takeIf { it.healBlockObserved }?.volatileHealBlock,
             attackerChargeTimer = attackerChargeTimer,
             defenderTarShot = defenderTarShot,

@@ -99,7 +99,7 @@ class HnsUnderwaterProductionBoundaryTest {
                 a.copy(state=a.state.copy(battlersCount=4,doubles=packet)),
                 d.copy(state=d.state.copy(battlersCount=4,doubles=packet))) is CalcRequestOutcome.Refused)
         }
-        for(move in listOf("Dive","Fly","Dig","Fury Swipes","Water Spout")) assertTrue(move,build(request(move)) is CalcRequestOutcome.Refused)
+        for(move in listOf("Fury Swipes","Water Spout")) assertTrue(move,build(request(move)) is CalcRequestOutcome.Refused)
         assertTrue(CalcRequestBoundary.build(Baseline.profile,null,request(),Baseline.challengeSettings,observation(true),observation(false),activeBattle=true) is CalcRequestOutcome.Refused)
     }
     @Test fun `underwater screens weather stages crit items and rounding compose at final stage`() {
@@ -153,7 +153,8 @@ class HnsUnderwaterProductionBoundaryTest {
         assertEquals(measured("underwater-whirlpool-magic-guard"),damage(build(request("Whirlpool"),d=observation(false,"Magic Guard"))))
         val wrap=ready(build(request("Wrap"),observation(true,item="Binding Band")))
         assertFalse(wrap.verdict.hnsItemDecisions.any { it.rule=="whirlpool_binding_band_post_hit_only" })
-        assertTrue(build(request("Dive"),observation(true,item="Binding Band")) is CalcRequestOutcome.Refused)
+        assertTrue(build(request("Dive"),observation(true,item="Binding Band").let { it.copy(state=it.state.copy(
+            contactReactionStateObserved=true, protectedMethod=0)) }) is CalcRequestOutcome.Ready)
     }
     @Test fun `noncontact source flags keep contact modifiers irrelevant`() {
         for(move in listOf("Surf","Whirlpool")) {

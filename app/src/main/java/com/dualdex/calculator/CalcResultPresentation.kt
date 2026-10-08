@@ -16,6 +16,8 @@ data class CalcResultPresentation(
     val support: CalcSupport
 ) {
     companion object {
+        const val DAMAGING_TURN_PREVIEW_SCOPE: String =
+            "Damaging-turn preview. Assumes current conditions when the strike occurs."
 
         /** Prefix used for a calculation whose inputs and rules are both fully covered. */
         const val VERIFIED_PREFIX = "✅ Verified"

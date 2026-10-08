@@ -13,7 +13,9 @@ after=json.loads(gzip.decompress(subprocess.check_output(['git','show',f'{SLICE1
 inventory=json.loads((ROOT/'tools/hns-calc-census/trainer_inventory.json').read_text())
 assert inventory==json.loads(subprocess.check_output(['git','show',f'{START}:tools/hns-calc-census/trainer_inventory.json'],cwd=ROOT))
 assert inventory==json.loads(subprocess.check_output(['git','show',f'{SLICE12}:tools/hns-calc-census/trainer_inventory.json'],cwd=ROOT))
-metadata=json.loads((ROOT/'tools/hns-move-mechanics/hns_move_damage_metadata.json').read_text())
+# Historical Slice-12 accounting is anchored to Slice 15's starting main. Later
+# families must not rewrite the historical report's remaining-family ranking.
+metadata=json.loads(subprocess.check_output(['git','show',f'd9aca830d0ebcd89cbf6d1dcb47d19e8040c8bf9:tools/hns-move-mechanics/hns_move_damage_metadata.json'],cwd=ROOT))
 moves=('Bonemerang','Double Hit','Double Kick','Dual Chop','Dual Wingbeat','Twin Beam')
 slice13_moves={'Arm Thrust','Bone Rush','Bullet Seed','Comet Punch','Double Slap','Fury Attack',
                'Fury Swipes','Icicle Spear','Pin Missile','Rock Blast','Spike Cannon','Tail Slap'}

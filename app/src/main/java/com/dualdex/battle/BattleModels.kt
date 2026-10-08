@@ -616,6 +616,7 @@ data class MovePresentation(
     val maxDamage: Int,
     val damageRange: List<Int>,
     val koChanceText: String,
+    val damageScope: String? = null,
     val isKnown: Boolean = true,
     /** Exact production-boundary refusal reasons, retained for inspection and regression tests. */
     val damageLimitations: List<CalcLimitation> = emptyList(),
@@ -662,7 +663,7 @@ data class MovePresentation(
         null -> "—"
     }
 
-    val damageDisplayText: String get() = when (damageConfidence) {
+    val damageDisplayText: String get() = (damageScope?.let { "$it · " } ?: "") + when (damageConfidence) {
         DamageConfidence.VERIFIED -> {
             if (maxDamage > 0) {
                 "$minDamage-$maxDamage" + if (koChanceText.isNotBlank()) " · $koChanceText" else ""
@@ -948,6 +949,7 @@ object BattlePresentationBuilder {
         var maxDamage = 0
         var range: List<Int> = emptyList()
         var koChance = ""
+        var damageScope: String? = null
 
         val defenderSpeciesKnown = defender != null && !defender.isEmpty && defender.isValid &&
                 (profile.customSpecies.containsKey(defender.species) || SpeciesDatabase.isKnown(defender.species))
@@ -969,6 +971,7 @@ object BattlePresentationBuilder {
             maxDamage = hnsDamage.maxDamage
             range = hnsDamage.range
             koChance = hnsDamage.koChanceText
+            damageScope = hnsDamage.damageScope
         } else if (canCalculate) {
             val request = buildDamageRequest(
                 attacker = attacker,
@@ -991,6 +994,7 @@ object BattlePresentationBuilder {
                 maxDamage = response.maxDamage
                 range = response.range
                 koChance = response.koChanceText
+                damageScope = response.damageScope
             }
         }
 
@@ -1017,6 +1021,7 @@ object BattlePresentationBuilder {
             maxDamage = maxDamage,
             damageRange = range,
             koChanceText = koChance,
+            damageScope = damageScope,
             isKnown = moveKnown,
             damageLimitations = hnsDamage?.limitations.orEmpty(),
             damageAbilityBlockers = hnsDamage?.abilityBlockers.orEmpty(),

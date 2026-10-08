@@ -1,0 +1,21 @@
+TESTING-only read-only phase observation for the five Slice-15 two-turn moves.
+
+--- a/src/battle_move_resolution.c
++++ b/src/battle_move_resolution.c
+@@ -1568,4 +1568,7 @@ static enum CancelerResult CancelerCharging(struct BattleContext *ctx)
+         gBattleMons[ctx->battlerAtk].volatiles.multipleTurns = FALSE;
+         if (gBattleMoveEffects[GetMoveEffect(ctx->move)].semiInvulnerableEffect)
+             gBattleMons[ctx->battlerAtk].volatiles.semiInvulnerable = STATE_NONE;
++        extern void (*gDdxsPhase)(u32 phase, u32 move, u32 battler);
++        if (gDdxsPhase != NULL && gBattleMoveEffects[GetMoveEffect(ctx->move)].semiInvulnerableEffect)
++            gDdxsPhase(2, ctx->move, ctx->battlerAtk);
+         result = CANCELER_RESULT_SUCCESS;
+@@ -1578,5 +1581,8 @@ static enum CancelerResult CancelerCharging(struct BattleContext *ctx)
+         gProtectStructs[ctx->battlerAtk].chargingTurn = TRUE;
+         if (gBattleMoveEffects[GetMoveEffect(ctx->move)].semiInvulnerableEffect)
+             gBattleMons[ctx->battlerAtk].volatiles.semiInvulnerable = GetMoveTwoTurnAttackStatus(ctx->move);
++        extern void (*gDdxsPhase)(u32 phase, u32 move, u32 battler);
++        if (gDdxsPhase != NULL && gBattleMoveEffects[GetMoveEffect(ctx->move)].semiInvulnerableEffect)
++            gDdxsPhase(1, ctx->move, ctx->battlerAtk);
+         BattleScriptCall(BattleScript_TwoTurnMoveCharging);
+         result = CANCELER_RESULT_PAUSE;

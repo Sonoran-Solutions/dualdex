@@ -1043,11 +1043,13 @@ class BattleConsoleScreenView(
                     val minPct = (pres.minDamage * 100) / defender.maxHp
                     val maxPct = (pres.maxDamage * 100) / defender.maxHp
                     "${pres.minDamage}–${pres.maxDamage} HP · $minPct–$maxPct%" +
-                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix + ignoredSuffix
+                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix + ignoredSuffix +
+                            (pres.damageScope?.let { " · $it" } ?: "")
                 }
                 pres.maxDamage > 0 -> {
                     "${pres.minDamage}–${pres.maxDamage} HP" +
-                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix + ignoredSuffix
+                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix + ignoredSuffix +
+                            (pres.damageScope?.let { " · $it" } ?: "")
                 }
                 pres.damageConfidence == DamageConfidence.UNAVAILABLE -> pres.damageUnavailableText
                 else -> pres.damageDisplayText

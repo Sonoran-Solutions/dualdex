@@ -26,7 +26,10 @@ after = json.loads(gzip.decompress(subprocess.check_output(["git", "show", f"{SL
 inventory = json.loads((ROOT / "tools/hns-calc-census/trainer_inventory.json").read_text())
 assert inventory == json.loads(subprocess.check_output(
     ["git", "show", f"{START}:tools/hns-calc-census/trainer_inventory.json"], cwd=ROOT))
-metadata = json.loads((ROOT / "tools/hns-move-mechanics/hns_move_damage_metadata.json").read_text())
+# Preserve the historical ranking as measured at Slice 15's starting main.
+metadata = json.loads(subprocess.check_output([
+    "git", "show", "d9aca830d0ebcd89cbf6d1dcb47d19e8040c8bf9:tools/hns-move-mechanics/hns_move_damage_metadata.json"
+], cwd=ROOT))
 out = report(before, after, inventory, metadata, "EFFECT_HIT", START, selected_moves=TARGET)
 
 assert before["resultTiers"] == {"FULLY_MODELLED": 21440, "CAVEATED_ESTIMATE": 462, "REFUSED": 2376}

@@ -831,6 +831,7 @@ object CalcRequestBoundary {
             defenderNeutralizingGas = defenderRuntime?.takeIf { it.groupDVolatilesObserved }?.volatileNeutralizingGas,
             attackerSelectedGimmick = attackerRuntime?.takeIf { it.selectedGimmickObserved }?.selectedGimmick,
             defenderSelectedGimmick = defenderRuntime?.takeIf { it.selectedGimmickObserved }?.selectedGimmick,
+            attackerAteBerry = attackerRuntime?.ateBerry,
             attackerAnalyticTurnOrder = attackerRuntime?.takeIf { it.analyticTurnOrderObserved && it.analyticCurrentMove ==
                 com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id }
                 ?.analyticTurnOrder?.let { if (it == 1) HnsAnalyticTurnOrder.LAST_TO_MOVE else HnsAnalyticTurnOrder.NOT_LAST_TO_MOVE }

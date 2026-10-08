@@ -69,6 +69,9 @@
  *   BattleGimmickData.usableGimmick = 0
  *   BattleGimmickData.playerSelect = 4
  *   BattleStruct.supremeOverlordCounter = 864 stride 1 count 4
+ *   BattleStruct.partyState      = 48 side stride 48 sides 2 party 6
+ *   sizeof(struct PartyState)    = 8
+ *   PartyState.ateBerry          = bit 2
  *   gBattleMainFunc (IWRAM)      = 0x03002F74
  *   action-selection callback  = 0x08088DED
  *   RunTurnActionsFunctions   = 0x0808AA35
@@ -187,6 +190,12 @@
 #define HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT 6
 #define HNS_LIVE_BATTLE_GIMMICK_COUNT 6
 #define HNS_LIVE_GIMMICK_DYNAMAX_VALUE 4
+#define HNS_LIVE_BATTLE_STRUCT_PARTY_STATE_OFFSET 48
+#define HNS_LIVE_PARTY_STATE_SIZE 8
+#define HNS_LIVE_BATTLE_PARTY_STATE_SIDE_STRIDE 48
+#define HNS_LIVE_BATTLE_PARTY_STATE_SIDE_COUNT 2
+#define HNS_LIVE_BATTLE_PARTY_STATE_PARTY_COUNT 6
+#define HNS_LIVE_PARTY_STATE_ATE_BERRY_BIT 2
 #define HNS_LIVE_NUM_STATS 6
 #define HNS_LIVE_BATTLE_STRUCT_SUPREME_OVERLORD_COUNTER_OFFSET 864
 #define HNS_LIVE_SUPREME_OVERLORD_COUNTER_STRIDE 1
@@ -235,6 +244,9 @@
 #endif
 #if HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET + HNS_LIVE_BATTLE_GIMMICK_SIDE_COUNT * HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT > 64
 #error "BattleGimmickData.activeGimmick implausibly large"
+#endif
+#if HNS_LIVE_PARTY_STATE_ATE_BERRY_BIT >= 8 * HNS_LIVE_PARTY_STATE_SIZE || HNS_LIVE_BATTLE_PARTY_STATE_PARTY_COUNT * HNS_LIVE_PARTY_STATE_SIZE != HNS_LIVE_BATTLE_PARTY_STATE_SIDE_STRIDE
+#error "PartyState.ateBerry outside its generated entry or side stride disagrees"
 #endif
 
 #define HNS_LIVE_STATE_NONE 0

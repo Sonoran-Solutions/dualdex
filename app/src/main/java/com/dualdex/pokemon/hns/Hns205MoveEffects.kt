@@ -3321,6 +3321,9 @@ internal object Hns205MoveEffects {
     /** Bounded damaging-turn preview family; exact IDs only, never the whole shared effect. */
     val semiInvulnerablePreviewMoveIds: Set<Int> = setOf(19, 91, 291, 340, 566)
     val semiInvulnerablePreviewDescriptorSha256ById: Map<Int, String> = mapOf(19 to "6f3bcf41418beeac4dd3e154f7149304a26fdf2b4b79564fc17bd7d94b43b5e6", 91 to "7f7a5440045542acee2123f4fa324db10d3b5d2d2e9e4dc6d39f1b9f77da59fa", 291 to "6ea24fae80f857b432743632e9bd0da385f0a88555d6390833bdd3b42c5e2d0d", 340 to "e3bf76e47df433ac3419472b73c3ac98a4650396ab6d2ed9fa6cf6b76cf61003", 566 to "3cd3800475fae9367111d7fe02df58e7c4d04009453730a3e2bf8df1dcd96f81")
+    /** Singles fixed hit whose selection is gated by party-member Berry state (PartyState.ateBerry). */
+    val fixedSingleHitBelchMoveIds: Set<Int> = setOf(562)
+    val fixedSingleHitBelchDescriptorSha256ById: Map<Int, String> = mapOf(562 to "475e0fe0ad728f96ecba7baea8aefa98c733d8d173708cd1b39dfdb9ce03baae")
     val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(205, 301)
     val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds
     val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds

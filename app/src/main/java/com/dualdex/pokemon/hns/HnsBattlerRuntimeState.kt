@@ -415,6 +415,11 @@ data class HnsBattlerRuntimeState(
     /** Exact `playerSelect ? usableGimmick[battler] : GIMMICK_NONE` value. */
     val selectedGimmickObserved: Boolean = false,
     val selectedGimmick: Int = 0,
+    /**
+     * Belch authority: `gBattleStruct->partyState[side][partySlot].ateBerry` for the battler's
+     * authoritative party slot. `null` is unread or invalid (never false); `true`/`false` are observed.
+     */
+    val ateBerry: Boolean? = null,
     /** Exact current-action phase result for Analytic: 0 unknown, 1 last, 2 not last. */
     val analyticTurnOrderObserved: Boolean = false,
     val volatileNeutralizingGas: Boolean = false,
@@ -546,6 +551,7 @@ data class HnsBattlerRuntimeState(
         private const val PHASE_TUPLE_LEN = 76
         private const val GROUP_D_TUPLE_LEN = 97
         private const val ITEM_VOLATILES_TUPLE_LEN = 103
+        private const val ATE_BERRY_TUPLE_LEN = 180
 
         fun fromNativeArray(raw: IntArray?): HnsBattlerRuntimeState {
             if (raw == null || raw.size < 16) return HnsBattlerRuntimeState()
@@ -736,6 +742,7 @@ data class HnsBattlerRuntimeState(
                 supremeOverlordCounter = if (supremeCounterObserved) raw[90] else 0,
                 selectedGimmickObserved = selectedGimmickObserved,
                 selectedGimmick = if (selectedGimmickObserved) raw[92] else 0,
+                ateBerry = if (raw.size >= ATE_BERRY_TUPLE_LEN && raw[178] == 1 && raw[179] in 0..1) raw[179] == 1 else null,
                 analyticTurnOrderObserved = analyticTurnOrderObserved,
                 volatileNeutralizingGas = groupDVolatilesObserved && raw[95] == 1,
                 healBlockObserved = raw.size >= 165 && raw[162] == 1 && raw[163] == 1 &&

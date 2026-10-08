@@ -34,6 +34,9 @@ enum class HnsMoveMechanicsCategory {
     /** One damaging-strike preview at current conditions for the exact five reviewed moves. */
     FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW,
 
+    /** Singles Belch: selection and damage require the party member's source `PartyState.ateBerry`. */
+    FIXED_SINGLE_HIT_BELCH,
+
     /** Singles source status predicate, before base-power modifiers. */
     FIXED_SINGLE_HIT_STATUS_DOUBLE,
 
@@ -88,7 +91,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT || this == FIXED_SINGLE_HIT_ESCAPE
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT || this == FIXED_SINGLE_HIT_ESCAPE || this == FIXED_SINGLE_HIT_BELCH
 
     /** Arithmetic eligibility for one strike, never a sequence-stability verdict. */
     val isSupportedSelectedStrike: Boolean
@@ -294,6 +297,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT_ESCAPE",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ESCAPE,
                 "Pinned fixed selected hit; later pivot handling does not change damage.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitBelchMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_BELCH",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BELCH,
+                "Pinned Singles Belch; selection requires this party member's source ateBerry flag.")
         }
         val effect = Hns205MoveEffects.effectById[moveId]
         if (effect == null) {

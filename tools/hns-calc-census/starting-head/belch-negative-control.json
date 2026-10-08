@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "slice": "H&S move coverage slice 16 (Belch)",
+  "startingSha": "cd81bcc42a7916b62a7d2649549de43aa98a0425",
+  "testClass": "com.dualdex.calculator.HnsBelchStartingHeadTest",
+  "testSource": "tools/hns-calc-census/starting-head/HnsBelchStartingHeadTest.kt",
+  "request": {"move": "Belch", "gameType": "Singles", "attacker": "Machamp L50 partySlot 0 (neutral, Insomnia, no item)", "defender": "Blastoise L50 partySlot 1"},
+  "startingHead": {
+    "compiledAgainstStartingApi": true,
+    "command": "DUALDEX_BELCH_OLD_HEAD=true ./gradlew :app:testDebugUnitTest --tests com.dualdex.calculator.HnsBelchStartingHeadTest --offline",
+    "expectedBlockingLimitations": ["HNS_MOVE_MECHANICS_NOT_MODELLED"],
+    "result": "PASSED (1 test, 0 failures) in a detached worktree at cd81bcc"
+  },
+  "currentHead": {
+    "command": "./gradlew :app:testDebugUnitTest --tests com.dualdex.calculator.HnsBelchStartingHeadTest --offline",
+    "expectedBlockingLimitations": ["HNS_BELCH_BERRY_STATE_UNKNOWN"],
+    "result": "PASSED (1 test, 0 failures); copied into app/src/test only for the run and removed afterwards"
+  },
+  "hardware": "NOT_RUN"
+}

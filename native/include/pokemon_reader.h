@@ -293,6 +293,16 @@ typedef struct {
     uint32_t battle_gimmick_party_count;     // PARTY_SIZE
     uint32_t battle_gimmick_count;           // GIMMICKS_COUNT domain bound
 
+    // Belch party-state authority: gBattleStruct->partyState[side][partySlot].ateBerry.
+    // Offsets and widths are compiled from the pinned source (hns_live_battle_layout_gen.h).
+    // A zero offset disables the read; the observation then stays unread, never false.
+    uint32_t battle_struct_party_state_offset; // struct BattleStruct-relative partyState offset
+    uint32_t party_state_entry_size;         // sizeof(struct PartyState)
+    uint32_t party_state_side_stride;        // bytes per side in partyState[]
+    uint32_t party_state_side_count;         // NUM_BATTLE_SIDES
+    uint32_t party_state_party_count;        // PARTY_SIZE
+    uint32_t party_state_ate_berry_bit;      // bit index of PartyState.ateBerry from struct start
+
     // Battle lifecycle gate. `gMain.inBattle` is the upstream flag the battle engine itself sets
     // on entering a battle and clears when returning to the overworld, so it distinguishes
     // "the engine owns the frame" from "an old gBattleMons species word is still lying around".
@@ -893,6 +903,11 @@ typedef struct {
     uint8_t  supreme_overlord_counter;
     bool     selected_gimmick_observed;
     uint8_t  selected_gimmick; // enum Gimmick: NONE when playerSelect is false
+    // PartyState.ateBerry for the battler's authoritative party slot. `ate_berry_observed` is
+    // false when the bit was not read (missing pointer, invalid mapping, short read); an observed
+    // false is `ate_berry_observed == true && ate_berry == false`, never a default.
+    bool     ate_berry_observed;
+    bool     ate_berry;
     uint16_t analytic_current_move;
     bool     contact_reaction_state_observed;
     uint16_t chosen_move;

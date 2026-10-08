@@ -867,7 +867,10 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       attackerAbility: attacker.ability || null,
       defenderAbility: defender.ability || null,
       attackerItem: attacker.item || null,
-      defenderItem: defender.item || null
+      defenderItem: defender.item || null,
+      ...(semiInvulnerablePreview ? {
+        damageScope: 'Damaging-turn preview. Assumes current conditions when the strike occurs.'
+      } : {})
     };
   }
 

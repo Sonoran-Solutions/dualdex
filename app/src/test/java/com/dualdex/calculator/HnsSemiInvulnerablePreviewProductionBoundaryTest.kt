@@ -18,23 +18,27 @@ class HnsSemiInvulnerablePreviewProductionBoundaryTest {
             checkNotNull(HnsAbilityRegistry.classify(ability).abilityId),
             item?.let(HnsItemRegistry::resolveIdByName) ?: 0, ability,
             Hns205ItemCatalogue.get(item?.let(HnsItemRegistry::resolveIdByName) ?: 0), 2)
-    private fun request(move: String, engineVector: Boolean = false) = DamageCalculationRequest(
+    private fun request(move: String, engineVector: Boolean = false,
+                        defenderSpecies: String = if (engineVector && move == "Phantom Force") "Machamp" else if (engineVector) "Persian" else "Blastoise") = DamageCalculationRequest(
         attacker = CalcPokemonInput("Machamp", 50,
             ivs = if (engineVector) StatBlock(atk = 31) else null,
             evs = if (engineVector) StatBlock(atk = 4) else null,
             origin = CalcInputOrigin.LIVE_READ, partySlot = 0),
-        defender = CalcPokemonInput(if (engineVector && move == "Phantom Force") "Machamp" else if (engineVector) "Persian" else "Blastoise", 50,
+        defender = CalcPokemonInput(defenderSpecies, 50,
             ivs = if (engineVector) StatBlock(def = 31) else null,
             evs = if (engineVector) StatBlock(def = if (move == "Phantom Force") 68 else 228) else null,
             origin = CalcInputOrigin.LIVE_READ, partySlot = 1),
         move = CalcMoveInput(move), field = CalcFieldInput(gameType = "Singles"))
     private fun neutral(a: Boolean, ability: String = "Insomnia", item: String? = null,
-                        rawAttack: Int = 1, rawDefense: Int = 1) = observation(a, ability, item).let { it.copy(state = it.state.copy(
+                        rawAttack: Int = 1, rawDefense: Int = 1,
+                        species: String = if (a) "Machamp" else "Blastoise",
+                        types: List<String> = if (a) listOf("Fighting") else listOf("Water")) =
+        observation(a, ability, item, species, types).let { it.copy(state = it.state.copy(
         rawAttack = rawAttack, rawDefense = rawDefense,
         contactReactionStateObserved = true, protectedMethod = 0)) }
     private fun build(move: String, a: BattlerRuntimeObservation = neutral(true), d: BattlerRuntimeObservation = neutral(false),
-                      engineVector: Boolean = false) =
-        CalcRequestBoundary.build(Baseline.profile, Baseline.trust, request(move, engineVector), Baseline.challengeSettings, a, d, activeBattle = true)
+                      engineVector: Boolean = false, defenderSpecies: String = "Blastoise") =
+        CalcRequestBoundary.build(Baseline.profile, Baseline.trust, request(move, engineVector, defenderSpecies), Baseline.challengeSettings, a, d, activeBattle = true)
     private fun buildEngineVector(move: String, a: BattlerRuntimeObservation = neutral(true, rawAttack = 151),
                                   d: BattlerRuntimeObservation = neutral(false, rawDefense = 109)): CalcRequestOutcome {
         val defender = if (move == "Phantom Force") "Machamp" else "Persian"
@@ -66,6 +70,41 @@ class HnsSemiInvulnerablePreviewProductionBoundaryTest {
             assertEquals(16, response.getJSONArray("damage").length())
             assertEquals(0, response.optJSONArray("repeatedStrike")?.length() ?: 0)
             assertTrue(response.getInt("maxDamage") >= response.getInt("minDamage"))
+        }
+    }
+
+    @Test fun `successful immunity responses retain damaging-turn scope and source attribution`() {
+        val cases = listOf(
+            Triple("Phantom Force", "Snorlax", neutral(false, species = "Snorlax", types = listOf("Normal"))),
+            Triple("Dig", "Pidgeot", neutral(false, species = "Pidgeot", types = listOf("Flying"))),
+            Triple("Dive", "Blastoise", neutral(false, "Water Absorb"))
+        )
+        for ((move, defender, observedDefender) in cases) {
+            val outcome = build(move, d = observedDefender, defenderSpecies = defender)
+                as? CalcRequestOutcome.Ready ?: error("$move immunity case refused: ${build(move, d = observedDefender, defenderSpecies = defender)}")
+            val response = production(buildCalcRequestJson(outcome.request))
+            assertTrue("$move: $response", response.optBoolean("success"))
+            assertEquals(CalcResultPresentation.DAMAGING_TURN_PREVIEW_SCOPE, response.getString("damageScope"))
+            assertEquals(List(16) { 0 }, (0 until response.getJSONArray("damage").length())
+                .map { response.getJSONArray("damage").getInt(it) })
+            assertEquals(0, response.getInt("minDamage"))
+            assertEquals(0, response.getInt("maxDamage"))
+            val cause = response.getJSONArray("immunityCauses").getJSONObject(0)
+            when (move) {
+                "Phantom Force" -> {
+                    assertEquals("type", cause.getString("kind"))
+                    assertEquals("type-chart", cause.getString("name"))
+                }
+                "Dig" -> {
+                    assertEquals("type", cause.getString("kind"))
+                    assertEquals("type-chart", cause.getString("name"))
+                }
+                "Dive" -> {
+                    assertEquals("ability", cause.getString("kind"))
+                    assertEquals("src/battle_util.c:2448", cause.getString("source"))
+                    assertEquals("Water Absorb", cause.getString("name"))
+                }
+            }
         }
     }
 

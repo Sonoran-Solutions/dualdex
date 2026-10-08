@@ -285,7 +285,7 @@ object BattleHnsDamagePresenter {
                     val response = com.dualdex.calculator.CalcAuthorizedExecution.calculate(outcome.verdict) {
                         calculator.calculate(it)
                     }
-                    if (response.success && response.maxDamage > 0) {
+                    if (response.success) {
                         BattleHnsDamagePresentation(
                             category = parseCategory(response.moveCategory) ?: authorizedCategory ?: category,
                             moveType = requestTypePresentation.moveType,

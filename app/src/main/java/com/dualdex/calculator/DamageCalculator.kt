@@ -37,74 +37,7 @@ object DamageCalculator {
         val resJsonStr = nativeCalculate(reqJson)
             ?: return DamageCalculationResponse(success = false, error = "Native calculation returned null")
 
-        val resObj = JSONObject(resJsonStr)
-        val success = resObj.optBoolean("success", false)
-        if (!success) {
-            return DamageCalculationResponse(
-                success = false,
-                error = resObj.optString("error", "Unknown error")
-            )
-        }
-
-        val rangeArray = resObj.optJSONArray("range") ?: JSONArray()
-        val rangeList = mutableListOf<Int>()
-        for (i in 0 until rangeArray.length()) {
-            rangeList.add(rangeArray.getInt(i))
-        }
-
-        val immunityCauses = mutableListOf<CalcImmunityCause>()
-        val causeArray = resObj.optJSONArray("immunityCauses") ?: JSONArray()
-        for (i in 0 until causeArray.length()) {
-            val cause = causeArray.optJSONObject(i) ?: continue
-            val kind = cause.optString("kind")
-            val source = cause.optString("source")
-            val name = cause.optString("name")
-            if (kind.isNotBlank() && source.isNotBlank() && name.isNotBlank()) {
-                immunityCauses += CalcImmunityCause(kind, source, name)
-            }
-        }
-
-        val sequence = parseRepeatedStrikeResult(resObj)
-        if (HnsRepeatedStrikeAuthority.isFamily(request) && sequence == null)
-            return DamageCalculationResponse(success = false, error = "Repeated-strike result missing or malformed")
-        val semiPreview = request.typeSystem == "hns_2_0_5" &&
-            com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id in
-            com.dualdex.pokemon.hns.Hns205MoveEffects.semiInvulnerablePreviewMoveIds
-        if (semiPreview && resObj.optString("damageScope") != CalcResultPresentation.DAMAGING_TURN_PREVIEW_SCOPE)
-            return DamageCalculationResponse(success = false, error = "Damaging-turn preview scope missing or malformed")
-        return DamageCalculationResponse(
-            success = true,
-            damageScope = if (semiPreview)
-                CalcResultPresentation.DAMAGING_TURN_PREVIEW_SCOPE else null,
-            repeatedStrike = sequence,
-            minDamage = resObj.optInt("minDamage", 0),
-            maxDamage = resObj.optInt("maxDamage", 0),
-            range = rangeList,
-            desc = resObj.optString("desc", ""),
-            moveName = resObj.optString("moveName", ""),
-            moveCategory = resObj.optString("moveCategory", ""),
-            moveType = resObj.optString("moveType", ""),
-            movePower = resObj.optInt("movePower", 0),
-            attackerName = resObj.optString("attackerName", ""),
-            defenderName = resObj.optString("defenderName", ""),
-            defenderMaxHP = resObj.optInt("defenderMaxHP", 0),
-            koChanceText = resObj.optString("koChanceText", ""),
-            effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null,
-            immunityCauses = immunityCauses,
-            engineEcho = if (resObj.has("attackerAbility") || resObj.has("defenderAbility") ||
-                resObj.has("attackerItem") || resObj.has("defenderItem")
-            ) {
-                CalcEngineOperandEcho(
-                    attackerAbility = resObj.optNullableString("attackerAbility"),
-                    defenderAbility = resObj.optNullableString("defenderAbility"),
-                    attackerItem = resObj.optNullableString("attackerItem"),
-                    defenderItem = resObj.optNullableString("defenderItem"),
-                    hasCompleteContract = listOf(
-                        "attackerAbility", "defenderAbility", "attackerItem", "defenderItem"
-                    ).all(resObj::has)
-                )
-            } else null
-        )
+        return parseCalcResponseJson(request, resJsonStr)
     }
 
     fun calculateFromParsed(
@@ -130,6 +63,81 @@ object DamageCalculator {
         )
         return calculate(req)
     }
+}
+
+/** Parses the engine response without loading JNI, shared by production and JVM regressions. */
+internal fun parseCalcResponseJson(
+    request: DamageCalculationRequest,
+    resJsonStr: String
+): DamageCalculationResponse {
+    val resObj = JSONObject(resJsonStr)
+    val success = resObj.optBoolean("success", false)
+    if (!success) {
+        return DamageCalculationResponse(
+            success = false,
+            error = resObj.optString("error", "Unknown error")
+        )
+    }
+
+    val rangeArray = resObj.optJSONArray("range") ?: JSONArray()
+    val rangeList = mutableListOf<Int>()
+    for (i in 0 until rangeArray.length()) {
+        rangeList.add(rangeArray.getInt(i))
+    }
+
+    val immunityCauses = mutableListOf<CalcImmunityCause>()
+    val causeArray = resObj.optJSONArray("immunityCauses") ?: JSONArray()
+    for (i in 0 until causeArray.length()) {
+        val cause = causeArray.optJSONObject(i) ?: continue
+        val kind = cause.optString("kind")
+        val source = cause.optString("source")
+        val name = cause.optString("name")
+        if (kind.isNotBlank() && source.isNotBlank() && name.isNotBlank()) {
+            immunityCauses += CalcImmunityCause(kind, source, name)
+        }
+    }
+
+    val sequence = parseRepeatedStrikeResult(resObj)
+    if (HnsRepeatedStrikeAuthority.isFamily(request) && sequence == null)
+        return DamageCalculationResponse(success = false, error = "Repeated-strike result missing or malformed")
+    val semiPreview = request.typeSystem == "hns_2_0_5" &&
+        com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id in
+        com.dualdex.pokemon.hns.Hns205MoveEffects.semiInvulnerablePreviewMoveIds
+    if (semiPreview && resObj.optString("damageScope") != CalcResultPresentation.DAMAGING_TURN_PREVIEW_SCOPE)
+        return DamageCalculationResponse(success = false, error = "Damaging-turn preview scope missing or malformed")
+    return DamageCalculationResponse(
+        success = true,
+        damageScope = if (semiPreview)
+            CalcResultPresentation.DAMAGING_TURN_PREVIEW_SCOPE else null,
+        repeatedStrike = sequence,
+        minDamage = resObj.optInt("minDamage", 0),
+        maxDamage = resObj.optInt("maxDamage", 0),
+        range = rangeList,
+        desc = resObj.optString("desc", ""),
+        moveName = resObj.optString("moveName", ""),
+        moveCategory = resObj.optString("moveCategory", ""),
+        moveType = resObj.optString("moveType", ""),
+        movePower = resObj.optInt("movePower", 0),
+        attackerName = resObj.optString("attackerName", ""),
+        defenderName = resObj.optString("defenderName", ""),
+        defenderMaxHP = resObj.optInt("defenderMaxHP", 0),
+        koChanceText = resObj.optString("koChanceText", ""),
+        effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null,
+        immunityCauses = immunityCauses,
+        engineEcho = if (resObj.has("attackerAbility") || resObj.has("defenderAbility") ||
+            resObj.has("attackerItem") || resObj.has("defenderItem")
+        ) {
+            CalcEngineOperandEcho(
+                attackerAbility = resObj.optNullableString("attackerAbility"),
+                defenderAbility = resObj.optNullableString("defenderAbility"),
+                attackerItem = resObj.optNullableString("attackerItem"),
+                defenderItem = resObj.optNullableString("defenderItem"),
+                hasCompleteContract = listOf(
+                    "attackerAbility", "defenderAbility", "attackerItem", "defenderItem"
+                ).all(resObj::has)
+            )
+        } else null
+    )
 }
 
 /**

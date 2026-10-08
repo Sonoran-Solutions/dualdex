@@ -672,7 +672,7 @@ data class MovePresentation(
             }
         }
         DamageConfidence.ESTIMATE -> {
-            if (repeatedStrike != null || maxDamage > 0) {
+            if (repeatedStrike != null || maxDamage >= 0) {
                 (repeatedStrike?.let { "${it.presentation} (Estimate)" } ?: "$minDamage-$maxDamage (Estimate)") +
                     (if (koChanceText.isNotBlank()) " · $koChanceText" else "") +
                     DamageBlockerPresentation.ignoredText(damageIgnoredMechanics)

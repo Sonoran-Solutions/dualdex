@@ -1,5 +1,8 @@
 package com.dualdex.calculator
 
+import com.dualdex.battle.*
+import com.dualdex.pokemon.MoveDatabase
+import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.calculator.census.HnsCalcCensusBaseline as Baseline
 import com.dualdex.pokemon.hns.*
 import org.json.JSONObject
@@ -76,7 +79,7 @@ class HnsSemiInvulnerablePreviewProductionBoundaryTest {
     @Test fun `successful immunity responses retain damaging-turn scope and source attribution`() {
         val cases = listOf(
             Triple("Phantom Force", "Snorlax", neutral(false, species = "Snorlax", types = listOf("Normal"))),
-            Triple("Dig", "Pidgeot", neutral(false, species = "Pidgeot", types = listOf("Flying"))),
+            Triple("Dig", "Pidgeot", neutral(false, species = "Pidgeot", types = listOf("Normal", "Flying"))),
             Triple("Dive", "Blastoise", neutral(false, "Water Absorb"))
         )
         for ((move, defender, observedDefender) in cases) {
@@ -89,21 +92,63 @@ class HnsSemiInvulnerablePreviewProductionBoundaryTest {
                 .map { response.getJSONArray("damage").getInt(it) })
             assertEquals(0, response.getInt("minDamage"))
             assertEquals(0, response.getInt("maxDamage"))
-            val cause = response.getJSONArray("immunityCauses").getJSONObject(0)
-            when (move) {
-                "Phantom Force" -> {
-                    assertEquals("type", cause.getString("kind"))
-                    assertEquals("type-chart", cause.getString("name"))
+            // This is the same parser and authorized execution used by the Calculator surface.
+            val parsed = CalcAuthorizedExecution.calculate(outcome.verdict) {
+                parseCalcResponseJson(it, response.toString())
+            }
+            assertTrue("$move: $parsed", parsed.success)
+            assertEquals(CalcResultPresentation.DAMAGING_TURN_PREVIEW_SCOPE, parsed.damageScope)
+            assertEquals(0, parsed.minDamage)
+            assertEquals(0, parsed.maxDamage)
+            assertEquals(listOf(0, 0), parsed.range)
+            assertEquals(0.0, parsed.effectiveness!!, 0.0)
+            val expectedCause = if (move == "Dive")
+                CalcImmunityCause("ability", "src/battle_util.c:2448", "Water Absorb")
+            else CalcImmunityCause("type", "src/data/types_info.h", "type-chart")
+            assertEquals(listOf(expectedCause), parsed.immunityCauses)
+
+            val attacker = pokemon(neutral(true))
+            val battle = BattlePresentationBuilder.build(
+                moveInfo = MoveDatabase.get(HeartAndSoul205DataPack.getMoveByName(move)!!.id, HeartAndSoul205DataPack),
+                currentPp = 10, attacker = attacker, defender = pokemon(observedDefender),
+                profile = Baseline.profile, runtimeTrust = Baseline.trust,
+                hnsCalculationContext = BattleHnsCalculationContext(
+                    listOf(attacker), 0, 1, Baseline.challengeSettings, neutral(true), observedDefender, true),
+                calculator = BattleDamageCalculator {
+                    parseCalcResponseJson(it, production(buildCalcRequestJson(it)).toString())
                 }
-                "Dig" -> {
-                    assertEquals("type", cause.getString("kind"))
-                    assertEquals("type-chart", cause.getString("name"))
-                }
-                "Dive" -> {
-                    assertEquals("ability", cause.getString("kind"))
-                    assertEquals("src/battle_util.c:2448", cause.getString("source"))
-                    assertEquals("Water Absorb", cause.getString("name"))
-                }
+            )
+            assertEquals(battle.toString(), DamageConfidence.ESTIMATE, battle.damageConfidence)
+            assertEquals(parsed.damageScope, battle.damageScope)
+            assertEquals(0, battle.minDamage)
+            assertEquals(0, battle.maxDamage)
+            assertEquals(listOf(0, 0), battle.damageRange)
+            assertEquals("${parsed.damageScope} · 0-0 (Estimate)", battle.damageDisplayText)
+        }
+    }
+
+    private fun pokemon(observed: BattlerRuntimeObservation): ParsedPokemon = ParsedPokemon(
+        isValid = true, isEmpty = false, pid = 0, tid = 0, sid = 0, nickname = "", otName = "",
+        species = observed.state.speciesId!!, heldItem = 0, level = 50, nature = 0, natureName = "Hardy",
+        isShiny = false, abilitySlot = 0, isEgg = false, friendship = 255, experience = 0,
+        hpIv = 31, attackIv = 31, defenseIv = 31, speedIv = 31, spAttackIv = 31, spDefenseIv = 31,
+        hpEv = 0, attackEv = 0, defenseEv = 0, speedEv = 0, spAttackEv = 0, spDefenseEv = 0,
+        moves = intArrayOf(19, 91, 291, 566), pp = intArrayOf(10, 10, 10, 10),
+        currentHp = observed.state.hp, maxHp = observed.state.maxHp,
+        attack = 1, defense = 1, speed = 1, spAttack = 1, spDefense = 1, statusCondition = 0
+    )
+
+    @Test fun `production parser rejects missing or incorrect preview scope for every family move`() {
+        for (move in names) {
+            val ready = build(move) as CalcRequestOutcome.Ready
+            val response = production(buildCalcRequestJson(ready.request))
+            assertTrue(parseCalcResponseJson(ready.request, response.toString()).success)
+            for (scope in listOf(null, "", "Damaging-turn preview", JSONObject.NULL, 42)) {
+                val changed = JSONObject(response.toString()).put("damageScope", scope)
+                val parsed = parseCalcResponseJson(ready.request, changed.toString())
+                assertFalse("$move scope=$scope: $parsed", parsed.success)
+                assertEquals("Damaging-turn preview scope missing or malformed", parsed.error)
+                assertNull(parsed.damageScope)
             }
         }
     }

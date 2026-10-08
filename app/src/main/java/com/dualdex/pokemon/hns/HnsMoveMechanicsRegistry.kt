@@ -31,6 +31,9 @@ enum class HnsMoveMechanicsCategory {
     /** Singles Surf/Whirlpool, with separately authorized underwater execution and damage. */
     FIXED_SINGLE_HIT_UNDERWATER,
 
+    /** One damaging-strike preview at current conditions for the exact five reviewed moves. */
+    FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW,
+
     /** Singles source status predicate, before base-power modifiers. */
     FIXED_SINGLE_HIT_STATUS_DOUBLE,
 
@@ -85,7 +88,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT || this == FIXED_SINGLE_HIT_ESCAPE
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT || this == FIXED_SINGLE_HIT_ESCAPE
 
     /** Arithmetic eligibility for one strike, never a sequence-stability verdict. */
     val isSupportedSelectedStrike: Boolean
@@ -256,6 +259,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_UNDERWATER,
                 "Pinned Singles Surf/Whirlpool hit; neutral or underwater execution, post-hit wrap excluded.")
+        }
+        if (moveId in Hns205MoveEffects.semiInvulnerablePreviewMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_SEMI_INVULNERABLE",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW,
+                "Pinned one-strike damaging-turn preview; preparation and future battle state are not predicted.")
         }
         if (moveId in Hns205MoveEffects.fixedSingleHitStatusDoubleMoveIds) {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_DOUBLE_POWER_ON_ARG_STATUS",

@@ -1,0 +1,992 @@
+{
+  "currentCensusSha256": "a8c3b9c7d82c165bd591d9159aebc125ebe052e11d4221b143b191d37541db54",
+  "opportunity": {
+    "baselineLimitations": {
+      "HNS_ABILITY_CONDITION_UNVERIFIED + HNS_ITEM_EFFECT_NOT_MODELLED + HNS_MOVE_MECHANICS_NOT_MODELLED": 4,
+      "HNS_ABILITY_CONDITION_UNVERIFIED + HNS_MOVE_MECHANICS_NOT_MODELLED": 2,
+      "HNS_ITEM_EFFECT_NOT_MODELLED + HNS_MOVE_MECHANICS_NOT_MODELLED": 4,
+      "HNS_MOVE_MECHANICS_NOT_MODELLED": 70
+    },
+    "battles": 36,
+    "formats": {
+      "Singles": 80
+    },
+    "leadPairs": 34,
+    "leadRequests": 34,
+    "moves": {
+      "Bounce": 22,
+      "Dig": 38,
+      "Dive": 6,
+      "Fly": 10,
+      "Phantom Force": 4
+    },
+    "requestKeys": [
+      {
+        "format": "Singles",
+        "key": "TRAINER_AKALA_SWIMMER_1_HNS#0|ref-physical|trainer-to-reference|Dive",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Dive",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_AKALA_SWIMMER_1_HNS#0|ref-special|trainer-to-reference|Dive",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Dive",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ANTHONY_5_HNS#1|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ANTHONY_5_HNS#1|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ARCHER_HNS#2|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ARCHER_HNS#2|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ARIANA_2_HNS#3|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ARIANA_2_HNS#3|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BETH_HNS#0|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BETH_HNS#0|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BLAINE_HNS#0|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BLAINE_HNS#0|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BRIAN_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BRIAN_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BRUNO_2_HNS#4|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BRUNO_2_HNS#4|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BUGSY_2_HNS#4|ref-physical|trainer-to-reference|Phantom Force",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Phantom Force",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BUGSY_2_HNS#4|ref-special|trainer-to-reference|Phantom Force",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Phantom Force",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BUGSY_POSTOBC_HNS#4|ref-physical|trainer-to-reference|Phantom Force",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Phantom Force",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BUGSY_POSTOBC_HNS#4|ref-special|trainer-to-reference|Phantom Force",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Phantom Force",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHUCK_1_2_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHUCK_1_2_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHUCK_1_3_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHUCK_1_3_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHUCK_1_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHUCK_1_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CLAIR_1_HNS#1|ref-physical|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CLAIR_1_HNS#1|ref-special|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CLAIR_2_HNS#1|ref-physical|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CLAIR_2_HNS#1|ref-special|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DEREK_4_HNS#1|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DEREK_4_HNS#1|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DEREK_5_HNS#1|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DEREK_5_HNS#1|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_FALKNER_POSTOBC_HNS#4|ref-physical|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_FALKNER_POSTOBC_HNS#4|ref-special|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GAVEN_2_HNS#4|ref-physical|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GAVEN_2_HNS#4|ref-special|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 4,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JERRY_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JERRY_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_KENJI_2_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_KENJI_2_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LANCE_1_HNS#3|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LANCE_1_HNS#3|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LANCE_POSTOBC_HNS#0|ref-physical|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LANCE_POSTOBC_HNS#0|ref-special|trainer-to-reference|Fly",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Fly",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NICOLE_2_HNS#0|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NICOLE_2_HNS#0|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NICOLE_3_HNS#0|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NICOLE_3_HNS#0|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NICOLE_HNS#0|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NICOLE_HNS#0|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NIKKI_HNS#0|ref-physical|trainer-to-reference|Dive",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dive",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NIKKI_HNS#0|ref-special|trainer-to-reference|Dive",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dive",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NIKKI_HNS#2|ref-physical|trainer-to-reference|Dive",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dive",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NIKKI_HNS#2|ref-special|trainer-to-reference|Dive",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dive",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_2_HNS#1|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_2_HNS#1|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_2_HNS#2|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_2_HNS#2|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_3_HNS#1|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_3_HNS#1|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_HNS#1|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_HNS#1|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_HNS#2|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PARRY_HNS#2|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PONI_SWIMMER_2_HNS#2|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PONI_SWIMMER_2_HNS#2|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RIVAL_CYNDAQUIL_3_HNS#3|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Dig",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RIVAL_CYNDAQUIL_3_HNS#3|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Dig",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SHARON_HNS#1|ref-physical|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SHARON_HNS#1|ref-special|trainer-to-reference|Bounce",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Bounce",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SIDNEY_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SIDNEY_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SID_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SID_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_TIMOTHY_HNS#0|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_TIMOTHY_HNS#0|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_TIMOTHY_HNS#3|ref-physical|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_TIMOTHY_HNS#3|ref-special|trainer-to-reference|Dig",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Dig",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      }
+    ],
+    "requests": 80
+  },
+  "population": {
+    "after": {
+      "abilityDomainSize": 310,
+      "abilityOperandCohorts": 7806,
+      "abilityTrialExcludedAmbiguousAttackerSide": 17230,
+      "abilityTrialExcludedAmbiguousDefenderSide": 19506,
+      "abilityTrials": 1240,
+      "eligibleRequests": 24278,
+      "eligibleRequestsRefusedByMoveMechanics": 1516,
+      "excludedMoves": 4782,
+      "excludedMovesNonDamaging": 4782,
+      "leadMatchupBattles": 651,
+      "requestsReferenceToTrainer": 14656,
+      "requestsTrainerToReference": 9622,
+      "trainerBattles": 651,
+      "trainerBattlesDoubles": 9,
+      "trainerBattlesSingles": 642,
+      "trainerPokemon": 1832
+    },
+    "afterLeadMatchup": {
+      "battlesExcludedNoEligibleMove": 0,
+      "battlesIncluded": 651,
+      "battlesTotal": 651,
+      "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+      "doublesPairsDisplayable": 6,
+      "doublesPairsTotal": 18,
+      "eligibleRequests": 8450,
+      "pairsDisplayable": 680,
+      "pairsTotal": 1302,
+      "requestsDisplayable": 7582,
+      "singlesPairsDisplayable": 674,
+      "singlesPairsTotal": 1284
+    },
+    "before": {
+      "abilityDomainSize": 310,
+      "abilityOperandCohorts": 7806,
+      "abilityTrialExcludedAmbiguousAttackerSide": 17230,
+      "abilityTrialExcludedAmbiguousDefenderSide": 19506,
+      "abilityTrials": 1240,
+      "eligibleRequests": 24278,
+      "eligibleRequestsRefusedByMoveMechanics": 1596,
+      "excludedMoves": 4782,
+      "excludedMovesNonDamaging": 4782,
+      "leadMatchupBattles": 651,
+      "requestsReferenceToTrainer": 14656,
+      "requestsTrainerToReference": 9622,
+      "trainerBattles": 651,
+      "trainerBattlesDoubles": 9,
+      "trainerBattlesSingles": 642,
+      "trainerPokemon": 1832
+    },
+    "beforeLeadMatchup": {
+      "battlesExcludedNoEligibleMove": 0,
+      "battlesIncluded": 651,
+      "battlesTotal": 651,
+      "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+      "doublesPairsDisplayable": 6,
+      "doublesPairsTotal": 18,
+      "eligibleRequests": 8450,
+      "pairsDisplayable": 664,
+      "pairsTotal": 1302,
+      "requestsDisplayable": 7550,
+      "singlesPairsDisplayable": 658,
+      "singlesPairsTotal": 1284
+    }
+  },
+  "reconciliation": {
+    "currentTierByMove": {
+      "Bounce": {
+        "CAVEATED_ESTIMATE": 0,
+        "FULLY_MODELLED": 22,
+        "REFUSED": 0
+      },
+      "Dig": {
+        "CAVEATED_ESTIMATE": 0,
+        "FULLY_MODELLED": 38,
+        "REFUSED": 0
+      },
+      "Dive": {
+        "CAVEATED_ESTIMATE": 0,
+        "FULLY_MODELLED": 4,
+        "REFUSED": 2
+      },
+      "Fly": {
+        "CAVEATED_ESTIMATE": 0,
+        "FULLY_MODELLED": 10,
+        "REFUSED": 0
+      },
+      "Phantom Force": {
+        "CAVEATED_ESTIMATE": 0,
+        "FULLY_MODELLED": 4,
+        "REFUSED": 0
+      }
+    },
+    "outsideFamilyTransitions": [],
+    "residualRefusals": [
+      {
+        "causes": [
+          "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Analytic:UNKNOWN"
+        ],
+        "ignoredMechanics": [
+          {
+            "kind": "ignored_item",
+            "limitation": "HNS_ITEM_EFFECT_NOT_MODELLED",
+            "mechanic": "Lagging Tail",
+            "relevance": "RELEVANT",
+            "rule": "turn_order_item_attacker_analytic",
+            "side": "attacker"
+          }
+        ],
+        "key": "TRAINER_AKALA_SWIMMER_1_HNS#0|ref-physical|trainer-to-reference|Dive",
+        "limitations": [
+          "HNS_ABILITY_CONDITION_UNVERIFIED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Dive"
+      },
+      {
+        "causes": [
+          "HNS_ABILITY_CONDITION_UNVERIFIED:attacker:Analytic:UNKNOWN"
+        ],
+        "ignoredMechanics": [
+          {
+            "kind": "ignored_item",
+            "limitation": "HNS_ITEM_EFFECT_NOT_MODELLED",
+            "mechanic": "Lagging Tail",
+            "relevance": "RELEVANT",
+            "rule": "turn_order_item_attacker_analytic",
+            "side": "attacker"
+          }
+        ],
+        "key": "TRAINER_AKALA_SWIMMER_1_HNS#0|ref-special|trainer-to-reference|Dive",
+        "limitations": [
+          "HNS_ABILITY_CONDITION_UNVERIFIED",
+          "HNS_ITEM_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Dive"
+      }
+    ],
+    "targetTransitions": 78,
+    "transitionsByMove": {
+      "Bounce": 22,
+      "Dig": 38,
+      "Dive": 4,
+      "Fly": 10,
+      "Phantom Force": 4
+    }
+  },
+  "schemaVersion": 1,
+  "startingCensusSha256": "0b7b6793c3193f89f3af5ffd2063ae26b8eede9396984605ee08d948c888eb64",
+  "startingSha": "d9aca830d0ebcd89cbf6d1dcb47d19e8040c8bf9"
+}

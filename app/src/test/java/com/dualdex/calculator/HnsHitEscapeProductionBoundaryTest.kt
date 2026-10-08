@@ -102,7 +102,7 @@ class HnsHitEscapeProductionBoundaryTest {
             assertTrue(build(observation(true).let {it.copy(state=it.state.copy(volatileElectrified=true))},r=request(move)) is CalcRequestOutcome.Refused)
             assertTrue(build(observation(true,ability="Mold Breaker"),observation(false,ability=if(move=="Volt Switch") "Volt Absorb" else "Fluffy"),request(move)) is CalcRequestOutcome.Refused)
         }
-        for(move in listOf("Double Kick","Fly","Fissure","Pursuit"))
+        for(move in listOf("Double Kick","Fissure","Pursuit"))
             assertTrue(build(r=request(move)) is CalcRequestOutcome.Refused)
         assertTrue(build(r=request("Tackle")) is CalcRequestOutcome.Ready)
     }

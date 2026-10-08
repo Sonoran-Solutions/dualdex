@@ -266,6 +266,10 @@ data class CalcHnsLiveBattleState(
     /** Observed pre-hit execution operand, never defaulted from a missing tuple. */
     val attackerHealBlock: Boolean? = null,
     val defenderSemiInvulnerableState: Int? = null,
+    /** Raw observed attacker semi-state; charging/continuation must not be inferred as a strike. */
+    val attackerSemiInvulnerableState: Int? = null,
+    /** Exact multi-turn execution bit from the existing observed attacker volatile window. */
+    val attackerMultipleTurns: Boolean? = null,
     val attackerChargeTimer: Int? = null,
     /**
      * `gBattleMons[defender].volatiles.tarShot`, or null when unread. Tar Shot doubles the
@@ -474,6 +478,8 @@ data class DamageCalculationRequest(
 
 data class DamageCalculationResponse(
     val success: Boolean,
+    /** Product scope derived from the trusted move identity, never from response JSON. */
+    val damageScope: String? = null,
     /** Present only for authorized repeats; legacy endpoints then mean executable total HP loss. */
     val repeatedStrike: RepeatedStrikeResult? = null,
     val minDamage: Int = 0,

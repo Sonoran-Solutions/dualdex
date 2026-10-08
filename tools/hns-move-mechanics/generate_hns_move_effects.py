@@ -41,6 +41,7 @@ import argparse
 import hashlib
 import json
 import os
+from pathlib import Path
 import csv
 import re
 import subprocess
@@ -496,6 +497,120 @@ def parse_underwater_metadata(text, updated_move_data_latest=False, updated_move
 
 
 STATUS_DOUBLE_CONTRACTS = {'MOVE_SMELLING_SALTS': '8bfd0435a17c8f759473f9c3ce128ecd3cf981ae42f5c418b65f2a76eea589cc', 'MOVE_WAKE_UP_SLAP': '0cd8b5f0b6063b5bc4e8734e0acc644b0f92431c29db647797cf9961462120df', 'MOVE_VENOSHOCK': '10bb92d124dbe95f2e0e39bc77a006372df26280736b458be872a4496392eeef', 'MOVE_HEX': '2eb4796da7268a67bca1c121f5828f9604d9ebd30886de5196a2f7315f71e6d4', 'MOVE_BARB_BARRAGE': '2451ca20b933caecbd0ea6f7ca5eca9534a682b85ac77226c8825a59d021858a', 'MOVE_INFERNAL_PARADE': 'a401a3a1c9c33f2a0394df709b2786a44271aef8577b01f798a983bc76a15561'}
+
+# These are complete source MoveInfo records, whitespace-normalized, not merely move names.
+# The separate family marker is intentionally narrower than the shared EFFECT_SEMI_INVULNERABLE.
+SEMI_INVULNERABLE_PREVIEW_CONTRACTS = {
+    "MOVE_FLY": "6f3bcf41418beeac4dd3e154f7149304a26fdf2b4b79564fc17bd7d94b43b5e6",
+    "MOVE_DIG": "7f7a5440045542acee2123f4fa324db10d3b5d2d2e9e4dc6d39f1b9f77da59fa",
+    "MOVE_DIVE": "6ea24fae80f857b432743632e9bd0da385f0a88555d6390833bdd3b42c5e2d0d",
+    "MOVE_BOUNCE": "e3bf76e47df433ac3419472b73c3ac98a4650396ab6d2ed9fa6cf6b76cf61003",
+    "MOVE_PHANTOM_FORCE": "3cd3800475fae9367111d7fe02df58e7c4d04009453730a3e2bf8df1dcd96f81",
+}
+SEMI_INVULNERABLE_PHASE_CONTRACTS = {
+    "CanTwoTurnMoveFireThisTurn": "dd7e6c7cc6a3fc251abe81c764e047a35275f721ff9f5af0731e4fdd1deb2e2b",
+    "CancelerCharging": "21f17e12a9d37e46ae7782d29cd08306a80863d4c6f8f6944bfd802498300410",
+    "Cmd_setsemiinvulnerablebit": "6cd28e71af4d5303a0ed9357bd68793cb4401eafdff51224157c1e3a61f7a7ae",
+    "IsGravityPreventingMove": "d0e78fa7cb02fef0b3a9a37ee0c963fde291f4cb03c984fec45771ce2d7ec7ea",
+    "MoveIsAffectedBySheerForce": "77936ec8e3ded496da3987a351b250ff89a67a92af1625952513124b6636e31f",
+    "CalcMoveBasePowerAfterModifiers": "ecb21db144bb0b58f76cb5b48519e75a6bcbbc839f277531d921d1ecded5a3d5",
+    "MoveEndSheerForce": "e56dae7d0f6cc343c72c3464c9cacd955ea0f19e490c3b0b0dde1a8a989cd715",
+    "MoveEndLifeOrbShellBell": "0f9b31345756110877bdc35fd435e4fa2725b9962f1eaf22fea87297a75b36a9",
+    "MoveIgnoresProtect": "8e435300cee630427f03c544a99669cb4d24bb3e0af8a94d49d988f7c7ebb7e3",
+    "IsMoveGravityBanned": "7c5d0be7e2999c1b4e57da91b2bb1484d7128a47db7e2844179d40efb26e613b",
+    "BattleScript_TwoTurnMoveCharging": "804eab61efcbc7aba911064965274eb33b033c44d2fd153939f2d1648a89480d",
+    "BattleScript_PowerHerbActivation": "20d5f14fdf770adc0113543b950ff27e0eac6810f14667b3e5bf8ec9a16b5c15",
+    "BattleScript_TwoTurnMovesSecondTurnRet": "9e5ecb37a59e34b0fdc3292a892f5e6801358cce0a5c7dcb911b1ec210a27ec7",
+    "BattleScript_EffectHit": "3257f2edc8cbb458a3ab6d2e479c7276b2774a1e3bf2c46451458de9437d0b7d",
+    "BattleScript_HitFromAccCheck": "17e15e2b276321c4876c370c1438efce62c043e36dec722c337716e49e71084b",
+    "BattleScript_HitFromDamageCalc": "a1220ba6ca28fa1fe69fdd5027f23aa4e115b7652b31215564451171d90fdb72",
+    "BattleScript_Hit_RetFromAtkAnimation": "37ec35e091afb4d086ff74db5b287c95c05f0203325f0941ea0a2ef5cba856c8",
+}
+
+def _extract_c_function(source, name):
+    match = re.search(r"\b" + re.escape(name) + r"\s*\([^;{}]*\)\s*\{", source, re.S)
+    if not match:
+        raise ValueError("Missing phase function " + name)
+    start = source.index("{", match.start())
+    depth = 0
+    for index in range(start, len(source)):
+        if source[index] == "{": depth += 1
+        elif source[index] == "}":
+            depth -= 1
+            if depth == 0: return source[match.start():index + 1]
+    raise ValueError("Unclosed phase function " + name)
+
+def verify_semi_invulnerable_phase_contract(upstream_dir):
+    resolution = Path(upstream_dir, "src/battle_move_resolution.c").read_text(encoding="utf-8")
+    commands = Path(upstream_dir, "src/battle_script_commands.c").read_text(encoding="utf-8")
+    battle_util = Path(upstream_dir, "src/battle_util.c").read_text(encoding="utf-8")
+    move_header = Path(upstream_dir, "include/move.h").read_text(encoding="utf-8")
+    scripts = Path(upstream_dir, "data/battle_scripts_1.s").read_text(encoding="utf-8")
+    actual = {name: _extract_c_function(resolution, name) for name in ("CanTwoTurnMoveFireThisTurn", "CancelerCharging")}
+    actual["Cmd_setsemiinvulnerablebit"] = _extract_c_function(commands, "Cmd_setsemiinvulnerablebit")
+    actual["IsGravityPreventingMove"] = _extract_c_function(battle_util, "IsGravityPreventingMove")
+    actual["MoveIsAffectedBySheerForce"] = _extract_c_function(battle_util, "MoveIsAffectedBySheerForce")
+    actual["CalcMoveBasePowerAfterModifiers"] = _extract_c_function(battle_util, "CalcMoveBasePowerAfterModifiers")
+    actual["MoveEndSheerForce"] = _extract_c_function(resolution, "MoveEndSheerForce")
+    actual["MoveEndLifeOrbShellBell"] = _extract_c_function(resolution, "MoveEndLifeOrbShellBell")
+    actual["MoveIgnoresProtect"] = _extract_c_function(move_header, "MoveIgnoresProtect")
+    actual["IsMoveGravityBanned"] = _extract_c_function(move_header, "IsMoveGravityBanned")
+    for name in ("BattleScript_PowerHerbActivation", "BattleScript_TwoTurnMoveCharging", "BattleScript_TwoTurnMovesSecondTurnRet",
+                 "BattleScript_EffectHit", "BattleScript_HitFromAccCheck", "BattleScript_HitFromDamageCalc",
+                 "BattleScript_Hit_RetFromAtkAnimation"):
+        match = re.search(r"^" + name + r"::?$", scripts, re.M)
+        if not match: raise ValueError("Missing phase script " + name)
+        following = re.search(r"^BattleScript_\w+::?$", scripts[match.end():], re.M)
+        actual[name] = scripts[match.start():match.end() + following.start()]
+    for name, expected in SEMI_INVULNERABLE_PHASE_CONTRACTS.items():
+        digest = hashlib.sha256(re.sub(r"\s+", "", actual[name]).encode()).hexdigest()
+        if digest != expected: raise ValueError("Changed semi-invulnerable phase/damage timing: " + name)
+
+def parse_semi_invulnerable_preview_metadata(text, ids, config, contact_by_id, sheer_by_id,
+                                            ability_flags_by_id, flags_by_id):
+    """Freeze the five reviewed damaging-turn preview descriptors, resolving latest-gen data."""
+    for macro in ("B_UPDATED_MOVE_DATA", "B_UPDATED_MOVE_FLAGS", "B_PHYSICAL_SPECIAL_SPLIT"):
+        if not re.search(rf"^#define {macro}\s+GEN_LATEST\b", config, re.M):
+            raise ValueError(f"Semi-invulnerable preview requires {macro}=GEN_LATEST")
+    entries = dict(_entry_body(text.splitlines(), 0, len(text.splitlines())))
+    result = {}
+    expected = {
+        "MOVE_FLY": (19, 90, "TYPE_FLYING", "STATE_ON_AIR", 95, 15, True, True, False, []),
+        "MOVE_DIG": (91, 80, "TYPE_GROUND", "STATE_UNDERGROUND", 100, 10, True, False, False, []),
+        "MOVE_DIVE": (291, 80, "TYPE_WATER", "STATE_UNDERWATER", 100, 10, True, False, False, []),
+        "MOVE_BOUNCE": (340, 85, "TYPE_FLYING", "STATE_ON_AIR", 85, 5, True, True, False,
+                        [dict(moveEffect="MOVE_EFFECT_PARALYSIS", chance=30, sheerForceOverride=False, preAttackEffect=False)]),
+        "MOVE_PHANTOM_FORCE": (566, 90, "TYPE_GHOST", "STATE_PHANTOM_FORCE", 100, 10, True, False, True,
+                               [dict(moveEffect="MOVE_EFFECT_FEINT", chance=0, sheerForceOverride=False, preAttackEffect=False)]),
+    }
+    for symbol, digest in SEMI_INVULNERABLE_PREVIEW_CONTRACTS.items():
+        if symbol not in entries:
+            raise ValueError("Missing semi-invulnerable preview move " + symbol)
+        body = "\n".join(entries[symbol])
+        if hashlib.sha256(re.sub(r"\s+", "", body).encode()).hexdigest() != digest:
+            raise ValueError("Changed pinned semi-invulnerable MoveInfo: " + symbol)
+        move_id, power, move_type, state, accuracy, pp, contact, gravity, ignores_protect, effects = expected[symbol]
+        if ids.get(symbol) != move_id:
+            raise ValueError("Changed semi-invulnerable preview move ID: " + symbol)
+        if move_id not in contact_by_id or ("makesContact" in contact_by_id[move_id]) != contact:
+            raise ValueError("Changed source contact authority for semi-invulnerable preview: " + symbol)
+        if sheer_by_id.get(move_id) is not (symbol == "MOVE_BOUNCE"):
+            raise ValueError("Changed source Sheer Force eligibility for semi-invulnerable preview: " + symbol)
+        move_flags = flags_by_id.get(move_id, set())
+        result[move_id] = dict(semiInvulnerablePreview=True, name=symbol[5:].replace("_", " ").title(),
+            family="FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW", power=power, type=move_type,
+            category="DAMAGE_CATEGORY_PHYSICAL", accuracy=accuracy, pp=pp,
+            target="TARGET_SELECTED", priority=0, strikeCount=1, multiHit=False,
+            makesContact="makesContact" in contact_by_id[move_id], punchingMove=False,
+            ballisticMove="ballisticMove" in move_flags,
+            gravityBanned=gravity, preparationState=state,
+            sheerForceAffected=sheer_by_id.get(move_id), descriptorSha256=digest,
+            ignoresProtect=ignores_protect,
+            minimizeDoubleDamage=(symbol == "MOVE_PHANTOM_FORCE" and False),
+            abilityFlags=sorted(ability_flags_by_id.get(move_id, set())),
+            immunityFlags=sorted(move_flags - {"ballisticMove"}),
+            additionalEffects=effects)
+    return result
 
 def parse_status_constants(text):
     names = ('SLEEP', 'POISON', 'BURN', 'FREEZE', 'PARALYSIS', 'TOXIC_POISON', 'TOXIC_COUNTER', 'FROSTBITE', 'PSN_ANY', 'ANY')
@@ -1407,6 +1522,9 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    val variableMultiHitScaleShotMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("scaleShot")))) + ")")
     lines.append("    val scaleShotDescriptorSha256: String = " + json.dumps(next(m["descriptorSha256"] for m in (dynamic_power or {}).values() if m.get("scaleShot"))))
     lines.append("    val scaleShotTimingSha256: String = " + json.dumps(SCALE_SHOT_TIMING_CONTRACT_SHA256))
+    lines.append("    /** Bounded damaging-turn preview family; exact IDs only, never the whole shared effect. */")
+    lines.append("    val semiInvulnerablePreviewMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("semiInvulnerablePreview")))) + ")")
+    lines.append("    val semiInvulnerablePreviewDescriptorSha256ById: Map<Int, String> = mapOf(" + ", ".join(f"{i} to {json.dumps(m['descriptorSha256'])}" for i, m in sorted((dynamic_power or {}).items()) if m.get("semiInvulnerablePreview")) + ")")
     lines.append("    val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitRollout")))) + ")")
     lines.append("    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds")
     lines.append("    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds")
@@ -1576,6 +1694,9 @@ def main():
     dynamic_power.update(parse_rollout_metadata(move_text, ids))
     dynamic_power.update(parse_hit_escape_metadata(move_text, ids))
     dynamic_power.update(parse_fixed_two_metadata(move_text, ids))
+    dynamic_power.update(parse_semi_invulnerable_preview_metadata(
+        move_text, ids, config, contact_by_id, sheer_by_id, ability_flags_by_id, flags_by_id))
+    verify_semi_invulnerable_phase_contract(upstream_dir)
     dynamic_power.update(parse_variable_multi_hit_metadata(move_text, ids, config, general,
         contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id,
         ability_flags_by_id, unknown_ability_flags_by_id, flags_by_id, unknown_flags_by_id))

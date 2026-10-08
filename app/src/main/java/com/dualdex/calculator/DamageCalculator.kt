@@ -37,67 +37,7 @@ object DamageCalculator {
         val resJsonStr = nativeCalculate(reqJson)
             ?: return DamageCalculationResponse(success = false, error = "Native calculation returned null")
 
-        val resObj = JSONObject(resJsonStr)
-        val success = resObj.optBoolean("success", false)
-        if (!success) {
-            return DamageCalculationResponse(
-                success = false,
-                error = resObj.optString("error", "Unknown error")
-            )
-        }
-
-        val rangeArray = resObj.optJSONArray("range") ?: JSONArray()
-        val rangeList = mutableListOf<Int>()
-        for (i in 0 until rangeArray.length()) {
-            rangeList.add(rangeArray.getInt(i))
-        }
-
-        val immunityCauses = mutableListOf<CalcImmunityCause>()
-        val causeArray = resObj.optJSONArray("immunityCauses") ?: JSONArray()
-        for (i in 0 until causeArray.length()) {
-            val cause = causeArray.optJSONObject(i) ?: continue
-            val kind = cause.optString("kind")
-            val source = cause.optString("source")
-            val name = cause.optString("name")
-            if (kind.isNotBlank() && source.isNotBlank() && name.isNotBlank()) {
-                immunityCauses += CalcImmunityCause(kind, source, name)
-            }
-        }
-
-        val sequence = parseRepeatedStrikeResult(resObj)
-        if (HnsRepeatedStrikeAuthority.isFamily(request) && sequence == null)
-            return DamageCalculationResponse(success = false, error = "Repeated-strike result missing or malformed")
-        return DamageCalculationResponse(
-            success = true,
-            repeatedStrike = sequence,
-            minDamage = resObj.optInt("minDamage", 0),
-            maxDamage = resObj.optInt("maxDamage", 0),
-            range = rangeList,
-            desc = resObj.optString("desc", ""),
-            moveName = resObj.optString("moveName", ""),
-            moveCategory = resObj.optString("moveCategory", ""),
-            moveType = resObj.optString("moveType", ""),
-            movePower = resObj.optInt("movePower", 0),
-            attackerName = resObj.optString("attackerName", ""),
-            defenderName = resObj.optString("defenderName", ""),
-            defenderMaxHP = resObj.optInt("defenderMaxHP", 0),
-            koChanceText = resObj.optString("koChanceText", ""),
-            effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null,
-            immunityCauses = immunityCauses,
-            engineEcho = if (resObj.has("attackerAbility") || resObj.has("defenderAbility") ||
-                resObj.has("attackerItem") || resObj.has("defenderItem")
-            ) {
-                CalcEngineOperandEcho(
-                    attackerAbility = resObj.optNullableString("attackerAbility"),
-                    defenderAbility = resObj.optNullableString("defenderAbility"),
-                    attackerItem = resObj.optNullableString("attackerItem"),
-                    defenderItem = resObj.optNullableString("defenderItem"),
-                    hasCompleteContract = listOf(
-                        "attackerAbility", "defenderAbility", "attackerItem", "defenderItem"
-                    ).all(resObj::has)
-                )
-            } else null
-        )
+        return parseCalcResponseJson(request, resJsonStr)
     }
 
     fun calculateFromParsed(
@@ -125,6 +65,81 @@ object DamageCalculator {
     }
 }
 
+/** Parses the engine response without loading JNI, shared by production and JVM regressions. */
+internal fun parseCalcResponseJson(
+    request: DamageCalculationRequest,
+    resJsonStr: String
+): DamageCalculationResponse {
+    val resObj = JSONObject(resJsonStr)
+    val success = resObj.optBoolean("success", false)
+    if (!success) {
+        return DamageCalculationResponse(
+            success = false,
+            error = resObj.optString("error", "Unknown error")
+        )
+    }
+
+    val rangeArray = resObj.optJSONArray("range") ?: JSONArray()
+    val rangeList = mutableListOf<Int>()
+    for (i in 0 until rangeArray.length()) {
+        rangeList.add(rangeArray.getInt(i))
+    }
+
+    val immunityCauses = mutableListOf<CalcImmunityCause>()
+    val causeArray = resObj.optJSONArray("immunityCauses") ?: JSONArray()
+    for (i in 0 until causeArray.length()) {
+        val cause = causeArray.optJSONObject(i) ?: continue
+        val kind = cause.optString("kind")
+        val source = cause.optString("source")
+        val name = cause.optString("name")
+        if (kind.isNotBlank() && source.isNotBlank() && name.isNotBlank()) {
+            immunityCauses += CalcImmunityCause(kind, source, name)
+        }
+    }
+
+    val sequence = parseRepeatedStrikeResult(resObj)
+    if (HnsRepeatedStrikeAuthority.isFamily(request) && sequence == null)
+        return DamageCalculationResponse(success = false, error = "Repeated-strike result missing or malformed")
+    val semiPreview = request.typeSystem == "hns_2_0_5" &&
+        com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id in
+        com.dualdex.pokemon.hns.Hns205MoveEffects.semiInvulnerablePreviewMoveIds
+    if (semiPreview && resObj.optString("damageScope") != CalcResultPresentation.DAMAGING_TURN_PREVIEW_SCOPE)
+        return DamageCalculationResponse(success = false, error = "Damaging-turn preview scope missing or malformed")
+    return DamageCalculationResponse(
+        success = true,
+        damageScope = if (semiPreview)
+            CalcResultPresentation.DAMAGING_TURN_PREVIEW_SCOPE else null,
+        repeatedStrike = sequence,
+        minDamage = resObj.optInt("minDamage", 0),
+        maxDamage = resObj.optInt("maxDamage", 0),
+        range = rangeList,
+        desc = resObj.optString("desc", ""),
+        moveName = resObj.optString("moveName", ""),
+        moveCategory = resObj.optString("moveCategory", ""),
+        moveType = resObj.optString("moveType", ""),
+        movePower = resObj.optInt("movePower", 0),
+        attackerName = resObj.optString("attackerName", ""),
+        defenderName = resObj.optString("defenderName", ""),
+        defenderMaxHP = resObj.optInt("defenderMaxHP", 0),
+        koChanceText = resObj.optString("koChanceText", ""),
+        effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null,
+        immunityCauses = immunityCauses,
+        engineEcho = if (resObj.has("attackerAbility") || resObj.has("defenderAbility") ||
+            resObj.has("attackerItem") || resObj.has("defenderItem")
+        ) {
+            CalcEngineOperandEcho(
+                attackerAbility = resObj.optNullableString("attackerAbility"),
+                defenderAbility = resObj.optNullableString("defenderAbility"),
+                attackerItem = resObj.optNullableString("attackerItem"),
+                defenderItem = resObj.optNullableString("defenderItem"),
+                hasCompleteContract = listOf(
+                    "attackerAbility", "defenderAbility", "attackerItem", "defenderItem"
+                ).all(resObj::has)
+            )
+        } else null
+    )
+}
+
 /**
  * Serialises [request] into the JSON contract consumed by the native QuickJS
  * engine (`js_calc_calculate`).
@@ -136,6 +151,9 @@ object DamageCalculator {
  */
 internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
     JSONObject().apply {
+        val semiInvulnerablePreview = request.typeSystem == "hns_2_0_5" &&
+            com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id in
+            com.dualdex.pokemon.hns.Hns205MoveEffects.semiInvulnerablePreviewMoveIds
         put("gen", request.gen)
         if (HnsRepeatedStrikeAuthority.isFamily(request)) {
             put("hnsRepeatedStrikePhaseSettled", request.hnsLiveBattleState?.switchInEventsSettled == true)
@@ -210,6 +228,10 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 })
             }
             request.hnsLiveBattleState?.let { live ->
+                if (semiInvulnerablePreview) {
+                    live.attackerSemiInvulnerableState?.let { put("hnsAttackerSemiInvulnerableState", it) }
+                    live.attackerMultipleTurns?.let { put("hnsMultipleTurns", it) }
+                }
                 live.attackerHp?.let { put("hp", it) }
                 live.attackerMaxHp?.let { put("maxHP", it) }
                 request.attacker.abilityId?.let { put("hnsEffectiveAbilityId", it) }
@@ -483,6 +505,42 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("hnsFixedRepeatedStrike", false)
                         put("hnsSourceAdditionalEffects", JSONArray().put(JSONObject().put("moveEffect", "MOVE_EFFECT_SCALE_SHOT")))
                         put("hnsSourcePreAttackEffects", JSONArray())
+                    }
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.semiInvulnerablePreviewMoveIds) {
+                        val descriptor = com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(moveId)
+                        val source = com.dualdex.pokemon.hns.Hns205MoveEffects
+                        put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW.name)
+                        put("hnsSemiInvulnerablePreview", true)
+                        put("hnsDescriptorSha256", source.semiInvulnerablePreviewDescriptorSha256ById[moveId])
+                        put("hnsSourceName", move.name)
+                        put("hnsSourcePower", move.power)
+                        put("hnsSourceType", "TYPE_${move.type.name}")
+                        put("hnsSourceCategory", "DAMAGE_CATEGORY_${move.category.name}")
+                        put("hnsSourceAccuracy", move.accuracy)
+                        put("hnsSourcePp", move.pp)
+                        put("hnsSourceTarget", "TARGET_SELECTED")
+                        put("hnsSourcePriority", 0)
+                        put("hnsSourceStrikeCount", 1)
+                        put("hnsMultiHit", false)
+                        put("hnsFixedRepeatedStrike", false)
+                        put("hnsSourceAdditionalEffects", JSONArray().apply {
+                            if (moveId == 340) put(JSONObject().put("moveEffect", "MOVE_EFFECT_PARALYSIS").put("chance", 30).put("sheerForceOverride", false).put("preAttackEffect", false))
+                            if (moveId == 566) put(JSONObject().put("moveEffect", "MOVE_EFFECT_FEINT").put("chance", 0).put("sheerForceOverride", false).put("preAttackEffect", false))
+                        })
+                        put("hnsSourcePreAttackEffects", JSONArray())
+                        put("hnsGravityBanned", moveId == 19 || moveId == 340)
+                        put("hnsSourcePunchingMove", false)
+                        put("hnsSourceBallisticMove", false)
+                        put("hnsPreparationState", when (moveId) {
+                            19, 340 -> com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_ON_AIR
+                            91 -> com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_UNDERGROUND
+                            291 -> com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_UNDERWATER
+                            else -> com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_PHANTOM_FORCE
+                        })
+                        put("hnsIgnoresProtect", moveId == 566)
+                        put("hnsMinimizeDoubleDamage", false)
+                        if (descriptor.category != com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW)
+                            throw IllegalStateException("Semi-invulnerable preview registry mismatch")
                     }
                     put("hnsIsExplosion", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds) put("hnsExplosionUserHpAtDamage", 0)

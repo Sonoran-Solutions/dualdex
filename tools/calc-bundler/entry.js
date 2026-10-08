@@ -348,6 +348,9 @@ function hnsContactAuthority(move, attacker, input) {
   const id = input.move?.hnsMoveId;
   if (!Number.isInteger(id) || !(input.move?.hnsScaleShot === true && input.move?.hnsMoveFamily === 'VARIABLE_MULTI_HIT_SCALE_SHOT' && hnsMoveMetadata.moves[String(id)]?.scaleShot === true || input.move?.hnsVariableMultiHitPlain === true && input.move?.hnsMoveFamily === 'VARIABLE_MULTI_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.variableMultiHitPlain === true || input.move?.hnsFixedRepeatedStrike === true && input.move?.hnsMoveFamily === 'FIXED_TWO_HIT_PLAIN' && hnsMoveMetadata.moves[String(id)]?.fixedTwoHitPlain === true || input.move?.hnsIsOrdinary === true && input.move?.hnsMoveEffect === 'EFFECT_HIT' ||
       input.move?.hnsFixedSingleHit === true && (input.move?.hnsMoveEffect === 'EFFECT_RECOIL' ||
+        input.move?.hnsMoveEffect === 'EFFECT_SEMI_INVULNERABLE' && input.move?.hnsSemiInvulnerablePreview === true &&
+          input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW' &&
+          hnsMoveMetadata.moves[String(id)]?.semiInvulnerablePreview === true ||
         input.move?.hnsMoveEffect === 'EFFECT_HIT_ESCAPE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ESCAPE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitEscape === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ROLLOUT' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ROLLOUT' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitRollout === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ELECTRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ELECTRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitElectroBall === true ||
@@ -564,6 +567,52 @@ function hnsRepeatedStrikeResponse(response, authority, crit, maxHP) {
       totalUnavailableReasons: []}};
 }
 
+function validateSemiInvulnerablePreview(input, move, gameType, semiState) {
+  const m = input.move, id = m?.hnsMoveId, metadata = hnsMoveMetadata.moves[String(id)];
+  const claims = m?.hnsSemiInvulnerablePreview === true ||
+    m?.hnsMoveFamily === 'FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW' ||
+    m?.hnsMoveEffect === 'EFFECT_SEMI_INVULNERABLE';
+  if (!claims && metadata?.semiInvulnerablePreview !== true) return false;
+  const valid = metadata?.semiInvulnerablePreview === true &&
+    metadata.family === 'FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW' &&
+    [19, 91, 291, 340, 566].includes(id) &&
+    m.name?.toLowerCase() === metadata.name.toLowerCase() &&
+    m.hnsSemiInvulnerablePreview === true && m.hnsMoveFamily === metadata.family &&
+    m.hnsMoveEffect === metadata.effect && m.hnsIsOrdinary === false && m.hnsFixedSingleHit === true &&
+    m.hnsDescriptorSha256 === metadata.descriptorSha256 && m.hnsSourceName === metadata.name &&
+    m.hnsSourcePower === metadata.power && m.hnsSourceType === metadata.type &&
+    m.hnsSourceCategory === metadata.category && m.hnsSourceAccuracy === metadata.accuracy &&
+    m.hnsSourcePp === metadata.pp && m.hnsSourceTarget === metadata.target &&
+    m.hnsSourcePriority === metadata.priority && m.hnsSourceStrikeCount === 1 &&
+    m.hnsMultiHit === false && m.hnsFixedRepeatedStrike === false &&
+    m.hnsSourcePunchingMove === metadata.punchingMove && m.hnsSourceBallisticMove === metadata.ballisticMove &&
+    m.overrides?.basePower === metadata.power && move.bp === metadata.power &&
+    m.hnsMakesContact === metadata.makesContact && m.hnsUnknownContact === false &&
+    m.hnsUnknownPunching === false && m.hnsUnknownSheerForce === false &&
+    m.hnsSheerForceAffected === metadata.sheerForceAffected &&
+    JSON.stringify(m.hnsMoveAbilityFlags) === JSON.stringify(metadata.abilityFlags) &&
+    JSON.stringify(m.hnsMoveFlags) === JSON.stringify(metadata.immunityFlags) &&
+    Array.isArray(m.hnsSourceAdditionalEffects) && m.hnsSourceAdditionalEffects.length === metadata.additionalEffects.length &&
+    m.hnsSourceAdditionalEffects.every((effect, i) => {
+      const expected = metadata.additionalEffects[i];
+      return effect?.moveEffect === expected.moveEffect && effect?.chance === expected.chance &&
+        effect?.sheerForceOverride === expected.sheerForceOverride && effect?.preAttackEffect === expected.preAttackEffect;
+    }) &&
+    JSON.stringify(m.hnsSourcePreAttackEffects) === JSON.stringify([]) &&
+    m.hnsGravityBanned === metadata.gravityBanned &&
+    m.hnsPreparationState === ({19: 3, 91: 1, 291: 2, 340: 3, 566: 4})[id] &&
+    m.hnsIgnoresProtect === metadata.ignoresProtect && m.hnsMinimizeDoubleDamage === false &&
+    !('hnsPowerHerbHarmless' in m) &&
+    input.attacker?.hnsAttackerSemiInvulnerableState === 0 && input.attacker?.hnsMultipleTurns === false && semiState === 0 &&
+    input.defender?.hnsSubstitute === false &&
+    gameType === 'Singles' &&
+    (!metadata.gravityBanned || Number.isInteger(input.field?.hnsFieldStatuses) &&
+      (input.field.hnsFieldStatuses & 32) === 0) &&
+    !hnsActiveHoldEffect(input.attacker, 'HOLD_EFFECT_POWER_HERB', 'power herb');
+  if (!valid) throw new Error('H&S damaging-turn preview source or neutral phase authority invalid');
+  return true;
+}
+
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const escapeMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
   const escapeFamily = escapeMetadata?.fixedSingleHitEscape === true;
@@ -583,6 +632,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   }
   const gameType = normalizeGameType(field.gameType || input.field?.gameType);
   const semiState = input.defender?.hnsSemiInvulnerableState;
+  const semiInvulnerablePreview = validateSemiInvulnerablePreview(input, move, gameType, semiState);
   const underwaterFamily = input.move?.hnsIsUnderwater === true;
   if (underwaterFamily || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_UNDERWATER' || input.move?.hnsDamagesUnderwater === true ||
       gameType === 'Singles' && [57, 250].includes(input.move?.hnsMoveId)) {
@@ -817,7 +867,10 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
       attackerAbility: attacker.ability || null,
       defenderAbility: defender.ability || null,
       attackerItem: attacker.item || null,
-      defenderItem: defender.item || null
+      defenderItem: defender.item || null,
+      ...(semiInvulnerablePreview ? {
+        damageScope: 'Damaging-turn preview. Assumes current conditions when the strike occurs.'
+      } : {})
     };
   }
 
@@ -1577,7 +1630,7 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
   const maxPct = ((maxDmg / maxHP) * 100).toFixed(1);
   const descStr = attacker.name + ' ' + move.name + ' vs. ' + defender.name + ': ' + minDmg + '-' + maxDmg + ' (' + minPct + ' - ' + maxPct + '%)';
 
-  return {
+  const response = {
     success: true,
     damage: damageArray,
     minDamage: minDmg,
@@ -1602,6 +1655,9 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
     attackerItem: attacker.item || null,
     defenderItem: defender.item || null
   };
+  if (semiInvulnerablePreview)
+    response.damageScope = 'Damaging-turn preview. Assumes current conditions when the strike occurs.';
+  return response;
 }
 
 // Source-equivalent subset of IsBattlerWeatherAffected for the request-local weather branch.

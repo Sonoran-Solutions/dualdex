@@ -1,0 +1,51 @@
+{
+  "canonicalCiExitCode": 0,
+  "checkout": "detached worktree at immutable starting main",
+  "command": "DUALDEX_SEMI_OLD_HEAD=true ./ci.sh test",
+  "compilesAgainstStartingApi": true,
+  "failures": 0,
+  "kotlinTestClass": "com.dualdex.calculator.HnsSemiInvulnerableStartingHeadTest",
+  "results": [
+    {
+      "blockingLimitations": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "move": "Fly",
+      "outcome": "REFUSED"
+    },
+    {
+      "blockingLimitations": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "move": "Dig",
+      "outcome": "REFUSED"
+    },
+    {
+      "blockingLimitations": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "move": "Dive",
+      "outcome": "REFUSED"
+    },
+    {
+      "blockingLimitations": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "move": "Bounce",
+      "outcome": "REFUSED"
+    },
+    {
+      "blockingLimitations": [
+        "HNS_MOVE_MECHANICS_NOT_MODELLED"
+      ],
+      "move": "Phantom Force",
+      "outcome": "REFUSED"
+    }
+  ],
+  "schemaVersion": 1,
+  "testCount": 1,
+  "testSource": "tools/hns-calc-census/starting-head/HnsSemiInvulnerableStartingHeadTest.kt",
+  "testSourceSha256": "1e39614f0c96c0f7e4af19f90aa91bb77b4292665c9919529243804dc988158b",
+  "testedSha": "d9aca830d0ebcd89cbf6d1dcb47d19e8040c8bf9",
+  "usesNewEnumsSchemaOrFixtures": false
+}

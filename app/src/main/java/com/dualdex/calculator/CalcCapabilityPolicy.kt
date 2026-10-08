@@ -1917,6 +1917,36 @@ object CalcCapabilityPolicy {
                 else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
             }
         }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW) {
+            val live = request.hnsLiveBattleState
+            when (live?.attackerSemiInvulnerableState) {
+                com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_NONE -> Unit
+                null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
+                else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+            }
+            when (live?.attackerMultipleTurns) {
+                false -> Unit
+                null -> limitations.add(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
+                true -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+            }
+            when (live?.defenderSemiInvulnerableState) {
+                com.dualdex.pokemon.hns.HnsGroupDLayout.STATE_NONE -> Unit
+                null -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_STATE_UNKNOWN)
+                else -> limitations.add(CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED)
+            }
+            if (request.field.gameType != "Singles" || live?.observedBattlersCount != 2)
+                limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
+            val gravityBanned = move.id in setOf(19, 340)
+            when {
+                !gravityBanned -> Unit
+                live?.fieldStatuses == null -> limitations.add(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
+                live.fieldStatuses and com.dualdex.pokemon.hns.HnsFieldStatus.GRAVITY.mask != 0 ->
+                    limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
+            }
+            val herb = HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER)
+            if (herb.state == HnsHoldEffectState.ACTIVE_EXACT && herb.effectiveHoldEffect == "HOLD_EFFECT_POWER_HERB")
+                limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
+        }
         if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION) {
             val c = HnsAbilityContextPolicy.contextForRequest(request, HnsAbilitySide.ATTACKER, true)
             when (if (c.switchInEventsSettled == true) HnsFieldAbilityAuthority(c).present(6) else null) {

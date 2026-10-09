@@ -263,6 +263,7 @@ hns_damage_oracle_test() {
   (cd tools/hns-damage-oracle && python3 -m unittest test_hns_damage_oracle -v)
   python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py check
   python3 tools/hns-damage-oracle/semi_invulnerable_evidence.py check
+  python3 tools/hns-damage-oracle/belch_evidence.py check
   echo "== H&S differential damage oracle: shipped calculator vs pinned engine =="
   local cc
   cc="$(find_cc)"

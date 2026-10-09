@@ -3,16 +3,17 @@
 **Starting main:** `cd81bcc42a7916b62a7d2649549de43aa98a0425` (PR #162 merged; Slice 15 complete).
 **Pinned source:** `PokemonHnS-Development/pokehns-expansion`, release `Release-v2.0.5`, commit `1f42b74dff0e9fe942419845d040663dd829a973`.
 **Issue:** [#163](https://github.com/Sonoran-Solutions/dualdex/issues/163) (open). Slice 15 issue [#160](https://github.com/Sonoran-Solutions/dualdex/issues/160) was closed with a completion comment.
-**Status:** ESTIMATED. Hardware `NOT_RUN`. Original-engine Belch evidence **not produced in this slice** (see §15 and §19).
+**Status:** ESTIMATED. Hardware `NOT_RUN`. Original-engine Belch evidence is produced and re-verified in reversed order (§15).
 
 ## Scope and claim boundary
 
-Belch (move 562) is admitted only when the attacker's party member has an observed `PartyState.ateBerry == true` on its authoritative party slot. Nothing else authorizes it: not the held item, an empty item slot, `usedHeldItem`, inventory, or a reconstructed history.
+Belch (move 562) is admitted only when the attacker's party member has an observed `PartyState.ateBerry == true` on its authoritative slot. Nothing else authorizes it: not the held item, an empty item slot, `usedHeldItem`, inventory, or a reconstructed history.
 
-Two kinds of evidence are kept apart throughout:
+Three kinds of evidence are kept apart throughout:
 
 - **Source-proven** facts come from reading the pinned source and from source-digest contracts generated from it.
-- **Executed** facts come from the native reader on synthetic EWRAM, Kotlin boundary tests, and the shipped QuickJS bundle. None of these is original-engine lifecycle evidence.
+- **Original-engine executed** facts come from the pinned `Release-v2.0.5` test ELF running real gameplay (§15): the Berry-consumption lifecycle and eight sixteen-roll damage vectors, re-verified in reversed order.
+- **Production executed** facts come from the native reader on synthetic EWRAM (§16), Kotlin boundary tests, and the shipped QuickJS bundle, including the production-versus-engine roll comparison (§13, §15).
 
 ## 1. Starting main and dependency
 
@@ -168,12 +169,9 @@ Phase digests frozen: `IsBelchPreventingMove`, `CheckMoveLimitations`, `TrySetCa
 
 Belch uses the existing selected-hit H&S damage engine. No new formula, Berry multiplier, or repeated-strike result was added. The eligibility flag authorizes the move; it is not a damage modifier.
 
-Executed in `HnsBelchProductionBoundaryTest` against the shipped bundle:
+Verified against the pinned original engine (§15): eight vectors of sixteen rolls each, reproduced exactly by the shipped production bundle through the Kotlin boundary (`HnsBelchEngineDifferentialTest`). The roll mapping is source-derived: `src/battle_util.c:7777` applies `DMG_ROLL_PERCENT_HI - RandomUniform(RNG_DAMAGE_MODIFIER, 0, ...)`, so engine roll `i` is the `(100 - i)%` factor, and the production array (85%–100%) reversed equals the engine's roll order.
 
-- an eligible neutral strike returns **16 damage rolls** with no `repeatedStrike` output;
-- an immune target (Steelix, Poison vs Steel) with established eligibility returns **16 zero rolls**, `success: true`, a zero `maxDamage`.
-
-Not executed: the pinned engine's own sixteen rolls for STAB, critical, Poison resistance or weakness, item or ability modifiers, and rounding-sensitive compositions. The §15 vectors are therefore **not** produced by this slice.
+Also still executed in `HnsBelchProductionBoundaryTest`: an eligible strike returns sixteen rolls, and an immune target with established eligibility returns sixteen zero rolls with `success: true`.
 
 ## 14. Negative controls and starting-head record
 
@@ -185,15 +183,54 @@ Starting-head control (`tools/hns-calc-census/starting-head/HnsBelchStartingHead
 
 The machine-readable record is `tools/hns-calc-census/starting-head/belch-negative-control.json`.
 
-## 15. Original-engine evidence: NOT RUN
+## 15. Original-engine evidence
 
-The task required original-engine Belch consumption, per-party identity, new-battle, item-state, and sixteen-roll damage vectors. **None were produced in this slice.** The Slice 15 semi-invulnerable harness drives scenarios through an injected source patch and `mgba-host`; building scripted Berry consumption (Stuff Cheeks, Recycle, Bug Bite) and party switches on that harness is a separate task. Nothing in this document claims that lifecycle was observed in the engine.
+Harness: the existing DualDex H&S oracle backend (`tools/hns-damage-oracle/oracle_backend.py`). The pinned `Release-v2.0.5` tree is exported with `git archive`, the standard harness patches are applied, and `make BUILD=hns TEST=1 pokehns-test.elf` builds a headless test ELF that runs `DDXO belch-*` tests. This slice adds no new TESTING patch. The scenarios are `tools/hns-damage-oracle/belch_evidence.py`; the committed result is `tools/hns-damage-oracle/belch-evidence.json`.
 
-The per-party persistence and fresh-battle claims in §5 are **source-proven**. The native reader tests in §12 below cover the production read on synthetic memory. They are not engine lifecycle evidence.
+Berry consumption is always real gameplay on the pinned engine: Stuff Cheeks (`BS_ConsumeBerry`) on an Oran Berry. Nothing writes `partyState` in the harness. The engine's `ateBerry` is only read through `DdxbAteBerry()`, which returns the bitfield by value.
+
+Lifecycle, all five scenarios passed in the engine (observed values are `[ateBerry, item]` or `[ateBerry slot0, ateBerry slot1]`):
+
+| Reviewer requirement | Engine scenario | Declared script | Observed |
+|---|---|---|---|
+| Fresh battle, no consumed Berry → selection refused | `belch-fresh-refused` | Greedent holds an uneaten Oran Berry; `MOVE(player, BELCH, allowed: FALSE)` | flag `0`, item `ORAN (520)` |
+| Berry consumed → flag true, Belch executes | `belch-consumed-executes` | Stuff Cheeks, then Belch | flag `1`, item `NONE` |
+| Switch to another party member → stays ineligible | `belch-switch-slot0` | Greedent eats; `SWITCH(1)`; Skwovet's Belch refused with `allowed: FALSE` | slot0 flag `1`, slot1 flag `0` |
+| Switch back → eligibility persists | `belch-switch-slot0` | `SWITCH(0)`; Belch used with no `allowed:` flag | Belch executes |
+| Fresh second battle → resets | `belch-second-battle-fresh-refused` | Fresh battle, Belch refused | flag `0` |
+| Recycle consumed Berry → flag behaves as source | `belch-recycle-keeps-flag` | Stuff Cheeks, Recycle, Belch | flag `1`, item restored `ORAN (520)`, Belch executes |
+
+Selection refusal is the framework's `allowed: FALSE` (an accepted Belch fails the test). A successful zero-damage Belch is different: it is used (`gLastMoves[0] == MOVE_BELCH`) and no HP bar fires. Event ordering is enforced by the framework in the SCENE blocks: `ANIMATION` events for Stuff Cheeks, Celebrate, and Belch appear in the declared order.
+
+Damage vectors, each one battle per roll (`PARAMETRIZE` × 16, `WITH_RNG(RNG_DAMAGE_MODIFIER, i)`, forced critical flag as stated):
+
+| Vector | Attacker | Defender | Critical | Engine rolls (min–max) | Original-engine SpA / SpD |
+|---|---|---|---|---|---|
+| neutral | Greedent | Blastoise | no | 45–54 | 100 / 100 |
+| critical | Greedent | Blastoise | yes | 91–108 | 100 / 100 |
+| stab | Muk (Poison) | Blastoise | no | 79–94 | 113 / 97 |
+| super-effective | Greedent | Bellossom (Grass) | no | 90–108 | 100 / 101 |
+| not-very-effective | Greedent | Koffing (Poison) | no | 22–27 | 100 / 101 |
+| immune | Greedent | Steelix (Steel/Ground) | no | 0 | 100 / 101 |
+| filter-ability | Greedent | Bellossom, Filter | no | 67–81 | 100 / 101 |
+| composition-rounding | Muk (STAB) | Bellossom, Filter | yes | 316–373 | 137 / 89 |
+
+Internal consistency of the engine values: the Filter vector equals 0.75 × the super-effective vector (81 = 108 × 0.75 at the top roll), the STAB and critical ratios hold, and the immune vector is zero on every roll.
+
+Production parity (`HnsBelchEngineDifferentialTest`): each vector is rebuilt through `CalcRequestBoundary` with the engine-observed special stats, `hp = maxHp = 60000`, `ateBerry = true`, the critical flag, and the same species, abilities, and Singles format. The shipped bundle's sixteen rolls equal the engine's sixteen rolls exactly, after the source-derived roll-order mapping. Immune: production returns zero on all sixteen rolls with `success: true`.
+
+Reversed-order replay: `belch_evidence.py verify --order reversed` runs the engine with the damage scenarios in the opposite declaration order and asserts that the rendered artifact equals the committed file byte for byte. It does.
+
+Limits, stated plainly:
+
+- **Item modifier not covered.** The only modifier vectors use an ability (Filter). A held attacker item cannot coexist with an eaten Berry in a single slot, so no item-modifier vector was added.
+- **Immune attribution is inferred, not observed.** The engine's per-battler move-result flags are cleared before a test's THEN block, so `DOESNT_AFFECT_FOE` cannot be read at the end. The evidence is: Belch used, defender HP unchanged, no HP bar, and a Steel defender with no immunity ability or item.
+- **Switch-out message wording not asserted.** The first run's SWITCH_OUT/SEND_IN expectations did not match the engine's message sequence, and I did not identify the exact emitted wording. The switch is evidenced by the `allowed: FALSE` turn (Greedent would be eligible, so Skwovet must be active) and by the final party-slot and flag reads.
+- **Stat stages.** Stuff Cheeks raises the attacker's Defense. Belch is a special move and reads Special Attack, so production observes neutral stages. This is a source-based reason, not a separately verified production input.
 
 ## 16. Native read-boundary tests
 
-`native/tests/test_pokemon_reader.c`, `test_hns_belch_party_state_ate_berry` (98 tests pass total):
+`native/tests/test_pokemon_reader.c`, `test_hns_belch_party_state_ate_berry` and `test_hns_belch_party_state_failed_read_and_lifecycle` (99 tests pass total):
 
 - fresh zeroed struct → observed `false` on the authoritative slot;
 - the neighbouring `intrepidSwordBoost` bit set → `ateBerry` stays `false` (exact bit);
@@ -202,9 +239,12 @@ The per-party persistence and fresh-battle claims in §5 are **source-proven**. 
 - opponent side reads `partyState[1]`;
 - null `gBattleStruct` pointer and out-of-EWRAM pointer → unread, never `false`;
 - a layout with a zero `partyState` offset → the whole observation is refused, with no `ateBerry` published;
-- out-of-domain authoritative slot 6 → the observation is refused.
+- out-of-domain authoritative slot 6 → the observation is refused;
+- **failed one-byte read** of the flag (a read callback that fails exactly that address): the rest of the observation still stands, `ateBerry` is unread (neither true nor false), and the next successful read observes the flag again;
+- **battle teardown** (`inBattle` cleared) with a stale true flag still in memory → no observation is published;
+- **re-entry into a new battle** with a fresh zeroed `gBattleStruct` → observed `false`, never the prior battle's `true`.
 
-Not covered by native tests: a short read, a side outside `{0,1}` (unreachable, because the side is `position & 1`), and battle teardown and re-entry. The first and last are unexercised at unit level; the side case is unreachable by construction.
+Not covered at unit level: a side outside `{0,1}` (unreachable by construction, because the side is `position & 1`).
 
 ## 17. Historical evidence integrity
 
@@ -213,9 +253,9 @@ Validated by the canonical suite `./ci.sh test` with `DUALDEX_CENSUS_FULL=true D
 - historical corpus: 2,523 entries, 2,522 direct production replays, the single Slice 13 migration, zero divergences;
 - Slice 12 repeated-strike evidence: 5,125 original-engine cases;
 - Slice 13 variable multi-hit evidence and Slice 14 scale-shot evidence: unchanged;
-- Slice 15 semi-invulnerable original-engine evidence (`semi-invulnerable-evidence.json`): **unchanged** (`git status` shows it untouched).
+- Slice 15 semi-invulnerable original-engine evidence (`semi-invulnerable-evidence.json`): **unchanged**.
 
-The Slice 15 **reconciliation** file `tools/hns-calc-census/semi-invulnerable-coverage.json` was regenerated by the existing pipeline. Only its `currentCensusSha256` pointer and its after-census `eligibleRequestsRefusedByMoveMechanics` count (1516 → 1452) changed. These follow from the 64 Belch rows leaving that bucket. Its population, opportunity, and transition content are unchanged.
+The Slice 15 **reconciliation** file `tools/hns-calc-census/semi-invulnerable-coverage.json` is a living report refreshed by the existing pipeline: its `currentCensusSha256` pointer and its after-census `eligibleRequestsRefusedByMoveMechanics` count (1516 → 1452) changed. The historical Slice 15 before/after results are reconstructible independently from the frozen copy `tools/hns-calc-census/semi-invulnerable-coverage-slice15-frozen.json`, which is byte-identical to `cd81bcc:tools/hns-calc-census/semi-invulnerable-coverage.json` (`git show` reproduces it).
 
 ## 18. Census
 
@@ -246,7 +286,7 @@ Limitation-only transitions (`HNS_MOVE_MECHANICS_NOT_MODELLED` → `HNS_BELCH_BE
 ## 19. Hardware and remaining limitations
 
 - Hardware: `NOT_RUN`.
-- Original-engine Belch evidence (§15): **not produced**. Sixteen-roll vectors against the pinned engine (§13) are **not produced**.
+- Original-engine Belch lifecycle and damage evidence: produced (§15), with the limits listed there (no item-modifier vector; immune attribution inferred; switch message wording not asserted; Defense-stage input not separately verified).
 - Belch can be admitted only from a live observation of `ateBerry == true`. The census can never produce it, by design.
 - Assurance, Pursuit, and other conditional-use families are out of scope and were not touched.
 - Disable, Choice locks, and Taunt-like limitations are not separately re-audited for Belch; existing policy applies.

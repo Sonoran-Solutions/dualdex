@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reconcile Slice 16 Belch coverage against the immutable starting-main census."""
+"""Reconcile Slice 17 Rapid Spin coverage against the immutable starting-main census."""
 import argparse
 import collections
 import gzip
@@ -10,10 +10,9 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGET = Path(__file__).with_name("belch-coverage.json")
-START = "cd81bcc42a7916b62a7d2649549de43aa98a0425"
-MOVES = {"Belch"}
-LATER_SLICE_MOVES = {"Rapid Spin"}
+TARGET = Path(__file__).with_name("rapid-spin-coverage.json")
+START = "225dfcdce0d98651e1a9c85bb3c311cf71e1c01b"
+MOVES = {"Rapid Spin"}
 CENSUS_PATH = "tools/hns-calc-census/census.json.gz"
 
 
@@ -50,10 +49,7 @@ def build():
             outside.append(row)
         else:
             transitions.append(row)
-    # Slice 17 admitted Rapid Spin after this report's starting commit; its transitions are reconciled
-    # exclusively by report_rapid_spin_coverage.py. Any other outside-family transition still fails.
-    unexplained = [row for row in outside if row["move"] not in LATER_SLICE_MOVES]
-    assert not unexplained, unexplained[:3]
+    assert not outside, outside[:3]
     battle_formats = collections.Counter(r["gameType"] for r in target)
     lead = [r for r in target if r["partySlot"] == 0]
     baseline_combinations = collections.Counter(tuple(sorted(r.get("limitations", []))) for r in target)
@@ -101,8 +97,8 @@ def main():
     if args.write:
         TARGET.write_text(text)
     else:
-        assert TARGET.read_text() == text, "Belch census reconciliation stale"
-    print("Slice 16 census reconciliation: 24,278 stable request keys; no outside-family tier transitions")
+        assert TARGET.read_text() == text, "Rapid Spin census reconciliation stale"
+    print("Slice 17 census reconciliation: 24,278 stable request keys; no outside-family tier transitions")
 
 
 if __name__ == "__main__":

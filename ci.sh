@@ -264,6 +264,7 @@ hns_damage_oracle_test() {
   python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py check
   python3 tools/hns-damage-oracle/semi_invulnerable_evidence.py check
   python3 tools/hns-damage-oracle/belch_evidence.py check
+  python3 tools/hns-damage-oracle/rapid_spin_evidence.py check
   echo "== H&S differential damage oracle: shipped calculator vs pinned engine =="
   local cc
   cc="$(find_cc)"
@@ -318,12 +319,14 @@ gradle_test() {
     python3 tools/hns-calc-census/report_scale_shot_coverage.py
     python3 tools/hns-calc-census/report_semi_invulnerable_coverage.py --write
     python3 tools/hns-calc-census/report_belch_coverage.py --write
+    python3 tools/hns-calc-census/report_rapid_spin_coverage.py --write
   else
     python3 tools/hns-calc-census/report_fixed_two_coverage.py --check
     python3 tools/hns-calc-census/report_variable_multi_hit_coverage.py --check
     python3 tools/hns-calc-census/report_scale_shot_coverage.py --check
     python3 tools/hns-calc-census/report_semi_invulnerable_coverage.py
     python3 tools/hns-calc-census/report_belch_coverage.py
+    python3 tools/hns-calc-census/report_rapid_spin_coverage.py
   fi
   python3 tools/hns-calc-census/report_hit_escape_negative_control.py --check
   python3 tools/hns-calc-census/report_fixed_two_negative_control.py --check
@@ -546,6 +549,7 @@ source_check() {
   python3 tools/hns-move-mechanics/test_scale_shot_contract.py --upstream-dir "$upstream"
   python3 tools/hns-move-mechanics/test_semi_invulnerable_preview_contract.py --upstream-dir "$upstream"
   python3 tools/hns-move-mechanics/test_belch_contract.py --upstream-dir "$upstream"
+  python3 tools/hns-move-mechanics/test_rapid_spin_contract.py --upstream-dir "$upstream"
 
   # Reviewed per-hold-effect item capability decisions must cover the exact pinned item domain,
   # every pinned HOLD_EFFECT_* reference and every literal item-identity read; the generated

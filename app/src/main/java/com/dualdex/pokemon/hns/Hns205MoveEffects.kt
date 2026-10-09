@@ -2129,6 +2129,7 @@ internal object Hns205MoveEffects {
         put(226, false)
         put(227, false)
         put(228, false)
+        put(229, true)
         put(230, false)
         put(231, true)
         put(232, true)
@@ -2841,7 +2842,6 @@ internal object Hns205MoveEffects {
         157,
         161,
         165,
-        229,
         242,
         448,
         676,
@@ -3310,6 +3310,8 @@ internal object Hns205MoveEffects {
     val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(360)
     val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(486)
     val fixedSingleHitEscapeMoveIds: Set<Int> = setOf(369, 521, 740)
+    /** Singles selected Rapid Spin hit; its Speed boost and cleanup are post-damage. */
+    val fixedSingleHitRapidSpinMoveIds: Set<Int> = setOf(229)
     val fixedTwoHitPlainMoveIds: Set<Int> = setOf(24, 155, 458, 530, 742, 814)
     /** Exact plain random-count EFFECT_HIT family; Scale Shot and Twineedle are excluded. */
     val variableMultiHitPlainMoveIds: Set<Int> = setOf(3, 4, 31, 42, 131, 154, 198, 292, 331, 333, 350, 541)

@@ -55,6 +55,8 @@ The calculator can use live party and opponent data when that information is ava
 
 ROM hacks can change a lot more than species names, so calculator behavior is being moved toward explicit per-game/version rules rather than assuming every GBA Pokémon game follows vanilla Gen 3 mechanics.
 
+**H&S calculator status:** The H&S calculator has completed its planned pre-beta feature development. New mechanic coverage is deferred until after the first public beta. Only correctness and beta-blocking fixes are allowed during the freeze. The freeze takes effect when the reviewed final-calculator PR is merged into `main`, and it lasts until after the first public `0.9.0-beta.1` release. See [docs/CALCULATOR_BETA_FREEZE.md](docs/CALCULATOR_BETA_FREEZE.md) and [docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md).
+
 ### Companion tools
 
 The bottom-screen companion currently includes tools for things such as:

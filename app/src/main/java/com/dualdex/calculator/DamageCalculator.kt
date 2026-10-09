@@ -584,6 +584,8 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ELECTRO_BALL.name)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds)
                         put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ESCAPE.name)
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRapidSpinMoveIds)
+                        put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RAPID_SPIN.name)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds) {
                         put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ROLLOUT.name)
                         put("hnsSourceType", "TYPE_${move.type.name}")

@@ -1,0 +1,456 @@
+{
+  "backend": {
+    "build": "make BUILD=hns TEST=1 pokehns-test.elf",
+    "harnessPatches": [
+      {
+        "path": "patches/0001-test-runner-include-order.patch",
+        "sha256": "8176b26dcfdb1e129a7872188294724a3490e4cac35c34a3b1f88e0c7fb4fbfd"
+      },
+      {
+        "path": "patches/0002-pre-damage-state-hook.patch",
+        "sha256": "18598617a1341a71fac336a22e911c759f9b6ae3001aa1a12a4fc2db1d662894"
+      },
+      {
+        "path": "patches/0003-immunity-observation-hook.patch",
+        "sha256": "99833054b6a73cc9ac52c825f28b13a2a201729d2f1c788f7d887d33927843cc"
+      },
+      {
+        "path": "patches/0004-gyro-ball-observation.patch",
+        "sha256": "03893a4f2562ec3f0e77df846b7a272a11455057b938aa5b0ed1df29a254d610"
+      },
+      {
+        "path": "patches/0005-quick-claw-rng-control.patch",
+        "sha256": "1ecf300fff648958f130b2aec5ec0583324c46c734d3b9c3ce18168c5ba2bd74"
+      },
+      {
+        "path": "patches/0006-electro-ball-observation.patch",
+        "sha256": "92af429bbfff1e18f3074e5c47c798d28ac2461ee67626d6ac69f889dbb15a42"
+      },
+      {
+        "path": "patches/0007-rollout-observation.patch",
+        "sha256": "f0cfc7da59c19969fda8497ae5d962d72af619cd307295732b8b5a77bee8a4ed"
+      },
+      {
+        "path": "patches/0008-rollout-lifecycle-observation.patch",
+        "sha256": "e7f1dc1ab32c1241ee79f3f43022a0132df85d3bfffd5a27ef65d3acb37039eb"
+      },
+      {
+        "path": "patches/0009-hit-escape-observation.patch",
+        "sha256": "beacd390a963029846840605e56d876bf85822d35d4cacb629c6442aeb2385fc"
+      }
+    ],
+    "kind": "pinned-expansion-battle-test-runner",
+    "mgbaRomTestSha256": "4304688a0b44007cca23c9e887af17c44530fd602ee3d1e57a232da397bec769",
+    "prunedUpstreamTests": true,
+    "runner": "pinned tools/mgba-rom-test-hydra + tools/mgba/mgba-rom-test, headless test ELF"
+  },
+  "damageVectors": [
+    {
+      "attacker": {
+        "ability": "ABILITY_INSOMNIA",
+        "attack": 100,
+        "item": "ITEM_NONE",
+        "observed": 100,
+        "species": "SPECIES_MUK"
+      },
+      "critical": false,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 100,
+        "observed": 100,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "neutral",
+      "immune": false,
+      "reflect": false,
+      "rolls": [
+        24,
+        23,
+        23,
+        23,
+        23,
+        22,
+        22,
+        22,
+        22,
+        21,
+        21,
+        21,
+        21,
+        20,
+        20,
+        20
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_INSOMNIA",
+        "attack": 100,
+        "item": "ITEM_NONE",
+        "observed": 100,
+        "species": "SPECIES_GREEDENT"
+      },
+      "critical": false,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 100,
+        "observed": 100,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "stab",
+      "immune": false,
+      "reflect": false,
+      "rolls": [
+        36,
+        34,
+        34,
+        34,
+        34,
+        33,
+        33,
+        33,
+        33,
+        31,
+        31,
+        31,
+        31,
+        30,
+        30,
+        30
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_INSOMNIA",
+        "attack": 100,
+        "item": "ITEM_NONE",
+        "observed": 100,
+        "species": "SPECIES_MUK"
+      },
+      "critical": true,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 100,
+        "observed": 100,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "critical",
+      "immune": false,
+      "reflect": false,
+      "rolls": [
+        48,
+        47,
+        47,
+        46,
+        46,
+        45,
+        45,
+        44,
+        44,
+        43,
+        43,
+        42,
+        42,
+        41,
+        41,
+        40
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_TECHNICIAN",
+        "attack": 100,
+        "item": "ITEM_NONE",
+        "observed": 100,
+        "species": "SPECIES_MUK"
+      },
+      "critical": false,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 100,
+        "observed": 100,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "technician",
+      "immune": false,
+      "reflect": false,
+      "rolls": [
+        35,
+        34,
+        34,
+        33,
+        33,
+        33,
+        32,
+        32,
+        32,
+        31,
+        31,
+        31,
+        30,
+        30,
+        30,
+        29
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_TOUGH_CLAWS",
+        "attack": 100,
+        "item": "ITEM_NONE",
+        "observed": 100,
+        "species": "SPECIES_MUK"
+      },
+      "critical": false,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 100,
+        "observed": 100,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "tough-claws",
+      "immune": false,
+      "reflect": false,
+      "rolls": [
+        30,
+        29,
+        29,
+        29,
+        28,
+        28,
+        28,
+        27,
+        27,
+        27,
+        27,
+        26,
+        26,
+        26,
+        25,
+        25
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_INSOMNIA",
+        "attack": 100,
+        "item": "ITEM_NONE",
+        "observed": 100,
+        "species": "SPECIES_MUK"
+      },
+      "critical": false,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 100,
+        "observed": 100,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "reflect",
+      "immune": false,
+      "reflect": true,
+      "rolls": [
+        12,
+        11,
+        11,
+        11,
+        11,
+        11,
+        11,
+        11,
+        11,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_SHEER_FORCE",
+        "attack": 100,
+        "item": "ITEM_NONE",
+        "observed": 100,
+        "species": "SPECIES_MUK"
+      },
+      "critical": false,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 100,
+        "observed": 100,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "sheer-force",
+      "immune": false,
+      "reflect": false,
+      "rolls": [
+        30,
+        29,
+        29,
+        29,
+        28,
+        28,
+        28,
+        27,
+        27,
+        27,
+        27,
+        26,
+        26,
+        26,
+        25,
+        25
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_SHEER_FORCE",
+        "attack": 100,
+        "item": "ITEM_LIFE_ORB",
+        "observed": 100,
+        "species": "SPECIES_MUK"
+      },
+      "critical": false,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 100,
+        "observed": 100,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "sheer-force-life-orb",
+      "immune": false,
+      "reflect": false,
+      "rolls": [
+        39,
+        38,
+        38,
+        38,
+        36,
+        36,
+        36,
+        35,
+        35,
+        35,
+        35,
+        34,
+        34,
+        34,
+        32,
+        32
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_INSOMNIA",
+        "attack": 137,
+        "item": "ITEM_NONE",
+        "observed": 137,
+        "species": "SPECIES_GREEDENT"
+      },
+      "critical": true,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 89,
+        "observed": 89,
+        "species": "SPECIES_BLASTOISE"
+      },
+      "id": "composition-rounding",
+      "immune": false,
+      "reflect": false,
+      "rolls": [
+        105,
+        103,
+        102,
+        100,
+        100,
+        99,
+        97,
+        97,
+        96,
+        94,
+        94,
+        93,
+        91,
+        90,
+        90,
+        88
+      ]
+    },
+    {
+      "attacker": {
+        "ability": "ABILITY_INSOMNIA",
+        "attack": 100,
+        "item": "ITEM_NONE",
+        "observed": 100,
+        "species": "SPECIES_GREEDENT"
+      },
+      "critical": false,
+      "defender": {
+        "ability": "ABILITY_INSOMNIA",
+        "defense": 101,
+        "observed": 101,
+        "species": "SPECIES_GENGAR"
+      },
+      "id": "immune",
+      "immune": true,
+      "reflect": false,
+      "rolls": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "lifecycle": [
+    {
+      "id": "speed-boost",
+      "observed": {
+        "targetHp": 59970,
+        "userLeechSeed": false,
+        "userSpeedStage": 7
+      }
+    },
+    {
+      "id": "cleanup-leech",
+      "observed": {
+        "targetHp": 1934,
+        "userLeechSeed": false,
+        "userSpeedStage": 7
+      }
+    },
+    {
+      "id": "sheer-force-suppresses",
+      "observed": {
+        "targetHp": 9427,
+        "userLeechSeed": true,
+        "userSpeedStage": 6
+      }
+    },
+    {
+      "id": "blocked-protect",
+      "observed": {
+        "targetHp": 60000,
+        "userLeechSeed": false,
+        "userSpeedStage": 6
+      }
+    }
+  ],
+  "pinnedCommit": "1f42b74dff0e9fe942419845d040663dd829a973",
+  "schemaVersion": 1,
+  "sourceSha256": "2be82747365be0166e5de4f454c799503c366c2c8258e6ac8e3593162e9a0726"
+}

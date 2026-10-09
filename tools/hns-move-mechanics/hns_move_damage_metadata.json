@@ -1997,7 +1997,29 @@
       "ordinary": false,
       "makesContact": true,
       "punchingMove": false,
-      "sheerForceAffected": null
+      "sheerForceAffected": true,
+      "fixedSingleHitRapidSpin": true,
+      "power": 50,
+      "type": "TYPE_NORMAL",
+      "category": "DAMAGE_CATEGORY_PHYSICAL",
+      "accuracy": 100,
+      "pp": 40,
+      "target": "TARGET_SELECTED",
+      "priority": 0,
+      "strikeCount": 1,
+      "multiHit": false,
+      "additionalEffects": [
+        {
+          "moveEffect": "MOVE_EFFECT_SPD_PLUS_1",
+          "chance": 100,
+          "sheerForceOverride": false,
+          "preAttackEffect": false,
+          "self": true
+        }
+      ],
+      "preAttackEffects": [],
+      "abilityFlags": [],
+      "immunityFlags": []
     },
     "231": {
       "effect": "EFFECT_HIT",

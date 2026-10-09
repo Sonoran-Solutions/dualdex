@@ -305,6 +305,12 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
     .battle_gimmick_side_stride = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
     .battle_gimmick_party_count = HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT,
     .battle_gimmick_count = HNS_LIVE_BATTLE_GIMMICK_COUNT,
+    .battle_struct_party_state_offset = HNS_LIVE_BATTLE_STRUCT_PARTY_STATE_OFFSET,
+    .party_state_entry_size = HNS_LIVE_PARTY_STATE_SIZE,
+    .party_state_side_stride = HNS_LIVE_BATTLE_PARTY_STATE_SIDE_STRIDE,
+    .party_state_side_count = HNS_LIVE_BATTLE_PARTY_STATE_SIDE_COUNT,
+    .party_state_party_count = HNS_LIVE_BATTLE_PARTY_STATE_PARTY_COUNT,
+    .party_state_ate_berry_bit = HNS_LIVE_PARTY_STATE_ATE_BERRY_BIT,
     .main_struct_gba_address = 0x03005BD8,
     .main_in_battle_byte_offset = 0x439,
     .main_in_battle_bit = 1,
@@ -2551,7 +2557,13 @@ static bool battle_pokemon_layout_matches_pinned_abi(const GameMemoryConfig* con
            config->battle_gimmick_active_offset == HNS_LIVE_BATTLE_GIMMICK_ACTIVE_OFFSET &&
            config->battle_gimmick_side_stride == HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT &&
            config->battle_gimmick_party_count == HNS_LIVE_BATTLE_GIMMICK_PARTY_COUNT &&
-           config->battle_gimmick_count == HNS_LIVE_BATTLE_GIMMICK_COUNT;
+           config->battle_gimmick_count == HNS_LIVE_BATTLE_GIMMICK_COUNT &&
+           config->battle_struct_party_state_offset == HNS_LIVE_BATTLE_STRUCT_PARTY_STATE_OFFSET &&
+           config->party_state_entry_size == HNS_LIVE_PARTY_STATE_SIZE &&
+           config->party_state_side_stride == HNS_LIVE_BATTLE_PARTY_STATE_SIDE_STRIDE &&
+           config->party_state_side_count == HNS_LIVE_BATTLE_PARTY_STATE_SIDE_COUNT &&
+           config->party_state_party_count == HNS_LIVE_BATTLE_PARTY_STATE_PARTY_COUNT &&
+           config->party_state_ate_berry_bit == HNS_LIVE_PARTY_STATE_ATE_BERRY_BIT;
 }
 
 /*
@@ -3320,6 +3332,31 @@ bool pokemon_read_battler_runtime_state_gba(
                 if (read(user, byte_addr, &gimmick, 1)) {
                     out_state->gimmick_observed = true;
                     out_state->active_gimmick = gimmick;
+                }
+
+                /*
+                 * `gBattleStruct->partyState[side][partySlot].ateBerry`. The entry is indexed by the
+                 * battler's side and its CURRENT authoritative party slot, so the flag belongs to the
+                 * party member and never to the battler position. Only the byte holding the bit is
+                 * read; a short, out-of-EWRAM or out-of-domain address leaves the flag unobserved.
+                 */
+                const uint32_t party_side = (uint32_t)(battle.position[(uint8_t)battler] & 1u);
+                const uint32_t ate_bit = config->party_state_ate_berry_bit;
+                if (config->battle_struct_party_state_offset != 0 &&
+                    config->party_state_entry_size != 0 &&
+                    party_side < config->party_state_side_count &&
+                    (uint32_t)party_slot < config->party_state_party_count &&
+                    ate_bit / 8u < config->party_state_entry_size) {
+                    const uint32_t entry_addr = bs_ptr + config->battle_struct_party_state_offset +
+                        party_side * config->party_state_side_stride +
+                        (uint32_t)party_slot * config->party_state_entry_size + ate_bit / 8u;
+                    uint8_t flags = 0;
+                    if (entry_addr >= DUALDEX_GBA_EWRAM_BASE &&
+                        (size_t)(entry_addr - DUALDEX_GBA_EWRAM_BASE) < ewram_size &&
+                        read(user, entry_addr, &flags, 1)) {
+                        out_state->ate_berry_observed = true;
+                        out_state->ate_berry = ((flags >> (ate_bit % 8u)) & 1u) != 0;
+                    }
                 }
 
                 const uint32_t battler_state_addr = bs_ptr + config->battle_struct_battler_state_offset +

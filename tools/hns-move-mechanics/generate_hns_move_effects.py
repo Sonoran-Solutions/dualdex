@@ -612,6 +612,80 @@ def parse_semi_invulnerable_preview_metadata(text, ids, config, contact_by_id, s
             additionalEffects=effects)
     return result
 
+# Belch (EFFECT_BELCH, move 562). The MoveInfo digest covers the complete whitespace-normalized
+# descriptor, including the selection-restriction flags. The phase digests freeze the source
+# predicate, the move-limitation check that consumes it, the selection gate, and every writer of
+# PartyState.ateBerry. The pinned source names the limitation check CheckMoveLimitations.
+BELCH_CONTRACTS = {"MOVE_BELCH": "475e0fe0ad728f96ecba7baea8aefa98c733d8d173708cd1b39dfdb9ce03baae"}
+BELCH_PHASE_CONTRACTS = {
+    "IsBelchPreventingMove": "51176d8dc8bdd6cd69200dbc3ff20d416eea94b1ed55936d347dd06109857c51",
+    "CheckMoveLimitations": "81eb2167eab5d185fcd6c4290bb1f75081fa34a5f346995b93d9073adeb2b2ef",
+    "TrySetCantSelectMoveBattleScript": "e2eb351f117e3916009b200f40a43ec58f4b63d34717a70f82e11d4c4ff2a5e5",
+    "BS_ConsumeBerry": "1ffe4201c29ea747016ce50ff3d110010d46928ac25938257427b3dd4e4b6e93",
+    "TryActivateWeaknessBerry": "c48e002b1027e83780d58c27ce2825e6dfee667122704ad81e88c04eea66174a",
+    "ItemBattleEffects": "a2c8176d1c1a03de2910784a717af4625d6c837e5e4f0803c725367f65127b1d",
+}
+# Exactly these battle sources write PartyState.ateBerry = TRUE, with these counts.
+BELCH_BERRY_WRITERS = {"battle_hold_effects.c": 1, "battle_script_commands.c": 2}
+
+def verify_belch_source_contract(upstream_dir):
+    util = Path(upstream_dir, "src/battle_util.c").read_text(encoding="utf-8")
+    commands = Path(upstream_dir, "src/battle_script_commands.c").read_text(encoding="utf-8")
+    hold = Path(upstream_dir, "src/battle_hold_effects.c").read_text(encoding="utf-8")
+    actual = {name: _extract_c_function(util, name) for name in
+              ("IsBelchPreventingMove", "CheckMoveLimitations", "TrySetCantSelectMoveBattleScript")}
+    actual["BS_ConsumeBerry"] = _extract_c_function(commands, "BS_ConsumeBerry")
+    actual["TryActivateWeaknessBerry"] = _extract_c_function(commands, "TryActivateWeaknessBerry")
+    actual["ItemBattleEffects"] = _extract_c_function(hold, "ItemBattleEffects")
+    for name, expected in BELCH_PHASE_CONTRACTS.items():
+        if hashlib.sha256(re.sub(r"\s+", "", actual[name]).encode()).hexdigest() != expected:
+            raise ValueError("Changed Belch source authority: " + name)
+    writers = {}
+    for path in sorted(Path(upstream_dir, "src").glob("battle*.c")):
+        count = len(re.findall(r"ateBerry\s*=\s*TRUE", path.read_text(encoding="utf-8")))
+        if count: writers[path.name] = count
+    if writers != BELCH_BERRY_WRITERS:
+        raise ValueError("Changed PartyState.ateBerry writers: " + repr(writers))
+
+def parse_belch_metadata(text, ids, contact_by_id, sheer_by_id, ability_flags_by_id, flags_by_id):
+    """Freeze the single Belch descriptor and its complete selection-restriction set."""
+    entries = dict(_entry_body(text.splitlines(), 0, len(text.splitlines())))
+    body = "\n".join(entries["MOVE_BELCH"])
+    digest = hashlib.sha256(re.sub(r"\s+", "", body).encode()).hexdigest()
+    if digest != BELCH_CONTRACTS["MOVE_BELCH"]:
+        raise ValueError("Changed pinned Belch MoveInfo descriptor")
+    move_id = ids["MOVE_BELCH"]
+    if move_id != 562:
+        raise ValueError("Changed Belch move ID")
+    if ".additionalEffects" in body or ".strikeCount" in body or ".multihit" in body.lower():
+        raise ValueError("Belch gained an additional effect or multi-strike descriptor")
+    if move_id in contact_by_id and "makesContact" in contact_by_id[move_id]:
+        raise ValueError("Belch gained a contact descriptor")
+    if sheer_by_id.get(move_id):
+        raise ValueError("Belch gained Sheer Force eligibility")
+    selection_bans = sorted(set(re.findall(r"\.(\w+Banned)\s*=\s*TRUE", body)))
+    if selection_bans != sorted(["assistBanned", "copycatBanned", "instructBanned", "meFirstBanned",
+                                 "metronomeBanned", "mimicBanned", "mirrorMoveBanned", "sleepTalkBanned"]):
+        raise ValueError("Changed Belch selection-restriction flags")
+    expected = ("EFFECT_BELCH", 120, "TYPE_POISON", "DAMAGE_CATEGORY_SPECIAL", 90, 10, "TARGET_SELECTED", 0)
+    actual = (re.search(r"\.effect\s*=\s*(\w+)", body).group(1),
+              int(re.search(r"\.power\s*=\s*(\d+)", body).group(1)),
+              re.search(r"\.type\s*=\s*(\w+)", body).group(1),
+              re.search(r"\.category\s*=\s*(\w+)", body).group(1),
+              int(re.search(r"\.accuracy\s*=\s*(\d+)", body).group(1)),
+              int(re.search(r"\.pp\s*=\s*(\d+)", body).group(1)),
+              re.search(r"\.target\s*=\s*(\w+)", body).group(1),
+              int(re.search(r"\.priority\s*=\s*(-?\d+)", body).group(1)))
+    if actual != expected:
+        raise ValueError("Changed Belch descriptor fields: " + repr(actual))
+    return {move_id: dict(belchEligibility=True, name="Belch", family="FIXED_SINGLE_HIT_BELCH",
+        effect="EFFECT_BELCH", power=120, type="TYPE_POISON", category="DAMAGE_CATEGORY_SPECIAL",
+        accuracy=90, pp=10, target="TARGET_SELECTED", priority=0, strikeCount=1, multiHit=False,
+        makesContact=False, punchingMove=False, ballisticMove=False, descriptorSha256=digest,
+        selectionRestrictions=selection_bans, additionalEffects=[],
+        abilityFlags=sorted(ability_flags_by_id.get(move_id, set())),
+        immunityFlags=sorted(flags_by_id.get(move_id, set())))}
+
 def parse_status_constants(text):
     names = ('SLEEP', 'POISON', 'BURN', 'FREEZE', 'PARALYSIS', 'TOXIC_POISON', 'TOXIC_COUNTER', 'FROSTBITE', 'PSN_ANY', 'ANY')
     expected = (7, 8, 16, 32, 64, 128, 3840, 4096, 136, 4351)
@@ -1525,6 +1599,9 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    /** Bounded damaging-turn preview family; exact IDs only, never the whole shared effect. */")
     lines.append("    val semiInvulnerablePreviewMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("semiInvulnerablePreview")))) + ")")
     lines.append("    val semiInvulnerablePreviewDescriptorSha256ById: Map<Int, String> = mapOf(" + ", ".join(f"{i} to {json.dumps(m['descriptorSha256'])}" for i, m in sorted((dynamic_power or {}).items()) if m.get("semiInvulnerablePreview")) + ")")
+    lines.append("    /** Singles fixed hit whose selection is gated by party-member Berry state (PartyState.ateBerry). */")
+    lines.append("    val fixedSingleHitBelchMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("belchEligibility")))) + ")")
+    lines.append("    val fixedSingleHitBelchDescriptorSha256ById: Map<Int, String> = mapOf(" + ", ".join(f"{i} to {json.dumps(m['descriptorSha256'])}" for i, m in sorted((dynamic_power or {}).items()) if m.get("belchEligibility")) + ")")
     lines.append("    val fixedSingleHitRolloutMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitRollout")))) + ")")
     lines.append("    val fixedSingleHitSpeedPowerMoveIds: Set<Int> = fixedSingleHitGyroBallMoveIds + fixedSingleHitElectroBallMoveIds")
     lines.append("    val reviewedVariablePowerMoveIds: Set<Int> = fixedSingleHitSpeedPowerMoveIds")
@@ -1697,6 +1774,8 @@ def main():
     dynamic_power.update(parse_semi_invulnerable_preview_metadata(
         move_text, ids, config, contact_by_id, sheer_by_id, ability_flags_by_id, flags_by_id))
     verify_semi_invulnerable_phase_contract(upstream_dir)
+    dynamic_power.update(parse_belch_metadata(move_text, ids, contact_by_id, sheer_by_id, ability_flags_by_id, flags_by_id))
+    verify_belch_source_contract(upstream_dir)
     dynamic_power.update(parse_variable_multi_hit_metadata(move_text, ids, config, general,
         contact_by_id, unknown_contact_by_id, sheer_by_id, unknown_sheer_by_id,
         ability_flags_by_id, unknown_ability_flags_by_id, flags_by_id, unknown_flags_by_id))

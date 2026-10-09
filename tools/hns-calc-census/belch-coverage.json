@@ -1,0 +1,1447 @@
+{
+  "currentCensusSha256": "31044de2a9ffd9accd1dc860ec0c0d4976ba7f69d9a930102a99e3e0a485ddbb",
+  "opportunity": {
+    "baselineLimitations": {
+      "HNS_MOVE_MECHANICS_NOT_MODELLED": 64
+    },
+    "battles": 21,
+    "formats": {
+      "Singles": 64
+    },
+    "leadPairs": 20,
+    "leadRequests": 20,
+    "moves": {
+      "Belch": 64
+    },
+    "requestKeys": [
+      {
+        "format": "Singles",
+        "key": "TRAINER_ALICE_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ALICE_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BURT_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BURT_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHARLES_2_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHARLES_2_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHARLES_3_HNS#3|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHARLES_3_HNS#3|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHARLES_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_CHARLES_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_COREY_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_COREY_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_COREY_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_COREY_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_COREY_HNS#3|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_COREY_HNS#3|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DWAYNE_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DWAYNE_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DWAYNE_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DWAYNE_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DWAYNE_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DWAYNE_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DWAYNE_HNS#3|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_DWAYNE_HNS#3|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GLENN_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GLENN_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GLENN_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GLENN_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GRUNT_24_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GRUNT_24_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JANINE_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JANINE_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JIMMY_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JIMMY_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LINDA_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LINDA_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LYLE_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LYLE_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_OTIS_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_OTIS_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PHANTONOMY_UNUSED_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_PHANTONOMY_UNUSED_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_2_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_2_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_2_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_2_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_3_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_3_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_3_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_3_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_3_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_3_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_4_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_4_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_4_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_4_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_4_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_4_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RILEY_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SHAWN_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SHAWN_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ZEKE_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ZEKE_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Belch",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      }
+    ],
+    "requests": 64
+  },
+  "population": {
+    "after": {
+      "abilityDomainSize": 310,
+      "abilityOperandCohorts": 7806,
+      "abilityTrialExcludedAmbiguousAttackerSide": 17230,
+      "abilityTrialExcludedAmbiguousDefenderSide": 19506,
+      "abilityTrials": 1240,
+      "eligibleRequests": 24278,
+      "eligibleRequestsRefusedByMoveMechanics": 1452,
+      "excludedMoves": 4782,
+      "excludedMovesNonDamaging": 4782,
+      "leadMatchupBattles": 651,
+      "requestsReferenceToTrainer": 14656,
+      "requestsTrainerToReference": 9622,
+      "trainerBattles": 651,
+      "trainerBattlesDoubles": 9,
+      "trainerBattlesSingles": 642,
+      "trainerPokemon": 1832
+    },
+    "afterLeadMatchup": {
+      "battlesExcludedNoEligibleMove": 0,
+      "battlesIncluded": 651,
+      "battlesTotal": 651,
+      "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+      "doublesPairsDisplayable": 6,
+      "doublesPairsTotal": 18,
+      "eligibleRequests": 8450,
+      "pairsDisplayable": 680,
+      "pairsTotal": 1302,
+      "requestsDisplayable": 7582,
+      "singlesPairsDisplayable": 674,
+      "singlesPairsTotal": 1284
+    },
+    "before": {
+      "abilityDomainSize": 310,
+      "abilityOperandCohorts": 7806,
+      "abilityTrialExcludedAmbiguousAttackerSide": 17230,
+      "abilityTrialExcludedAmbiguousDefenderSide": 19506,
+      "abilityTrials": 1240,
+      "eligibleRequests": 24278,
+      "eligibleRequestsRefusedByMoveMechanics": 1516,
+      "excludedMoves": 4782,
+      "excludedMovesNonDamaging": 4782,
+      "leadMatchupBattles": 651,
+      "requestsReferenceToTrainer": 14656,
+      "requestsTrainerToReference": 9622,
+      "trainerBattles": 651,
+      "trainerBattlesDoubles": 9,
+      "trainerBattlesSingles": 642,
+      "trainerPokemon": 1832
+    },
+    "beforeLeadMatchup": {
+      "battlesExcludedNoEligibleMove": 0,
+      "battlesIncluded": 651,
+      "battlesTotal": 651,
+      "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+      "doublesPairsDisplayable": 6,
+      "doublesPairsTotal": 18,
+      "eligibleRequests": 8450,
+      "pairsDisplayable": 680,
+      "pairsTotal": 1302,
+      "requestsDisplayable": 7582,
+      "singlesPairsDisplayable": 674,
+      "singlesPairsTotal": 1284
+    }
+  },
+  "reconciliation": {
+    "currentTierByMove": {
+      "Belch": {
+        "CAVEATED_ESTIMATE": 0,
+        "FULLY_MODELLED": 0,
+        "REFUSED": 64
+      }
+    },
+    "outsideFamilyTransitions": [],
+    "residualRefusals": [
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_ALICE_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_ALICE_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_BURT_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_BURT_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_CHARLES_2_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_CHARLES_2_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_CHARLES_3_HNS#3|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_CHARLES_3_HNS#3|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_CHARLES_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_CHARLES_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_COREY_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_COREY_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_COREY_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_COREY_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_COREY_HNS#3|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_COREY_HNS#3|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_DWAYNE_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_DWAYNE_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_DWAYNE_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_DWAYNE_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_DWAYNE_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_DWAYNE_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_DWAYNE_HNS#3|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_DWAYNE_HNS#3|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_GLENN_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_GLENN_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_GLENN_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_GLENN_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_GRUNT_24_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_GRUNT_24_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_JANINE_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_JANINE_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_JIMMY_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_JIMMY_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_LINDA_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_LINDA_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_LYLE_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_LYLE_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_OTIS_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_OTIS_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_PHANTONOMY_UNUSED_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_PHANTONOMY_UNUSED_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_2_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_2_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_2_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_2_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_3_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_3_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_3_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_3_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_3_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_3_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_4_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_4_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_4_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_4_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_4_HNS#2|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_4_HNS#2|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_HNS#0|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_RILEY_HNS#0|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_SHAWN_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_SHAWN_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_ZEKE_HNS#1|ref-physical|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      },
+      {
+        "causes": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_ZEKE_HNS#1|ref-special|trainer-to-reference|Belch",
+        "limitations": [
+          "HNS_BELCH_BERRY_STATE_UNKNOWN"
+        ],
+        "move": "Belch"
+      }
+    ],
+    "targetTransitions": 0,
+    "transitionsByMove": {}
+  },
+  "schemaVersion": 1,
+  "startingCensusSha256": "a8c3b9c7d82c165bd591d9159aebc125ebe052e11d4221b143b191d37541db54",
+  "startingSha": "cd81bcc42a7916b62a7d2649549de43aa98a0425"
+}

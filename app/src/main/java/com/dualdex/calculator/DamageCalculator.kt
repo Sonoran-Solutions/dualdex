@@ -268,6 +268,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                 live.attackerSupremeOverlordCounter?.let { put("hnsSupremeOverlordCounter", it) }
                 live.attackerGimmick?.let { put("hnsActiveGimmick", it) }
                 live.attackerSelectedGimmick?.let { put("hnsSelectedGimmick", it) }
+                live.attackerAteBerry?.let { put("hnsAttackerAteBerry", it) }
                 if (live.attackerAnalyticTurnOrder != HnsAnalyticTurnOrder.UNKNOWN) {
                     put("hnsAnalyticTurnOrder", live.attackerAnalyticTurnOrder.name)
                 }
@@ -541,6 +542,29 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
                         put("hnsMinimizeDoubleDamage", false)
                         if (descriptor.category != com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW)
                             throw IllegalStateException("Semi-invulnerable preview registry mismatch")
+                    }
+                    if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitBelchMoveIds) {
+                        // Belch's only authority is the attacker's observed party-member ateBerry; the
+                        // packet carries the pinned descriptor so QuickJS can revalidate it exactly.
+                        check(com.dualdex.pokemon.hns.HnsMoveMechanicsRegistry.classify(moveId).category ==
+                            com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BELCH) { "Belch registry mismatch" }
+                        put("hnsMoveFamily", com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BELCH.name)
+                        put("hnsDescriptorSha256", com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitBelchDescriptorSha256ById[moveId])
+                        put("hnsSourceName", move.name)
+                        put("hnsSourcePower", move.power)
+                        put("hnsSourceType", "TYPE_${move.type.name}")
+                        put("hnsSourceCategory", "DAMAGE_CATEGORY_${move.category.name}")
+                        put("hnsSourceAccuracy", move.accuracy)
+                        put("hnsSourcePp", move.pp)
+                        put("hnsSourceTarget", "TARGET_SELECTED")
+                        put("hnsSourcePriority", 0)
+                        put("hnsSourceStrikeCount", 1)
+                        put("hnsMultiHit", false)
+                        put("hnsFixedRepeatedStrike", false)
+                        put("hnsSourceAdditionalEffects", JSONArray())
+                        put("hnsSourcePreAttackEffects", JSONArray())
+                        put("hnsSourcePunchingMove", false)
+                        put("hnsSourceBallisticMove", false)
                     }
                     put("hnsIsExplosion", moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds)
                     if (moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitExplosionMoveIds) put("hnsExplosionUserHpAtDamage", 0)

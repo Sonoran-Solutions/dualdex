@@ -237,6 +237,10 @@ enum class CalcLimitation {
     HNS_PRIORITY_BLOCKED,
     HNS_SEMI_INVULNERABLE_STATE_UNKNOWN,
     HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED,
+    /** Belch: `gBattleStruct->partyState[side][slot].ateBerry` was not read for this party member. */
+    HNS_BELCH_BERRY_STATE_UNKNOWN,
+    /** Belch: the authoritative party member has observed `ateBerry == false`; the move is unusable. */
+    HNS_BELCH_BERRY_NOT_EATEN,
     HNS_DAMP_BLOCKS_EXPLOSION,
     HNS_EXPLOSION_EXECUTION_UNKNOWN,
     HNS_HEAL_BLOCK_ACTIVE,
@@ -615,6 +619,8 @@ enum class CalcLimitation {
             HNS_PRIORITY_BLOCKED,
             HNS_SEMI_INVULNERABLE_STATE_UNKNOWN,
             HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED,
+            HNS_BELCH_BERRY_STATE_UNKNOWN,
+            HNS_BELCH_BERRY_NOT_EATEN,
             HNS_DAMP_BLOCKS_EXPLOSION,
             HNS_EXPLOSION_EXECUTION_UNKNOWN,
             HNS_HEAL_BLOCK_ACTIVE,
@@ -949,6 +955,10 @@ data class CalcCapabilityVerdict(
                 "the selected move requires a valid observed defender semi-invulnerable state"
             CalcLimitation.HNS_SEMI_INVULNERABLE_EXECUTION_NOT_MODELLED ->
                 "the selected move cannot execute against this semi-invulnerable state within the supported scope"
+            CalcLimitation.HNS_BELCH_BERRY_STATE_UNKNOWN ->
+                "Belch requires an observed party-member Berry state (ateBerry) for the attacker"
+            CalcLimitation.HNS_BELCH_BERRY_NOT_EATEN ->
+                "the attacker has not eaten a Berry, so Belch cannot be used"
             CalcLimitation.HNS_DAMP_BLOCKS_EXPLOSION ->
                 "Damp prevents Explosion/Self-Destruct from executing"
             CalcLimitation.HNS_EXPLOSION_EXECUTION_UNKNOWN ->
@@ -1946,6 +1956,25 @@ object CalcCapabilityPolicy {
             val herb = HnsHoldEffectAuthority.forRequest(request, HnsItemSide.ATTACKER)
             if (herb.state == HnsHoldEffectState.ACTIVE_EXACT && herb.effectiveHoldEffect == "HOLD_EFFECT_POWER_HERB")
                 limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
+        }
+        if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_BELCH) {
+            // Belch is admitted only by the party member's own source flag. Currently holding a Berry,
+            // holding nothing, or a `usedHeldItem` record never substitutes for `ateBerry`.
+            val live = request.hnsLiveBattleState
+            when (live?.attackerAteBerry) {
+                true -> Unit
+                false -> limitations.add(CalcLimitation.HNS_BELCH_BERRY_NOT_EATEN)
+                null -> limitations.add(CalcLimitation.HNS_BELCH_BERRY_STATE_UNKNOWN)
+            }
+            if (request.field.gameType != "Singles" || live?.observedBattlersCount != 2)
+                limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
+            // Dynamax and the other gimmicks bypass or reshape selection; they stay refused.
+            when {
+                live?.attackerGimmick == null || live.attackerSelectedGimmick == null ->
+                    limitations.add(CalcLimitation.HNS_LIVE_BATTLE_STATE_NOT_MODELLED)
+                live.attackerGimmick != 0 || live.attackerSelectedGimmick != 0 ->
+                    limitations.add(CalcLimitation.HNS_MOVE_MECHANICS_NOT_MODELLED)
+            }
         }
         if (mechanics.category == com.dualdex.pokemon.hns.HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_EXPLOSION) {
             val c = HnsAbilityContextPolicy.contextForRequest(request, HnsAbilitySide.ATTACKER, true)

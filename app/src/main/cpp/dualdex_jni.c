@@ -804,7 +804,9 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadChallengeSettings(JNIEnv* env, 
 /* Legacy 103 words preserved. [103] packet presence; [104..161] version 1:
  * version/count/absent/followMe[2]/actionFlags + 4 x 13 indexed records.
  * See read_doubles_operands and HnsDoublesRuntimeState.decode. */
-#define BATTLER_RUNTIME_STATE_TUPLE_LEN 178
+/* [178] ateBerry observed (Belch party-state authority), [179] PartyState.ateBerry for the
+ * authoritative party slot. Both are appended; legacy indexes [0..177] are unchanged. */
+#define BATTLER_RUNTIME_STATE_TUPLE_LEN 180
 
 /**
  * Live battler ability + effective types + current held item for one authoritative
@@ -1039,6 +1041,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattlerRuntimeState(JNIEnv* env
     values[175] = state.contact_reaction_state_observed ? 1 : 0;
     values[176] = state.chosen_move;
     values[177] = state.protected_method;
+    values[178] = state.ate_berry_observed ? 1 : 0;
+    values[179] = state.ate_berry ? 1 : 0;
     jintArray result = (*env)->NewIntArray(env, BATTLER_RUNTIME_STATE_TUPLE_LEN);
     if (!result) return NULL;
     (*env)->SetIntArrayRegion(env, result, 0, BATTLER_RUNTIME_STATE_TUPLE_LEN, values);

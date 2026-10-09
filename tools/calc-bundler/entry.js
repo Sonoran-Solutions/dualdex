@@ -356,6 +356,7 @@ function hnsContactAuthority(move, attacker, input) {
         input.move?.hnsMoveEffect === 'EFFECT_ELECTRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ELECTRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitElectroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_GYRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_GYRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitGyroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_BRINE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_BRINE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitBrine === true ||
+        input.move?.hnsMoveEffect === 'EFFECT_BELCH' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_BELCH' && hnsMoveMetadata.moves[String(id)]?.belchEligibility === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ABSORB' && input.move?.hnsIsDrain === true ||
         input.move?.hnsMoveEffect === 'EFFECT_EARTHQUAKE' && input.move?.hnsIsEarthquake === true ||
         input.move?.hnsMoveEffect === 'EFFECT_HIT' && input.move?.hnsIsUnderwater === true && [57,250].includes(id) ||
@@ -641,6 +642,26 @@ function calculateHnsDamage(gen, attacker, defender, move, field, input) {
         input.move?.hnsMoveEffect !== 'EFFECT_HIT' || ![57, 250].includes(input.move?.hnsMoveId) ||
         input.move?.hnsFixedSingleHit !== true || gameType !== 'Singles' || ![0, 2].includes(semiState))
       throw new Error('H&S Surf/Whirlpool execution authority missing or unsupported');
+  }
+  // Belch: the only authority is the attacker party member's observed PartyState.ateBerry. Held
+  // items, empty slots and usedHeldItem never substitute, and every other gate stays strict.
+  const belchMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
+  const belchFamily = belchMetadata?.belchEligibility === true;
+  if (belchFamily || input.move?.hnsMoveEffect === 'EFFECT_BELCH' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_BELCH') {
+    if (!belchFamily || input.move.hnsMoveId !== 562 || input.move.name?.toLowerCase() !== 'belch' ||
+        input.move.hnsMoveFamily !== 'FIXED_SINGLE_HIT_BELCH' || input.move.hnsMoveEffect !== belchMetadata.effect ||
+        input.move.hnsDescriptorSha256 !== belchMetadata.descriptorSha256 ||
+        input.move.hnsFixedSingleHit !== true || input.move.hnsIsOrdinary !== false ||
+        input.move.hnsSourceStrikeCount !== 1 || input.move.hnsMultiHit !== false ||
+        input.move.hnsFixedRepeatedStrike !== false || move.bp !== belchMetadata.power ||
+        input.move.hnsMakesContact !== false || input.move.hnsUnknownContact !== false ||
+        input.move.hnsUnknownPunching !== false || input.move.hnsUnknownSheerForce !== false ||
+        input.move.hnsSheerForceAffected !== false ||
+        input.attacker?.hnsAttackerAteBerry !== true ||
+        input.attacker?.hnsActiveGimmick !== 0 || input.attacker?.hnsSelectedGimmick !== 0 ||
+        input.defender?.hnsSemiInvulnerableState !== 0 ||
+        gameType !== 'Singles')
+      throw new Error('H&S Belch requires an observed party-member ateBerry=true and pinned descriptor');
   }
   const brineMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
   const brineFamily = brineMetadata?.fixedSingleHitBrine === true;

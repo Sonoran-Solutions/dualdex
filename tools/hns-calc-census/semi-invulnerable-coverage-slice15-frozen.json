@@ -1,5 +1,5 @@
 {
-  "currentCensusSha256": "31044de2a9ffd9accd1dc860ec0c0d4976ba7f69d9a930102a99e3e0a485ddbb",
+  "currentCensusSha256": "a8c3b9c7d82c165bd591d9159aebc125ebe052e11d4221b143b191d37541db54",
   "opportunity": {
     "baselineLimitations": {
       "HNS_ABILITY_CONDITION_UNVERIFIED + HNS_ITEM_EFFECT_NOT_MODELLED + HNS_MOVE_MECHANICS_NOT_MODELLED": 4,
@@ -846,7 +846,7 @@
       "abilityTrialExcludedAmbiguousDefenderSide": 19506,
       "abilityTrials": 1240,
       "eligibleRequests": 24278,
-      "eligibleRequestsRefusedByMoveMechanics": 1452,
+      "eligibleRequestsRefusedByMoveMechanics": 1516,
       "excludedMoves": 4782,
       "excludedMovesNonDamaging": 4782,
       "leadMatchupBattles": 651,

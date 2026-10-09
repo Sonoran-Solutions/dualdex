@@ -5994,6 +5994,138 @@ static void test_hns_group_d_operands(void) {
     g_tests_passed++;
 }
 
+/** Write one partyState[side][slot].ateBerry bit at its compiled position in the fake gBattleStruct. */
+static void hns_battle_set_ate_berry(HnsBattleFixture* fx, uint8_t side, uint8_t slot, bool value) {
+    const uint32_t bs_base = 0x02030000u;
+    write32_le_t(fx->gba->ewram + fx->cfg->battle_struct_ptr_offset, bs_base);
+    const uint32_t bit = fx->cfg->party_state_ate_berry_bit;
+    const size_t off = (bs_base - 0x02000000u) + fx->cfg->battle_struct_party_state_offset +
+                       side * fx->cfg->party_state_side_stride +
+                       slot * fx->cfg->party_state_entry_size + bit / 8u;
+    const uint8_t mask = (uint8_t)(1u << (bit % 8u));
+    if (value) fx->gba->ewram[off] |= mask; else fx->gba->ewram[off] &= (uint8_t)~mask;
+}
+
+/* Belch party-state authority: the flag belongs to the party member's side and slot, never to the
+ * battler position, the held item, or another party member. */
+static void test_hns_belch_party_state_ate_berry(void) {
+    printf("Running test_hns_belch_party_state_ate_berry...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+    BattlerRuntimeState st;
+
+    /* Fresh battle: the zeroed struct is an observed false for the authoritative slot. */
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0x02030000u);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "fresh read succeeds");
+    TEST_ASSERT(st.ate_berry_observed && !st.ate_berry, "fresh battle observes ateBerry=false");
+
+    /* Exact bit: a neighbouring PartyState bit (intrepidSwordBoost) must not authorize Belch. */
+    gba.ewram[(0x02030000u - 0x02000000u) + cfg->battle_struct_party_state_offset] = 0x01;
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "neighbour-bit read succeeds");
+    TEST_ASSERT(st.ate_berry_observed && !st.ate_berry, "neighbouring bit is not ateBerry");
+    gba.ewram[(0x02030000u - 0x02000000u) + cfg->battle_struct_party_state_offset] = 0;
+
+    /* Flag one for the player's slot 0 authorizes only that battler. */
+    hns_battle_set_ate_berry(&fx, 0, 0, true);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "flag-one read succeeds");
+    TEST_ASSERT(st.ate_berry_observed && st.ate_berry, "ateBerry=true observed on the authoritative slot");
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st) && st.ate_berry_observed && !st.ate_berry,
+                "opponent side is not authorized by the player's flag");
+
+    /* Party identity: a switch moves the battler to slot 1, which does not inherit slot 0's flag. */
+    hns_battle_set_battler(&fx, 0, 0, 1);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "switched-in read succeeds");
+    TEST_ASSERT(st.ate_berry_observed && !st.ate_berry, "other party member does not inherit the flag");
+
+    /* Returning to slot 0 retains the flag for that party member. */
+    hns_battle_set_battler(&fx, 0, 0, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.ate_berry,
+                "returning party member keeps ateBerry=true");
+
+    /* Opponent side uses partyState[1]; its flag is independent of the player's side. */
+    hns_battle_set_ate_berry(&fx, 1, 0, true);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_OPPONENT, &st) && st.ate_berry_observed && st.ate_berry,
+                "opponent party-state entry is read from side 1");
+
+    /* Unread struct pointer: never a neutral false. */
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "null-pointer read degrades");
+    TEST_ASSERT(!st.ate_berry_observed, "null gBattleStruct leaves ateBerry unread");
+
+    /* Invalid pointer outside EWRAM is also unread, never false. */
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0x03000000u);
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "out-of-EWRAM read degrades");
+    TEST_ASSERT(!st.ate_berry_observed, "out-of-EWRAM gBattleStruct leaves ateBerry unread");
+
+    /* Layout absent: a zero offset disables the read entirely. */
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0x02030000u);
+    GameMemoryConfig no_party = *cfg;
+    no_party.battle_struct_party_state_offset = 0;
+    fx.cfg = &no_party;
+    memset(&st, 0, sizeof(st));
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && !st.ate_berry_observed,
+                "a layout without partyState is refused and never reports ateBerry=false");
+    fx.cfg = cfg;
+
+    /* Invalid authoritative party slot: the whole observation is refused, so no flag is published. */
+    hns_battle_set_battler(&fx, 0, 0, 6);
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st), "out-of-domain party slot is refused");
+    g_tests_passed++;
+}
+
+/** Wraps the fake GBA reader and fails exactly one byte read: the `ateBerry` byte at `fail_address`. */
+typedef struct {
+    const DualDexGbaRegionTable* table;
+    uint32_t fail_address;
+} FailingFlagRead;
+
+static bool failing_flag_read(void* user, uint32_t address, uint8_t* out, size_t length) {
+    FailingFlagRead* f = (FailingFlagRead*)user;
+    if (address == f->fail_address && length == 1) return false;
+    return gba_memory_map_read(f->table, address, out, length);
+}
+
+/* Belch party-state failure controls: a failed one-byte read is unread (never false), battle
+ * teardown publishes nothing, and a fresh battle's zeroed struct does not inherit a prior true. */
+static void test_hns_belch_party_state_failed_read_and_lifecycle(void) {
+    printf("Running test_hns_belch_party_state_failed_read_and_lifecycle...\n");
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    hns_battler_fixture_two_battlers(&fx, &gba, cfg);
+    BattlerRuntimeState st;
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, 0x02030000u);
+    hns_battle_set_ate_berry(&fx, 0, 0, true);
+
+    /* Short read of the flag byte: the rest of the observation still stands, the flag does not. */
+    FailingFlagRead failing = { &gba.table, 0x02030000u + cfg->battle_struct_party_state_offset +
+                                            cfg->party_state_ate_berry_bit / 8u };
+    memset(&st, 0, sizeof(st));
+    TEST_ASSERT(pokemon_read_battler_runtime_state_gba(failing_flag_read, &failing, gba.ewram,
+                    sizeof(gba.ewram), cfg, BATTLER_ROLE_PLAYER, &st), "failed flag byte keeps the rest of the observation");
+    TEST_ASSERT(!st.ate_berry_observed && !st.ate_berry, "failed one-byte read leaves ateBerry unread, not true or false");
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.ate_berry_observed && st.ate_berry,
+                "the next successful read observes the flag again");
+
+    /* Teardown: a stale true flag is never published once the battle is no longer active. */
+    hns_battle_set_in_battle(&fx, false);
+    memset(&st, 0, sizeof(st));
+    TEST_ASSERT(!read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && !st.ate_berry_observed,
+                "battle teardown publishes no ateBerry observation");
+
+    /* Re-entry into a new battle: a fresh zeroed gBattleStruct is an observed false. */
+    hns_battle_set_in_battle(&fx, true);
+    const uint32_t fresh_base = 0x02038000u;
+    memset(gba.ewram + (fresh_base - 0x02000000u), 0, 0x200);
+    write32_le_t(gba.ewram + cfg->battle_struct_ptr_offset, fresh_base);
+    memset(&st, 0, sizeof(st));
+    TEST_ASSERT(read_battler_state(&fx, BATTLER_ROLE_PLAYER, &st) && st.ate_berry_observed && !st.ate_berry,
+                "a new battle observes ateBerry=false and never inherits the previous true");
+    g_tests_passed++;
+}
+
 static void test_hns_analytic_current_action_authority(void) {
     printf("Running test_hns_analytic_current_action_authority...\n");
     const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_HEART_AND_SOUL);
@@ -6715,6 +6847,8 @@ int main(void) {
     test_hns_badge_state_reading();
     test_hns_battler_state_stats_stages_badges();
     test_hns_group_d_operands();
+    test_hns_belch_party_state_ate_berry();
+    test_hns_belch_party_state_failed_read_and_lifecycle();
     test_hns_rollout_operands();
     test_hns_analytic_current_action_authority();
     test_hns_battler_state_c4e_live_operands();

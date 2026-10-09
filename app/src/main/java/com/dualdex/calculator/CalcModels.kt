@@ -348,6 +348,8 @@ data class CalcHnsLiveBattleState(
     val defenderNeutralizingGas: Boolean? = null,
     val attackerSelectedGimmick: Int? = null,
     val defenderSelectedGimmick: Int? = null,
+    /** `gBattleStruct->partyState[side][slot].ateBerry` for the attacker's authoritative slot; null when unread. */
+    val attackerAteBerry: Boolean? = null,
     val attackerAnalyticTurnOrder: HnsAnalyticTurnOrder = HnsAnalyticTurnOrder.UNKNOWN,
     // --- Gap C4e correction: live field conditions -------------------------------------------
     /**

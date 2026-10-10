@@ -16,9 +16,16 @@ class InputManager {
     private var l2Held = false
     private var r2Held = false
 
+    /** Test seam; one physical press can arrive as both a key event and an axis crossing. */
+    internal var nanoClock: () -> Long = System::nanoTime
+    private val lastFireNs = LongArray(Trigger.values().size) { Long.MIN_VALUE }
+
     companion object {
-        private const val TRIGGER_PRESS = 0.6f
-        private const val TRIGGER_RELEASE = 0.3f
+        private const val TRIGGER_PRESS = 0.75f
+        private const val TRIGGER_RELEASE = 0.35f
+
+        /** Minimum gap between two firings of the same trigger, across key and axis sources. */
+        private const val TRIGGER_COOLDOWN_NS = 300_000_000L
 
         const val BTN_B: Int      = 1 shl 0
         const val BTN_Y: Int      = 1 shl 1
@@ -105,7 +112,13 @@ class InputManager {
         else if (r2Held && r2 < TRIGGER_RELEASE) r2Held = false
     }
 
-    private fun fire(s: Trigger) { onShortcut?.invoke(s) }
+    private fun fire(s: Trigger) {
+        val now = nanoClock()
+        val last = lastFireNs[s.ordinal]
+        if (last != Long.MIN_VALUE && now - last < TRIGGER_COOLDOWN_NS) return
+        lastFireNs[s.ordinal] = now
+        onShortcut?.invoke(s)
+    }
 
     private fun triggerFor(keyCode: Int): Trigger? = when (keyCode) {
         KeyEvent.KEYCODE_BUTTON_L2 -> Trigger.L2

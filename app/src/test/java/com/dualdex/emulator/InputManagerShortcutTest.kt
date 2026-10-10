@@ -7,7 +7,8 @@ import org.junit.Test
 
 class InputManagerShortcutTest {
     private fun manager(log: MutableList<InputManager.Trigger>) =
-        InputManager().apply { onShortcut = { log += it } }
+        InputManager().apply { onShortcut = { log += it }; nanoClock = { t += 1_000_000_000L; t } }
+    private var t = 0L
 
     @Test
     fun l2R2KeysFireOnceAndAreConsumed() {
@@ -32,5 +33,28 @@ class InputManagerShortcutTest {
             listOf(InputManager.Trigger.L2, InputManager.Trigger.L2, InputManager.Trigger.R2),
             log
         )
+    }
+
+    @Test
+    fun keyAndAxisFromOnePressFireOnce() {
+        val log = mutableListOf<InputManager.Trigger>()
+        var now = 0L
+        val m = InputManager().apply { onShortcut = { log += it }; nanoClock = { now } }
+        m.onKeyDown(KeyEvent.KEYCODE_BUTTON_R2)
+        now += 20_000_000L          // axis crosses ~20 ms later for the same press
+        m.onTriggerAxes(0f, 0.9f)
+        assertEquals(listOf(InputManager.Trigger.R2), log)
+        now += 400_000_000L         // a genuinely new press after the cooldown
+        m.onTriggerAxes(0f, 0f); m.onKeyUp(KeyEvent.KEYCODE_BUTTON_R2)
+        m.onKeyDown(KeyEvent.KEYCODE_BUTTON_R2)
+        assertEquals(2, log.size)
+    }
+
+    @Test
+    fun lightPressBelowThresholdDoesNotFire() {
+        val log = mutableListOf<InputManager.Trigger>()
+        val m = manager(log)
+        m.onTriggerAxes(0.5f, 0.6f)
+        assertEquals(emptyList<InputManager.Trigger>(), log)
     }
 }

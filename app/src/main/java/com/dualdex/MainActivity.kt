@@ -300,6 +300,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             RomHackAssistant.setModel(settingsManager.geminiModel)
             viewModel.setBattleAutoOpenEnabled(settingsManager.isBattleAutoOpenEnabled)
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
+            viewModel.setMoveTileDamageShown(settingsManager.isMoveTileDamageShown)
+            viewModel.setMoveTileEffectivenessShown(settingsManager.isMoveTileEffectivenessShown)
 
             // 6. Setup display UI
             DualDexTheme.style = settingsManager.companionVisualStyle

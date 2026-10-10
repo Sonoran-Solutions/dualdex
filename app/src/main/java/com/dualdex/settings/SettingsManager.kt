@@ -158,6 +158,20 @@ open class SettingsManager(private val prefs: SharedPreferences) {
             prefs.edit().putBoolean(KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED, value).apply()
         }
 
+    /** Whether Battle-tab move tiles show the damage % line. Display only; Details keeps it. */
+    var isMoveTileDamageShown: Boolean
+        get() = prefs.getBoolean(KEY_MOVE_TILE_DAMAGE_SHOWN, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MOVE_TILE_DAMAGE_SHOWN, value).apply()
+        }
+
+    /** Whether Battle-tab move tiles show the effectiveness label. Display only; Details keeps it. */
+    var isMoveTileEffectivenessShown: Boolean
+        get() = prefs.getBoolean(KEY_MOVE_TILE_EFFECTIVENESS_SHOWN, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_MOVE_TILE_EFFECTIVENESS_SHOWN, value).apply()
+        }
+
     var legacySavesCheckedOnFirstOpen: Boolean
         get() = prefs.getBoolean(KEY_LEGACY_SAVES_CHECKED, false)
         set(value) {
@@ -186,6 +200,8 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         private const val KEY_BATTLE_AUTO_OPEN = "key_battle_auto_open"
         private const val LEGACY_KEY_BATTLE_AUTO_OPEN = "key_battle_tab_enabled"
         private const val KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED = "key_interactive_battle_controls_enabled"
+        private const val KEY_MOVE_TILE_DAMAGE_SHOWN = "key_move_tile_damage_shown"
+        private const val KEY_MOVE_TILE_EFFECTIVENESS_SHOWN = "key_move_tile_effectiveness_shown"
         private const val KEY_LEGACY_SAVES_CHECKED = "key_legacy_saves_checked"
     }
 }

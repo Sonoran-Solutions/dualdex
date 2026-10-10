@@ -7,7 +7,19 @@ import kotlin.math.abs
 
 class InputManager {
 
+    enum class Shortcut { QUICK_SAVE, QUICK_LOAD }
+
+    /** Invoked once per physical L2 (quick save) / R2 (quick load) press; those keys never reach the core. */
+    @Volatile
+    var onShortcut: ((Shortcut) -> Unit)? = null
+
+    private var l2Held = false
+    private var r2Held = false
+
     companion object {
+        private const val TRIGGER_PRESS = 0.6f
+        private const val TRIGGER_RELEASE = 0.3f
+
         const val BTN_B: Int      = 1 shl 0
         const val BTN_Y: Int      = 1 shl 1
         const val BTN_SELECT: Int = 1 shl 2
@@ -29,7 +41,12 @@ class InputManager {
 
     fun getCurrentMask(): Int = currentMask
 
-    fun onKeyDown(keyCode: Int): Boolean {
+    fun onKeyDown(keyCode: Int, repeatCount: Int = 0): Boolean {
+        shortcutFor(keyCode)?.let {
+            // Consumed; key-repeat from a held button must not re-trigger a save/load.
+            if (repeatCount == 0) fire(it)
+            return true
+        }
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
             currentMask = currentMask or mask
@@ -40,6 +57,7 @@ class InputManager {
     }
 
     fun onKeyUp(keyCode: Int): Boolean {
+        if (shortcutFor(keyCode) != null) return true
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
             currentMask = currentMask and mask.inv()
@@ -53,6 +71,10 @@ class InputManager {
         if ((event.source and InputDevice.SOURCE_JOYSTICK) != 0 ||
             (event.source and InputDevice.SOURCE_GAMEPAD) != 0) {
 
+            onTriggerAxes(
+                maxOf(event.getAxisValue(MotionEvent.AXIS_LTRIGGER), event.getAxisValue(MotionEvent.AXIS_BRAKE)),
+                maxOf(event.getAxisValue(MotionEvent.AXIS_RTRIGGER), event.getAxisValue(MotionEvent.AXIS_GAS))
+            )
             val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
             val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
             val stickX = event.getAxisValue(MotionEvent.AXIS_X)
@@ -75,6 +97,22 @@ class InputManager {
         return false
     }
 
+    /** Analog L2/R2: fire on the press edge (with hysteresis) so a held trigger fires once. */
+    fun onTriggerAxes(l2: Float, r2: Float) {
+        if (!l2Held && l2 > TRIGGER_PRESS) { l2Held = true; fire(Shortcut.QUICK_SAVE) }
+        else if (l2Held && l2 < TRIGGER_RELEASE) l2Held = false
+        if (!r2Held && r2 > TRIGGER_PRESS) { r2Held = true; fire(Shortcut.QUICK_LOAD) }
+        else if (r2Held && r2 < TRIGGER_RELEASE) r2Held = false
+    }
+
+    private fun fire(s: Shortcut) { onShortcut?.invoke(s) }
+
+    private fun shortcutFor(keyCode: Int): Shortcut? = when (keyCode) {
+        KeyEvent.KEYCODE_BUTTON_L2 -> Shortcut.QUICK_SAVE
+        KeyEvent.KEYCODE_BUTTON_R2 -> Shortcut.QUICK_LOAD
+        else -> null
+    }
+
     private fun mapKeyCodeToMask(keyCode: Int): Int {
         return when (keyCode) {
             KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_Z -> BTN_A
@@ -83,8 +121,6 @@ class InputManager {
             KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_V -> BTN_Y
             KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_A -> BTN_L
             KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_S -> BTN_R
-            KeyEvent.KEYCODE_BUTTON_L2 -> BTN_L2
-            KeyEvent.KEYCODE_BUTTON_R2 -> BTN_R2
             KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_ENTER -> BTN_START
             KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_SPACE -> BTN_SELECT
             KeyEvent.KEYCODE_DPAD_UP -> BTN_UP

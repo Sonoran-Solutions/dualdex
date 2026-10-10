@@ -33,6 +33,7 @@ import com.dualdex.companion.RomItem
 import com.dualdex.companion.ui.CompanionScreenView
 import com.dualdex.emulator.AudioDriver
 import com.dualdex.emulator.EmulatorSurfaceView
+import com.dualdex.emulator.InputManager
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.LibretroHost
 import com.dualdex.emulator.RomIdentity
@@ -62,6 +63,26 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         )
     }
     private var emulatorView: EmulatorSurfaceView? = null
+
+    /** L2/R2 shortcuts (#14): same SaveStateManager quick-state path as the Save screen. */
+    private fun onControllerShortcut(shortcut: InputManager.Shortcut) {
+        val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid } ?: return
+        val save = shortcut == InputManager.Shortcut.QUICK_SAVE
+        CoroutineScope(Dispatchers.IO).launch {
+            val ok = try {
+                if (save) saveStateManager.quickSave(identity) else saveStateManager.quickLoad(identity)
+            } catch (e: Exception) {
+                false
+            }
+            withContext(Dispatchers.Main) {
+                val msg = when {
+                    save -> if (ok) "Quick saved" else "Quick save failed"
+                    else -> if (ok) "Quick loaded" else "No quick save found"
+                }
+                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     private var companionPresentation: CompanionPresentation? = null
     private var currentCompanionScreenView: CompanionScreenView? = null
     private var displayManager: DisplayManager? = null
@@ -419,6 +440,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
             val emu = emulatorView ?: EmulatorSurfaceView(this).apply {
                 setStretchToFit(settingsManager.isStretchToFitEnabled)
+                setShortcutHandler(::onControllerShortcut)
             }
             emulatorView = emu
             (emu.parent as? ViewGroup)?.removeView(emu)
@@ -486,6 +508,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
         val emu = emulatorView ?: EmulatorSurfaceView(this).apply {
             setStretchToFit(settingsManager.isStretchToFitEnabled)
+            setShortcutHandler(::onControllerShortcut)
         }
         emulatorView = emu
         (emu.parent as? ViewGroup)?.removeView(emu)

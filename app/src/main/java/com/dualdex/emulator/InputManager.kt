@@ -7,11 +7,11 @@ import kotlin.math.abs
 
 class InputManager {
 
-    enum class Shortcut { QUICK_SAVE, QUICK_LOAD }
+    enum class Trigger { L2, R2 }
 
-    /** Invoked once per physical L2 (quick save) / R2 (quick load) press; those keys never reach the core. */
+    /** Invoked once per physical L2 / R2 press; those keys are consumed and never reach the core. */
     @Volatile
-    var onShortcut: ((Shortcut) -> Unit)? = null
+    var onShortcut: ((Trigger) -> Unit)? = null
 
     private var l2Held = false
     private var r2Held = false
@@ -42,7 +42,7 @@ class InputManager {
     fun getCurrentMask(): Int = currentMask
 
     fun onKeyDown(keyCode: Int, repeatCount: Int = 0): Boolean {
-        shortcutFor(keyCode)?.let {
+        triggerFor(keyCode)?.let {
             // Consumed; key-repeat from a held button must not re-trigger a save/load.
             if (repeatCount == 0) fire(it)
             return true
@@ -57,7 +57,7 @@ class InputManager {
     }
 
     fun onKeyUp(keyCode: Int): Boolean {
-        if (shortcutFor(keyCode) != null) return true
+        if (triggerFor(keyCode) != null) return true
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
             currentMask = currentMask and mask.inv()
@@ -99,17 +99,17 @@ class InputManager {
 
     /** Analog L2/R2: fire on the press edge (with hysteresis) so a held trigger fires once. */
     fun onTriggerAxes(l2: Float, r2: Float) {
-        if (!l2Held && l2 > TRIGGER_PRESS) { l2Held = true; fire(Shortcut.QUICK_SAVE) }
+        if (!l2Held && l2 > TRIGGER_PRESS) { l2Held = true; fire(Trigger.L2) }
         else if (l2Held && l2 < TRIGGER_RELEASE) l2Held = false
-        if (!r2Held && r2 > TRIGGER_PRESS) { r2Held = true; fire(Shortcut.QUICK_LOAD) }
+        if (!r2Held && r2 > TRIGGER_PRESS) { r2Held = true; fire(Trigger.R2) }
         else if (r2Held && r2 < TRIGGER_RELEASE) r2Held = false
     }
 
-    private fun fire(s: Shortcut) { onShortcut?.invoke(s) }
+    private fun fire(s: Trigger) { onTrigger?.invoke(s) }
 
-    private fun shortcutFor(keyCode: Int): Shortcut? = when (keyCode) {
-        KeyEvent.KEYCODE_BUTTON_L2 -> Shortcut.QUICK_SAVE
-        KeyEvent.KEYCODE_BUTTON_R2 -> Shortcut.QUICK_LOAD
+    private fun triggerFor(keyCode: Int): Trigger? = when (keyCode) {
+        KeyEvent.KEYCODE_BUTTON_L2 -> Trigger.L2
+        KeyEvent.KEYCODE_BUTTON_R2 -> Trigger.R2
         else -> null
     }
 

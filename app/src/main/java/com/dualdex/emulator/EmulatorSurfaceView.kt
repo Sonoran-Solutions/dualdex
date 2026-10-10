@@ -24,7 +24,7 @@ class EmulatorSurfaceView @JvmOverloads constructor(
 
     private val inputManager = InputManager()
 
-    fun setShortcutHandler(handler: ((InputManager.Shortcut) -> Unit)?) { inputManager.onShortcut = handler }
+    fun setShortcutHandler(handler: ((InputManager.Trigger) -> Unit)?) { inputManager.onShortcut = handler }
     private val pixelBuffer: ByteBuffer = ByteBuffer.allocateDirect(512 * 512 * 4).order(ByteOrder.nativeOrder())
     private val frameMetadata = IntArray(4) // width, height, pitch, pixelFormat
     private var textureId: Int = 0

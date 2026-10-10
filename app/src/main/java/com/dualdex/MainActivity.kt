@@ -44,6 +44,7 @@ import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.settings.SettingsManager
+import com.dualdex.settings.TriggerShortcutMode
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -64,10 +65,24 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     }
     private var emulatorView: EmulatorSurfaceView? = null
 
-    /** L2/R2 shortcuts (#14): same SaveStateManager quick-state path as the Save screen. */
-    private fun onControllerShortcut(shortcut: InputManager.Shortcut) {
+    /** L2/R2 (#14): behaviour follows the Settings "L2 / R2 Behavior" mode. */
+    private fun onControllerShortcut(trigger: InputManager.Trigger) {
+        when (settingsManager.triggerShortcutMode) {
+            TriggerShortcutMode.DISABLED -> Unit
+            TriggerShortcutMode.FAST_FORWARD -> {
+                val emu = emulatorView ?: return
+                val delta = if (trigger == InputManager.Trigger.L2) -1 else 1
+                val speed = SettingsManager.steppedSpeed(emu.getSpeedMultiplier(), delta)
+                emu.setSpeedMultiplier(speed)
+                settingsManager.fastForwardMultiplier = speed // Settings screen follows via its prefs listener
+                Toast.makeText(this, "Speed ${speed}x", Toast.LENGTH_SHORT).show()
+            }
+            TriggerShortcutMode.QUICK_SAVE_LOAD -> quickStateShortcut(trigger == InputManager.Trigger.L2)
+        }
+    }
+
+    private fun quickStateShortcut(save: Boolean) {
         val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid } ?: return
-        val save = shortcut == InputManager.Shortcut.QUICK_SAVE
         CoroutineScope(Dispatchers.IO).launch {
             val ok = try {
                 if (save) saveStateManager.quickSave(identity) else saveStateManager.quickLoad(identity)
@@ -81,32 +96,6 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 }
                 Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
             }
-        }
-    }
-    private var companionPresentation: CompanionPresentation? = null
-    private var currentCompanionScreenView: CompanionScreenView? = null
-    private var displayManager: DisplayManager? = null
-    private var restoreBottomScreenBtn: TextView? = null
-    private var loadedProfiles: List<RomHackProfile> = emptyList()
-    private val audioDriver = AudioDriver(32768)
-
-    private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
-
-
-    private val openRomLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-        if (uri != null) {
-            val oldLastPlayed = settingsManager.lastPlayedRomUri
-            val grantResult = RomUriPermissionManager.takePersistableReadPermission(contentResolver, uri)
-            val isDurable = grantResult.isDurable
-            // Capture previous individual URI candidate for release, but ONLY release it
-            // after the new ROM switch transaction completes successfully.
-            val previousDurableUriToRelease = if (isDurable) oldLastPlayed else null
-            handleSelectedRom(
-                uri = uri,
-                isDurable = isDurable,
-                previousDurableUriToRelease = previousDurableUriToRelease,
-                newlyAcquiredPersistableGrant = grantResult.isNewlyAcquired
-            )
         }
     }
 

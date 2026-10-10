@@ -4,6 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.dualdex.emulator.ShaderFilter
 
+/** What the physical L2/R2 triggers do (#14). */
+enum class TriggerShortcutMode(val label: String) {
+    QUICK_SAVE_LOAD("Quick Save / Load"),
+    FAST_FORWARD("Speed Down / Up"),
+    DISABLED("Disabled")
+}
+
 open class SettingsManager(private val prefs: SharedPreferences) {
 
     constructor(context: Context) : this(
@@ -28,6 +35,19 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         set(value) {
             prefs.edit().putInt(KEY_FAST_FORWARD, value).apply()
         }
+
+    var triggerShortcutMode: TriggerShortcutMode
+        get() = TriggerShortcutMode.values().firstOrNull { it.name == prefs.getString(KEY_TRIGGER_MODE, null) }
+            ?: TriggerShortcutMode.QUICK_SAVE_LOAD
+        set(value) {
+            prefs.edit().putString(KEY_TRIGGER_MODE, value.name).apply()
+        }
+
+    fun registerChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.registerOnSharedPreferenceChangeListener(l)
+
+    fun unregisterChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.unregisterOnSharedPreferenceChangeListener(l)
 
     var isAudioEnabled: Boolean
         get() = prefs.getBoolean(KEY_AUDIO_ENABLED, true)
@@ -135,6 +155,13 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         }
 
     companion object {
+        const val MIN_SPEED = 1
+        const val MAX_SPEED = 4
+
+        /** L2/R2 speed stepping, clamped to the Settings range (1x-4x). */
+        fun steppedSpeed(current: Int, delta: Int): Int = (current + delta).coerceIn(MIN_SPEED, MAX_SPEED)
+
+        private const val KEY_TRIGGER_MODE = "key_trigger_shortcut_mode"
         private const val KEY_SHADER_FILTER = "key_shader_filter"
         private const val KEY_FAST_FORWARD = "key_fast_forward"
         private const val KEY_AUDIO_ENABLED = "key_audio_enabled"

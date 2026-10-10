@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ScrollView
 
 /**
  * One in-game-style party slot (issue #151), drawn procedurally on the GBA pixel grid.
@@ -34,6 +35,12 @@ class PartySlotView(context: Context) : View(context) {
 
     private val bobTick = object : Runnable {
         override fun run() {
+            // Re-checked every tick so turning animations off mid-bob stops it at rest.
+            if (!shouldBob()) {
+                bobUp = false
+                render()
+                return
+            }
             bobUp = !bobUp
             render()
             postDelayed(this, BOB_INTERVAL_MS)
@@ -66,13 +73,14 @@ class PartySlotView(context: Context) : View(context) {
     /** Binds new data; an identical state is a no-op so a 10 Hz poll does not repaint. */
     fun bind(newState: PartySlotState?) {
         if (newState == state && bitmap != null) return
-        val wasSelected = state?.selected == true
+        val previous = state
         state = newState
         val empty = newState == null
         isClickable = !empty
         isFocusable = !empty
         contentDescription = PartySlotModel.accessibilityLabel(index, newState)
-        if (wasSelected != (newState?.selected == true)) updateBob()
+        // Re-evaluate on selection or frame changes (e.g. selected -> selected+fainted).
+        if (previous?.selected != newState?.selected || previous?.frame != newState?.frame) updateBob()
         render()
     }
 
@@ -95,10 +103,13 @@ class PartySlotView(context: Context) : View(context) {
     private fun updateBob() {
         removeCallbacks(bobTick)
         bobUp = false
-        val s = state
-        val animate = s != null && s.selected && s.frame != SlotFrame.SELECTED_FAINTED &&
+        if (shouldBob()) postDelayed(bobTick, BOB_INTERVAL_MS)
+    }
+
+    private fun shouldBob(): Boolean {
+        val s = state ?: return false
+        return s.selected && s.frame != SlotFrame.SELECTED_FAINTED &&
             isAttachedToWindow && ValueAnimator.areAnimatorsEnabled()
-        if (animate) postDelayed(bobTick, BOB_INTERVAL_MS)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -335,47 +346,64 @@ class PartySlotView(context: Context) : View(context) {
 /**
  * Lays out the six [PartySlotView]s at the largest integer scale that fits the width and
  * [maxHeightFraction] of the height it is offered (3×2 on the Thor's wide bottom screen).
+ * Slots never go below the 48dp touch target; when six of them cannot fit the height budget,
+ * the grid caps itself at that budget and scrolls instead of clipping.
  */
-class PartySlotGrid(context: Context, onSlotClicked: (Int) -> Unit) : ViewGroup(context) {
+class PartySlotGrid(context: Context, onSlotClicked: (Int) -> Unit) : ScrollView(context) {
+    private val gap = context.dp(DualDexTheme.Spacing.tight)
+    private val minScale = PartySlotModel.minScaleFor(context.dp(DualDexTheme.Spacing.touchTarget))
+    private var spec = PartySlotModel.chooseGrid(0, 0, gap, minScale)
+    var maxHeightFraction = 0.55f
+
     val slots: List<PartySlotView> = List(PartySlotModel.SLOT_COUNT) { i ->
         PartySlotView(context).apply {
             setIndex(i)
             setOnClickListener { onSlotClicked(i) }
         }
     }
-    private val gap = context.dp(DualDexTheme.Spacing.tight)
-    private var spec = PartyGridSpec(3, 2, 1, PartySlotModel.MIN_WINDOW_WIDTH)
-    var maxHeightFraction = 0.55f
+
+    private val slotLayout = object : ViewGroup(context) {
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            slots.forEach {
+                it.setGrid(spec.scale, spec.windowWidth)
+                it.measure(
+                    MeasureSpec.makeMeasureSpec(spec.cellWidth, MeasureSpec.EXACTLY),
+                    MeasureSpec.makeMeasureSpec(spec.slotPixelHeight, MeasureSpec.EXACTLY)
+                )
+            }
+            setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), spec.totalHeight(gap))
+        }
+
+        override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+            slots.forEachIndexed { i, slot ->
+                val x = (i % spec.columns) * (spec.cellWidth + gap)
+                val y = (i / spec.columns) * (spec.slotPixelHeight + gap)
+                slot.layout(x, y, x + slot.measuredWidth, y + slot.measuredHeight)
+            }
+        }
+    }
 
     init {
-        slots.forEach { addView(it) }
+        isVerticalScrollBarEnabled = true
+        slots.forEach { slotLayout.addView(it) }
+        addView(slotLayout)
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = MeasureSpec.getSize(widthMeasureSpec)
         val offered = MeasureSpec.getSize(heightMeasureSpec)
-        val maxHeight = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.UNSPECIFIED || offered == 0) {
+        val budget = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.UNSPECIFIED || offered == 0) {
             resources.displayMetrics.heightPixels / 2
         } else {
             (offered * maxHeightFraction).toInt()
         }
-        spec = PartySlotModel.chooseGrid(width, maxHeight, gap)
-        val cellW = (width - gap * (spec.columns - 1)) / spec.columns
-        val cellH = PartySlotModel.slotViewHeight * spec.scale
-        slots.forEach {
-            it.setGrid(spec.scale, spec.windowWidth)
-            it.measure(MeasureSpec.makeMeasureSpec(cellW, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(cellH, MeasureSpec.EXACTLY))
-        }
-        setMeasuredDimension(width, cellH * spec.rows + gap * (spec.rows - 1))
-    }
-
-    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        slots.forEachIndexed { i, slot ->
-            val col = i % spec.columns
-            val row = i / spec.columns
-            val x = col * (slot.measuredWidth + gap)
-            val y = row * (slot.measuredHeight + gap)
-            slot.layout(x, y, x + slot.measuredWidth, y + slot.measuredHeight)
-        }
+        spec = PartySlotModel.chooseGrid(width, budget, gap, minScale)
+        val natural = spec.totalHeight(gap)
+        slotLayout.measure(
+            MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(natural, MeasureSpec.EXACTLY)
+        )
+        // At least one full row stays visible; the rest scrolls when the budget is smaller.
+        setMeasuredDimension(width, minOf(natural, budget.coerceAtLeast(spec.slotPixelHeight)))
     }
 }

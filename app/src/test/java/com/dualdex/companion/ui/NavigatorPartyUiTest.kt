@@ -134,9 +134,68 @@ class NavigatorPartyUiTest {
         val spec = PartySlotModel.chooseGrid(width = 560, maxHeight = 900, gapPx = 8)
         assertEquals(2, spec.columns)
         assertEquals(3, spec.scale)
+    }
+
+    @Test
+    fun narrowWidthsDropToOneColumnInsteadOfClipping() {
+        // Review case: 100 px used to pick 3 columns of 28 px and draw 84 px slots into them.
         val tiny = PartySlotModel.chooseGrid(width = 100, maxHeight = 50, gapPx = 8)
-        assertEquals(1, tiny.scale)
-        assertEquals(PartySlotModel.MIN_WINDOW_WIDTH, tiny.windowWidth)
+        assertEquals(1, tiny.columns)
+        assertTrue(tiny.slotPixelWidth <= tiny.cellWidth)
+    }
+
+    @Test
+    fun touchFloorHoldsAndLayoutScrollsWhenHeightIsShort() {
+        // Phone split-screen fallback: 2.75x density, 48dp = 132 px -> min scale 3.
+        val minScale = PartySlotModel.minScaleFor(132)
+        assertEquals(3, minScale)
+        val spec = PartySlotModel.chooseGrid(width = 1080, maxHeight = 300, gapPx = 11, minScale = minScale)
+        assertEquals(3, spec.columns) // widest layout that holds the floor; the host scrolls it
+        assertTrue(spec.scale >= minScale)
+        assertTrue(spec.slotPixelHeight >= 132)
+        assertTrue(spec.totalHeight(11) > 300)
+    }
+
+    @Test
+    fun everyChosenGridFitsItsCellsAcrossScreenSizes() {
+        val minScale = PartySlotModel.minScaleFor(110) // Thor: 48dp at 2.3x
+        for (width in 84..2400 step 7) for (height in intArrayOf(0, 120, 300, 443, 900, 1600)) {
+            val spec = PartySlotModel.chooseGrid(width, height, gapPx = 9, minScale = minScale)
+            val label = "w=$width h=$height -> $spec"
+            assertTrue(label, spec.slotPixelWidth <= spec.cellWidth)
+            assertTrue(label, spec.columns * spec.cellWidth + 9 * (spec.columns - 1) <= width)
+            assertTrue(label, spec.windowWidth >= PartySlotModel.MIN_WINDOW_WIDTH)
+            // The touch floor is only relaxed when one column cannot hold it.
+            if (width >= (PartySlotModel.MIN_WINDOW_WIDTH + 2 * PartySlotModel.PAD) * minScale) {
+                assertTrue(label, spec.scale >= minScale)
+            }
+        }
+    }
+
+    @Test
+    fun slotBarAndDetailMeterShareOneHpBand() {
+        // Review case: raw 52% read green in the detail meter while the Gen 3 slot showed yellow.
+        val previous = DualDexTheme.style
+        try {
+            for (style in CompanionVisualStyle.values()) {
+                DualDexTheme.style = style
+                assertEquals(DualDexTheme.Color.warning, PartySlotModel.hpColor(51, 100))
+                assertEquals(DualDexTheme.Color.warning, PartySlotModel.hpColor(52, 100))
+                assertEquals(DualDexTheme.Color.success, PartySlotModel.hpColor(53, 100))
+                assertEquals(DualDexTheme.Color.danger, PartySlotModel.hpColor(20, 100))
+                assertEquals(DualDexTheme.Color.danger, PartySlotModel.hpColor(0, 100))
+                for (hp in 0..100) {
+                    val expected = when (PartySlotModel.hpBarLevel(hp, 100)) {
+                        HpBarLevel.GREEN -> DualDexTheme.Color.success
+                        HpBarLevel.YELLOW -> DualDexTheme.Color.warning
+                        HpBarLevel.RED, HpBarLevel.EMPTY -> DualDexTheme.Color.danger
+                    }
+                    assertEquals("hp=$hp", expected, PartySlotModel.hpColor(hp, 100))
+                }
+            }
+        } finally {
+            DualDexTheme.style = previous
+        }
     }
 
     @Test

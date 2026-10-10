@@ -91,7 +91,10 @@ class CompanionScreenView(
             onOpenRomRequested
         )
     }
-    private val partyView: PartyScreenView by lazy { PartyScreenView(context, viewModel) }
+    // Classic keeps the original Party layout so the style toggle is a true old/new A/B (#133).
+    private val partyView: View by lazy {
+        if (DualDexTheme.isNavigator) PartyScreenView(context, viewModel) else ClassicPartyScreenView(context, viewModel)
+    }
     private val mapView: MapScreenView by lazy { MapScreenView(context, viewModel) }
     private val calcView: CalcTabScreenView by lazy { CalcTabScreenView(context, viewModel) }
     private val battleView: BattleConsoleScreenView by lazy {
@@ -289,7 +292,7 @@ class CompanionScreenView(
                 updateResumeCard()
                 updateFolderStatus()
             }
-            CompanionTab.PARTY -> partyView.apply { refreshUI() }
+            CompanionTab.PARTY -> partyView.also { refreshParty() }
             CompanionTab.MAP -> mapView.apply { refreshUI() }
             CompanionTab.CALC -> calcView.apply { refreshUI() }
             CompanionTab.BATTLE -> battleView.apply {
@@ -313,6 +316,12 @@ class CompanionScreenView(
         updateNavigationSelection(tab)
     }
 
+    private fun refreshParty() = when (val view = partyView) {
+        is PartyScreenView -> view.refreshUI()
+        is ClassicPartyScreenView -> view.refreshUI()
+        else -> Unit
+    }
+
     fun refreshHomeScreen() {
         post {
             homeView.updateResumeCard()
@@ -325,7 +334,7 @@ class CompanionScreenView(
             updateContextBar()
             when (viewModel.selectedTab.value) {
                 CompanionTab.HOME -> homeView.updateResumeCard()
-                CompanionTab.PARTY -> partyView.refreshUI()
+                CompanionTab.PARTY -> refreshParty()
                 CompanionTab.MAP -> mapView.refreshUI()
                 CompanionTab.CALC -> calcView.refreshUI()
                 CompanionTab.BATTLE,
@@ -341,7 +350,7 @@ class CompanionScreenView(
         post {
             updateContextBar()
             when (viewModel.selectedTab.value) {
-                CompanionTab.PARTY -> partyView.refreshUI()
+                CompanionTab.PARTY -> refreshParty()
                 CompanionTab.CALC -> calcView.refreshUI()
                 CompanionTab.BATTLE -> battleView.refreshUI()
                 else -> Unit

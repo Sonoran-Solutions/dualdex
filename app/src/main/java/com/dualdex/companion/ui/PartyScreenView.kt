@@ -360,7 +360,8 @@ class PartyScreenView(
         }
         holder.level.text = "Lv. ${mon.level}"
         holder.speciesLabel.text = speciesDisplayName
-        val hpColor = DualDexComponents.hpColor(mon.currentHp, mon.maxHp)
+        // Same band authority as the pixel slot (Gen 3 quantised), not the raw-ratio colour.
+        val hpColor = PartySlotModel.hpColor(mon.currentHp, mon.maxHp)
         holder.hpLabel.text = "HP ${mon.currentHp}/${mon.maxHp}"
         holder.hpLabel.setTextColor(hpColor)
         holder.hpMeter.setValue(mon.currentHp, mon.maxHp, hpColor)

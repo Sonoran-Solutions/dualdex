@@ -21,6 +21,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
+import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -45,6 +47,7 @@ import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.settings.SettingsManager
 import com.dualdex.settings.TriggerShortcutMode
+import com.dualdex.emulator.TouchOverlayView
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -94,13 +97,12 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     /** L2/R2 (#14): behaviour follows the Settings "L2 / R2 Behavior" mode. */
     private fun onControllerShortcut(trigger: InputManager.Trigger) {
         when (settingsManager.triggerShortcutMode) {
-            TriggerShortcutMode.DISABLED -> Unit
+            TriggerShortcutMode.DISABLED, TriggerShortcutMode.HOLD_SPEED -> Unit
             TriggerShortcutMode.FAST_FORWARD -> {
                 val emu = emulatorView ?: return
                 val delta = if (trigger == InputManager.Trigger.L2) -1 else 1
                 val speed = SettingsManager.steppedSpeed(emu.getSpeedMultiplier(), delta)
-                emu.setSpeedMultiplier(speed)
-                settingsManager.fastForwardMultiplier = speed // Settings screen follows via its prefs listener
+                applySpeedStep(speed) // Settings screen follows via its prefs listener
                 Toast.makeText(this, "Speed ${speed}x", Toast.LENGTH_SHORT).show()
             }
             TriggerShortcutMode.QUICK_SAVE_LOAD -> quickStateShortcut(trigger == InputManager.Trigger.L2)
@@ -300,8 +302,19 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             viewModel.setBattleAutoOpenEnabled(settingsManager.isBattleAutoOpenEnabled)
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
 
+            // 5.5 Input defaults (#153): one-time AYN/Retroid A/B swap for untouched configs
+            settingsManager.migrateSwapABDefault(Build.MANUFACTURER, Build.BRAND, Build.MODEL)
+            settingsManager.registerChangeListener(inputPrefsListener)
+
             // 6. Setup display UI
             setupDisplays()
+
+            // Re-apply the remembered speed step whenever the active ROM changes.
+            lifecycleScope.launch {
+                viewModel.activeRomIdentity.collect { id ->
+                    emulatorView?.setSpeedMultiplier(settingsManager.romSpeed(id?.takeIf { it.isValid }?.storageKey))
+                }
+            }
 
             // 7. Scan saved ROMs folder if available
             val savedFolder = settingsManager.romsFolderUri
@@ -430,6 +443,53 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private var gameFrame: FrameLayout? = null
+    private var touchOverlay: TouchOverlayView? = null
+
+    /** The game surface plus the touch overlay above it, created once and re-parented on layout changes. */
+    private fun gameContainer(): FrameLayout {
+        gameFrame?.let { (it.parent as? ViewGroup)?.removeView(it); return it }
+        val emu = EmulatorSurfaceView(this).apply {
+            setStretchToFit(settingsManager.isStretchToFitEnabled)
+            setSpeedMultiplier(settingsManager.romSpeed(viewModel.activeRomIdentity.value?.storageKey))
+            setSwapAB(settingsManager.swapAB)
+            setShortcutHandler(::onControllerShortcut)
+            setTriggerHoldHandler(::onTriggerHold)
+            setChordHandler { chord ->
+                if (chord.id == InputManager.CHORD_TOGGLE_FAST_FORWARD) post {
+                    val speed = toggleFastForward()
+                    Toast.makeText(this@MainActivity, "Speed ${speed}x", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        emulatorView = emu
+        val overlay = TouchOverlayView(this) { mask -> emu.setTouchMask(mask) }.apply {
+            mode = settingsManager.touchOverlayMode
+        }
+        touchOverlay = overlay
+        val match = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        return FrameLayout(this).apply {
+            addView(emu, match)
+            addView(overlay, FrameLayout.LayoutParams(match))
+        }.also { gameFrame = it }
+    }
+
+    private fun onTriggerHold(trigger: InputManager.Trigger, held: Boolean) {
+        if (settingsManager.triggerShortcutMode != TriggerShortcutMode.HOLD_SPEED) return
+        val emu = emulatorView ?: return
+        emu.holdSpeed = when {
+            held && trigger == InputManager.Trigger.L2 -> SettingsManager.HOLD_SLOW_SPEED
+            held -> SettingsManager.HOLD_FAST_SPEED
+            else -> 0f
+        }
+    }
+
+    /** Explicit speed step: applied now and remembered for this ROM (and as the global default). */
+    private fun applySpeedStep(speed: Int) {
+        emulatorView?.setSpeedMultiplier(speed)
+        settingsManager.setRomSpeed(viewModel.activeRomIdentity.value?.takeIf { it.isValid }?.storageKey, speed)
+    }
+
     private fun setupDisplays() {
         val dm = displayManager ?: run {
             setupSplitScreen()
@@ -453,18 +513,10 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 )
             }
 
-            val emu = emulatorView ?: EmulatorSurfaceView(this).apply {
-                setStretchToFit(settingsManager.isStretchToFitEnabled)
-                setSpeedMultiplier(settingsManager.fastForwardMultiplier)
-                setShortcutHandler(::onControllerShortcut)
-            }
-            emulatorView = emu
-            (emu.parent as? ViewGroup)?.removeView(emu)
-            emu.layoutParams = FrameLayout.LayoutParams(
+            topRoot.addView(gameContainer(), FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            topRoot.addView(emu)
+            ))
 
             val restoreBtn = TextView(this).apply {
                 text = "📱 Restore Companion"
@@ -522,26 +574,18 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             )
         }
 
-        val emu = emulatorView ?: EmulatorSurfaceView(this).apply {
-            setStretchToFit(settingsManager.isStretchToFitEnabled)
-            setSpeedMultiplier(settingsManager.fastForwardMultiplier)
-            setShortcutHandler(::onControllerShortcut)
-        }
-        emulatorView = emu
-        (emu.parent as? ViewGroup)?.removeView(emu)
-        emu.layoutParams = LinearLayout.LayoutParams(
+        splitLayout.addView(gameContainer(), LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             0,
             1.0f
-        )
-        splitLayout.addView(emu)
+        ))
 
         val companionView = CompanionScreenView(
             context = this,
             viewModel = viewModel,
             onOpenRomRequested = { openRomLauncher.launch(arrayOf("*/*")) },
             onShaderChanged = { filter: ShaderFilter -> emulatorView?.setShaderFilter(filter) },
-            onSpeedChanged = { speed: Int -> emulatorView?.setSpeedMultiplier(speed) },
+            onSpeedChanged = { speed: Int -> applySpeedStep(speed) },
             onImportSaveRequested = { importSaveLauncher.launch(arrayOf("*/*", "application/octet-stream")) },
             onExportSaveRequested = {
                 val key = viewModel.activeRomTitle.value.ifEmpty { "current_game" }.replace("[^a-zA-Z0-9_-]".toRegex(), "_")
@@ -585,7 +629,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 viewModel = viewModel,
                 onOpenRomRequested = { openRomLauncher.launch(arrayOf("*/*")) },
                 onShaderChanged = { filter: ShaderFilter -> emulatorView?.setShaderFilter(filter) },
-                onSpeedChanged = { speed: Int -> emulatorView?.setSpeedMultiplier(speed) },
+                onSpeedChanged = { speed: Int -> applySpeedStep(speed) },
                 onImportSaveRequested = { importSaveLauncher.launch(arrayOf("*/*", "application/octet-stream")) },
                 onExportSaveRequested = {
                     val key = viewModel.activeRomTitle.value.ifEmpty { "current_game" }.replace("[^a-zA-Z0-9_-]".toRegex(), "_")
@@ -679,7 +723,14 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private val inputPrefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        emulatorView?.setSwapAB(settingsManager.swapAB)
+        touchOverlay?.mode = settingsManager.touchOverlayMode
+        if (settingsManager.triggerShortcutMode != TriggerShortcutMode.HOLD_SPEED) emulatorView?.holdSpeed = 0f
+    }
+
     override fun onDestroy() {
+        settingsManager.unregisterChangeListener(inputPrefsListener)
         currentCompanionScreenView?.release()
         super.onDestroy()
         val identity = viewModel.activeRomIdentity.value

@@ -302,7 +302,9 @@ open class RomSessionManager(
                 viewModel?.stopPolling()
 
                 // 3. Execute the entire core-sensitive switch sequence in ONE continuous exclusive transaction
-                val oldIdentity = viewModel?.activeRomIdentity?.value ?: saveStateManager.activeIdentity
+                // The save manager's identity is process-wide and names what the core holds; a
+                // view model can be stale when another entry point switched ROMs meanwhile.
+                val oldIdentity = saveStateManager.activeIdentity
                 var switchAbortedDueToFlush = false
 
                 val switchSuccess = synchronized(SaveStateManager.globalSaveLock) {
@@ -333,8 +335,10 @@ open class RomSessionManager(
                             Log.i(TAG, "Restored existing battery save for ${newIdentity.storageKey}")
                         }
                         // #153: resume where the player left off (newest of auto-resume and manual states).
-                        saveStateManager.loadNewestResumeState(newIdentity)?.let {
-                            Log.i(TAG, "Resumed ${newIdentity.storageKey} from $it")
+                        if (settingsManager?.isBootResumeEnabled != false) {
+                            saveStateManager.loadNewestResumeState(newIdentity)?.let {
+                                Log.i(TAG, "Resumed ${newIdentity.storageKey} from $it")
+                            }
                         }
 
                         coreCoordinator.bindCheatRom(newIdentity)

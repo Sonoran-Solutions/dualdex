@@ -389,6 +389,7 @@ class RomSaveIntegrityTest {
     @Test
     fun test10_batteryImport_validExactSize_importedAndCanonicalUpdated() {
         val identity = RomIdentity.create(HASH_A, "Ruby")
+        saveStateManager.setActiveGame(identity) // the per-ROM writers refuse a ROM that is not loaded
         val validPayload = ByteArray(SRAM_SIZE_128K) { (it % 256).toByte() }
 
         val ok = saveStateManager.importBatterySave(identity, ByteArrayInputStream(validPayload))
@@ -405,6 +406,7 @@ class RomSaveIntegrityTest {
     @Test
     fun test11_batteryImport_validSizeWithRtcFooter_strippedAndImported() {
         val identity = RomIdentity.create(HASH_A, "Emerald")
+        saveStateManager.setActiveGame(identity) // the per-ROM writers refuse a ROM that is not loaded
         // 131,072 bytes data + 16 bytes RTC footer = 131,088 bytes
         val dataPart = ByteArray(SRAM_SIZE_128K) { 0x7E.toByte() }
         val rtcFooter = ByteArray(16) { 0xEE.toByte() }
@@ -502,6 +504,7 @@ class RomSaveIntegrityTest {
     @Test
     fun test16_onPause_updatesAutoResume_leavesQuicksaveUntouched() {
         val identity = RomIdentity.create(HASH_A, "FireRed")
+        saveStateManager.setActiveGame(identity) // the per-ROM writers refuse a ROM that is not loaded
         val quickFile = saveStateManager.getCanonicalFile(identity, "quicksave.state")
         val manualPayload = ByteArray(STATE_SIZE_256K) { 0x77.toByte() }
         quickFile.writeBytes(manualPayload)
@@ -527,6 +530,7 @@ class RomSaveIntegrityTest {
         val safStore = TestSafMirror(isConfiguredValue = false)
         val manager = SaveStateManager(customBaseDir = testBaseDir, customSafStore = safStore, coreBridge = testBridge)
         val identity = RomIdentity.create(HASH_A, "FireRed")
+        manager.setActiveGame(identity) // the per-ROM writers refuse a ROM that is not loaded
 
         val result = manager.flushBatterySave(identity)
         assertTrue(result is SaveWriteResult.Success)
@@ -543,6 +547,7 @@ class RomSaveIntegrityTest {
         val safStore = TestSafMirror(isConfiguredValue = true, simulateWriteFailure = true, safDir = File(testBaseDir, "saf"))
         val manager = SaveStateManager(customBaseDir = testBaseDir, customSafStore = safStore, coreBridge = testBridge)
         val identity = RomIdentity.create(HASH_A, "FireRed")
+        manager.setActiveGame(identity) // the per-ROM writers refuse a ROM that is not loaded
 
         val result = manager.flushBatterySave(identity)
         assertTrue(result is SaveWriteResult.Success)
@@ -559,6 +564,7 @@ class RomSaveIntegrityTest {
         val safStore = TestSafMirror(isConfiguredValue = true, safDir = safDir)
         val manager = SaveStateManager(customBaseDir = testBaseDir, customSafStore = safStore, coreBridge = testBridge)
         val identity = RomIdentity.create(HASH_A, "FireRed")
+        manager.setActiveGame(identity) // the per-ROM writers refuse a ROM that is not loaded
 
         // Create internal save
         val internalFile = manager.getCanonicalFile(identity, "battery.sav")
@@ -601,6 +607,7 @@ class RomSaveIntegrityTest {
         val safStore = TestSafMirror(isConfiguredValue = true, simulateRevoked = true)
         val manager = SaveStateManager(customBaseDir = testBaseDir, customSafStore = safStore, coreBridge = testBridge)
         val identity = RomIdentity.create(HASH_A, "FireRed")
+        manager.setActiveGame(identity) // the per-ROM writers refuse a ROM that is not loaded
 
         val result = manager.flushBatterySave(identity)
         assertTrue(result is SaveWriteResult.Success)

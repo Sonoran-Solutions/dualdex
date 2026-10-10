@@ -245,7 +245,7 @@ class SettingsScreenView(
             addView(speedSegment)
 
             addView(TextView(context).apply {
-                text = "Smart Fast-Forward (menus and map at 1x, battles stay fast)"
+                text = "Smart Fast-Forward (experimental: menus at 1x, battles stay fast)"
                 setTextColor(DualDexTheme.Color.textSecondary)
                 textSize = DualDexTheme.Type.meta
                 setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
@@ -285,14 +285,28 @@ class SettingsScreenView(
                             "Opening it again resumes where you left off.",
                         "Close") {
                         runSessionAction("Game closed", "Close refused: could not write the cartridge save") {
-                            SaveStateManager.getInstance(context).closeGame(identity).also { ok ->
-                                if (ok) post { viewModel.stopPolling(); viewModel.clearRomSession() }
-                            }
+                            SaveStateManager.getInstance(context).closeGame(
+                                identity,
+                                pauseEmulation = { viewModel.stopPolling(); viewModel.pauseEmulation() },
+                                resumeEmulation = { viewModel.resumeEmulation(); viewModel.startPolling(100L) }
+                            ).also { ok -> if (ok) post { viewModel.clearRomSession() } }
                         }
                     }
                 }, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
             }
             addView(row)
+            addView(TextView(context).apply {
+                text = "Resume on launch (boot into the newest save state newer than the cartridge save)"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Off", "On"),
+                initialIndex = if (settingsManager.isBootResumeEnabled) 1 else 0,
+                onItemSelected = { idx -> settingsManager.isBootResumeEnabled = idx == 1 }
+            ))
         }
         content.addView(sessionCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = context.dp(DualDexTheme.Spacing.section)

@@ -95,9 +95,17 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         prefs.unregisterOnSharedPreferenceChangeListener(l)
 
     var isSmartFastForwardEnabled: Boolean
-        get() = prefs.getBoolean(KEY_SMART_FAST_FORWARD, true)
+        // ponytail: off until verified on a real ROM (#153 review); flip the default once it is.
+        get() = prefs.getBoolean(KEY_SMART_FAST_FORWARD, false)
         set(value) {
             prefs.edit().putBoolean(KEY_SMART_FAST_FORWARD, value).apply()
+        }
+
+    /** Boot-time resume (#153): on ROM load, boot the newest eligible save state. */
+    var isBootResumeEnabled: Boolean
+        get() = prefs.getBoolean(KEY_BOOT_RESUME, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_BOOT_RESUME, value).apply()
         }
 
     /** Smart fast-forward's learned field/battle callbacks, per ROM SHA-256. */
@@ -252,6 +260,7 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         private const val KEY_FAST_FORWARD = "key_fast_forward"
         private const val KEY_SMART_FAST_FORWARD = "key_smart_fast_forward"
         private const val KEY_SMART_FF_LEARNED = "key_smart_ff_learned_"
+        private const val KEY_BOOT_RESUME = "key_boot_resume"
         private const val KEY_COMPANION_VISUAL_STYLE = "key_companion_visual_style"
         private const val KEY_AUDIO_ENABLED = "key_audio_enabled"
         private const val KEY_GEMINI_API_KEY = "key_gemini_api_key"

@@ -42,6 +42,9 @@ open class LibretroCoreCoordinator(
     // Only RomSessionManager binds a successfully loaded image, inside its switch transaction.
     private var cheatRomSha256: String? = null
 
+    /** Set by [unloadRom] until the next successful [loadRom]; [stepFrame] never runs an unloaded core. */
+    private var romUnloaded = false
+
     internal fun bindCheatRom(identity: RomIdentity) {
         check(lock.isHeldByCurrentThread)
         cheatRomSha256 = identity.sha256.takeIf { identity.isValid }?.lowercase()
@@ -103,6 +106,7 @@ open class LibretroCoreCoordinator(
         }
         val acquiredNs = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         try {
+            if (romUnloaded) return false
             if (bridge != null) {
                 return bridge?.stepFrame() ?: true
             }
@@ -130,15 +134,18 @@ open class LibretroCoreCoordinator(
 
     fun loadRom(romPath: String): Boolean = executeExclusive {
         cheatRomSha256 = null
-        bridge?.loadRom(romPath) ?: try {
+        val ok = bridge?.loadRom(romPath) ?: try {
             LibretroHost.nativeLoadRom(romPath)
         } catch (_: UnsatisfiedLinkError) {
             false
         }
+        romUnloaded = !ok
+        ok
     }
 
     fun unloadRom(): Boolean = executeExclusive {
         cheatRomSha256 = null
+        romUnloaded = true
         bridge?.unloadRom() ?: try {
             LibretroHost.nativeUnloadRom()
         } catch (_: UnsatisfiedLinkError) {

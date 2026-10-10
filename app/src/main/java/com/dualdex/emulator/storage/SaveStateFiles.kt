@@ -21,13 +21,21 @@ object SaveStateFiles {
     /**
      * The state to boot into: the newest of the auto-resume state and every manual state
      * (slots + quick save), so a crash that skipped the on-pause resume write still resumes
-     * from the latest manual save. States not strictly newer than [barrierMs] are ignored.
+     * from the latest manual save. States not strictly newer than [barrierMs] are ignored, and so
+     * is any state older than the canonical `battery.sav` (#75): a state carries its own SRAM, so
+     * booting one that predates the cartridge save (crash before the resume write, a failed
+     * snapshot, an import) would roll that save back. Equal mtimes are kept because the normal
+     * pause path flushes the battery and writes the resume state within the same second.
      */
-    fun newestResumeState(dir: File, barrierMs: Long = 0L): File? =
-        (listOf(AUTO_RESUME, QUICK_SAVE) + (1..SLOT_COUNT).map(::slotState))
+    fun newestResumeState(dir: File, barrierMs: Long = 0L): File? {
+        val batteryMs = File(dir, BATTERY).lastModified() // 0 when absent
+        return (listOf(AUTO_RESUME, QUICK_SAVE) + (1..SLOT_COUNT).map(::slotState))
             .map { File(dir, it) }
-            .filter { it.isFile && it.length() > 0L && it.lastModified() > barrierMs }
+            .filter { it.isFile && it.length() > 0L && it.lastModified() > barrierMs && it.lastModified() >= batteryMs }
             .maxByOrNull { it.lastModified() }
+    }
+
+    const val BATTERY = "battery.sav"
 
     /** `<rom>.backup-<yyyyMMdd-HHmmss>.<ext>` */
     fun backupName(romBase: String, ext: String, timeMs: Long): String =

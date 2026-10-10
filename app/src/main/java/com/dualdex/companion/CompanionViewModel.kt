@@ -589,6 +589,10 @@ class CompanionViewModel(
         battlePresenceStabilizer.reset()
     }
 
+    /** Set by the owning activity: synchronously stop / restart the emulator frame loop. */
+    @Volatile var pauseEmulation: () -> Unit = {}
+    @Volatile var resumeEmulation: () -> Unit = {}
+
     fun stopPolling() {
         pollingJob?.cancel()
         pollingJob = null

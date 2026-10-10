@@ -259,8 +259,13 @@ open class SaveStateManager(
         val stagingFile = getStagingFile(identity, fileName)
         canonicalFile.copyTo(stagingFile, overwrite = true)
         if (!stagingFile.exists() || stagingFile.length() == 0L) return false
-        if (snapshotUndo && writeState(identity, SaveStateFiles.UNDO_LOAD) == null) {
-            Log.w(TAG, "Could not snapshot undo state before loading $fileName")
+        if (snapshotUndo) {
+            // Drop the previous undo first: if the new snapshot fails, the UI must not offer an
+            // undo that reverts to some older, unrelated point. The load itself still proceeds.
+            getCanonicalFile(identity, SaveStateFiles.UNDO_LOAD).delete()
+            if (writeState(identity, SaveStateFiles.UNDO_LOAD) == null) {
+                Log.w(TAG, "Could not snapshot undo state before loading $fileName; no undo offered")
+            }
         }
         return nativeLoadState(stagingFile.absolutePath)
     }
@@ -342,12 +347,12 @@ open class SaveStateManager(
     }
 
     fun saveAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) return false
+        if (refuse("saveAutoResume", identity)) return false
         return writeState(identity, SaveStateFiles.AUTO_RESUME) != null
     }
 
     fun loadAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) return false
+        if (refuse("loadAutoResume", identity)) return false
         return loadStateFile(identity, SaveStateFiles.AUTO_RESUME, snapshotUndo = false)
     }
 
@@ -395,14 +400,30 @@ open class SaveStateManager(
         return true
     }
 
-    /** Flushes the battery save and resume state, then unloads the ROM. Refuses if the flush fails. */
-    fun closeGame(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
-        if (refuse("closeGame", identity)) return false
-        if (flushBatterySave(identity) !is SaveWriteResult.Success) return false
-        saveAutoResume(identity)
-        coreCoordinator.unloadRom()
-        activeIdentity = null
-        return true
+    /**
+     * Close Game, in this order: [pauseEmulation] (caller stops the frame loop and polling), write
+     * the battery save and the resume state, and only if both succeeded unload the ROM. On any
+     * failure nothing is unloaded and [resumeEmulation] restarts the game. On success emulation
+     * stays paused; the caller clears its session.
+     */
+    fun closeGame(
+        identity: RomIdentity,
+        pauseEmulation: () -> Unit = {},
+        resumeEmulation: () -> Unit = {}
+    ): Boolean {
+        pauseEmulation()
+        val closed = synchronized(globalSaveLock) {
+            !refuse("closeGame", identity) &&
+                flushBatterySave(identity) is SaveWriteResult.Success &&
+                saveAutoResume(identity) &&
+                coreCoordinator.executeExclusive {
+                    coreCoordinator.unloadRom()
+                    activeIdentity = null
+                    true
+                }
+        }
+        if (!closed) resumeEmulation()
+        return closed
     }
 
     // ---------------------------------------------------------
@@ -483,10 +504,7 @@ open class SaveStateManager(
         profileName: String? = null,
         profileId: String? = null
     ): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing loadBatterySave on invalid RomIdentity")
-            return false
-        }
+        if (refuse("loadBatterySave", identity)) return false
         if (profileName != null) activeProfileName = profileName
         if (profileId != null) activeProfileId = profileId
 
@@ -510,10 +528,9 @@ open class SaveStateManager(
         identity: RomIdentity,
         mirrorSafAsync: Boolean = false
     ): SaveWriteResult = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing flushBatterySave on invalid RomIdentity")
-            return SaveWriteResult.Failure("Invalid ROM identity")
-        }
+        // An activity can hold an identity captured before another entry point switched ROMs;
+        // flushing then would write the loaded ROM's SRAM into this ROM's save.
+        if (refuse("flushBatterySave", identity)) return SaveWriteResult.Failure("Not the loaded ROM")
 
         val stagingFile = getStagingFile(identity, "battery.sav")
         val flushed = nativeFlushSaveRam(stagingFile.absolutePath)
@@ -560,10 +577,7 @@ open class SaveStateManager(
     }
 
     fun importBatterySave(identity: RomIdentity, inputStream: InputStream): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing importBatterySave on invalid RomIdentity")
-            return false
-        }
+        if (refuse("importBatterySave", identity)) return false
 
         try {
             val rawBytes = inputStream.use { it.readBytes() }
@@ -654,10 +668,7 @@ open class SaveStateManager(
     }
 
     fun exportBatterySave(identity: RomIdentity, outputStream: OutputStream): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing exportBatterySave on invalid RomIdentity")
-            return false
-        }
+        if (refuse("exportBatterySave", identity)) return false
 
         try {
             // 1. Capture current SRAM into staging

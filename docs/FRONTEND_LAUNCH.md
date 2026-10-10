@@ -8,8 +8,13 @@ similar frontends. It is exported but has **no intent filter**, so it never appe
 - A readable filesystem path (`/storage/...` or `file://...`) is played in place.
 - Anything else (`content://`, or a path DualDex cannot read) is copied once to app storage
   (`files/frontend_roms/<name>`); later launches skip the copy while the bytes match.
-- Back exits with `finishAndRemoveTask()`, returning to the frontend.
-- A second launch while running (`onNewIntent`) switches ROM in the same session.
+- `FrontendLaunchActivity` is only a trampoline: it hands the resolved ROM to the single
+  `MainActivity` (`singleTask`), which is the only owner of the emulator core, then finishes.
+  A frontend launch while a game is running switches ROM in that same session (saving the
+  running game first), so two activities never share the core.
+- Back after a frontend launch moves DualDex to the background, which normally returns to the
+  frontend. Tradeoff: DualDex stays in its own task instead of being removed, so it also shows
+  in Recents, and Android decides which task comes back (usually the frontend that launched it).
 
 Battery saves and states are keyed by the ROM's SHA-256, so they are shared with library launches.
 

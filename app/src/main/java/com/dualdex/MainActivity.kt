@@ -33,6 +33,7 @@ import com.dualdex.companion.CompanionViewModel
 import com.dualdex.companion.ui.CompanionScreenView
 import com.dualdex.companion.ui.DualDexTheme
 import com.dualdex.emulator.AudioDriver
+import com.dualdex.emulator.CoreOwner
 import com.dualdex.emulator.EmulatorSurfaceView
 import com.dualdex.emulator.InputManager
 import com.dualdex.emulator.LibretroCoreCoordinator
@@ -51,7 +52,7 @@ import com.dualdex.emulator.TouchOverlayView
 import java.io.File
 import java.io.FileOutputStream
 
-open class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
+class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     private val viewModel = CompanionViewModel()
     private val saveStateManager by lazy { SaveStateManager.getInstance(this) }
@@ -252,11 +253,30 @@ open class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     }
     private var pendingCoverSha: String? = null
 
-    /** Entry point for subclasses (frontend launches) to play a ROM through the normal switch path. */
-    protected fun playRom(uri: Uri, title: String) = handleSelectedRom(uri, title)
+    /** True after a [FrontendLaunchActivity] hand-off: Back then returns to the frontend. */
+    private val backToFrontend = object : androidx.activity.OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() { moveTaskToBack(true) }
+    }
+
+    /** Plays a ROM forwarded by [FrontendLaunchActivity]; any other intent ends frontend mode. */
+    private fun handleLaunchIntent(intent: Intent) {
+        val path = intent.getStringExtra(FrontendLaunchActivity.EXTRA_ROM_PATH)
+        backToFrontend.isEnabled = path != null
+        if (path != null) handleSelectedRom(Uri.fromFile(File(path)), intent.getStringExtra(FrontendLaunchActivity.EXTRA_TITLE))
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLaunchIntent(intent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CoreOwner.process.claim(this)
+        onBackPressedDispatcher.addCallback(this, backToFrontend)
+        viewModel.pauseEmulation = { emulatorView?.pauseEmulationLoop() }
+        viewModel.resumeEmulation = { emulatorView?.resumeEmulationLoop() }
 
         try {
             // 1. Initialize QuickJS damage calculator engine in background
@@ -357,6 +377,8 @@ open class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
             // 8. Start background memory poller (10Hz)
             viewModel.startPolling(100L)
+
+            if (savedInstanceState == null) handleLaunchIntent(intent)
         } catch (e: Throwable) {
             Log.e("DualDex", "Fatal error in onCreate: ${e.message}", e)
             Toast.makeText(this, "Startup error: ${e.message}", Toast.LENGTH_LONG).show()
@@ -747,7 +769,8 @@ open class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         // Auto-flush cartridge battery save (.sav) and save auto-resume state on pause
         // Offload SAF mirroring asynchronously to prevent blocking on slow cloud DocumentProviders
         val identity = viewModel.activeRomIdentity.value
-        if (identity != null && identity.isValid) {
+        // Only the core owner writes per-ROM files; the save manager also refuses a stale identity.
+        if (identity != null && identity.isValid && CoreOwner.process.isOwner(this)) {
             saveStateManager.flushBatterySave(identity, mirrorSafAsync = true)
             saveStateManager.saveAutoResume(identity)
         }
@@ -783,8 +806,9 @@ open class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         currentCompanionScreenView?.release()
         com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = null
         super.onDestroy()
+        val owner = CoreOwner.process.release(this)
         val identity = viewModel.activeRomIdentity.value
-        if (identity != null && identity.isValid) {
+        if (owner && identity != null && identity.isValid) {
             saveStateManager.flushBatterySave(identity, mirrorSafAsync = true)
         }
         audioDriver.stop()
@@ -794,6 +818,7 @@ open class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         companionPresentation = null
         currentCompanionScreenView = null
         emulatorView?.onPause()
-        LibretroCoreCoordinator.defaultInstance.cleanup()
+        // A newer activity already re-initialised the core; tearing it down would kill its game.
+        if (owner) LibretroCoreCoordinator.defaultInstance.cleanup()
     }
 }

@@ -57,12 +57,13 @@ object AppUpdater {
     private fun prompt(context: Context, update: AvailableUpdate) {
         val debugNote = if (BuildConfig.DEBUG) "\n\nThis is a debug build; Android will refuse to install a release APK over it." else ""
         runCatching {
-            AlertDialog.Builder(context)
-                .setTitle("Update available: ${update.name}")
-                .setMessage(update.notes.take(1500).ifBlank { update.tag } + debugNote)
-                .setPositiveButton("Download & install") { _, _ -> download(context, update) }
-                .setNegativeButton("Later", null)
-                .show()
+            com.dualdex.companion.ui.DualDexComponents.showDialog(
+                AlertDialog.Builder(context)
+                    .setTitle("Update available: ${update.name}")
+                    .setMessage(update.notes.take(1500).ifBlank { update.tag } + debugNote)
+                    .setPositiveButton("Download & install") { _, _ -> download(context, update) }
+                    .setNegativeButton("Later", null)
+            )
         }.onFailure { toast(context, "Update ${update.tag} available") }
     }
 

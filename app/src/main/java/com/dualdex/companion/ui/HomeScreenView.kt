@@ -374,7 +374,7 @@ class HomeScreenView(
     }
 
     private fun dialog(build: (AlertDialog.Builder) -> AlertDialog.Builder) {
-        runCatching { build(AlertDialog.Builder(context)).show() }
+        runCatching { DualDexComponents.showDialog(build(AlertDialog.Builder(context))) }
             .onFailure { Toast.makeText(context, "Could not open dialog: ${it.message}", Toast.LENGTH_SHORT).show() }
     }
 

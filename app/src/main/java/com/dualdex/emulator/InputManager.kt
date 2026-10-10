@@ -105,7 +105,7 @@ class InputManager {
         else if (r2Held && r2 < TRIGGER_RELEASE) r2Held = false
     }
 
-    private fun fire(s: Trigger) { onTrigger?.invoke(s) }
+    private fun fire(s: Trigger) { onShortcut?.invoke(s) }
 
     private fun triggerFor(keyCode: Int): Trigger? = when (keyCode) {
         KeyEvent.KEYCODE_BUTTON_L2 -> Trigger.L2

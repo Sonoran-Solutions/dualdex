@@ -64,6 +64,32 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         )
     }
     private var emulatorView: EmulatorSurfaceView? = null
+    private var companionPresentation: CompanionPresentation? = null
+    private var currentCompanionScreenView: CompanionScreenView? = null
+    private var displayManager: DisplayManager? = null
+    private var restoreBottomScreenBtn: TextView? = null
+    private var loadedProfiles: List<RomHackProfile> = emptyList()
+    private val audioDriver = AudioDriver(32768)
+
+    private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
+
+
+    private val openRomLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) {
+            val oldLastPlayed = settingsManager.lastPlayedRomUri
+            val grantResult = RomUriPermissionManager.takePersistableReadPermission(contentResolver, uri)
+            val isDurable = grantResult.isDurable
+            // Capture previous individual URI candidate for release, but ONLY release it
+            // after the new ROM switch transaction completes successfully.
+            val previousDurableUriToRelease = if (isDurable) oldLastPlayed else null
+            handleSelectedRom(
+                uri = uri,
+                isDurable = isDurable,
+                previousDurableUriToRelease = previousDurableUriToRelease,
+                newlyAcquiredPersistableGrant = grantResult.isNewlyAcquired
+            )
+        }
+    }
 
     /** L2/R2 (#14): behaviour follows the Settings "L2 / R2 Behavior" mode. */
     private fun onControllerShortcut(trigger: InputManager.Trigger) {

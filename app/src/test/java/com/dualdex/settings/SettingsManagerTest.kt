@@ -26,4 +26,29 @@ class SettingsManagerTest {
         assertEquals("CRT Scanlines", crt.displayName)
         assertTrue(crt.description.contains("scanlines"))
     }
+
+    @Test
+    fun triggerSpeedSteppingClampsToOneThroughFour() {
+        assertEquals(1, SettingsManager.steppedSpeed(1, -1))
+        assertEquals(1, SettingsManager.steppedSpeed(2, -1))
+        assertEquals(3, SettingsManager.steppedSpeed(2, 1))
+        assertEquals(4, SettingsManager.steppedSpeed(4, 1))
+        assertEquals(4, SettingsManager.steppedSpeed(8, 1))
+    }
+
+    @Test
+    fun triggerModeDefaultsToQuickSaveLoad() {
+        assertEquals(TriggerShortcutMode.QUICK_SAVE_LOAD, TriggerShortcutMode.values().first())
+    }
+
+    @Test
+    fun persistedSpeedDefaultsToNormalAndIsClamped() {
+        val prefs = com.dualdex.emulator.RomDurableResumeTest.FakeSharedPreferences()
+        val settings = SettingsManager(prefs)
+        assertEquals(1, settings.fastForwardMultiplier)   // matches the emulator's startup speed
+        settings.fastForwardMultiplier = 3
+        assertEquals(3, SettingsManager(prefs).fastForwardMultiplier)
+        settings.fastForwardMultiplier = 99
+        assertEquals(4, settings.fastForwardMultiplier)
+    }
 }

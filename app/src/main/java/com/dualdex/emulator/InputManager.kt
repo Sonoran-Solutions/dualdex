@@ -7,7 +7,26 @@ import kotlin.math.abs
 
 class InputManager {
 
+    enum class Trigger { L2, R2 }
+
+    /** Invoked once per physical L2 / R2 press; those keys are consumed and never reach the core. */
+    @Volatile
+    var onShortcut: ((Trigger) -> Unit)? = null
+
+    private var l2Held = false
+    private var r2Held = false
+
+    /** Test seam; one physical press can arrive as both a key event and an axis crossing. */
+    internal var nanoClock: () -> Long = System::nanoTime
+    private val lastFireNs = LongArray(Trigger.values().size) { Long.MIN_VALUE }
+
     companion object {
+        private const val TRIGGER_PRESS = 0.75f
+        private const val TRIGGER_RELEASE = 0.35f
+
+        /** Minimum gap between two firings of the same trigger, across key and axis sources. */
+        private const val TRIGGER_COOLDOWN_NS = 300_000_000L
+
         const val BTN_B: Int      = 1 shl 0
         const val BTN_Y: Int      = 1 shl 1
         const val BTN_SELECT: Int = 1 shl 2
@@ -29,7 +48,12 @@ class InputManager {
 
     fun getCurrentMask(): Int = currentMask
 
-    fun onKeyDown(keyCode: Int): Boolean {
+    fun onKeyDown(keyCode: Int, repeatCount: Int = 0): Boolean {
+        triggerFor(keyCode)?.let {
+            // Consumed; key-repeat from a held button must not re-trigger a save/load.
+            if (repeatCount == 0) fire(it)
+            return true
+        }
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
             currentMask = currentMask or mask
@@ -40,6 +64,7 @@ class InputManager {
     }
 
     fun onKeyUp(keyCode: Int): Boolean {
+        if (triggerFor(keyCode) != null) return true
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
             currentMask = currentMask and mask.inv()
@@ -53,6 +78,10 @@ class InputManager {
         if ((event.source and InputDevice.SOURCE_JOYSTICK) != 0 ||
             (event.source and InputDevice.SOURCE_GAMEPAD) != 0) {
 
+            onTriggerAxes(
+                maxOf(event.getAxisValue(MotionEvent.AXIS_LTRIGGER), event.getAxisValue(MotionEvent.AXIS_BRAKE)),
+                maxOf(event.getAxisValue(MotionEvent.AXIS_RTRIGGER), event.getAxisValue(MotionEvent.AXIS_GAS))
+            )
             val hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X)
             val hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y)
             val stickX = event.getAxisValue(MotionEvent.AXIS_X)
@@ -75,6 +104,28 @@ class InputManager {
         return false
     }
 
+    /** Analog L2/R2: fire on the press edge (with hysteresis) so a held trigger fires once. */
+    fun onTriggerAxes(l2: Float, r2: Float) {
+        if (!l2Held && l2 > TRIGGER_PRESS) { l2Held = true; fire(Trigger.L2) }
+        else if (l2Held && l2 < TRIGGER_RELEASE) l2Held = false
+        if (!r2Held && r2 > TRIGGER_PRESS) { r2Held = true; fire(Trigger.R2) }
+        else if (r2Held && r2 < TRIGGER_RELEASE) r2Held = false
+    }
+
+    private fun fire(s: Trigger) {
+        val now = nanoClock()
+        val last = lastFireNs[s.ordinal]
+        if (last != Long.MIN_VALUE && now - last < TRIGGER_COOLDOWN_NS) return
+        lastFireNs[s.ordinal] = now
+        onShortcut?.invoke(s)
+    }
+
+    private fun triggerFor(keyCode: Int): Trigger? = when (keyCode) {
+        KeyEvent.KEYCODE_BUTTON_L2 -> Trigger.L2
+        KeyEvent.KEYCODE_BUTTON_R2 -> Trigger.R2
+        else -> null
+    }
+
     private fun mapKeyCodeToMask(keyCode: Int): Int {
         return when (keyCode) {
             KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_Z -> BTN_A
@@ -83,8 +134,6 @@ class InputManager {
             KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_V -> BTN_Y
             KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_A -> BTN_L
             KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_S -> BTN_R
-            KeyEvent.KEYCODE_BUTTON_L2 -> BTN_L2
-            KeyEvent.KEYCODE_BUTTON_R2 -> BTN_R2
             KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_ENTER -> BTN_START
             KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_SPACE -> BTN_SELECT
             KeyEvent.KEYCODE_DPAD_UP -> BTN_UP

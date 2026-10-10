@@ -10,8 +10,6 @@ The H&S calculator has completed its planned pre-beta feature development. New m
 
 ## Slice 10: observed Rollout / Ice Ball selected hit
 
-## Slice 10: observed Rollout / Ice Ball selected hit
-
 See [the slice-10 authority and evidence](HNS_MOVE_COVERAGE_SLICE_10.md). Only
 Rollout 205 and Ice Ball 301 are admitted with exact stable source chain/Curl/lock
 operands. Unknown packets, raw timers outside 0–4, nonzero recharge and

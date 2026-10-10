@@ -34,6 +34,10 @@ ROLLS = tuple(range(16))
 TEST_FILE = "test/dualdex_oracle/rapid_spin_evidence.c"
 
 PLAYER_BASE = "Level(50); HP(60000); MaxHP(60000); Speed(40);"
+# Lifecycle fixtures use realistic HP. Leech Seed heals add to the seeder's HP field before the cap is
+# checked, so 60000-HP fixtures overflow the 16-bit field and invalidate HP-based lifecycle evidence.
+LIFECYCLE_PLAYER_BASE = "Level(50); HP(200); MaxHP(200); Speed(40);"
+LIFECYCLE_OPPONENT_BASE = "Level(50); HP(200); MaxHP(200); Speed(20);"
 OPPONENT_BASE = "Level(50); HP(60000); MaxHP(60000); Speed(20);"
 
 # Each vector: attacker (species, ability, item, attack), defender (species, ability, defense), crit,
@@ -125,24 +129,24 @@ def _lifecycle_test(name):
         player_ability, seeded, hit = "ABILITY_INSOMNIA", False, "TRUE"
         expect = ["EXPECT_EQ(gBattleMons[0].statStages[STAT_SPEED], DEFAULT_STAT_STAGE + 1);",
                   "EXPECT_EQ(DdxRsLeechSeed(0), FALSE);",
-                  "EXPECT_LT(gBattleMons[1].hp, 60000);"]
+                  "EXPECT_LT(gBattleMons[1].hp, 200);"]
     elif name == "cleanup-leech":
         player_ability, seeded, hit = "ABILITY_INSOMNIA", True, "TRUE"
         expect = ["EXPECT_EQ(gBattleMons[0].statStages[STAT_SPEED], DEFAULT_STAT_STAGE + 1);",
                   "EXPECT_EQ(DdxRsLeechSeed(0), FALSE);",
-                  "EXPECT_LT(gBattleMons[1].hp, 60000);"]
+                  "EXPECT_LT(gBattleMons[1].hp, 200);"]
     elif name == "sheer-force-suppresses":
         player_ability, seeded, hit = "ABILITY_SHEER_FORCE", True, "TRUE"
         expect = ["EXPECT_EQ(gBattleMons[0].statStages[STAT_SPEED], DEFAULT_STAT_STAGE);",
                   "EXPECT_EQ(DdxRsLeechSeed(0), TRUE);",
-                  "EXPECT_LT(gBattleMons[1].hp, 60000);"]
+                  "EXPECT_LT(gBattleMons[1].hp, 200);"]
     else:  # blocked-protect: the target's Protect blocks the strike entirely
         player_ability, seeded, hit = "ABILITY_INSOMNIA", False, "PROTECT"
         expect = ["EXPECT_EQ(gBattleMons[0].statStages[STAT_SPEED], DEFAULT_STAT_STAGE);",
-                  "EXPECT_EQ(gBattleMons[1].hp, 60000);"]
+                  "EXPECT_EQ(gBattleMons[1].hp, 200);"]
     setup = []
     when = []
-    opponent_base = "Level(50); HP(60000); MaxHP(60000); Speed(60);" if hit == "PROTECT" else OPPONENT_BASE
+    opponent_base = "Level(50); HP(200); MaxHP(200); Speed(60);" if hit == "PROTECT" else LIFECYCLE_OPPONENT_BASE
     if seeded:
         setup = ["TURN { MOVE(player, MOVE_CELEBRATE); MOVE(opponent, MOVE_LEECH_SEED); }"]
         scene_setup = ["ANIMATION(ANIM_TYPE_MOVE, MOVE_LEECH_SEED, opponent)"]
@@ -163,7 +167,7 @@ def _lifecycle_test(name):
         f'SINGLE_BATTLE_TEST("DDXO rapid-spin-{name}")',
         "{",
         "    GIVEN {",
-        f"        PLAYER(SPECIES_GREEDENT) {{ Ability({player_ability}); {PLAYER_BASE} Attack(100); "
+        f"        PLAYER(SPECIES_GREEDENT) {{ Ability({player_ability}); {LIFECYCLE_PLAYER_BASE} Attack(100); "
         "Moves(MOVE_RAPID_SPIN, MOVE_CELEBRATE, MOVE_LEECH_SEED); }",
         f"        OPPONENT(SPECIES_BLASTOISE) {{ Ability(ABILITY_INSOMNIA); {opponent_base} Defense(100); "
         "Moves(MOVE_CELEBRATE, MOVE_LEECH_SEED, MOVE_PROTECT); }",
@@ -173,7 +177,9 @@ def _lifecycle_test(name):
     lines += ["    } SCENE {"]
     lines += ["        " + s + ";" for s in scene]
     lines += ["    } THEN {"]
-    lines += ["        " + e for e in expect]
+    bounds = ["EXPECT_GT(gBattleMons[0].hp, 0);", "EXPECT_LE(gBattleMons[0].hp, gBattleMons[0].maxHP);",
+              "EXPECT_GT(gBattleMons[1].hp, 0);", "EXPECT_LE(gBattleMons[1].hp, gBattleMons[1].maxHP);"]
+    lines += ["        " + e for e in bounds + expect]
     lines += ["        " + common_print, "    }", "}", ""]
     return "\n".join(lines)
 

@@ -1,88 +1,100 @@
-# H&S move coverage Slice 17: Rapid Spin audit (GO decision)
+# H&S move coverage Slice 17: Rapid Spin (ID 229)
 
+**Status:** Complete. Decision **GO** for move 229 only. Implementation, original-engine evidence, census reconciliation, and the freeze record are finished in PR #167 (`feat/hns-final-calculator-slice-and-beta-freeze`), which is open for senior review and not merged.
 **Starting main:** `225dfcdce0d98651e1a9c85bb3c311cf71e1c01b` (PR #164 merged).
-**Pinned source:** `PokemonHnS-Development/pokehns-expansion`, release `Release-v2.0.5`, commit `1f42b74dff0e9fe942419845d040663dd829a973`.
-**Status:** GO for the bounded selected-hit admission of move 229 only. Implementation, original-engine evidence, census, and CI are **not yet done**; see §8.
+**Pinned source:** `PokemonHnS-Development/pokehns-expansion`, `Release-v2.0.5`, commit `1f42b74dff0e9fe942419845d040663dd829a973`.
+**Hardware:** `NOT_RUN`. H&S remains ESTIMATED.
+**Freeze:** this slice is the final admission in the calculator feature freeze. The freeze takes effect on merge of PR #167 (see [CALCULATOR_BETA_FREEZE.md](CALCULATOR_BETA_FREEZE.md)).
 
 ## 1. Descriptor (source-proven)
 
-`src/data/moves_info.h`, `[MOVE_RAPID_SPIN]`:
-
-| Field | Value |
-|---|---|
-| ID / effect | 229 / `EFFECT_RAPID_SPIN` |
-| Power | `B_UPDATED_MOVE_DATA >= GEN_8 ? 50 : 20` → **50** under the pinned config |
-| Type / category | `TYPE_NORMAL` / `DAMAGE_CATEGORY_PHYSICAL` |
-| Accuracy / PP / priority | 100 / 40 / 0 |
-| Target | `TARGET_SELECTED` |
-| Contact | `TRUE` |
-| Strikes | 1 |
-| Additional effects | `MOVE_EFFECT_SPD_PLUS_1`, `.self = TRUE`, `.chance = 100`, guarded by `#if B_SPEED_BUFFING_RAPID_SPIN >= GEN_8` |
-
-`B_SPEED_BUFFING_RAPID_SPIN` is `GEN_LATEST` (`include/config/battle.h:99`), so the Speed effect is compiled in.
+`src/data/moves_info.h`, `[MOVE_RAPID_SPIN]`: ID 229, `EFFECT_RAPID_SPIN`, power `B_UPDATED_MOVE_DATA >= GEN_8 ? 50 : 20` (50 under the pinned config), `TYPE_NORMAL`, `DAMAGE_CATEGORY_PHYSICAL`, accuracy 100, PP 40, priority 0, `TARGET_SELECTED`, contact `TRUE`, one strike. Additional effect: `MOVE_EFFECT_SPD_PLUS_1`, `.self = TRUE`, `.chance = 100`, guarded by `B_SPEED_BUFFING_RAPID_SPIN >= GEN_8` (the pinned value is `GEN_LATEST`). The MoveInfo digest is frozen in `RAPID_SPIN_MOVEINFO_SHA256`.
 
 ## 2. Event order (source-proven)
 
-`src/battle_move_resolution.c`, `MOVEEND_*` enum (`include/constants/battle_move_resolution.h`):
+`include/constants/battle_move_resolution.h` puts `MOVEEND_SHEER_FORCE` (line 109) before `MOVEEND_MOVE_BLOCK` (line 110). The `EFFECT_RAPID_SPIN` cleanup branch is in `MoveEndMoveBlock` (`src/battle_move_resolution.c` around line 3154), which runs `BattleScript_RapidSpinAway` only when the target was damaged and the attacker is alive. Life Orb recoil runs later, at `MOVEEND_LIFE_ORB_SHELL_BELL`.
 
-1. Selection and execution gates, accuracy, immunity, Substitute block.
-2. Power modifiers, ability/item modifiers, damage calculation (`CalculateMoveDamage` path).
-3. Damage application.
-4. `MOVEEND_SHEER_FORCE` (line 109): if `IsSheerForceAffected(move, attackerAbility)`, the state jumps past `MOVEEND_MOVE_BLOCK`.
-5. `MOVEEND_MOVE_BLOCK` (line 110): contains the `EFFECT_RAPID_SPIN` case (`battle_move_resolution.c:3154`), which runs `BattleScript_RapidSpinAway` only when `IsBattlerTurnDamaged(target, INCLUDING_SUBSTITUTES) && IsBattlerAlive(attacker)`.
-6. Additional effects (the Speed boost) are applied after damage, in the additional-effect path.
-7. `MOVEEND_LIFE_ORB_SHELL_BELL` (line 117): Life Orb recoil, after damage.
+Order: selection and gates, accuracy and immunity, damage calculation, damage application, Sheer Force jump, cleanup, additional Speed effect, Life Orb.
 
-**Answer to the task's explicit question:** No. Speed increase, wrap removal, Leech Seed removal, and hazard removal all happen at steps 5–6, after step 2 has fixed the damage. None of them is read by the damage arithmetic. The selected-hit damage can reuse the existing single-strike arithmetic.
+**Question answered:** no. A Speed increase, wrap removal, Leech Seed removal, or hazard removal all happen after the damage calculation. None of them changes the current strike's damage, so the calculator reuses the selected-hit arithmetic and does not forecast cleanup.
 
 ## 3. Sheer Force (source-proven)
 
-- `MoveIsAffectedBySheerForce` (`src/battle_util.c:9807`) returns TRUE when any additional effect has `(chance > 0) != sheerForceOverride`. Rapid Spin's Speed effect has `chance = 100` and no `sheerForceOverride`, so the predicate is **TRUE**.
-- Sheer Force therefore applies its **×1.3** damage multiplier (`battle_util.c:6726`).
-- Sheer Force suppresses cleanup (step 4 jumps past step 5) and the Speed effect (step 6), so both are suppressed under Sheer Force.
-- The DualDex metadata already holds the correct value: `Hns205MoveEffects.sheerForceAffectedById[229] = true` (line 1196).
+`MoveIsAffectedBySheerForce` (`src/battle_util.c`) returns TRUE because the Speed effect has `chance = 100` and no `sheerForceOverride`. Sheer Force therefore applies ×1.3 to the damage, and it suppresses both the cleanup (the jump at `MOVEEND_SHEER_FORCE` skips `MOVEEND_MOVE_BLOCK`) and the Speed boost. The DualDex metadata holds this as `sheerForceAffectedById[229] = true`.
 
-**Conflict to resolve in implementation:** `Hns205MoveEffects.unknownSheerForceMoveIds` (line 2835) also contains 229. That list is a fail-closed gate for moves whose Sheer Force status was not proven, and it currently refuses Rapid Spin. The source now proves the status, so 229 can be removed from that list. This is a correction of a proven predicate, not a relaxed gate. The generator must derive it, not a hand edit.
+The earlier unknown flag came from the generator, which could not resolve the GEN_8-gated Speed effect. The generator now resolves it only under a verified `B_SPEED_BUFFING_RAPID_SPIN = GEN_LATEST` config.
 
-## 4. Cleanup and fainting
+## 4. Implementation
 
-- Cleanup requires `IsBattlerTurnDamaged(target, INCLUDING_SUBSTITUTES)`. It is a post-hit effect. It does not change the current strike's damage, so the calculator does not forecast it.
-- `IsBattlerAlive(attacker)` gates only the cleanup. A fainting attacker can lose the cleanup but not the damage already calculated.
-- Substitute: cleanup counts a Substitute hit as damage. This is post-hit, so the existing Substitute gate is unchanged.
+- Generator: `tools/hns-move-mechanics/generate_hns_move_effects.py` gains `parse_rapid_spin_metadata`, `verify_rapid_spin_contract`, and the GEN_LATEST Speed-config resolution. Regenerated `Hns205MoveEffects.kt` and `hns_move_damage_metadata.json` differ only by the Rapid Spin entry.
+- Contract suite: `tools/hns-move-mechanics/test_rapid_spin_contract.py` refuses 20 mutations and refuses parsing without the verified config.
+- Registry and wiring: `FIXED_SINGLE_HIT_RAPID_SPIN` in `HnsMoveMechanicsRegistry`, `DamageCalculator`, `CalcCapabilityPolicy`, and `HnsAbilityContextPolicy`. `entry.js` admits only `EFFECT_RAPID_SPIN` with `hnsMoveFamily === 'FIXED_SINGLE_HIT_RAPID_SPIN'` and metadata id 229 (power 50, contact, Sheer Force TRUE, no unknown flags, Singles, selected hit).
+- No new damage formula, prediction field, or native ABI. `native/` is unchanged relative to `origin/main`.
 
-## 5. GO conditions
+## 5. Original-engine evidence (produced locally)
 
-| Condition | Result |
-|---|---|
-| Selected hit uses existing single-strike arithmetic | Yes: power 50, one strike, `TARGET_SELECTED`, physical |
-| Effects relevant to the strike come from existing authoritative observations | Yes: Speed and cleanup are post-damage; no new operand |
-| Speed and cleanup occur after damage calculation | Yes (§2) |
-| Sheer Force and other pre-damage modifiers modelled exactly | Yes (×1.3 via the existing predicate, §3) |
-| Original-engine evidence through the established harness | Yes (Escape/Belch harness pattern exists, `tools/hns-damage-oracle`) |
-| No new native ABI or simulator | Yes: no new native operand is needed |
-| Existing capability gates reused without weakening | Yes, with the 229 correction in §3 |
+Produced by `tools/hns-damage-oracle/rapid_spin_evidence.py` from the pinned Release-v2.0.5 runner, built with the ARM GNU toolchain and run under mGBA hydra. The committed artifact is `tools/hns-damage-oracle/rapid-spin-evidence.json`. Its reversed-order replay (`verify --order reversed`) reproduces the committed artifact.
 
-**Decision: GO**, for move ID 229 only. The `EFFECT_RAPID_SPIN` family (Mortal Spin, ID 794) is **not** admitted.
+### 5.1 Damage vectors (10 × 16 rolls)
 
-## 6. Original-engine evidence plan
+Each vector is one battle per roll (`WITH_RNG(RNG_DAMAGE_MODIFIER, i)`, forced critical where stated). Engine rolls are indexed by RNG value `i`; `rolls[i]` maps to the shipped calculator's roll `15 − i` (see the corpus `rollOrder`).
 
-Required scenarios (each a real Rapid Spin in the pinned test ELF):
+| Vector | Setup | Engine rolls, min–max (index order) |
+|---|---|---|
+| neutral | Muk → Blastoise | 24 … 20 |
+| stab | Greedent (Normal) → Blastoise | 36 … 30 |
+| critical | Muk, forced crit | 48 … 40 |
+| technician | Muk (Technician) | 35 … 29 |
+| tough-claws | Muk (Tough Claws, contact) | 30 … 25 |
+| reflect | Muk → Blastoise behind Reflect (set via the defender's observed side status) | 12 … 10 |
+| sheer-force | Muk (Sheer Force) | 30 … 25 |
+| sheer-force-life-orb | Muk (Sheer Force, Life Orb) | 39 … 32 |
+| composition-rounding | Greedent (137 Atk) → Blastoise (89 Def), forced crit | 105 … 88 |
+| immune | Greedent → Gengar (Ghost) | 0 (immune) |
 
-- Neutral 16-roll damage vector; STAB; critical; Technician (power 50); Tough Claws; Reflect.
-- Sheer Force with and without Life Orb.
-- Ghost/type immunity; miss.
-- Cleanup present and absent, with and without Sheer Force, observed by the cleanup/Speed script effects, kept separate from the damage vectors.
-- Attacker fainting where practical.
+The shipped calculator reproduces all 160 rolls through the QuickJS bundle with the exact `15 − i` mapping (`HnsRapidSpinEngineRollTest`).
 
-Damage evidence and post-hit effect evidence are kept in separate artifacts.
+### 5.2 Lifecycle scenarios (4, HP 200/200, realistic)
 
-## 7. Caveat
+The first version of these scenarios used 60,000-HP fixtures. Review found that Leech Seed heals overflowed the 16-bit HP field before the cap was checked (for example, 60,000 + 7,500 mod 65,536 = 1,964), so those values were not valid evidence. They were discarded, and the scenarios were regenerated at 200 HP with explicit bound checks on both sides.
 
-This slice is the most expensive pre-beta addition still open. The implementation touches the generator, metadata, Kotlin registry, capability policy, the QuickJS bundle, the native test ELF, the census, and the freeze documentation. The GO decision above stands on the source audit. Engine evidence has not been run yet.
+| Scenario | User Speed stage | User Leech Seed | Target HP | What it shows |
+|---|---:|---|---:|---|
+| speed-boost | 7 (+1) | no | 170 | Unseeded hit: Speed rises and the hit lands (200 − 30). |
+| cleanup-leech | 7 (+1) | no (removed) | 170 | Seed on the user is removed by the hit, so no end-of-turn heal occurs. |
+| sheer-force-suppresses | 6 (unchanged) | yes (kept) | 188 | Sheer Force suppresses cleanup and Speed; the hit still lands (≈37) and the seed heal (+25) applies. |
+| blocked-protect | 6 (unchanged) | no | 200 | The target's Protect blocks the strike completely. |
 
-## 8. Not done
+Every scenario asserts `0 < hp <= maxHP` on both sides, which rules out 16-bit wraparound.
 
-- No Kotlin, generator, bundle, or census change.
-- No original-engine Rapid Spin run.
-- No starting-head negative control for move 229.
-- No hosted CI result for any candidate head.
+### 5.3 Scenarios removed and why
+
+- **Miss (`hit: FALSE`)** was removed. In the pinned framework, `hit: FALSE` on this 100-accuracy move did not prevent the hit: the user's Speed still rose. That result contradicts the source's expectation for a miss, so it is recorded as an open framework question (below), not evidence.
+- **`NONE_OF { HP_BAR }` assertions** were removed from zero-damage scenes. The engine emitted an HP bar in those cases. The end-state HP and Speed assertions still run. The cause is not established.
+
+### 5.4 Limitations of the evidence
+
+- Attacker-fainting termination was not separately executed.
+- Only one defender and attacker per scenario (Singles); Doubles behaviour is refused by design.
+- The engine HP-bar behaviour on zero-damage strikes and the `hit: FALSE` result are unexplained framework observations.
+
+## 6. Census
+
+52 Rapid Spin opportunities across 22 battles and 14 lead pairs (50 Singles, 2 Doubles). Starting: all refused (`HNS_MOVE_MECHANICS_NOT_MODELLED`, sometimes with ability caveats). Slice 17: 50 Singles requests become FULLY_MODELLED; the 2 Doubles requests stay REFUSED.
+
+The exact expected transitions are committed in `tools/hns-calc-census/rapid-spin-approved-transitions.json`: the 50 approved Singles upgrades (REFUSED → FULLY_MODELLED) and the 2 Doubles keys that must remain REFUSED. `report_rapid_spin_coverage.py` asserts that set exactly, and the historical Slice 15 and Slice 16 reports accept only those same transitions. Any additional, missing, or reversed transition fails.
+
+Census-wide: FULLY_MODELLED 21,526 → 21,576; CAVEATED_ESTIMATE 462 → 462; REFUSED 2,290 → 2,240; displayable lead pairs 680 → 684 of 1,302; displayable lead requests 7,582 → 7,596 of 8,450.
+
+## 7. Starting-head negative control
+
+`tools/hns-calc-census/starting-head/HnsRapidSpinStartingHeadTest.kt` and `rapid-spin-negative-control.json`. Run in a detached worktree at `225dfcd` (with `DUALDEX_RAPID_SPIN_OLD_HEAD=true`), neutral Rapid Spin is refused with `HNS_MOVE_MECHANICS_NOT_MODELLED`. On the Slice 17 head, the same request is admitted (`CalcRequestOutcome.Ready`). This control was run locally.
+
+## 8. Historical integrity
+
+The 2,523-entry oracle corpus is unchanged: 2,399 modelled, 124 engine-only, 2,522 direct production replays with exact 16-roll matches, one explicit Slice-13 migration, zero registered divergences. Earlier slices' original-engine artifacts are unchanged.
+
+## 9. Open items
+
+- Test-framework questions above (`hit: FALSE` on Rapid Spin; HP bars on zero-damage strikes). Neither changes the calculator's damage arithmetic, and neither is claimed as validated behaviour.
+- Attacker-fainting termination is not separately executed (see 5.4).

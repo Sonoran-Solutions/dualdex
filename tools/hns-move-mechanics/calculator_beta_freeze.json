@@ -22,7 +22,7 @@
     },
     {
       "path": "tools/hns-damage-oracle/rapid-spin-evidence.json",
-      "sha256": "411c09d59cc0a3d53ddabd6dfa8aac0a4ae5751f727405a8e6e92b747e84ea2f"
+      "sha256": "a10dc56d41b07c8dc399b46fc3e65e38b48cecbc643338ec75933088a2258c99"
     },
     {
       "path": "tools/hns-damage-oracle/repeated-strike-evidence.json",

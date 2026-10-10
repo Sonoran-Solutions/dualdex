@@ -420,7 +420,7 @@
     {
       "id": "speed-boost",
       "observed": {
-        "targetHp": 59970,
+        "targetHp": 170,
         "userLeechSeed": false,
         "userSpeedStage": 7
       }
@@ -428,7 +428,7 @@
     {
       "id": "cleanup-leech",
       "observed": {
-        "targetHp": 1934,
+        "targetHp": 170,
         "userLeechSeed": false,
         "userSpeedStage": 7
       }
@@ -436,7 +436,7 @@
     {
       "id": "sheer-force-suppresses",
       "observed": {
-        "targetHp": 9427,
+        "targetHp": 188,
         "userLeechSeed": true,
         "userSpeedStage": 6
       }
@@ -444,7 +444,7 @@
     {
       "id": "blocked-protect",
       "observed": {
-        "targetHp": 60000,
+        "targetHp": 200,
         "userLeechSeed": false,
         "userSpeedStage": 6
       }
@@ -452,5 +452,5 @@
   ],
   "pinnedCommit": "1f42b74dff0e9fe942419845d040663dd829a973",
   "schemaVersion": 1,
-  "sourceSha256": "2be82747365be0166e5de4f454c799503c366c2c8258e6ac8e3593162e9a0726"
+  "sourceSha256": "86fabee0641c9c6babd21386afe8a7c6c72a6e2d8273f3fd3968cf43b56600ee"
 }

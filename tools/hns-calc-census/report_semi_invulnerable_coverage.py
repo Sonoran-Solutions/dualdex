@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 TARGET = Path(__file__).with_name("semi-invulnerable-coverage.json")
 START = "d9aca830d0ebcd89cbf6d1dcb47d19e8040c8bf9"
 MOVES = {"Fly", "Dig", "Dive", "Bounce", "Phantom Force"}
-LATER_SLICE_MOVES = {"Rapid Spin"}
+APPROVED_RAPID_SPIN = Path(__file__).with_name("rapid-spin-approved-transitions.json")
 CENSUS_PATH = "tools/hns-calc-census/census.json.gz"
 
 
@@ -50,9 +50,13 @@ def build():
             outside.append(row)
         else:
             transitions.append(row)
-    # Slice 17 admitted Rapid Spin after this report's starting commit; its transitions are reconciled
-    # exclusively by report_rapid_spin_coverage.py. Any other outside-family transition still fails.
-    unexplained = [row for row in outside if row["move"] not in LATER_SLICE_MOVES]
+    # Slice 17 admitted Rapid Spin after this report's starting commit. Only the exact approved
+    # REFUSED -> FULLY_MODELLED upgrades in rapid-spin-approved-transitions.json are accepted here.
+    approved = json.loads(APPROVED_RAPID_SPIN.read_text())
+    approved_upgrades = set(approved["approvedUpgrades"])
+    unexplained = [row for row in outside if not (
+        row["move"] == "Rapid Spin" and row["key"] in approved_upgrades
+        and row["fromTier"] == "REFUSED" and row["toTier"] == "FULLY_MODELLED")]
     assert not unexplained, unexplained[:3]
     battle_formats = collections.Counter(r["gameType"] for r in target)
     lead = [r for r in target if r["partySlot"] == 0]

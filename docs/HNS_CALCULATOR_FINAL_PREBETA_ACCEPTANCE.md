@@ -83,6 +83,10 @@ SHA-256 values are recorded in `calculator_beta_freeze.json` under `evidenceInve
 - Bundle reproducibility: rebuilding `calc_bundle.js` from `tools/calc-bundler` changes exactly the committed single minified line.
 - Freeze guard: `HnsCalculatorBetaFreezeGuardTest` passes against the recorded admitted map.
 
+## 8a. Evidence correction made during review
+
+The first Rapid Spin lifecycle scenarios used 60,000-HP fixtures. Review showed that Leech Seed heals overflowed the 16-bit HP field before the cap was checked (for example, 60,000 + 7,500 mod 65,536 = 1,964), so the recorded target HP values (1,934 and 9,427) were artifacts of the fixture, not evidence. Those values were discarded. The four lifecycle scenarios were regenerated at 200 HP with explicit bounds on both sides (0 < HP ≤ max). The corrected artifact was regenerated and re-verified in reversed order. The ten damage vectors were not changed.
+
 ## 9. Known limitations
 
 - **Hardware:** `NOT_RUN`. Nothing in this report is device-verified.

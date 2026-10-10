@@ -11,6 +11,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 TARGET = Path(__file__).with_name("rapid-spin-coverage.json")
+APPROVED = Path(__file__).with_name("rapid-spin-approved-transitions.json")
 START = "225dfcdce0d98651e1a9c85bb3c311cf71e1c01b"
 MOVES = {"Rapid Spin"}
 CENSUS_PATH = "tools/hns-calc-census/census.json.gz"
@@ -50,6 +51,12 @@ def build():
         else:
             transitions.append(row)
     assert not outside, outside[:3]
+    approved = json.loads(APPROVED.read_text())
+    got = {r["key"]: (r["fromTier"], r["toTier"]) for r in transitions}
+    assert set(got) == set(approved["approvedUpgrades"]), "Rapid Spin transitions differ from the approved set"
+    assert all(v == ("REFUSED", "FULLY_MODELLED") for v in got.values()), "Rapid Spin transition direction changed"
+    for key in approved["requiredRemainingRefused"]:
+        assert old_rows[key]["tier"] == "REFUSED" and new_rows[key]["tier"] == "REFUSED", key
     battle_formats = collections.Counter(r["gameType"] for r in target)
     lead = [r for r in target if r["partySlot"] == 0]
     baseline_combinations = collections.Counter(tuple(sorted(r.get("limitations", []))) for r in target)

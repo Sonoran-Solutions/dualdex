@@ -1,6 +1,6 @@
 # Damage Calculator Feature Freeze: First Public Beta
 
-**Status:** Decided, **not yet in force**. The freeze takes effect only when the reviewed final-calculator pull request (`feat/hns-final-calculator-slice-and-beta-freeze`) is merged into `main`. Until that merge, this document is a decision record, not an active rule. A release candidate, a local build, a successful CI run, or an internal device test does **not** lift or start the freeze.
+**Status:** The calculator freeze takes effect automatically upon merge of PR #167 and remains active until explicitly lifted by the project owner after the first public `0.9.0-beta.1` release. Until that merge, it is a decision record only. A release candidate, a local build, a successful CI run, or an internal device test does not lift or start the freeze.
 
 **Milestone:** `0.9.0-beta.1` (first public beta).
 **Duration:** from merge of the reviewed final-calculator PR until **after** the first public `0.9.0-beta.1` release.
@@ -80,6 +80,7 @@ This exception is **not** permission to add unrelated H&S move families while de
 
 - `HnsCalculatorBetaFreezeGuardTest` fails when the production registry admits a new move ID, changes an admitted ID's family, or removes an admission. Correctness fixes that leave the admitted set unchanged pass.
 - Any intentionally changed admission scope requires a reviewed exception that names the added or removed IDs. `DUALDEX_FREEZE_RECORD=true` regenerates the snapshot and is only for that reviewed change.
+- Historical census reports accept only the exact approved Rapid Spin transitions in [tools/hns-calc-census/rapid-spin-approved-transitions.json](../tools/hns-calc-census/rapid-spin-approved-transitions.json): the 50 Singles REFUSED → FULLY_MODELLED upgrades, with the two Doubles requests required to remain REFUSED. Any other transition, including a reversal, fails.
 - The guard does not cover ability or item expansion, gimmick support, or UI feature growth. Those are covered by this document and by review.
 
 ## 5. Post-beta backlog (DEFERRED UNTIL AFTER PUBLIC BETA)

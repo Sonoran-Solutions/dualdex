@@ -974,7 +974,7 @@ class BattleConsoleScreenView(
     // ponytail: nextSlot is always null until a profile has a runtime-verified
     // gBattleStruct->monToSwitchIntoId address; pass it here once the native read exists.
     private fun bindFoeTeam(enemies: List<ParsedPokemon>, activeSlot: Int?) {
-        val slots = foeTeamTracker.build(enemies, activeSlot, nextSlot = null)
+        val slots = foeTeamTracker.build(enemies, activeSlot, nextSlot = null, battleSession = viewModel.battleSessionId)
         foeTeamRow.visibility = if (slots.isEmpty()) View.GONE else View.VISIBLE
         while (foeTeamRow.childCount < slots.size) {
             foeTeamRow.addView(TextView(context).apply {

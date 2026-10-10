@@ -28,24 +28,24 @@ data class FoeSlot(
  */
 class FoeTeamTracker {
     private val seen = mutableSetOf<Int>()
-    private var party: List<Long> = emptyList()
+    private var session: Long? = null
 
     /** Battle ended: forget what was revealed. */
-    fun reset() { seen.clear(); party = emptyList() }
+    fun reset() { seen.clear(); session = null }
 
     /**
      * @param enemies enemy party in slot order (as published by the live reader)
      * @param activeSlot resolved active opponent slot, or null when not authoritatively known
      * @param nextSlot the trainer's announced next pick (`gBattleStruct->monToSwitchIntoId`), or
      *   null when the profile has no verified address for it
+     * @param battleSession [com.dualdex.companion.CompanionViewModel.battleSessionId]
      * @return slots to show, or empty to hide the row (not a trainer battle / nothing read)
      */
-    fun build(enemies: List<ParsedPokemon>, activeSlot: Int?, nextSlot: Int?): List<FoeSlot> {
+    fun build(enemies: List<ParsedPokemon>, activeSlot: Int?, nextSlot: Int?, battleSession: Long): List<FoeSlot> {
+        // A new battle session (from the always-polled battle presence) never inherits reveals, even
+        // for a rematch with identical PIDs or when the Battle tab missed the previous battle's end.
+        if (battleSession != session) { seen.clear(); session = battleSession }
         if (enemies.size < 2) return emptyList()
-        // A different enemy party is a different battle, even if no battle end was observed in between
-        // (e.g. the Battle tab was not shown), so reveals never carry over.
-        val pids = enemies.map { it.pid }
-        if (pids != party) { seen.clear(); party = pids }
         val active = activeSlot?.takeIf { it in enemies.indices }
         val next = nextSlot?.takeIf { it in enemies.indices && it != active && enemies[it].currentHp > 0 }
         active?.let { seen += it }

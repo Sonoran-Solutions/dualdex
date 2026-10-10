@@ -73,31 +73,31 @@ class Issue153QuickWinsTest {
     fun foesStayHiddenUntilSentOut() {
         val t = FoeTeamTracker()
         val team = listOf(mon(1), mon(4), mon(7))
-        val first = t.build(team, activeSlot = 0, nextSlot = null)
+        val first = t.build(team, activeSlot = 0, nextSlot = null, 0L)
         assertEquals(listOf(1, null, null), first.map { it.speciesId })
         assertTrue(first[0].active)
 
         // Announced next pick is revealed and flagged; it may not be the active or a fainted mon.
-        val announced = t.build(team, activeSlot = 0, nextSlot = 2)
+        val announced = t.build(team, activeSlot = 0, nextSlot = 2, 0L)
         assertEquals(listOf(1, null, 7), announced.map { it.speciesId })
         assertTrue(announced[2].next)
-        assertFalse(t.build(team, activeSlot = 0, nextSlot = 0)[0].next)
+        assertFalse(t.build(team, activeSlot = 0, nextSlot = 0, 0L)[0].next)
 
         // Once seen, stays revealed even when no longer active; a fainted foe is revealed.
-        val later = t.build(listOf(mon(1, hp = 0), mon(4), mon(7)), activeSlot = null, nextSlot = null)
+        val later = t.build(listOf(mon(1, hp = 0), mon(4), mon(7)), activeSlot = null, nextSlot = null, 0L)
         assertEquals(listOf(1, null, 7), later.map { it.speciesId })
         assertTrue(later[0].fainted)
 
         t.reset()
-        assertEquals(listOf(null, null, null), t.build(team, null, null).map { it.speciesId })
+        assertEquals(listOf(null, null, null), t.build(team, null, null, 0L).map { it.speciesId })
     }
 
     @Test
     fun foeRowHiddenForWildOrUnreadParties() {
         val t = FoeTeamTracker()
-        assertTrue(t.build(emptyList(), null, null).isEmpty())
-        assertTrue(t.build(listOf(mon(1)), 0, null).isEmpty())
-        assertNull("out-of-range slots ignored", t.build(listOf(mon(1), mon(2)), 9, 9).firstOrNull { it.revealed })
+        assertTrue(t.build(emptyList(), null, null, 0L).isEmpty())
+        assertTrue(t.build(listOf(mon(1)), 0, null, 0L).isEmpty())
+        assertNull("out-of-range slots ignored", t.build(listOf(mon(1), mon(2)), 9, 9, 0L).firstOrNull { it.revealed })
     }
 
     // --- held-item table -------------------------------------------------------------------------
@@ -154,12 +154,23 @@ class Issue153QuickWinsTest {
     }
 
     @Test
-    fun foeRevealsDoNotCarryIntoTheNextBattleWithoutAReset() {
+    fun rematchWithIdenticalPids_startsHidden_withoutAnyBattleScreenRefresh() {
+        val vm = com.dualdex.companion.CompanionViewModel()
         val t = FoeTeamTracker()
-        t.build(listOf(mon(1), mon(4), mon(7)), activeSlot = 1, nextSlot = null)
-        // Battle tab hidden: no reset() between battles. A new party must start fully hidden.
-        val next = t.build(listOf(mon(10), mon(13), mon(16)), activeSlot = 0, nextSlot = null)
-        assertEquals(listOf(true, false, false), next.map { it.revealed })
+        val team = listOf(mon(1), mon(4), mon(7)) // identical PIDs in both battles
+
+        vm.setIsInBattle(true)
+        t.build(team, activeSlot = 0, nextSlot = null, vm.battleSessionId)
+        t.build(team, activeSlot = 1, nextSlot = null, vm.battleSessionId)
+        // Battle ends and the rematch starts while the Battle tab is hidden: no build(), no reset().
+        vm.setIsInBattle(false)
+        vm.setIsInBattle(true)
+
+        val rematch = t.build(team, activeSlot = 0, nextSlot = null, vm.battleSessionId)
+        assertEquals(listOf(true, false, false), rematch.map { it.revealed })
+        // Repeated polls within one battle do not start a new session.
+        vm.setIsInBattle(true)
+        assertEquals(listOf(true, false, false), t.build(team, 0, null, vm.battleSessionId).map { it.revealed })
     }
 
     private fun mon(species: Int, hp: Int = 100) = ParsedPokemon(

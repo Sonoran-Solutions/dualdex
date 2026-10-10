@@ -624,8 +624,16 @@ class CompanionViewModel(
         _activePlayerBattlerIndex.value = index
     }
 
+    /**
+     * Increments on every not-in-battle -> in-battle transition. Battle presence is polled whether or
+     * not the Battle tab is visible, so this identifies a battle even across identical rematches.
+     */
+    @Volatile var battleSessionId: Long = 0L
+        private set
+
     private fun updateCoverageBattlePresence(active: Boolean) {
         com.dualdex.coverage.HnsCoverage.battle(active)
+        if (active && !_isInBattle.value) battleSessionId++
         _isInBattle.value = active
     }
 

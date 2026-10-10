@@ -19,7 +19,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -29,7 +28,6 @@ import com.dualdex.calculator.DamageCalculator
 import com.dualdex.companion.CompanionPresentation
 import com.dualdex.companion.CompanionTab
 import com.dualdex.companion.CompanionViewModel
-import com.dualdex.companion.RomItem
 import com.dualdex.companion.ui.CompanionScreenView
 import com.dualdex.emulator.AudioDriver
 import com.dualdex.emulator.EmulatorSurfaceView
@@ -47,9 +45,8 @@ import com.dualdex.settings.SettingsManager
 import com.dualdex.settings.TriggerShortcutMode
 import java.io.File
 import java.io.FileOutputStream
-import java.util.Locale
 
-class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
+open class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     private val viewModel = CompanionViewModel()
     private val saveStateManager by lazy { SaveStateManager.getInstance(this) }
@@ -212,36 +209,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     private fun scanRomsDirectory(folderUri: Uri) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val rootDoc = DocumentFile.fromTreeUri(applicationContext, folderUri)
-                if (rootDoc == null || !rootDoc.isDirectory) {
-                    Log.w("DualDex", "Selected URI is not a valid directory: $folderUri")
-                    return@launch
-                }
-
-                val romList = mutableListOf<RomItem>()
-                val files = rootDoc.listFiles()
-                for (file in files) {
-                    val name = file.name ?: continue
-                    if (name.endsWith(".gba", ignoreCase = true) || name.endsWith(".bin", ignoreCase = true)) {
-                        val title = name.substringBeforeLast(".")
-                        val length = file.length()
-                        val formattedSize = if (length >= 1024 * 1024) {
-                            String.format(Locale.US, "%.1f MB", length / (1024.0 * 1024.0))
-                        } else {
-                            "${length / 1024} KB"
-                        }
-                        romList.add(
-                            RomItem(
-                                title = title,
-                                fileName = name,
-                                uri = file.uri,
-                                sizeFormatted = formattedSize
-                            )
-                        )
-                    }
-                }
-                romList.sortBy { it.title.lowercase() }
-
+                val romList = com.dualdex.library.LibraryScanner.scan(applicationContext, folderUri, loadedProfiles)
                 withContext(Dispatchers.Main) {
                     viewModel.setScannedRoms(romList)
                     companionPresentation?.refreshHomeScreen()
@@ -252,6 +220,18 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             }
         }
     }
+
+    private val pickCoverLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        val sha = pendingCoverSha ?: return@registerForActivityResult
+        pendingCoverSha = null
+        if (uri != null && com.dualdex.library.CoverArt.setFromUri(this, sha, uri)) {
+            settingsManager.romsFolderUri?.let { scanRomsDirectory(Uri.parse(it)) }
+        }
+    }
+    private var pendingCoverSha: String? = null
+
+    /** Entry point for subclasses (frontend launches) to play a ROM through the normal switch path. */
+    protected fun playRom(uri: Uri, title: String) = handleSelectedRom(uri, title)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -299,6 +279,11 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             RomHackAssistant.setModel(settingsManager.geminiModel)
             viewModel.setBattleAutoOpenEnabled(settingsManager.isBattleAutoOpenEnabled)
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
+
+            com.dualdex.library.CoverArt.pickRequest = { sha ->
+                pendingCoverSha = sha
+                pickCoverLauncher.launch(arrayOf("image/*"))
+            }
 
             // 6. Setup display UI
             setupDisplays()
@@ -666,6 +651,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         LibretroCoreCoordinator.defaultInstance.clearAudio()
         emulatorView?.onResume()
         audioDriver.start()
+        com.dualdex.library.AppUpdater.onHostResume(this)
 
         val presentationDisplays = try {
             displayManager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)

@@ -3,4 +3,9 @@
         <item name="android:windowFullscreen">true</item>
         <item name="android:keepScreenOn">true</item>
     </style>
+    <!-- Frontend launches: no opaque window flash over the frontend while the ROM loads. -->
+    <style name="Theme.DualDex.Translucent">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
 </resources>

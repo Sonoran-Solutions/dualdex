@@ -81,10 +81,12 @@ vanilla FireRed/Emerald. Trust is by SHA-256, never filename.
 | B3 | Lid/fold, sleep/wake, rotation: no stale/duplicate presentation windows | NOT_RUN |
 | B4 | Background/resume both screens; no black/frozen/misfocused UI | NOT_RUN |
 | C1 | D-pad, analog, A/B, L/R, Start/Select | NOT_RUN |
-| C2 | L2 quicksave (#14) | NOT_RUN (expected FAIL, see section 3) |
-| C3 | R2 quickload (#14) | NOT_RUN (expected FAIL) |
+| C2 | L2 quicksave (#14) | FAIL on `26bb4d24...`; PASS (owner-reported) on `f41f5b5c...`, see 9.1 |
+| C3 | R2 quickload (#14) | FAIL on `26bb4d24...`; PASS (owner-reported) on `f41f5b5c...`, see 9.1 |
 | C4 | Fast-forward toggle changes real speed, with state feedback | NOT_RUN |
-| C5 | Consumed shortcuts not forwarded to core; no repeat on hold | NOT_RUN |
+| C5 | Consumed shortcuts not forwarded to core; no repeat on hold | PASS for L2/R2 (owner-reported, 9.1); X/Y turbo shortcut NOT_RUN |
+| C6 | L2/R2 "Speed Down / Up" mode steps 1x-4x, Settings speed selector follows | PASS (owner-reported, after debounce) |
+| C7 | L2/R2 Behavior setting: Quick Save/Load default, Speed Down/Up, Disabled | PASS (owner-reported) |
 | D1 | Party: count, identity, HP/level/types/items/status, faint, no stale after ROM switch | NOT_RUN |
 | D2 | Battle: wild/trainer, switch, HP/stat stages, clears after battle, no false Magic Room on fresh battle, Doubles | NOT_RUN |
 | D3 | Calculator: supported calcs use live participants/field; unsupported/ambiguous refuse | NOT_RUN |
@@ -120,7 +122,10 @@ from the numbers. Do not state thresholds that are not documented.
 
 | Severity | Item | Issue |
 |---|---|---|
-| P1 (provisional, source-only) | Advertised L2/R2 quicksave/quickload not wired in input path | #14 |
+| P1 (hardware-confirmed 2026-10-09) | Advertised L2/R2 quicksave/quickload did nothing | #14, fixed in PR #170, owner retest passed on `f41f5b5c...`; closes only when #170 merges |
+| P1 (review finding, code-supported, not a hardware repro) | Deferred quick/slot save-load could act on the wrong ROM after a ROM switch | fixed in PR #170 (`df7fdc3`), regression tests `test28b`, `test28c` |
+| P2 | Persisted fast-forward speed not applied at startup; fresh default showed 2x while emulator ran 1x | fixed in PR #170 |
+| P2 (unconfirmed) | F1 viewport aspect 2.5:1; a stretch-to-fill setting exists, so likely configuration | needs on-device confirmation |
 | (none) | No hardware defects: no hardware run | |
 
 ## 8. Owner actions required
@@ -176,8 +181,46 @@ versionCode) all 82 file hashes were unchanged and `firstInstallTime` was preser
   `~/thor-backups/shots/` (local, not committed).
 - Memory snapshot right after launch: TOTAL PSS 151,430 KB (single sample, not a soak result).
 
-#14 L2/R2 remain unverified: nothing in the input path calls quick save/load (section 3).
 
 **Remaining human checks:** audio, all physical controller scenarios (C), fold/sleep/wake display
 lifecycle (B3/B4), battle/map/calculator exercises (D2-D5), save/lifecycle matrix (E), and the
 >= 60 min soak (F). The Thor is currently running H&S via auto-resume on the tested build.
+
+### 9.1 L2/R2 controller shortcuts (#14): finding, fix and retest
+
+| Step | Result |
+|---|---|
+| Owner pressed L2/R2 on the AYN Thor with APK `26bb4d24...` (source `9eb79b4`) | **FAIL**: quick save and quick load did nothing (P1, #14) |
+| Cause (source) | `InputManager` mapped `KEYCODE_BUTTON_L2/R2` to joypad bits GBA lacks; nothing called `SaveStateManager.quickSave/quickLoad` from the input path. The Odin Controller reports both `BTN_TL2/TR2` keys and analog `ABS_BRAKE/GAS` |
+| Fix | PR #170: L2/R2 consumed (key and analog, edge-triggered, no repeat), routed to the same `SaveStateManager` quick-state path as the Save screen; new Settings > Controls "L2 / R2 Behavior": Quick Save/Load (default), Speed Down/Up (1x-4x, applied live, persisted, Emulation speed selector updates live), Disabled |
+| First fix retest | Owner: L2/R2 work; speed stepping too sensitive (a light press jumped 1x to 3x) |
+| Debounce (`db146af`) | 300 ms per-trigger cooldown across key and axis sources, analog press threshold 0.6 to 0.75 |
+| Senior review of `db146af` | P1: a deferred shortcut could save/load against the wrong ROM after a switch; P2: persisted speed not restored at startup; P2: stray test file in the PR |
+| Review fixes (`6d24f4d`, `df7fdc3`) | Loaded-ROM identity checked inside `globalSaveLock` for quick save/load and for save/load slot; persisted speed applied at startup (default 1x); stray test untracked |
+| Final retest | Owner reports testing complete and working on APK SHA-256 `f41f5b5c56bc8ff53fab456f8d61c46f45ddccc40817ae85c90c572128b5e3ac` (source `df7fdc3`) |
+
+Evidence quality: the final retest is an **owner report from physical use**, not an instrumented
+measurement; no logcat or recording was captured for it. The cross-ROM race was **not** reproduced
+on hardware; it is covered by deterministic unit tests (`RomSaveIntegrityTest` 60/60).
+
+**Build and install record (all `adb install -r`, same debug signer `1503d5f6...87a9`, data hashes
+verified unchanged by each install, original backup untouched):**
+
+| APK SHA-256 | Source | Note |
+|---|---|---|
+| `26bb4d24...82c9` | `9eb79b4` | first acceptance run (L2/R2 FAIL) |
+| `9b66d3f5...64db` | `8e3d869` | L2/R2 wired |
+| `c9edb60a...445c` | `db146af` | debounce |
+| `1db1695c...b1c1` | `6d24f4d` | review fixes: quick-state race, startup speed |
+| `f41f5b5c...5e3ac` | `df7fdc3` | slot save/load race. **Current tested build** |
+
+**Gates on `df7fdc3`:** `./ci.sh all` green (native 99/0; `RomSaveIntegrityTest` 60/60;
+`InputManagerShortcutTest` 4/4; `SettingsManagerTest` 4/4); `./ci.sh source-check` green (exit 0,
+generated output matches disk, no drift); `git diff --check` clean.
+
+**Scope and disposition:** this closes scenarios C2, C3, C5 (L2/R2 only), C6 and C7 and the
+hardware-confirmed #14 defect pending merge of #170. It does **not** change the overall disposition:
+mandatory coverage (audio, remaining controller inputs, fast-forward X/Y toggle, dual-screen
+lifecycle, battle/map/calculator exercises, save/lifecycle matrix, 60-minute soak) remains outside
+this report. **Disposition stays HOLD.** Auto-resume and battery-save import/export paths do not yet
+carry the loaded-ROM guard; tracked for #75, not claimed as tested.

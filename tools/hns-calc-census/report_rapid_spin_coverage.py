@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reconcile Slice 15 move coverage against the immutable starting-main census."""
+"""Reconcile Slice 17 Rapid Spin coverage against the immutable starting-main census."""
 import argparse
 import collections
 import gzip
@@ -10,10 +10,10 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TARGET = Path(__file__).with_name("semi-invulnerable-coverage.json")
-START = "d9aca830d0ebcd89cbf6d1dcb47d19e8040c8bf9"
-MOVES = {"Fly", "Dig", "Dive", "Bounce", "Phantom Force"}
-APPROVED_RAPID_SPIN = Path(__file__).with_name("rapid-spin-approved-transitions.json")
+TARGET = Path(__file__).with_name("rapid-spin-coverage.json")
+APPROVED = Path(__file__).with_name("rapid-spin-approved-transitions.json")
+START = "225dfcdce0d98651e1a9c85bb3c311cf71e1c01b"
+MOVES = {"Rapid Spin"}
 CENSUS_PATH = "tools/hns-calc-census/census.json.gz"
 
 
@@ -50,14 +50,13 @@ def build():
             outside.append(row)
         else:
             transitions.append(row)
-    # Slice 17 admitted Rapid Spin after this report's starting commit. Only the exact approved
-    # REFUSED -> FULLY_MODELLED upgrades in rapid-spin-approved-transitions.json are accepted here.
-    approved = json.loads(APPROVED_RAPID_SPIN.read_text())
-    approved_upgrades = set(approved["approvedUpgrades"])
-    unexplained = [row for row in outside if not (
-        row["move"] == "Rapid Spin" and row["key"] in approved_upgrades
-        and row["fromTier"] == "REFUSED" and row["toTier"] == "FULLY_MODELLED")]
-    assert not unexplained, unexplained[:3]
+    assert not outside, outside[:3]
+    approved = json.loads(APPROVED.read_text())
+    got = {r["key"]: (r["fromTier"], r["toTier"]) for r in transitions}
+    assert set(got) == set(approved["approvedUpgrades"]), "Rapid Spin transitions differ from the approved set"
+    assert all(v == ("REFUSED", "FULLY_MODELLED") for v in got.values()), "Rapid Spin transition direction changed"
+    for key in approved["requiredRemainingRefused"]:
+        assert old_rows[key]["tier"] == "REFUSED" and new_rows[key]["tier"] == "REFUSED", key
     battle_formats = collections.Counter(r["gameType"] for r in target)
     lead = [r for r in target if r["partySlot"] == 0]
     baseline_combinations = collections.Counter(tuple(sorted(r.get("limitations", []))) for r in target)
@@ -105,8 +104,8 @@ def main():
     if args.write:
         TARGET.write_text(text)
     else:
-        assert TARGET.read_text() == text, "Semi-invulnerable census reconciliation stale"
-    print("Slice 15 census reconciliation: 24,278 stable request keys; no outside-family tier transitions")
+        assert TARGET.read_text() == text, "Rapid Spin census reconciliation stale"
+    print("Slice 17 census reconciliation: 24,278 stable request keys; no outside-family tier transitions")
 
 
 if __name__ == "__main__":

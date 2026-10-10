@@ -1,0 +1,676 @@
+{
+  "currentCensusSha256": "a74476ad629703ddb4fb3f4d933383c2f0469edc738d2ea5d4d94adb04d29f8c",
+  "opportunity": {
+    "baselineLimitations": {
+      "HNS_ABILITY_CONDITION_UNVERIFIED + HNS_MOVE_MECHANICS_NOT_MODELLED": 10,
+      "HNS_ABILITY_EFFECT_NOT_MODELLED + HNS_MOVE_MECHANICS_NOT_MODELLED": 16,
+      "HNS_MOVE_MECHANICS_NOT_MODELLED": 26
+    },
+    "battles": 22,
+    "formats": {
+      "Doubles": 2,
+      "Singles": 50
+    },
+    "leadPairs": 14,
+    "leadRequests": 14,
+    "moves": {
+      "Rapid Spin": 52
+    },
+    "requestKeys": [
+      {
+        "format": "Singles",
+        "key": "TRAINER_AARON_HNS#2|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_AARON_HNS#2|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_AKALA_SWIMMER_3_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_AKALA_SWIMMER_3_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BEN_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BEN_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BUGSY_2_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_BUGSY_2_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ELAINE_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ELAINE_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ELLIOT_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_ELLIOT_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GAVEN_HNS#3|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_GAVEN_HNS#3|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_IRWIN_2_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_IRWIN_2_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JAMES_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JAMES_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JAMES_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JAMES_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JENN_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JENN_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JERRY_HNS#2|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_JERRY_HNS#2|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_KARA_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_KARA_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_KELLY_HNS#3|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_KELLY_HNS#3|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 3,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LEWIS_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LEWIS_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LEWIS_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_LEWIS_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Doubles",
+        "key": "TRAINER_MEG_AND_PEG_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Doubles",
+        "key": "TRAINER_MEG_AND_PEG_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NICK_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_NICK_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RANDALL_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RANDALL_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RICK_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RICK_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RICK_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_RICK_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SAMUEL_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_SAMUEL_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_TONY_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_TONY_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 0,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_TONY_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_TONY_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_WADE_2_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_WADE_2_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 1,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_WADE_3_HNS#2|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      },
+      {
+        "format": "Singles",
+        "key": "TRAINER_WADE_3_HNS#2|ref-special|trainer-to-reference|Rapid Spin",
+        "limitationsBefore": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin",
+        "partySlot": 2,
+        "tierBefore": "REFUSED"
+      }
+    ],
+    "requests": 52
+  },
+  "population": {
+    "after": {
+      "abilityDomainSize": 310,
+      "abilityOperandCohorts": 7806,
+      "abilityTrialExcludedAmbiguousAttackerSide": 17230,
+      "abilityTrialExcludedAmbiguousDefenderSide": 19506,
+      "abilityTrials": 1240,
+      "eligibleRequests": 24278,
+      "eligibleRequestsRefusedByMoveMechanics": 1402,
+      "excludedMoves": 4782,
+      "excludedMovesNonDamaging": 4782,
+      "leadMatchupBattles": 651,
+      "requestsReferenceToTrainer": 14656,
+      "requestsTrainerToReference": 9622,
+      "trainerBattles": 651,
+      "trainerBattlesDoubles": 9,
+      "trainerBattlesSingles": 642,
+      "trainerPokemon": 1832
+    },
+    "afterLeadMatchup": {
+      "battlesExcludedNoEligibleMove": 0,
+      "battlesIncluded": 651,
+      "battlesTotal": 651,
+      "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+      "doublesPairsDisplayable": 6,
+      "doublesPairsTotal": 18,
+      "eligibleRequests": 8450,
+      "pairsDisplayable": 684,
+      "pairsTotal": 1302,
+      "requestsDisplayable": 7596,
+      "singlesPairsDisplayable": 678,
+      "singlesPairsTotal": 1284
+    },
+    "before": {
+      "abilityDomainSize": 310,
+      "abilityOperandCohorts": 7806,
+      "abilityTrialExcludedAmbiguousAttackerSide": 17230,
+      "abilityTrialExcludedAmbiguousDefenderSide": 19506,
+      "abilityTrials": 1240,
+      "eligibleRequests": 24278,
+      "eligibleRequestsRefusedByMoveMechanics": 1452,
+      "excludedMoves": 4782,
+      "excludedMovesNonDamaging": 4782,
+      "leadMatchupBattles": 651,
+      "requestsReferenceToTrainer": 14656,
+      "requestsTrainerToReference": 9622,
+      "trainerBattles": 651,
+      "trainerBattlesDoubles": 9,
+      "trainerBattlesSingles": 642,
+      "trainerPokemon": 1832
+    },
+    "beforeLeadMatchup": {
+      "battlesExcludedNoEligibleMove": 0,
+      "battlesIncluded": 651,
+      "battlesTotal": 651,
+      "definition": "for every trainer battle, the trainer's pinned party slot 0 against each reference team lead, evaluated in both directions over that pair's eligible damaging moves; displayable only when every eligible request in the pair displays a number",
+      "doublesPairsDisplayable": 6,
+      "doublesPairsTotal": 18,
+      "eligibleRequests": 8450,
+      "pairsDisplayable": 680,
+      "pairsTotal": 1302,
+      "requestsDisplayable": 7582,
+      "singlesPairsDisplayable": 674,
+      "singlesPairsTotal": 1284
+    }
+  },
+  "reconciliation": {
+    "currentTierByMove": {
+      "Rapid Spin": {
+        "CAVEATED_ESTIMATE": 0,
+        "FULLY_MODELLED": 50,
+        "REFUSED": 2
+      }
+    },
+    "outsideFamilyTransitions": [],
+    "residualRefusals": [
+      {
+        "causes": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_MEG_AND_PEG_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "limitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin"
+      },
+      {
+        "causes": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "ignoredMechanics": [],
+        "key": "TRAINER_MEG_AND_PEG_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "limitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "move": "Rapid Spin"
+      }
+    ],
+    "targetTransitions": 50,
+    "transitionsByMove": {
+      "Rapid Spin": 50
+    }
+  },
+  "schemaVersion": 1,
+  "startingCensusSha256": "31044de2a9ffd9accd1dc860ec0c0d4976ba7f69d9a930102a99e3e0a485ddbb",
+  "startingSha": "225dfcdce0d98651e1a9c85bb3c311cf71e1c01b"
+}

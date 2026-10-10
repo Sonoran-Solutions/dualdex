@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 TARGET = Path(__file__).with_name("belch-coverage.json")
 START = "cd81bcc42a7916b62a7d2649549de43aa98a0425"
 MOVES = {"Belch"}
+APPROVED_RAPID_SPIN = Path(__file__).with_name("rapid-spin-approved-transitions.json")
 CENSUS_PATH = "tools/hns-calc-census/census.json.gz"
 
 
@@ -49,7 +50,14 @@ def build():
             outside.append(row)
         else:
             transitions.append(row)
-    assert not outside, outside[:3]
+    # Slice 17 admitted Rapid Spin after this report's starting commit. Only the exact approved
+    # REFUSED -> FULLY_MODELLED upgrades in rapid-spin-approved-transitions.json are accepted here.
+    approved = json.loads(APPROVED_RAPID_SPIN.read_text())
+    approved_upgrades = set(approved["approvedUpgrades"])
+    unexplained = [row for row in outside if not (
+        row["move"] == "Rapid Spin" and row["key"] in approved_upgrades
+        and row["fromTier"] == "REFUSED" and row["toTier"] == "FULLY_MODELLED")]
+    assert not unexplained, unexplained[:3]
     battle_formats = collections.Counter(r["gameType"] for r in target)
     lead = [r for r in target if r["partySlot"] == 0]
     baseline_combinations = collections.Counter(tuple(sorted(r.get("limitations", []))) for r in target)

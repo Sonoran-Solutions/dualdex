@@ -8,6 +8,11 @@ Before working down the individual tasks, keep the following release-level rules
 
 ### Scope and Product Focus
 
+- **H&S calculator feature freeze (takes effect automatically on merge of PR #167; remains active until explicitly lifted by the project owner after the public `0.9.0-beta.1` release).**
+  - The H&S calculator has completed its planned pre-beta feature development. New mechanic coverage is deferred until after the first public beta.
+  - Only correctness and beta-blocking fixes are allowed during the freeze. Follow the exception rules in [docs/CALCULATOR_BETA_FREEZE.md](docs/CALCULATOR_BETA_FREEZE.md) §3.
+  - Do not start another calculator slice. Future agents should work on general beta hardening (AYN Thor acceptance, save protection and recovery, presentation verification, controller shortcuts, Assistant fallback, and release-candidate validation), not another damage-mechanic coverage slice.
+  - Only the project owner may lift the freeze, and only after the public beta release.
 - [ ] **Feature-freeze major additions until the beta blockers are complete.**
   - Do not add new major companion features, broad single-screen work, ads, cloud saves, or speculative emulator features during hardening.
   - Complete Heart & Soul 2.0.5 and the general pre-beta blockers before beginning another ROM integration.

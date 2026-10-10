@@ -1,5 +1,5 @@
 {
-  "currentCensusSha256": "31044de2a9ffd9accd1dc860ec0c0d4976ba7f69d9a930102a99e3e0a485ddbb",
+  "currentCensusSha256": "a74476ad629703ddb4fb3f4d933383c2f0469edc738d2ea5d4d94adb04d29f8c",
   "opportunity": {
     "baselineLimitations": {
       "HNS_MOVE_MECHANICS_NOT_MODELLED": 64
@@ -665,7 +665,7 @@
       "abilityTrialExcludedAmbiguousDefenderSide": 19506,
       "abilityTrials": 1240,
       "eligibleRequests": 24278,
-      "eligibleRequestsRefusedByMoveMechanics": 1452,
+      "eligibleRequestsRefusedByMoveMechanics": 1402,
       "excludedMoves": 4782,
       "excludedMovesNonDamaging": 4782,
       "leadMatchupBattles": 651,
@@ -684,10 +684,10 @@
       "doublesPairsDisplayable": 6,
       "doublesPairsTotal": 18,
       "eligibleRequests": 8450,
-      "pairsDisplayable": 680,
+      "pairsDisplayable": 684,
       "pairsTotal": 1302,
-      "requestsDisplayable": 7582,
-      "singlesPairsDisplayable": 674,
+      "requestsDisplayable": 7596,
+      "singlesPairsDisplayable": 678,
       "singlesPairsTotal": 1284
     },
     "before": {
@@ -731,7 +731,632 @@
         "REFUSED": 64
       }
     },
-    "outsideFamilyTransitions": [],
+    "outsideFamilyTransitions": [
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_AARON_HNS#2|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_AARON_HNS#2|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_AKALA_SWIMMER_3_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_AKALA_SWIMMER_3_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_BEN_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_BEN_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_BUGSY_2_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_BUGSY_2_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_ELAINE_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_ELAINE_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_ELLIOT_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_ELLIOT_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_GAVEN_HNS#3|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_GAVEN_HNS#3|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_IRWIN_2_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_IRWIN_2_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_JAMES_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_JAMES_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_JAMES_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_JAMES_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_JENN_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_JENN_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_JERRY_HNS#2|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_JERRY_HNS#2|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_KARA_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_KARA_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_KELLY_HNS#3|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_KELLY_HNS#3|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_LEWIS_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_LEWIS_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_LEWIS_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_LEWIS_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_NICK_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_NICK_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_RANDALL_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_CONDITION_UNVERIFIED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_RANDALL_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_RICK_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_RICK_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_RICK_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_RICK_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_SAMUEL_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_SAMUEL_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_TONY_HNS#0|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_TONY_HNS#0|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_TONY_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_TONY_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_WADE_2_HNS#1|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_WADE_2_HNS#1|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_WADE_3_HNS#2|ref-physical|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      },
+      {
+        "afterCauses": [],
+        "afterIgnoredMechanics": [],
+        "afterLimitations": [],
+        "beforeLimitations": [
+          "HNS_MOVE_MECHANICS_NOT_MODELLED",
+          "HNS_ABILITY_EFFECT_NOT_MODELLED"
+        ],
+        "fromTier": "REFUSED",
+        "key": "TRAINER_WADE_3_HNS#2|ref-special|trainer-to-reference|Rapid Spin",
+        "move": "Rapid Spin",
+        "toTier": "FULLY_MODELLED"
+      }
+    ],
     "residualRefusals": [
       {
         "causes": [

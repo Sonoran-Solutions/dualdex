@@ -152,6 +152,9 @@ calc_goldens_check() {
 # never invent a sequential ID, and the ABILITIES_COUNT_GEN* anchor pattern of
 # the pinned header must resolve explicitly instead of by counter coincidence.
 hns_generator_test() {
+  echo "== calculator beta freeze: frozen evidence inventory hashes =="
+  python3 tools/hns-move-mechanics/check_calculator_beta_freeze.py
+  (cd tools/hns-move-mechanics && python3 -m unittest test_calculator_beta_freeze_check -v)
   echo "== H&S fixed-point accumulator tests =="
   node tools/calc-bundler/test_fixed_point.js
   echo "== H&S runtime-layout and release-phase evidence tests =="
@@ -264,6 +267,8 @@ hns_damage_oracle_test() {
   python3 tools/hns-damage-oracle/generate_hns_damage_oracle.py check
   python3 tools/hns-damage-oracle/semi_invulnerable_evidence.py check
   python3 tools/hns-damage-oracle/belch_evidence.py check
+  python3 tools/hns-damage-oracle/rapid_spin_evidence.py check
+  (cd tools/hns-damage-oracle && python3 -m unittest test_rapid_spin_evidence_check -v)
   echo "== H&S differential damage oracle: shipped calculator vs pinned engine =="
   local cc
   cc="$(find_cc)"
@@ -318,12 +323,14 @@ gradle_test() {
     python3 tools/hns-calc-census/report_scale_shot_coverage.py
     python3 tools/hns-calc-census/report_semi_invulnerable_coverage.py --write
     python3 tools/hns-calc-census/report_belch_coverage.py --write
+    python3 tools/hns-calc-census/report_rapid_spin_coverage.py --write
   else
     python3 tools/hns-calc-census/report_fixed_two_coverage.py --check
     python3 tools/hns-calc-census/report_variable_multi_hit_coverage.py --check
     python3 tools/hns-calc-census/report_scale_shot_coverage.py --check
     python3 tools/hns-calc-census/report_semi_invulnerable_coverage.py
     python3 tools/hns-calc-census/report_belch_coverage.py
+    python3 tools/hns-calc-census/report_rapid_spin_coverage.py
   fi
   python3 tools/hns-calc-census/report_hit_escape_negative_control.py --check
   python3 tools/hns-calc-census/report_fixed_two_negative_control.py --check
@@ -546,6 +553,7 @@ source_check() {
   python3 tools/hns-move-mechanics/test_scale_shot_contract.py --upstream-dir "$upstream"
   python3 tools/hns-move-mechanics/test_semi_invulnerable_preview_contract.py --upstream-dir "$upstream"
   python3 tools/hns-move-mechanics/test_belch_contract.py --upstream-dir "$upstream"
+  python3 tools/hns-move-mechanics/test_rapid_spin_contract.py --upstream-dir "$upstream"
 
   # Reviewed per-hold-effect item capability decisions must cover the exact pinned item domain,
   # every pinned HOLD_EFFECT_* reference and every literal item-identity read; the generated

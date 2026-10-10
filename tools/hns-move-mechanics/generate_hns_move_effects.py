@@ -872,6 +872,54 @@ def parse_hit_escape_metadata(text, ids):
             additionalEffects=[], preAttackEffects=[], abilityFlags=[], immunityFlags=[])
     return result
 
+RAPID_SPIN_MOVEINFO_SHA256 = "f5f2bb2b9cff9842ecf75acdf0600ad241ccdf05d604334a296386d155832db3"
+RAPID_SPIN_SOURCE_CONTRACTS = {
+    "src/battle_util.c": "dfe173ebef230849e789be6b417a316c359ec6fa7d0ecae2b1a59b5885903377",
+    "src/battle_move_resolution.c": "a009128b0640ae34d564ff392f19f52f040e23fe2c55837352fa6779f4783c5e",
+    "src/battle_script_commands.c": "93db4b3716e64cfdde3c9b53ca0dfe931df6a5af183596f3098ac03f262676aa",
+    "include/config/battle.h": "3931482c53f028182a598e4fda76e7e69294349fa36f75e32b3c1ea544300571",
+    "include/constants/battle_move_resolution.h": "4108aedb19465f66d88e4c99520aa59c270fb5c9fb6b046c0cec363096f187fa",
+    "src/data/battle_move_effects.h": "9b0c8aaef1d86dec3075b2df3ec5fe257262a31aa232e2de702480e362e1f7f5",
+    "include/constants/battle_move_effects.h": "c735d9a568690b5df4f895f7a9d445be26f613a00e2e0f217d96aba61f8dee33",
+}
+
+
+def verify_rapid_spin_contract(upstream_dir):
+    """Move-end cleanup and Sheer Force ordering that the Rapid Spin admission depends on."""
+    for path, digest in RAPID_SPIN_SOURCE_CONTRACTS.items():
+        if hashlib.sha256(open(os.path.join(upstream_dir, path), "rb").read()).hexdigest() != digest:
+            raise ValueError("Changed Rapid Spin source contract: " + path)
+
+
+def parse_rapid_spin_metadata(text, ids, sheer, unknown_sheer, contact, unknown_contact, ability_flags_by_id, flags_by_id):
+    """Selected Rapid Spin hit only; its Speed boost and cleanup are post-damage move-end effects.
+
+    sheer, contact and ability/flag maps are keyed by move ID.
+    """
+    entries = {symbol: "\n".join(body) for symbol, body in _entry_body(text.splitlines(), 0, len(text.splitlines()))}
+    body = entries.get("MOVE_RAPID_SPIN", "")
+    move_id = 229
+    if ids.get("MOVE_RAPID_SPIN") != move_id or hashlib.sha256(re.sub(r"\s+", "", body).encode()).hexdigest() != RAPID_SPIN_MOVEINFO_SHA256:
+        raise ValueError("Changed Rapid Spin MoveInfo")
+    if move_id in unknown_sheer or sheer.get(move_id) is not True:
+        raise ValueError("Rapid Spin Sheer Force predicate not resolved to TRUE")
+    if "makesContact" in unknown_contact.get(move_id, set()) or "makesContact" not in contact.get(move_id, set()):
+        raise ValueError("Changed Rapid Spin contact contract")
+    if move_id in ability_flags_by_id and ability_flags_by_id[move_id] or move_id in flags_by_id and flags_by_id[move_id]:
+        raise ValueError("Unexpected Rapid Spin ability or immunity flags")
+    def field(name):
+        return re.search(r"\." + name + r"\s*=\s*([^,\n}]+)", body).group(1).strip()
+    if field("effect") != "EFFECT_RAPID_SPIN" or field("power") != "B_UPDATED_MOVE_DATA >= GEN_8 ? 50 : 20":
+        raise ValueError("Changed Rapid Spin effect or power expression")
+    return {move_id: dict(fixedSingleHitRapidSpin=True, effect="EFFECT_RAPID_SPIN", power=50,
+        type=field("type"), category=field("category"), accuracy=int(field("accuracy")), pp=int(field("pp")),
+        target=field("target"), priority=int(field("priority")), strikeCount=1, multiHit=False,
+        makesContact=True, punchingMove=False, sheerForceAffected=True,
+        additionalEffects=[{"moveEffect": "MOVE_EFFECT_SPD_PLUS_1", "chance": 100, "sheerForceOverride": False,
+            "preAttackEffect": False, "self": True}],
+        preAttackEffects=[], abilityFlags=[], immunityFlags=[])}
+
+
 REPEATED_STRIKE_STABLE_ABILITIES = ['None', 'Damp', 'Insomnia', 'Technician', 'Tough Claws', 'Fluffy', 'Long Reach', 'Skill Link', 'Marvel Scale', 'Overgrow', 'Blaze', 'Torrent', 'Swarm', 'Defeatist', 'Adaptability', 'Normalize', 'Refrigerate', 'Pixilate', 'Aerilate', 'Galvanize', 'Liquid Voice', 'Levitate', 'Wonder Guard', 'Filter', 'Solid Rock', 'Ice Scales', 'Fur Coat', 'Heatproof', 'Water Bubble', 'Sheer Force']
 REPEATED_STRIKE_STABLE_HOLD_EFFECTS = ['HOLD_EFFECT_NONE', 'HOLD_EFFECT_LIFE_ORB', 'HOLD_EFFECT_SHELL_BELL', 'HOLD_EFFECT_CHOICE_BAND', 'HOLD_EFFECT_CHOICE_SPECS', 'HOLD_EFFECT_CHOICE_SCARF', 'HOLD_EFFECT_EXPERT_BELT', 'HOLD_EFFECT_MUSCLE_BAND', 'HOLD_EFFECT_WISE_GLASSES', 'HOLD_EFFECT_TYPE_POWER', 'HOLD_EFFECT_EVIOLITE', 'HOLD_EFFECT_ASSAULT_VEST', 'HOLD_EFFECT_LOADED_DICE', 'HOLD_EFFECT_PROTECTIVE_PADS', 'HOLD_EFFECT_IRON_BALL', 'HOLD_EFFECT_PUNCHING_GLOVE', 'HOLD_EFFECT_ABILITY_SHIELD']
 
@@ -1276,7 +1324,7 @@ def parse_ability_move_flags(text):
     return flags_by_symbol, unknown_by_symbol
 
 
-def parse_contact_and_sheer_force(text, *, updated_move_data_latest=False):
+def parse_contact_and_sheer_force(text, *, updated_move_data_latest=False, speed_buffing_rapid_spin_latest=False):
     """Extract the exact MoveMakesContact and MoveIsAffectedBySheerForce operands.
 
     MoveInfo bitfields default to zero when omitted. Sheer Force iterates every literal
@@ -1322,6 +1370,12 @@ def parse_contact_and_sheer_force(text, *, updated_move_data_latest=False):
         if updated_move_data_latest and symbol == "MOVE_VOLT_TACKLE" and active_condition == 1:
             prefix = text_body[:initializer.start()]
             if re.findall(r"^\s*#if\s+(.+)$", prefix, re.M)[-1] == "B_UPDATED_MOVE_DATA >= GEN_4":
+                active_condition = 0
+        # Rapid Spin's Speed boost is guarded by B_SPEED_BUFFING_RAPID_SPIN >= GEN_8. The pinned
+        # config sets it to GEN_LATEST (verified by the caller), so only that exact guard resolves.
+        if speed_buffing_rapid_spin_latest and symbol == "MOVE_RAPID_SPIN" and active_condition == 1:
+            prefix = text_body[:initializer.start()]
+            if re.findall(r"^\s*#if\s+(.+)$", prefix, re.M)[-1] == "B_SPEED_BUFFING_RAPID_SPIN >= GEN_8":
                 active_condition = 0
         match = re.search(r"\.additionalEffects\s*=\s*ADDITIONAL_EFFECTS\s*\((.*?)\)\s*,", text_body, re.S)
         if not match:
@@ -1392,8 +1446,10 @@ def build_maps(upstream_dir):
     config = open(os.path.join(upstream_dir, "include/config/battle.h"), encoding="utf-8").read()
     if not re.search(r"#define B_UPDATED_MOVE_DATA\s+GEN_LATEST", config):
         raise ValueError("Fixed recoil metadata requires reviewed GEN_LATEST move data")
+    if not re.search(r"#define B_SPEED_BUFFING_RAPID_SPIN\s+GEN_LATEST\b", config):
+        raise ValueError("Rapid Spin metadata requires B_SPEED_BUFFING_RAPID_SPIN=GEN_LATEST")
     contact_by_symbol, unknown_contact_by_symbol, sheer_by_symbol, unknown_sheer_by_symbol = parse_contact_and_sheer_force(
-        move_table_text, updated_move_data_latest=True)
+        move_table_text, updated_move_data_latest=True, speed_buffing_rapid_spin_latest=True)
 
     effect_by_id = {}
     target_by_id = {}
@@ -1588,6 +1644,8 @@ def generate_kotlin(effect_by_id, target_by_id, ordinary, flags_by_id, unknown_f
     lines.append("    val fixedSingleHitGyroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitGyroBall")))) + ")")
     lines.append("    val fixedSingleHitElectroBallMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitElectroBall")))) + ")")
     lines.append("    val fixedSingleHitEscapeMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitEscape")))) + ")")
+    lines.append("    /** Singles selected Rapid Spin hit; its Speed boost and cleanup are post-damage. */")
+    lines.append("    val fixedSingleHitRapidSpinMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedSingleHitRapidSpin")))) + ")")
     lines.append("    val fixedTwoHitPlainMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("fixedTwoHitPlain")))) + ")")
     lines.append("    /** Exact plain random-count EFFECT_HIT family; Scale Shot and Twineedle are excluded. */")
     lines.append("    val variableMultiHitPlainMoveIds: Set<Int> = setOf(" + ", ".join(map(str, sorted(i for i, m in (dynamic_power or {}).items() if m.get("variableMultiHitPlain")))) + ")")
@@ -1782,6 +1840,9 @@ def main():
     dynamic_power.update(parse_scale_shot_metadata(move_text, ids, contact_by_id, sheer_by_id, ability_flags_by_id))
     verify_scale_shot_script_contract(upstream_dir)
     verify_hit_escape_contract(upstream_dir)
+    dynamic_power.update(parse_rapid_spin_metadata(move_text, ids, sheer_by_id, unknown_sheer_by_id,
+        contact_by_id, unknown_contact_by_id, ability_flags_by_id, flags_by_id))
+    verify_rapid_spin_contract(upstream_dir)
     verify_fixed_two_contract(upstream_dir)
     verify_variable_multi_hit_source_contract(upstream_dir)
     verify_rollout_contract(upstream_dir)

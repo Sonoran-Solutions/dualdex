@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "slice": "H&S move coverage slice 17 (Rapid Spin)",
+  "startingSha": "225dfcdce0d98651e1a9c85bb3c311cf71e1c01b",
+  "testClass": "com.dualdex.calculator.HnsRapidSpinStartingHeadTest",
+  "testSource": "tools/hns-calc-census/starting-head/HnsRapidSpinStartingHeadTest.kt",
+  "request": {
+    "move": "Rapid Spin",
+    "gameType": "Singles",
+    "attacker": "Machamp L50 partySlot 0 (neutral, Insomnia, no item)",
+    "defender": "Blastoise L50 partySlot 1"
+  },
+  "startingHead": {
+    "compiledAgainstStartingApi": true,
+    "command": "DUALDEX_RAPID_SPIN_OLD_HEAD=true ./gradlew :app:testDebugUnitTest --tests com.dualdex.calculator.HnsRapidSpinStartingHeadTest --offline",
+    "expectedBlockingLimitations": [
+      "HNS_MOVE_MECHANICS_NOT_MODELLED"
+    ],
+    "result": "PASSED (1 test, 0 failures, 0 errors) in a detached worktree at 225dfcd; neutral Rapid Spin refused with HNS_MOVE_MECHANICS_NOT_MODELLED"
+  },
+  "currentHead": {
+    "command": "./gradlew :app:testDebugUnitTest --tests com.dualdex.calculator.HnsRapidSpinStartingHeadTest --offline",
+    "expected": "CalcRequestOutcome.Ready (no blocking limitation)",
+    "result": "PASSED (1 test, 0 failures, 0 errors) on the Slice 17 head; neutral Rapid Spin admitted (CalcRequestOutcome.Ready)",
+    "note": "The test copy under app/src/test was added for the run and must be removed before commit (removal blocked by a safety check; left for the user)."
+  },
+  "hardware": "NOT_RUN"
+}

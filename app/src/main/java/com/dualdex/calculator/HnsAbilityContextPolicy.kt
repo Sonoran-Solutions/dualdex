@@ -413,11 +413,20 @@ object HnsAbilityContextPolicy {
                     "The exact attacker Long Reach identity proves these contact-capable strikes are non-contact; the repeated-strike authority therefore needs no Beak Blast move witness.")
             abilityId == 203 && (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds ||
                 c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds ||
+                c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRapidSpinMoveIds ||
                 c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedTwoHitPlainMoveIds) &&
                 c.selectedStrikeModelled == true && c.observedBattlersCount == 2 && abilityObserved(c) ->
-                if (side == HnsAbilitySide.ATTACKER) relevant(if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds) "rollout_long_reach_contact" else "hit_escape_long_reach_contact", "src/battle_util.c:5880-5884",
+                if (side == HnsAbilitySide.ATTACKER) relevant(when {
+                        c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds -> "rollout_long_reach_contact"
+                        c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRapidSpinMoveIds -> "rapid_spin_long_reach_contact"
+                        else -> "hit_escape_long_reach_contact"
+                    }, "src/battle_util.c:5880-5884",
                     "The reviewed selected hit uses IsMoveMakingContact: effective attacker Long Reach clears contact before Tough Claws/Fluffy; the dedicated sequence authority checks subsequent reactions independently.")
-                else proof(if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds) "rollout_defender_long_reach" else "hit_escape_defender_long_reach", "src/battle_util.c:5880-5884",
+                else proof(when {
+                        c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRolloutMoveIds -> "rollout_defender_long_reach"
+                        c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRapidSpinMoveIds -> "rapid_spin_defender_long_reach"
+                        else -> "hit_escape_defender_long_reach"
+                    }, "src/battle_util.c:5880-5884",
                     "The contact predicate reads attacker ability; defender Long Reach cannot modify this selected hit.")
             c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitSpeedPowerMoveIds &&
                 abilityId in setOf(33, 34, 95, 100, 146, 202, 207, 259) ->
@@ -730,6 +739,8 @@ object HnsAbilityContextPolicy {
                         "The validated Rollout integer dynamic power is at most 60 before Technician."
                     else if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitEscapeMoveIds)
                         "The pinned hit-escape hit preserves source power before Technician's <=60 check."
+                    else if (c.moveId in com.dualdex.pokemon.hns.Hns205MoveEffects.fixedSingleHitRapidSpinMoveIds)
+                        "The pinned Rapid Spin selected hit preserves source power 50 before Technician's <=60 check."
                     else "The pinned ordinary EFFECT_HIT path preserves source move power before Technician's <=60 check; this move receives the modeled 1.5 base-power modifier."
                 )
                 else -> proof(

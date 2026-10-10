@@ -1,5 +1,13 @@
 # H&S 2.0.5 calculator capability matrix (issue #9)
 
+## Final pre-beta state (Slice 17, Rapid Spin)
+
+The H&S calculator has completed its planned pre-beta feature development. New mechanic coverage is deferred until after the first public beta. Only correctness and beta-blocking fixes are allowed during the freeze, which takes effect when the reviewed final-calculator PR merges and lasts until after the public `0.9.0-beta.1` release.
+
+- Admitted: 422 H&S move IDs across the families listed in [CALCULATOR_BETA_FREEZE.md](CALCULATOR_BETA_FREEZE.md) §2. Rapid Spin (229) is the final admission, as a Singles selected hit; Mortal Spin is not admitted.
+- Census after Slice 17: 21,576 FULLY_MODELLED, 462 CAVEATED_ESTIMATE, 2,240 REFUSED of 24,278 eligible requests. Displayable lead pairs 684/1302. See [HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md).
+- Support remains ESTIMATED. Hardware acceptance remains `NOT_RUN`.
+
 ## Slice 10: observed Rollout / Ice Ball selected hit
 
 See [the slice-10 authority and evidence](HNS_MOVE_COVERAGE_SLICE_10.md). Only

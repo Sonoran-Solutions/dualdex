@@ -55,6 +55,9 @@ enum class HnsMoveMechanicsCategory {
     /** Fixed selected hit; subsequent pivot is outside the damage result. */
     FIXED_SINGLE_HIT_ESCAPE,
 
+    /** Singles selected Rapid Spin hit; Sheer Force applies, and the Speed boost and cleanup are post-damage. */
+    FIXED_SINGLE_HIT_RAPID_SPIN,
+
     /** Plain fixed-two EFFECT_HIT; sequence stability is authorized separately. */
     FIXED_TWO_HIT_PLAIN,
 
@@ -91,7 +94,7 @@ enum class HnsMoveMechanicsCategory {
 
     /** True when a request may pass the move-mechanics gate with no blocker from this registry. */
     val isSupportedFixedSingleHit: Boolean
-        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT || this == FIXED_SINGLE_HIT_ESCAPE || this == FIXED_SINGLE_HIT_BELCH
+        get() = this == ORDINARY_PROVEN_EQUIVALENT || this == FIXED_SINGLE_HIT_RECOIL || this == FIXED_SINGLE_HIT_DRAIN || this == FIXED_SINGLE_HIT_EARTHQUAKE || this == FIXED_SINGLE_HIT_EXPLOSION || this == FIXED_SINGLE_HIT_UNDERWATER || this == FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW || this == FIXED_SINGLE_HIT_STATUS_DOUBLE || this == FIXED_SINGLE_HIT_BRINE || this == FIXED_SINGLE_HIT_GYRO_BALL || this == FIXED_SINGLE_HIT_ELECTRO_BALL || this == FIXED_SINGLE_HIT_ROLLOUT || this == FIXED_SINGLE_HIT_ESCAPE || this == FIXED_SINGLE_HIT_RAPID_SPIN || this == FIXED_SINGLE_HIT_BELCH
 
     /** Arithmetic eligibility for one strike, never a sequence-stability verdict. */
     val isSupportedSelectedStrike: Boolean
@@ -297,6 +300,11 @@ object HnsMoveMechanicsRegistry {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_HIT_ESCAPE",
                 HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_ESCAPE,
                 "Pinned fixed selected hit; later pivot handling does not change damage.")
+        }
+        if (moveId in Hns205MoveEffects.fixedSingleHitRapidSpinMoveIds) {
+            return HnsMoveMechanicsEntry(moveId, "EFFECT_RAPID_SPIN",
+                HnsMoveMechanicsCategory.FIXED_SINGLE_HIT_RAPID_SPIN,
+                "Pinned Singles selected hit; Speed boost and move-end cleanup do not change damage.")
         }
         if (moveId in Hns205MoveEffects.fixedSingleHitBelchMoveIds) {
             return HnsMoveMechanicsEntry(moveId, "EFFECT_BELCH",

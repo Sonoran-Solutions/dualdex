@@ -352,6 +352,7 @@ function hnsContactAuthority(move, attacker, input) {
           input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_SEMI_INVULNERABLE_PREVIEW' &&
           hnsMoveMetadata.moves[String(id)]?.semiInvulnerablePreview === true ||
         input.move?.hnsMoveEffect === 'EFFECT_HIT_ESCAPE' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ESCAPE' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitEscape === true ||
+        input.move?.hnsMoveEffect === 'EFFECT_RAPID_SPIN' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_RAPID_SPIN' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitRapidSpin === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ROLLOUT' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ROLLOUT' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitRollout === true ||
         input.move?.hnsMoveEffect === 'EFFECT_ELECTRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ELECTRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitElectroBall === true ||
         input.move?.hnsMoveEffect === 'EFFECT_GYRO_BALL' && input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_GYRO_BALL' && hnsMoveMetadata.moves[String(id)]?.fixedSingleHitGyroBall === true ||
@@ -615,6 +616,25 @@ function validateSemiInvulnerablePreview(input, move, gameType, semiState) {
 }
 
 function calculateHnsDamage(gen, attacker, defender, move, field, input) {
+  // Rapid Spin: one selected hit. Sheer Force is source-proven TRUE (guaranteed Speed effect), so the
+  // shared base-power modifier applies; the Speed boost and move-end cleanup happen after damage.
+  const rapidSpinMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
+  const rapidSpinFamily = rapidSpinMetadata?.fixedSingleHitRapidSpin === true;
+  if (rapidSpinFamily || input.move?.hnsMoveEffect === 'EFFECT_RAPID_SPIN' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_RAPID_SPIN') {
+    if (!rapidSpinFamily || input.move.hnsMoveId !== 229 || input.move.name?.toLowerCase() !== 'rapid spin' ||
+        input.move.hnsMoveFamily !== 'FIXED_SINGLE_HIT_RAPID_SPIN' ||
+        input.move.hnsMoveEffect !== 'EFFECT_RAPID_SPIN' || rapidSpinMetadata.effect !== 'EFFECT_RAPID_SPIN' ||
+        input.move.hnsFixedSingleHit !== true || input.move.hnsIsOrdinary !== false ||
+        move.bp !== 50 || rapidSpinMetadata.power !== 50 ||
+        input.move.hnsMakesContact !== true || input.move.hnsUnknownContact !== false ||
+        input.move.hnsUnknownPunching !== false || input.move.hnsUnknownSheerForce !== false ||
+        input.move.hnsSheerForceAffected !== true ||
+        !Array.isArray(input.move.hnsMoveFlags) || input.move.hnsMoveFlags.length !== 0 ||
+        !Array.isArray(input.move.hnsMoveAbilityFlags) || input.move.hnsMoveAbilityFlags.length !== 0 ||
+        input.defender?.hnsSemiInvulnerableState !== 0 || input.defender?.hnsSubstitute !== false ||
+        normalizeGameType(field.gameType || input.field?.gameType) !== 'Singles')
+      throw new Error('H&S Rapid Spin requires pinned selected-hit metadata');
+  }
   const escapeMetadata = hnsMoveMetadata.moves[String(input.move?.hnsMoveId)];
   const escapeFamily = escapeMetadata?.fixedSingleHitEscape === true;
   if (escapeFamily || input.move?.hnsMoveEffect === 'EFFECT_HIT_ESCAPE' || input.move?.hnsMoveFamily === 'FIXED_SINGLE_HIT_ESCAPE') {

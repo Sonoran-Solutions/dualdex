@@ -1,6 +1,5 @@
 package com.dualdex.companion.ui
 
-import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -120,6 +119,10 @@ class BattleConsoleScreenView(
     private val readOnlyNoticeText: TextView
     private val actionFeedbackText: TextView
     private val moveHolders = ArrayList<MoveTileHolder>(4)
+    // Inline long-press details. The companion screen is a presentation window, which cannot
+    // host a Dialog (Window type mismatch crash), so details render in the view hierarchy.
+    private val moveDetailsPanel: TextView
+    private var moveDetailsSlot: Int? = null
     private val partyRowHolders = ArrayList<PartyMemberRowHolder>(6)
     private val partyRowsContainer: LinearLayout
 
@@ -290,6 +293,27 @@ class BattleConsoleScreenView(
                 bottomMargin = context.dp(DualDexTheme.Spacing.compact)
             })
         }
+
+        moveDetailsPanel = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.meta
+            background = DualDexComponents.surface(context)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact)
+            )
+            visibility = View.GONE
+            isClickable = true
+            setOnClickListener {
+                moveDetailsSlot = null
+                visibility = View.GONE
+            }
+        }
+        liveBattleContainer.addView(moveDetailsPanel, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.compact)
+        })
 
         // Party Switching Section
         liveBattleContainer.addView(DualDexComponents.sectionTitle(context, "Party"), LayoutParams(
@@ -615,21 +639,15 @@ class BattleConsoleScreenView(
         }
     }
 
-    private fun showMoveDetails(pres: MovePresentation, defender: ParsedPokemon?) {
-        val message = listOf(
-            "Type: ${pres.typeName.ifBlank { "—" }} · ${pres.category?.displayName ?: "—"}",
-            "Power: ${pres.powerDisplay} · Accuracy: ${pres.accuracyDisplay} · PP: ${pres.ppDisplay}",
-            "Effectiveness: ${pres.effectiveness}",
-            "Damage: ${MoveTileModels.fullDamageText(pres, defender?.maxHp)}",
-            "",
-            pres.description
-        ).joinToString("\n")
-        AlertDialog.Builder(context)
-            .setTitle(pres.name)
-            .setMessage(message)
-            .setPositiveButton("Close", null)
-            .show()
-    }
+    private fun moveDetailsText(pres: MovePresentation, defender: ParsedPokemon?): String = listOf(
+        pres.name,
+        "Type: ${pres.typeName.ifBlank { "—" }} · ${pres.category?.displayName ?: "—"}",
+        "Power: ${pres.powerDisplay} · Accuracy: ${pres.accuracyDisplay} · PP: ${pres.ppDisplay}",
+        "Effectiveness: ${pres.effectiveness}",
+        "Damage: ${MoveTileModels.fullDamageText(pres, defender?.maxHp)}",
+        pres.description,
+        "Tap to close"
+    ).filter { it.isNotBlank() }.joinToString("\n")
 
     private fun createPartyRowHolder(): PartyMemberRowHolder {
         val root = LinearLayout(context).apply {
@@ -1115,7 +1133,8 @@ class BattleConsoleScreenView(
                 if (tile.damageText != null || tile.effectivenessText != null) View.VISIBLE else View.GONE
 
             holder.root.setOnLongClickListener {
-                showMoveDetails(pres, defender)
+                moveDetailsSlot = if (moveDetailsSlot == i) null else i
+                bindMoves(defender, viewModel.battleUiSnapshot.value)
                 true
             }
 
@@ -1142,6 +1161,16 @@ class BattleConsoleScreenView(
                 holder.root.isClickable = false
                 holder.root.isFocusable = false
             }
+        }
+
+        val detailsPres = moveDetailsSlot?.let { slot -> lastCachedMoves.getOrNull(slot)?.takeIf { it.moveId > 0 } }
+        if (detailsPres == null) {
+            // Moves are briefly empty while a recalculation runs; keep the slot open through that.
+            if (lastCachedMoves.isNotEmpty()) moveDetailsSlot = null
+            moveDetailsPanel.visibility = View.GONE
+        } else {
+            moveDetailsPanel.text = moveDetailsText(detailsPres, defender)
+            moveDetailsPanel.visibility = View.VISIBLE
         }
     }
 

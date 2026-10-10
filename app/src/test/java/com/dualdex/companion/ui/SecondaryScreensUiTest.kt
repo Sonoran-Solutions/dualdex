@@ -118,7 +118,15 @@ class SecondaryScreensUiTest {
     @Test
     fun smallButtonComponentProducesProperDimensionsAndStates() {
         // Verified by compilation and token checks
-        assertEquals(8, DualDexTheme.Radius.control)
+        val previous = DualDexTheme.style
+        try {
+            DualDexTheme.style = CompanionVisualStyle.QUIET_HANDHELD
+            assertEquals(8, DualDexTheme.Radius.control)
+            DualDexTheme.style = CompanionVisualStyle.NAVIGATOR
+            assertEquals(3, DualDexTheme.Radius.control)
+        } finally {
+            DualDexTheme.style = previous
+        }
         assertEquals(4, DualDexTheme.Spacing.tight)
         assertEquals(8, DualDexTheme.Spacing.compact)
     }

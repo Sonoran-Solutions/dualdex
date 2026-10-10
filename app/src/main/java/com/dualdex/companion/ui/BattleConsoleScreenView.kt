@@ -108,6 +108,8 @@ class BattleConsoleScreenView(
     private lateinit var playerCombatantHolder: CombatantHolder
     private lateinit var enemyCombatantHolder: CombatantHolder
     private lateinit var speedBannerView: LinearLayout
+    private lateinit var foeTeamRow: LinearLayout
+    private val foeTeamTracker = FoeTeamTracker()
     private lateinit var speedBannerTitle: TextView
     private lateinit var speedBannerDetail: TextView
     private val readOnlyNoticeView: LinearLayout
@@ -225,6 +227,13 @@ class BattleConsoleScreenView(
 
         // Build Matchup Card
         buildMatchupSection(liveBattleContainer)
+        foeTeamRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            visibility = View.GONE
+        }
+        liveBattleContainer.addView(foeTeamRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
         // Read-only notice
         readOnlyNoticeView = LinearLayout(context).apply {
@@ -874,6 +883,7 @@ class BattleConsoleScreenView(
         // Cache-aware move presentation calculation
         ensureMovePresentations(attacker, defender, profile, runtimeTrust, playerStages, enemyStages, hnsCalculationContext)
 
+        if (!inBattle) foeTeamTracker.reset()
         if (!inBattle || attacker == null) {
             val (title, detail) = if (runtimeTrust.hasActiveRom && !runtimeTrust.mayReadLiveMemory) {
                 RomCompatibilityMessages.badge(runtimeTrust.status) to RomCompatibilityMessages.detail(runtimeTrust.status)
@@ -944,6 +954,11 @@ class BattleConsoleScreenView(
                 else -> readOnlyNoticeView.visibility = View.GONE
             }
 
+            bindFoeTeam(
+                enemies,
+                activeEnemyIdx.takeIf { enemyResolution.hasResolvedSlot || chosenDoublesEnemy != null }
+            )
+
             // Update Move Cards
             bindMoves(defender, uiSnap)
 
@@ -953,6 +968,52 @@ class BattleConsoleScreenView(
 
         if (activeMode == BattleMode.DETAILS) {
             updateDetailsMode()
+        }
+    }
+
+    // ponytail: nextSlot is always null until a profile has a runtime-verified
+    // gBattleStruct->monToSwitchIntoId address; pass it here once the native read exists.
+    private fun bindFoeTeam(enemies: List<ParsedPokemon>, activeSlot: Int?) {
+        val slots = foeTeamTracker.build(enemies, activeSlot, nextSlot = null)
+        foeTeamRow.visibility = if (slots.isEmpty()) View.GONE else View.VISIBLE
+        while (foeTeamRow.childCount < slots.size) {
+            foeTeamRow.addView(TextView(context).apply {
+                textSize = DualDexTheme.Type.compact
+                gravity = Gravity.CENTER
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
+                setPadding(context.dp(DualDexTheme.Spacing.tight), context.dp(DualDexTheme.Spacing.tight),
+                    context.dp(DualDexTheme.Spacing.tight), context.dp(DualDexTheme.Spacing.tight))
+            }, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        }
+        for (i in 0 until foeTeamRow.childCount) {
+            val cell = foeTeamRow.getChildAt(i) as TextView
+            val foe = slots.getOrNull(i)
+            cell.visibility = if (foe == null) View.GONE else View.VISIBLE
+            if (foe == null) continue
+            val name = foe.speciesId?.let { com.dualdex.pokemon.SpeciesDatabase.get(it).name }
+            cell.text = when {
+                name == null -> "\u25D3" // Poke Ball: not yet seen
+                foe.next -> "Next: $name"
+                else -> name
+            }
+            cell.contentDescription = "Foe ${foe.slot + 1}: " + when {
+                name == null -> "not yet seen"
+                foe.fainted -> "$name, fainted"
+                foe.active -> "$name, active"
+                foe.next -> "$name, sent out next"
+                else -> name
+            }
+            cell.setTextColor(when {
+                foe.fainted -> DualDexTheme.Color.textSecondary
+                foe.active -> DualDexTheme.Color.accent
+                foe.next -> DualDexTheme.Color.warning
+                else -> DualDexTheme.Color.textPrimary
+            })
+            cell.paintFlags = if (foe.fainted) cell.paintFlags or android.graphics.Paint.STRIKE_THRU_TEXT_FLAG
+                else cell.paintFlags and android.graphics.Paint.STRIKE_THRU_TEXT_FLAG.inv()
+            cell.background = if (foe.active) DualDexComponents.roundedDrawable(
+                context, DualDexTheme.Color.surfaceSelected, DualDexTheme.Radius.control) else null
         }
     }
 

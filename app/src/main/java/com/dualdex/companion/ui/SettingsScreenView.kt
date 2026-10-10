@@ -367,6 +367,19 @@ class SettingsScreenView(
             )
             addView(autoOpenSegment)
 
+            addView(TextView(context).apply {
+                text = "Status Bar Above Game"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Off", "On"),
+                initialIndex = if (settingsManager.isGameStatusBarEnabled) 1 else 0,
+                onItemSelected = { idx -> settingsManager.isGameStatusBarEnabled = idx == 1 }
+            ))
+
             // Interactive Touch Controls
             val touchControlsLabel = TextView(context).apply {
                 text = "Interactive Touch Controls (Experimental)"

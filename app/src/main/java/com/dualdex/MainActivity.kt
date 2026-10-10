@@ -31,6 +31,7 @@ import com.dualdex.companion.CompanionTab
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.companion.RomItem
 import com.dualdex.companion.ui.CompanionScreenView
+import com.dualdex.companion.ui.DualDexTheme
 import com.dualdex.emulator.AudioDriver
 import com.dualdex.emulator.EmulatorSurfaceView
 import com.dualdex.emulator.InputManager
@@ -301,6 +302,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
 
             // 6. Setup display UI
+            DualDexTheme.style = settingsManager.companionVisualStyle
             setupDisplays()
 
             // 7. Scan saved ROMs folder if available
@@ -427,6 +429,18 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                     }
                 }
             }
+        }
+    }
+
+    /** Tokens are read at view construction, so a style change rebuilds the companion shell. */
+    private fun rebuildCompanionForStyleChange() {
+        val presentation = companionPresentation
+        if (presentation?.isShowing == true) {
+            presentation.rebuildContent()
+        } else {
+            currentCompanionScreenView?.release()
+            currentCompanionScreenView = null
+            setupDisplays()
         }
     }
 
@@ -562,7 +576,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             onStretchChanged = { stretch: Boolean ->
                 emulatorView?.setStretchToFit(stretch)
             },
-            onChooseSavesFolderRequested = { chooseSavesFolderLauncher.launch(null) }
+            onChooseSavesFolderRequested = { chooseSavesFolderLauncher.launch(null) },
+            onVisualStyleChanged = ::rebuildCompanionForStyleChange
         ).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -606,7 +621,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 onStretchChanged = { stretch: Boolean ->
                     emulatorView?.setStretchToFit(stretch)
                 },
-                onChooseSavesFolderRequested = { chooseSavesFolderLauncher.launch(null) }
+                onChooseSavesFolderRequested = { chooseSavesFolderLauncher.launch(null) },
+            onVisualStyleChanged = ::rebuildCompanionForStyleChange
             ).apply {
                 setOnDismissListener {
                     runOnUiThread {

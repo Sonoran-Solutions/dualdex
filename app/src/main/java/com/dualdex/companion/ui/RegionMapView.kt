@@ -115,12 +115,13 @@ class RegionMapView @JvmOverloads constructor(
 
     // Paints (pre-allocated)
     private val bgPaint = Paint().apply {
-        color = 0xFF0D1B2A.toInt() // Deep ocean blue
+        // Deep ocean blue; a deep LCD teal inside the Navigator viewport so the canvas matches it.
+        color = if (DualDexTheme.isNavigator) 0xFF06232D.toInt() else 0xFF0D1B2A.toInt()
         style = Paint.Style.FILL
     }
 
     private val gridPaint = Paint().apply {
-        color = 0x1A4A9EFF.toInt()
+        color = if (DualDexTheme.isNavigator) 0x1A6BE4E8 else 0x1A4A9EFF
         style = Paint.Style.STROKE
         strokeWidth = 1f
     }

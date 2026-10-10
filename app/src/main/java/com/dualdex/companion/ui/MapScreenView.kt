@@ -24,7 +24,8 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * Redesigned Map companion screen adhering to the Quiet Handheld Companion design system.
+ * Map companion screen. Uses semantic DualDexTheme tokens, so it renders in either companion
+ * style; in Navigator style the floating panels become an LCD title plate and info console.
  * Keeps the interactive canvas full-bleed while standardizing floating controls, location
  * hierarchy, and collapsible details with DualDexTheme tokens and zero emoji.
  */
@@ -95,7 +96,8 @@ class MapScreenView(
                 context.dp(DualDexTheme.Spacing.standard),
                 context.dp(DualDexTheme.Spacing.compact)
             )
-            background = DualDexComponents.surface(context, elevated = true)
+            background = consoleBackground()
+            if (DualDexTheme.isNavigator) addView(DualDexComponents.microLabel(context, "NAVIGATOR · LOCATION"))
         }
         val topLp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.TOP
@@ -195,7 +197,8 @@ class MapScreenView(
                 context.dp(DualDexTheme.Spacing.standard),
                 context.dp(DualDexTheme.Spacing.compact)
             )
-            background = DualDexComponents.surface(context, elevated = true)
+            background = consoleBackground()
+            if (DualDexTheme.isNavigator) addView(DualDexComponents.microLabel(context, "AREA INFO"))
         }
         val bottomLp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.BOTTOM
@@ -309,6 +312,13 @@ class MapScreenView(
         // No live location is known yet, so show nothing that could be mistaken
         // for one.
         displayNoSelection()
+    }
+
+    /** Navigator title plate / info console: LCD panel with a header strip in its border. */
+    private fun consoleBackground() = if (DualDexTheme.isNavigator) {
+        DualDexComponents.lcdPanel(context, headerColor = DualDexTheme.Color.accent)
+    } else {
+        DualDexComponents.surface(context, elevated = true)
     }
 
     private fun toggleSheetExpansion() {

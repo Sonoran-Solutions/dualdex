@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PorterDuff
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.text.TextUtils
@@ -31,12 +32,45 @@ object DualDexComponents {
         val stroke: Int
     )
 
-    fun surface(context: Context, elevated: Boolean = false): GradientDrawable = roundedDrawable(
-        context = context,
-        color = if (elevated) DualDexTheme.Color.elevatedSurface else DualDexTheme.Color.surface,
-        radiusDp = DualDexTheme.Radius.surface,
-        strokeColor = DualDexTheme.Color.border
+    fun surface(context: Context, elevated: Boolean = false): Drawable {
+        val color = if (elevated) DualDexTheme.Color.elevatedSurface else DualDexTheme.Color.surface
+        return if (DualDexTheme.isNavigator) {
+            lcdPanel(context, color)
+        } else {
+            roundedDrawable(context, color, DualDexTheme.Radius.surface, DualDexTheme.Color.border)
+        }
+    }
+
+    /** Navigator LCD panel: chamfered corners, thin outline, optional header strip in the border. */
+    fun lcdPanel(
+        context: Context,
+        color: Int = DualDexTheme.Color.elevatedSurface,
+        strokeColor: Int = DualDexTheme.Color.border,
+        headerColor: Int? = null,
+        maskColor: Int? = null
+    ): Drawable = NavigatorPanelDrawable(
+        fillColor = color,
+        strokeColor = strokeColor,
+        strokePx = context.dp(DualDexTheme.Control.defaultStroke).toFloat().coerceAtLeast(1f),
+        chamferPx = context.dp(DualDexTheme.Control.chamfer).toFloat(),
+        headerColor = headerColor,
+        maskColor = maskColor
     )
+
+    /**
+     * Uppercase device micro-label (e.g. "TEAM", "LOCATION"). Presentational only: callers keep
+     * full names in content descriptions, so TalkBack never reads the abbreviation.
+     */
+    fun microLabel(context: Context, text: CharSequence, color: Int = DualDexTheme.Color.accent): TextView = TextView(context).apply {
+        this.text = text
+        setTextColor(color)
+        textSize = DualDexTheme.Type.micro
+        typeface = DualDexTheme.Type.device
+        letterSpacing = 0.12f
+        isSingleLine = true
+        includeFontPadding = false
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
 
     fun surfaceCard(context: Context, elevated: Boolean = false): LinearLayout = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -219,8 +253,9 @@ object DualDexComponents {
         context: Context,
         @DrawableRes iconRes: Int,
         label: String,
+        microLabel: String? = null,
         onClick: () -> Unit
-    ): DualDexNavigationItem = DualDexNavigationItem(context, iconRes, label, onClick)
+    ): DualDexNavigationItem = DualDexNavigationItem(context, iconRes, label, microLabel, onClick)
 
     fun segmentedControl(
         context: Context,
@@ -351,10 +386,14 @@ class DualDexNavigationItem(
     context: Context,
     @DrawableRes iconRes: Int,
     label: String,
+    microLabel: String? = null,
     onClick: () -> Unit
 ) : LinearLayout(context) {
     private val icon = ImageView(context)
     private val labelView = TextView(context)
+    private val microLabelView: TextView? = microLabel
+        ?.takeIf { DualDexTheme.isNavigator }
+        ?.let { DualDexComponents.microLabel(context, it).apply { gravity = Gravity.CENTER } }
     private var selectedStyle = false
 
     init {
@@ -368,6 +407,11 @@ class DualDexNavigationItem(
         contentDescription = label
         setOnClickListener { onClick() }
 
+        microLabelView?.let {
+            addView(it, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                bottomMargin = context.dp(2)
+            })
+        }
         icon.setImageResource(iconRes)
         addView(icon, LayoutParams(context.dp(DualDexTheme.Control.navigationIcon), context.dp(DualDexTheme.Control.navigationIcon)))
         labelView.apply {
@@ -405,6 +449,7 @@ class DualDexNavigationItem(
         }
         icon.setColorFilter(color, PorterDuff.Mode.SRC_IN)
         labelView.setTextColor(color)
+        microLabelView?.setTextColor(color)
     }
 }
 
@@ -469,6 +514,40 @@ class DualDexSegmentedControl(
             } else {
                 DualDexComponents.controlBackground(context, DualDexButtonStyle.GHOST, selected = false)
             }
+        }
+    }
+}
+
+/**
+ * Segmented LCD-style meter (#133). Any non-zero value lights at least one segment, so a sliver
+ * of HP never reads as empty. Pair it with a text value: the meter is never the only signal.
+ */
+class SegmentedMeterView(context: Context, private val segments: Int = 24) : View(context) {
+    private val paint = android.graphics.Paint()
+    private var fraction = 0f
+    private var fillColor = DualDexTheme.Color.success
+
+    init {
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    fun setValue(current: Int, maximum: Int, color: Int) {
+        val next = if (maximum > 0) (current.toFloat() / maximum).coerceIn(0f, 1f) else 0f
+        if (next == fraction && color == fillColor) return
+        fraction = next
+        fillColor = color
+        invalidate()
+    }
+
+    override fun onDraw(canvas: android.graphics.Canvas) {
+        val gap = context.dp(2).toFloat().coerceAtLeast(1f)
+        val segW = (width - gap * (segments - 1)) / segments
+        if (segW <= 0f) return
+        val lit = if (fraction > 0f) kotlin.math.ceil(fraction * segments).toInt().coerceAtLeast(1) else 0
+        for (i in 0 until segments) {
+            paint.color = if (i < lit) fillColor else DualDexTheme.Color.surfaceDisabled
+            val x = i * (segW + gap)
+            canvas.drawRect(x, 0f, x + segW, height.toFloat(), paint)
         }
     }
 }

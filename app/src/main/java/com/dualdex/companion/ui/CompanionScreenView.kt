@@ -9,6 +9,7 @@ import android.net.Uri
 import android.text.TextUtils
 import android.util.Log
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -43,23 +44,27 @@ class CompanionScreenView(
     private val onRefreshRomsRequested: (() -> Unit)? = null,
     private val onPlayRomRequested: ((Uri, String) -> Unit)? = null,
     private val onStretchChanged: ((Boolean) -> Unit)? = null,
-    private val onChooseSavesFolderRequested: (() -> Unit)? = null
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null,
+    private val onVisualStyleChanged: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
-    private data class PrimaryDestination(val tab: CompanionTab, val iconRes: Int)
+    private data class PrimaryDestination(val tab: CompanionTab, val iconRes: Int, val microLabel: String)
 
+    // Micro-labels are Navigator presentation only (#133); visible labels and TalkBack keep
+    // the full destination names.
     private val primaryDestinations = listOf(
-        PrimaryDestination(CompanionTab.HOME, R.drawable.ic_dualdex_library),
-        PrimaryDestination(CompanionTab.PARTY, R.drawable.ic_dualdex_party),
-        PrimaryDestination(CompanionTab.BATTLE, R.drawable.ic_dualdex_battle),
-        PrimaryDestination(CompanionTab.MAP, R.drawable.ic_dualdex_map),
-        PrimaryDestination(CompanionTab.MORE, R.drawable.ic_dualdex_more)
+        PrimaryDestination(CompanionTab.HOME, R.drawable.ic_dualdex_library, "CART"),
+        PrimaryDestination(CompanionTab.PARTY, R.drawable.ic_dualdex_party, "TEAM"),
+        PrimaryDestination(CompanionTab.BATTLE, R.drawable.ic_dualdex_battle, "BATTLE"),
+        PrimaryDestination(CompanionTab.MAP, R.drawable.ic_dualdex_map, "NAV"),
+        PrimaryDestination(CompanionTab.MORE, R.drawable.ic_dualdex_more, "SYS")
     )
 
     private val contentContainer: FrameLayout
     private val tabButtons = mutableMapOf<CompanionTab, DualDexNavigationItem>()
     private val contextBar: LinearLayout
     private val profileLabel: TextView
+    private val liveIndicator: TextView
     private val battleIndicator: TextView
     private val timeView: TextView
     private val batteryView: TextView
@@ -86,7 +91,10 @@ class CompanionScreenView(
             onOpenRomRequested
         )
     }
-    private val partyView: PartyScreenView by lazy { PartyScreenView(context, viewModel) }
+    // Classic keeps the original Party layout so the style toggle is a true old/new A/B (#133).
+    private val partyView: View by lazy {
+        if (DualDexTheme.isNavigator) PartyScreenView(context, viewModel) else ClassicPartyScreenView(context, viewModel)
+    }
     private val mapView: MapScreenView by lazy { MapScreenView(context, viewModel) }
     private val calcView: CalcTabScreenView by lazy { CalcTabScreenView(context, viewModel) }
     private val battleView: BattleConsoleScreenView by lazy {
@@ -109,7 +117,8 @@ class CompanionScreenView(
             onSpeedChanged,
             onStretchChanged,
             onTabSelected = ::switchTab,
-            onChooseSavesFolderRequested = onChooseSavesFolderRequested
+            onChooseSavesFolderRequested = onChooseSavesFolderRequested,
+            onVisualStyleChanged = onVisualStyleChanged
         )
     }
     private val moreView: MoreScreenView by lazy { MoreScreenView(context, ::navigateTo) }
@@ -119,18 +128,37 @@ class CompanionScreenView(
 
     init {
         orientation = VERTICAL
-        setBackgroundColor(DualDexTheme.Color.background)
+        val navigator = DualDexTheme.isNavigator
+        if (navigator) {
+            // One virtual device: thin shell rim, dark bezel, LCD viewport (#133).
+            val shell = context.dp(DualDexTheme.Control.shellInset)
+            val inset = shell + context.dp(DualDexTheme.Control.bezelInset)
+            background = NavigatorFrameDrawable(shell.toFloat(), context.dp(10).toFloat())
+            setPadding(inset, inset, inset, inset)
+        } else {
+            setBackgroundColor(DualDexTheme.Color.background)
+        }
 
         contextBar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(
-                context.dp(DualDexTheme.Spacing.section),
-                context.dp(DualDexTheme.Spacing.compact),
-                context.dp(DualDexTheme.Spacing.section),
-                context.dp(DualDexTheme.Spacing.compact)
-            )
-            setBackgroundColor(DualDexTheme.Color.surface)
+            if (navigator) {
+                minimumHeight = context.dp(36)
+                setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), context.dp(DualDexTheme.Spacing.tight))
+            } else {
+                setPadding(
+                    context.dp(DualDexTheme.Spacing.section),
+                    context.dp(DualDexTheme.Spacing.compact),
+                    context.dp(DualDexTheme.Spacing.section),
+                    context.dp(DualDexTheme.Spacing.compact)
+                )
+                setBackgroundColor(DualDexTheme.Color.surface)
+            }
+        }
+        if (navigator) {
+            contextBar.addView(DualDexComponents.microLabel(context, "DUALDEX NAV"), LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT
+            ).apply { marginEnd = context.dp(DualDexTheme.Spacing.standard) })
         }
         profileLabel = TextView(context).apply {
             setTextColor(DualDexTheme.Color.textSecondary)
@@ -139,6 +167,13 @@ class CompanionScreenView(
             ellipsize = TextUtils.TruncateAt.END
             maxLines = 1
             layoutParams = LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+        }
+        // Text plus colour, so trust is never communicated by colour alone.
+        liveIndicator = DualDexComponents.microLabel(context, "● LIVE", DualDexTheme.Color.success).apply {
+            textSize = DualDexTheme.Type.compact
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            contentDescription = "Live data from a verified game"
+            visibility = View.GONE
         }
         battleIndicator = DualDexComponents.ghostControl(context, "Battle") {
             navigateTo(CompanionTab.BATTLE)
@@ -155,14 +190,14 @@ class CompanionScreenView(
         timeView = TextView(context).apply {
             setTextColor(DualDexTheme.Color.textSecondary)
             textSize = DualDexTheme.Type.meta
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = DualDexTheme.Type.device
             isSingleLine = true
             maxLines = 1
         }
         batteryView = TextView(context).apply {
             setTextColor(DualDexTheme.Color.textSecondary)
             textSize = DualDexTheme.Type.meta
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = DualDexTheme.Type.device
             isSingleLine = true
             maxLines = 1
         }
@@ -175,6 +210,10 @@ class CompanionScreenView(
         )
 
         contextBar.addView(profileLabel)
+        contextBar.addView(liveIndicator, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = context.dp(DualDexTheme.Spacing.compact)
+            marginEnd = context.dp(DualDexTheme.Spacing.standard)
+        })
         contextBar.addView(
             battleIndicator,
             LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
@@ -190,26 +229,48 @@ class CompanionScreenView(
 
         contentContainer = FrameLayout(context).apply {
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
+            if (navigator) {
+                // LCD viewport: the frame is a foreground so it also cuts the corners of
+                // whatever rectangular screen is hosted inside.
+                setBackgroundColor(DualDexTheme.Color.background)
+                foreground = DualDexComponents.lcdPanel(
+                    context,
+                    color = DualDexTheme.Color.transparent,
+                    strokeColor = DualDexTheme.Color.border,
+                    maskColor = DualDexTheme.Color.bezel
+                )
+                val pad = context.dp(1)
+                setPadding(pad, pad, pad, pad)
+            }
         }
         addView(contentContainer)
 
         val navBar = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(
-                context.dp(DualDexTheme.Spacing.tight),
-                context.dp(DualDexTheme.Spacing.tight),
-                context.dp(DualDexTheme.Spacing.tight),
-                context.dp(DualDexTheme.Spacing.compact)
-            )
-            setBackgroundColor(DualDexTheme.Color.surface)
+            if (navigator) {
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+            } else {
+                setPadding(
+                    context.dp(DualDexTheme.Spacing.tight),
+                    context.dp(DualDexTheme.Spacing.tight),
+                    context.dp(DualDexTheme.Spacing.tight),
+                    context.dp(DualDexTheme.Spacing.compact)
+                )
+                setBackgroundColor(DualDexTheme.Color.surface)
+            }
         }
         primaryDestinations.forEach { destination ->
-            val navItem = DualDexComponents.navigationItem(
+            lateinit var navItem: DualDexNavigationItem
+            navItem = DualDexComponents.navigationItem(
                 context,
                 destination.iconRes,
-                destination.tab.title
-            ) { navigateTo(destination.tab) }
+                destination.tab.title,
+                destination.microLabel
+            ) {
+                if (currentTab != destination.tab) navItem.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                navigateTo(destination.tab)
+            }
             tabButtons[destination.tab] = navItem
             navBar.addView(navItem, LayoutParams(0, context.dp(DualDexTheme.Control.primaryNavigationHeight), 1f))
         }
@@ -231,7 +292,7 @@ class CompanionScreenView(
                 updateResumeCard()
                 updateFolderStatus()
             }
-            CompanionTab.PARTY -> partyView.apply { refreshUI() }
+            CompanionTab.PARTY -> partyView.also { refreshParty() }
             CompanionTab.MAP -> mapView.apply { refreshUI() }
             CompanionTab.CALC -> calcView.apply { refreshUI() }
             CompanionTab.BATTLE -> battleView.apply {
@@ -255,6 +316,12 @@ class CompanionScreenView(
         updateNavigationSelection(tab)
     }
 
+    private fun refreshParty() = when (val view = partyView) {
+        is PartyScreenView -> view.refreshUI()
+        is ClassicPartyScreenView -> view.refreshUI()
+        else -> Unit
+    }
+
     fun refreshHomeScreen() {
         post {
             homeView.updateResumeCard()
@@ -267,7 +334,7 @@ class CompanionScreenView(
             updateContextBar()
             when (viewModel.selectedTab.value) {
                 CompanionTab.HOME -> homeView.updateResumeCard()
-                CompanionTab.PARTY -> partyView.refreshUI()
+                CompanionTab.PARTY -> refreshParty()
                 CompanionTab.MAP -> mapView.refreshUI()
                 CompanionTab.CALC -> calcView.refreshUI()
                 CompanionTab.BATTLE,
@@ -283,7 +350,7 @@ class CompanionScreenView(
         post {
             updateContextBar()
             when (viewModel.selectedTab.value) {
-                CompanionTab.PARTY -> partyView.refreshUI()
+                CompanionTab.PARTY -> refreshParty()
                 CompanionTab.CALC -> calcView.refreshUI()
                 CompanionTab.BATTLE -> battleView.refreshUI()
                 else -> Unit
@@ -342,6 +409,7 @@ class CompanionScreenView(
             profileLabel.text = ""
             profileLabel.visibility = View.VISIBLE
         }
+        liveIndicator.visibility = if (identity != null && trust.hasActiveRom && trust.isVerified) View.VISIBLE else View.GONE
         battleIndicator.visibility = if (inBattle) View.VISIBLE else View.GONE
         contextBar.visibility = View.VISIBLE
     }

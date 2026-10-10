@@ -28,7 +28,8 @@ class CompanionPresentation(
     private val onRefreshRomsRequested: (() -> Unit)? = null,
     private val onPlayRomRequested: ((Uri, String) -> Unit)? = null,
     private val onStretchChanged: ((Boolean) -> Unit)? = null,
-    private val onChooseSavesFolderRequested: (() -> Unit)? = null
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null,
+    private val onVisualStyleChanged: (() -> Unit)? = null
 ) : Presentation(context, display) {
 
     private var companionScreenView: CompanionScreenView? = null
@@ -36,28 +37,7 @@ class CompanionPresentation(
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val screen = CompanionScreenView(
-            context = context,
-            viewModel = viewModel,
-            onOpenRomRequested = onOpenRomRequested,
-            onShaderChanged = onShaderChanged,
-            onSpeedChanged = onSpeedChanged,
-            onImportSaveRequested = onImportSaveRequested,
-            onExportSaveRequested = onExportSaveRequested,
-            onChooseRomsFolderRequested = onChooseRomsFolderRequested,
-            onRefreshRomsRequested = onRefreshRomsRequested,
-            onPlayRomRequested = onPlayRomRequested,
-            onStretchChanged = onStretchChanged,
-            onChooseSavesFolderRequested = onChooseSavesFolderRequested
-        ).apply {
-            layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-        companionScreenView = screen
-        setContentView(screen)
+        showScreen()
 
         // Observe player party updates and notify bottom screen UI
         presentationScope.launch {
@@ -72,6 +52,40 @@ class CompanionPresentation(
                 companionScreenView?.notifyProfileChanged()
             }
         }
+    }
+
+    /**
+     * Rebuilds the companion content in place (e.g. after a visual-style change) without
+     * dismissing this Presentation, so the top screen and emulator are untouched.
+     */
+    fun rebuildContent() {
+        companionScreenView?.release()
+        showScreen()
+    }
+
+    private fun showScreen() {
+        val screen = CompanionScreenView(
+            context = context,
+            viewModel = viewModel,
+            onOpenRomRequested = onOpenRomRequested,
+            onShaderChanged = onShaderChanged,
+            onSpeedChanged = onSpeedChanged,
+            onImportSaveRequested = onImportSaveRequested,
+            onExportSaveRequested = onExportSaveRequested,
+            onChooseRomsFolderRequested = onChooseRomsFolderRequested,
+            onRefreshRomsRequested = onRefreshRomsRequested,
+            onPlayRomRequested = onPlayRomRequested,
+            onStretchChanged = onStretchChanged,
+            onChooseSavesFolderRequested = onChooseSavesFolderRequested,
+            onVisualStyleChanged = onVisualStyleChanged
+        ).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        companionScreenView = screen
+        setContentView(screen)
     }
 
     override fun onStop() {

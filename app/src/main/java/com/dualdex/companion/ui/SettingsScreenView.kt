@@ -39,7 +39,8 @@ class SettingsScreenView(
     private val onSpeedChanged: ((Int) -> Unit)? = null,
     private val onStretchChanged: ((Boolean) -> Unit)? = null,
     private val onTabSelected: ((com.dualdex.companion.CompanionTab) -> Unit)? = null,
-    private val onChooseSavesFolderRequested: (() -> Unit)? = null
+    private val onChooseSavesFolderRequested: (() -> Unit)? = null,
+    private val onVisualStyleChanged: (() -> Unit)? = null
 ) : LinearLayout(context) {
 
     private val settingsManager = SettingsManager(context)
@@ -117,6 +118,34 @@ class SettingsScreenView(
         // 2. Display Section
         val displayCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
             addView(DualDexComponents.sectionTitle(context, "Display"))
+
+            addView(TextView(context).apply {
+                text = "Companion Style"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            val styles = listOf(CompanionVisualStyle.NAVIGATOR, CompanionVisualStyle.QUIET_HANDHELD)
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Navigator", "Classic"),
+                initialIndex = styles.indexOf(settingsManager.companionVisualStyle).coerceAtLeast(0),
+                onItemSelected = { idx ->
+                    val chosen = styles[idx]
+                    if (chosen != DualDexTheme.style) {
+                        settingsManager.companionVisualStyle = chosen
+                        DualDexTheme.style = chosen
+                        // The host rebuilds the companion shell; post so this click finishes first.
+                        post { onVisualStyleChanged?.invoke() }
+                    }
+                }
+            ))
+            addView(TextView(context).apply {
+                text = "Navigator is the device-style companion; Classic is the original neutral theme."
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.compact
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.standard))
+            })
 
             // Shader Filter
             val filterLabel = TextView(context).apply {

@@ -2,6 +2,7 @@ package com.dualdex.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.dualdex.companion.ui.CompanionVisualStyle
 import com.dualdex.emulator.ShaderFilter
 
 /** When the on-screen touch controls are shown (#153). */
@@ -32,6 +33,15 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         }
         set(value) {
             prefs.edit().putString(KEY_SHADER_FILTER, value.name).apply()
+        }
+
+    /** Companion visual style (#133). Navigator by default; Quiet Handheld stays selectable for A/B. */
+    var companionVisualStyle: CompanionVisualStyle
+        get() = prefs.getString(KEY_COMPANION_VISUAL_STYLE, null)
+            ?.let { name -> CompanionVisualStyle.values().firstOrNull { it.name == name } }
+            ?: CompanionVisualStyle.NAVIGATOR
+        set(value) {
+            prefs.edit().putString(KEY_COMPANION_VISUAL_STYLE, value.name).apply()
         }
 
     var fastForwardMultiplier: Int
@@ -242,6 +252,7 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         private const val KEY_FAST_FORWARD = "key_fast_forward"
         private const val KEY_SMART_FAST_FORWARD = "key_smart_fast_forward"
         private const val KEY_SMART_FF_LEARNED = "key_smart_ff_learned_"
+        private const val KEY_COMPANION_VISUAL_STYLE = "key_companion_visual_style"
         private const val KEY_AUDIO_ENABLED = "key_audio_enabled"
         private const val KEY_GEMINI_API_KEY = "key_gemini_api_key"
         private const val KEY_STRETCH_TO_FIT = "key_stretch_to_fit"

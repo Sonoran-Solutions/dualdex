@@ -10,6 +10,16 @@ class SavesAndSettingsUiTest {
 
     @Test
     fun designThemeTokensAreRestrainedAndOledFriendly() {
+        val previous = DualDexTheme.style
+        DualDexTheme.style = CompanionVisualStyle.QUIET_HANDHELD
+        try {
+            assertQuietTokens()
+        } finally {
+            DualDexTheme.style = previous
+        }
+    }
+
+    private fun assertQuietTokens() {
         // Deep background and neutral elevated surfaces
         assertEquals(0xFF101116.toInt(), DualDexTheme.Color.background)
         assertEquals(0xFF181A20.toInt(), DualDexTheme.Color.surface)

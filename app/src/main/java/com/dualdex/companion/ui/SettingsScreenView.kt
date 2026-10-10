@@ -1,6 +1,7 @@
 package com.dualdex.companion.ui
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Typeface
 import android.text.InputType
 import android.text.TextUtils
@@ -17,6 +18,7 @@ import com.dualdex.assistant.RomHackAssistant
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
 import com.dualdex.settings.SettingsManager
+import com.dualdex.settings.TriggerShortcutMode
 
 /**
  * Redesigned Settings screen adhering to the Quiet Handheld Companion design system.
@@ -36,6 +38,38 @@ class SettingsScreenView(
 
     private val settingsManager = SettingsManager(context)
     private val apiKeyInput: EditText
+    private lateinit var speedSegment: DualDexSegmentedControl
+    private lateinit var triggerSegment: DualDexSegmentedControl
+    private lateinit var triggerMappingValue: TextView
+    private val speedValues = listOf(1, 2, 3, 4)
+    private val triggerModes = TriggerShortcutMode.values().toList()
+
+    // Keeps the Emulation speed and L2/R2 mode controls in step with changes made by the controller shortcut.
+    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> post { syncControllerSettings() } }
+
+    private fun triggerMappingText(mode: TriggerShortcutMode) = when (mode) {
+        TriggerShortcutMode.QUICK_SAVE_LOAD -> "Quick Save (L2) / Quick Load (R2)"
+        TriggerShortcutMode.FAST_FORWARD -> "Speed Down (L2) / Speed Up (R2)"
+        TriggerShortcutMode.DISABLED -> "Disabled"
+    }
+
+    private fun syncControllerSettings() {
+        speedSegment.setSelectedIndex(speedValues.indexOf(settingsManager.fastForwardMultiplier).coerceAtLeast(0))
+        val mode = settingsManager.triggerShortcutMode
+        triggerSegment.setSelectedIndex(triggerModes.indexOf(mode))
+        triggerMappingValue.text = triggerMappingText(mode)
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        settingsManager.registerChangeListener(prefsListener)
+        syncControllerSettings()
+    }
+
+    override fun onDetachedFromWindow() {
+        settingsManager.unregisterChangeListener(prefsListener)
+        super.onDetachedFromWindow()
+    }
 
     init {
         orientation = VERTICAL
@@ -155,7 +189,7 @@ class SettingsScreenView(
             val currentSpeed = settingsManager.fastForwardMultiplier
             val initialSpeedIdx = speeds.indexOf(currentSpeed).coerceIn(0, speeds.size - 1)
 
-            val speedSegment = DualDexComponents.segmentedControl(
+            speedSegment = DualDexComponents.segmentedControl(
                 context = context,
                 items = speedLabels,
                 initialIndex = initialSpeedIdx,
@@ -369,12 +403,30 @@ class SettingsScreenView(
             }
             addView(subtitle)
 
+            addView(TextView(context).apply {
+                text = "L2 / R2 Behavior"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            triggerSegment = DualDexComponents.segmentedControl(
+                context = context,
+                items = triggerModes.map { it.label },
+                initialIndex = triggerModes.indexOf(settingsManager.triggerShortcutMode),
+                onItemSelected = { idx ->
+                    settingsManager.triggerShortcutMode = triggerModes[idx]
+                    triggerMappingValue.text = triggerMappingText(triggerModes[idx])
+                }
+            )
+            addView(triggerSegment)
+            addView(View(context), LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.compact)))
+
             val mappingRows = listOf(
                 "D-Pad / Left Stick" to "GBA Directional Movement",
                 "Button A / B" to "A: Confirm / B: Cancel or Run",
                 "Button X / Y" to "Turbo / Menu Shortcut",
                 "L1 / R1" to "GBA Left / Right Triggers",
-                "L2 / R2" to "Quick Save (L2) / Quick Load (R2)",
+                "L2 / R2" to triggerMappingText(settingsManager.triggerShortcutMode),
                 "Start / Select" to "GBA Start / Select Buttons"
             )
 
@@ -390,6 +442,7 @@ class SettingsScreenView(
                         typeface = Typeface.DEFAULT_BOLD
                     }
                     val valTv = TextView(context).apply {
+                        if (key == "L2 / R2") triggerMappingValue = this
                         text = value
                         setTextColor(DualDexTheme.Color.textSecondary)
                         textSize = DualDexTheme.Type.body

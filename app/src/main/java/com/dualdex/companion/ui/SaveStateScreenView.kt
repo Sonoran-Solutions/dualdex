@@ -586,8 +586,10 @@ class SaveStateScreenView(
         profile: com.dualdex.romhack.RomHackProfile
     ): View = LinearLayout(context).apply {
         orientation = VERTICAL
-        background = DualDexComponents.surface(context, elevated = isCurrent).apply {
-            if (isCurrent) setStroke(context.dp(2), DualDexTheme.Color.accent)
+        background = if (isCurrent) {
+            DualDexComponents.lcdPanel(context, strokeColor = DualDexTheme.Color.accent)
+        } else {
+            DualDexComponents.surface(context)
         }
         val pad = context.dp(DualDexTheme.Spacing.compact)
         setPadding(pad, pad, pad, pad)

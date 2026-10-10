@@ -19,8 +19,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.CoroutineScope
+import androidx.lifecycle.lifecycleScope
+import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -29,15 +30,16 @@ import com.dualdex.calculator.DamageCalculator
 import com.dualdex.companion.CompanionPresentation
 import com.dualdex.companion.CompanionTab
 import com.dualdex.companion.CompanionViewModel
-import com.dualdex.companion.RomItem
 import com.dualdex.companion.ui.CompanionScreenView
 import com.dualdex.companion.ui.DualDexTheme
 import com.dualdex.emulator.AudioDriver
+import com.dualdex.emulator.CoreOwner
 import com.dualdex.emulator.EmulatorSurfaceView
 import com.dualdex.emulator.InputManager
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.LibretroHost
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.emulator.SmartFastForward
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
 import com.dualdex.emulator.RomUriPermissionManager
@@ -46,9 +48,9 @@ import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.settings.SettingsManager
 import com.dualdex.settings.TriggerShortcutMode
+import com.dualdex.emulator.TouchOverlayView
 import java.io.File
 import java.io.FileOutputStream
-import java.util.Locale
 
 class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
@@ -95,13 +97,12 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     /** L2/R2 (#14): behaviour follows the Settings "L2 / R2 Behavior" mode. */
     private fun onControllerShortcut(trigger: InputManager.Trigger) {
         when (settingsManager.triggerShortcutMode) {
-            TriggerShortcutMode.DISABLED -> Unit
+            TriggerShortcutMode.DISABLED, TriggerShortcutMode.HOLD_SPEED -> Unit
             TriggerShortcutMode.FAST_FORWARD -> {
                 val emu = emulatorView ?: return
                 val delta = if (trigger == InputManager.Trigger.L2) -1 else 1
                 val speed = SettingsManager.steppedSpeed(emu.getSpeedMultiplier(), delta)
-                emu.setSpeedMultiplier(speed)
-                settingsManager.fastForwardMultiplier = speed // Settings screen follows via its prefs listener
+                applySpeedStep(speed) // Settings screen follows via its prefs listener
                 Toast.makeText(this, "Speed ${speed}x", Toast.LENGTH_SHORT).show()
             }
             TriggerShortcutMode.QUICK_SAVE_LOAD -> quickStateShortcut(trigger == InputManager.Trigger.L2)
@@ -168,6 +169,24 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    /** #153 save sharing: opt-in folder where `<rom>.sav` is shared with other emulators. */
+    private val chooseShareSavesFolderLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                settingsManager.shareSavesFolderUri = uri.toString()
+                Toast.makeText(this, "Save sharing on: saves are copied as <rom>.sav", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Could not get write access to that folder", Toast.LENGTH_LONG).show()
+            }
+            companionPresentation?.refreshSavesTab()
+            currentCompanionScreenView?.refreshSavesTab()
+        }
+    }
+
     private val importSaveLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             val identity = viewModel.activeRomIdentity.value
@@ -213,36 +232,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     private fun scanRomsDirectory(folderUri: Uri) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val rootDoc = DocumentFile.fromTreeUri(applicationContext, folderUri)
-                if (rootDoc == null || !rootDoc.isDirectory) {
-                    Log.w("DualDex", "Selected URI is not a valid directory: $folderUri")
-                    return@launch
-                }
-
-                val romList = mutableListOf<RomItem>()
-                val files = rootDoc.listFiles()
-                for (file in files) {
-                    val name = file.name ?: continue
-                    if (name.endsWith(".gba", ignoreCase = true) || name.endsWith(".bin", ignoreCase = true)) {
-                        val title = name.substringBeforeLast(".")
-                        val length = file.length()
-                        val formattedSize = if (length >= 1024 * 1024) {
-                            String.format(Locale.US, "%.1f MB", length / (1024.0 * 1024.0))
-                        } else {
-                            "${length / 1024} KB"
-                        }
-                        romList.add(
-                            RomItem(
-                                title = title,
-                                fileName = name,
-                                uri = file.uri,
-                                sizeFormatted = formattedSize
-                            )
-                        )
-                    }
-                }
-                romList.sortBy { it.title.lowercase() }
-
+                val romList = com.dualdex.library.LibraryScanner.scan(applicationContext, folderUri, loadedProfiles)
                 withContext(Dispatchers.Main) {
                     viewModel.setScannedRoms(romList)
                     companionPresentation?.refreshHomeScreen()
@@ -254,8 +244,39 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private val pickCoverLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        val sha = pendingCoverSha ?: return@registerForActivityResult
+        pendingCoverSha = null
+        if (uri != null && com.dualdex.library.CoverArt.setFromUri(this, sha, uri)) {
+            settingsManager.romsFolderUri?.let { scanRomsDirectory(Uri.parse(it)) }
+        }
+    }
+    private var pendingCoverSha: String? = null
+
+    /** True after a [FrontendLaunchActivity] hand-off: Back then returns to the frontend. */
+    private val backToFrontend = object : androidx.activity.OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() { moveTaskToBack(true) }
+    }
+
+    /** Plays a ROM forwarded by [FrontendLaunchActivity]; any other intent ends frontend mode. */
+    private fun handleLaunchIntent(intent: Intent) {
+        val path = intent.getStringExtra(FrontendLaunchActivity.EXTRA_ROM_PATH)
+        backToFrontend.isEnabled = path != null
+        if (path != null) handleSelectedRom(Uri.fromFile(File(path)), intent.getStringExtra(FrontendLaunchActivity.EXTRA_TITLE))
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleLaunchIntent(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CoreOwner.process.claim(this)
+        onBackPressedDispatcher.addCallback(this, backToFrontend)
+        viewModel.pauseEmulation = { emulatorView?.pauseEmulationLoop() }
+        viewModel.resumeEmulation = { emulatorView?.resumeEmulationLoop() }
 
         try {
             // 1. Initialize QuickJS damage calculator engine in background
@@ -301,9 +322,27 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             viewModel.setBattleAutoOpenEnabled(settingsManager.isBattleAutoOpenEnabled)
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
 
+            // 5.5 Input defaults (#153): one-time AYN/Retroid A/B swap for untouched configs
+            settingsManager.migrateSwapABDefault(Build.MANUFACTURER, Build.BRAND, Build.MODEL)
+            settingsManager.registerChangeListener(inputPrefsListener)
+            com.dualdex.library.CoverArt.pickRequest = { sha ->
+                pendingCoverSha = sha
+                pickCoverLauncher.launch(arrayOf("image/*"))
+            }
+            com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = { initial ->
+                runOnUiThread { chooseShareSavesFolderLauncher.launch(initial) }
+            }
+
             // 6. Setup display UI
             DualDexTheme.style = settingsManager.companionVisualStyle
             setupDisplays()
+
+            // Re-apply the remembered speed step whenever the active ROM changes.
+            lifecycleScope.launch {
+                viewModel.activeRomIdentity.collect { id ->
+                    emulatorView?.setSpeedMultiplier(settingsManager.romSpeed(id?.takeIf { it.isValid }?.storageKey))
+                }
+            }
 
             // 7. Scan saved ROMs folder if available
             val savedFolder = settingsManager.romsFolderUri
@@ -338,10 +377,28 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
             // 8. Start background memory poller (10Hz)
             viewModel.startPolling(100L)
+
+            if (savedInstanceState == null) handleLaunchIntent(intent)
         } catch (e: Throwable) {
             Log.e("DualDex", "Fatal error in onCreate: ${e.message}", e)
             Toast.makeText(this, "Startup error: ${e.message}", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun createSmartFastForward(identity: RomIdentity, gameId: Int): SmartFastForward? {
+        if (!identity.isValid) return null
+        val core = LibretroCoreCoordinator.defaultInstance
+        val sha = identity.sha256.lowercase()
+        return SmartFastForward(
+            memory = { address, length -> core.readGbaMemory(address, length) },
+            knownMainAddress = core.mainStructAddress(gameId),
+            learned = SmartFastForward.Learned.decode(settingsManager.smartFastForwardLearned(sha)),
+            location = {
+                core.readPlayerLocation(gameId)?.let { SmartFastForward.packLocation(it.mapGroup, it.mapNum, it.x, it.y) }
+            },
+            onLearned = { settingsManager.setSmartFastForwardLearned(sha, it.encode()) },
+            isEnabled = { settingsManager.isSmartFastForwardEnabled },
+        )
     }
 
     private fun handleSelectedRom(
@@ -387,6 +444,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                                 protectedUris = setOfNotNull(settingsManager.romsFolderUri, settingsManager.savesFolderUri)
                             )
                         }
+                        emulatorView?.smartFastForward = createSmartFastForward(result.identity, result.profile.gameId)
                         Toast.makeText(
                             this@MainActivity,
                             "Loaded: ${result.profile.name} (${result.profile.engine})",
@@ -432,6 +490,53 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private var gameFrame: FrameLayout? = null
+    private var touchOverlay: TouchOverlayView? = null
+
+    /** The game surface plus the touch overlay above it, created once and re-parented on layout changes. */
+    private fun gameContainer(): FrameLayout {
+        gameFrame?.let { (it.parent as? ViewGroup)?.removeView(it); return it }
+        val emu = EmulatorSurfaceView(this).apply {
+            setStretchToFit(settingsManager.isStretchToFitEnabled)
+            setSpeedMultiplier(settingsManager.romSpeed(viewModel.activeRomIdentity.value?.storageKey))
+            setSwapAB(settingsManager.swapAB)
+            setShortcutHandler(::onControllerShortcut)
+            setTriggerHoldHandler(::onTriggerHold)
+            setChordHandler { chord ->
+                if (chord.id == InputManager.CHORD_TOGGLE_FAST_FORWARD) post {
+                    val speed = toggleFastForward()
+                    Toast.makeText(this@MainActivity, "Speed ${speed}x", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        emulatorView = emu
+        val overlay = TouchOverlayView(this) { mask -> emu.setTouchMask(mask) }.apply {
+            mode = settingsManager.touchOverlayMode
+        }
+        touchOverlay = overlay
+        val match = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+        return FrameLayout(this).apply {
+            addView(emu, match)
+            addView(overlay, FrameLayout.LayoutParams(match))
+        }.also { gameFrame = it }
+    }
+
+    private fun onTriggerHold(trigger: InputManager.Trigger, held: Boolean) {
+        if (settingsManager.triggerShortcutMode != TriggerShortcutMode.HOLD_SPEED) return
+        val emu = emulatorView ?: return
+        emu.holdSpeed = when {
+            held && trigger == InputManager.Trigger.L2 -> SettingsManager.HOLD_SLOW_SPEED
+            held -> SettingsManager.HOLD_FAST_SPEED
+            else -> 0f
+        }
+    }
+
+    /** Explicit speed step: applied now and remembered for this ROM (and as the global default). */
+    private fun applySpeedStep(speed: Int) {
+        emulatorView?.setSpeedMultiplier(speed)
+        settingsManager.setRomSpeed(viewModel.activeRomIdentity.value?.takeIf { it.isValid }?.storageKey, speed)
+    }
+
     /** Tokens are read at view construction, so a style change rebuilds the companion shell. */
     private fun rebuildCompanionForStyleChange() {
         val presentation = companionPresentation
@@ -467,18 +572,10 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 )
             }
 
-            val emu = emulatorView ?: EmulatorSurfaceView(this).apply {
-                setStretchToFit(settingsManager.isStretchToFitEnabled)
-                setSpeedMultiplier(settingsManager.fastForwardMultiplier)
-                setShortcutHandler(::onControllerShortcut)
-            }
-            emulatorView = emu
-            (emu.parent as? ViewGroup)?.removeView(emu)
-            emu.layoutParams = FrameLayout.LayoutParams(
+            topRoot.addView(gameFrameFor(gameContainer()), FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            topRoot.addView(emu)
+            ))
 
             val restoreBtn = TextView(this).apply {
                 text = "📱 Restore Companion"
@@ -525,6 +622,15 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    /** Emulator surface inside the frame that adds the optional status bar (#153). */
+    private fun gameFrameFor(emu: View): com.dualdex.emulator.GameFrameLayout {
+        val frame = (emu.parent as? com.dualdex.emulator.GameFrameLayout)
+            ?: com.dualdex.emulator.GameFrameLayout(this, viewModel, settingsManager)
+        (frame.parent as? ViewGroup)?.removeView(frame)
+        frame.setGameView(emu)
+        return frame
+    }
+
     private fun setupSplitScreen() {
         Log.i("DualDex", "Running in split-screen fallback mode.")
         restoreBottomScreenBtn?.visibility = View.GONE
@@ -536,26 +642,18 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             )
         }
 
-        val emu = emulatorView ?: EmulatorSurfaceView(this).apply {
-            setStretchToFit(settingsManager.isStretchToFitEnabled)
-            setSpeedMultiplier(settingsManager.fastForwardMultiplier)
-            setShortcutHandler(::onControllerShortcut)
-        }
-        emulatorView = emu
-        (emu.parent as? ViewGroup)?.removeView(emu)
-        emu.layoutParams = LinearLayout.LayoutParams(
+        splitLayout.addView(gameFrameFor(gameContainer()), LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             0,
             1.0f
-        )
-        splitLayout.addView(emu)
+        ))
 
         val companionView = CompanionScreenView(
             context = this,
             viewModel = viewModel,
             onOpenRomRequested = { openRomLauncher.launch(arrayOf("*/*")) },
             onShaderChanged = { filter: ShaderFilter -> emulatorView?.setShaderFilter(filter) },
-            onSpeedChanged = { speed: Int -> emulatorView?.setSpeedMultiplier(speed) },
+            onSpeedChanged = { speed: Int -> applySpeedStep(speed) },
             onImportSaveRequested = { importSaveLauncher.launch(arrayOf("*/*", "application/octet-stream")) },
             onExportSaveRequested = {
                 val key = viewModel.activeRomTitle.value.ifEmpty { "current_game" }.replace("[^a-zA-Z0-9_-]".toRegex(), "_")
@@ -600,7 +698,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 viewModel = viewModel,
                 onOpenRomRequested = { openRomLauncher.launch(arrayOf("*/*")) },
                 onShaderChanged = { filter: ShaderFilter -> emulatorView?.setShaderFilter(filter) },
-                onSpeedChanged = { speed: Int -> emulatorView?.setSpeedMultiplier(speed) },
+                onSpeedChanged = { speed: Int -> applySpeedStep(speed) },
                 onImportSaveRequested = { importSaveLauncher.launch(arrayOf("*/*", "application/octet-stream")) },
                 onExportSaveRequested = {
                     val key = viewModel.activeRomTitle.value.ifEmpty { "current_game" }.replace("[^a-zA-Z0-9_-]".toRegex(), "_")
@@ -671,7 +769,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         // Auto-flush cartridge battery save (.sav) and save auto-resume state on pause
         // Offload SAF mirroring asynchronously to prevent blocking on slow cloud DocumentProviders
         val identity = viewModel.activeRomIdentity.value
-        if (identity != null && identity.isValid) {
+        // Only the core owner writes per-ROM files; the save manager also refuses a stale identity.
+        if (identity != null && identity.isValid && CoreOwner.process.isOwner(this)) {
             saveStateManager.flushBatterySave(identity, mirrorSafAsync = true)
             saveStateManager.saveAutoResume(identity)
         }
@@ -682,6 +781,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         LibretroCoreCoordinator.defaultInstance.clearAudio()
         emulatorView?.onResume()
         audioDriver.start()
+        com.dualdex.library.AppUpdater.onHostResume(this)
 
         val presentationDisplays = try {
             displayManager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
@@ -695,11 +795,20 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private val inputPrefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        emulatorView?.setSwapAB(settingsManager.swapAB)
+        touchOverlay?.mode = settingsManager.touchOverlayMode
+        if (settingsManager.triggerShortcutMode != TriggerShortcutMode.HOLD_SPEED) emulatorView?.holdSpeed = 0f
+    }
+
     override fun onDestroy() {
+        settingsManager.unregisterChangeListener(inputPrefsListener)
         currentCompanionScreenView?.release()
+        com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = null
         super.onDestroy()
+        val owner = CoreOwner.process.release(this)
         val identity = viewModel.activeRomIdentity.value
-        if (identity != null && identity.isValid) {
+        if (owner && identity != null && identity.isValid) {
             saveStateManager.flushBatterySave(identity, mirrorSafAsync = true)
         }
         audioDriver.stop()
@@ -709,6 +818,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         companionPresentation = null
         currentCompanionScreenView = null
         emulatorView?.onPause()
-        LibretroCoreCoordinator.defaultInstance.cleanup()
+        // A newer activity already re-initialised the core; tearing it down would kill its game.
+        if (owner) LibretroCoreCoordinator.defaultInstance.cleanup()
     }
 }

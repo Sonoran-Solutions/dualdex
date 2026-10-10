@@ -367,8 +367,7 @@ class PartyScreenView(
         holder.hpMeter.setValue(mon.currentHp, mon.maxHp, hpColor)
 
         val nature = NatureTable.get(mon.nature)
-        val isExpansion = gameId != 2 && gameId != 6
-        val item = ItemDatabase.get(mon.heldItem, isExpansion = isExpansion)
+        val item = ItemDatabase.get(mon.heldItem, isExpansion = usesExpansionItems(gameId))
         val isHns = !pack.allowGlobalFallback || pack.id.startsWith("hns")
         holder.nature.text = "Nature  ${nature.formattedDescription}"
         holder.heldItem.text = if (mon.heldItem <= 0) {
@@ -484,3 +483,6 @@ class PartyScreenView(
         }
     }
 }
+
+/** Vanilla Emerald (1), FireRed (2) and Ghost Grey (6) keep the Gen III item table. */
+internal fun usesExpansionItems(gameId: Int): Boolean = gameId !in setOf(1, 2, 6)

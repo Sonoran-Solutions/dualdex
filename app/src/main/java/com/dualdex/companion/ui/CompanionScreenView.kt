@@ -471,11 +471,15 @@ class CompanionScreenView(
         scope.launch { viewModel.activeRomIdentity.collectLatest { notifyProfileChanged() } }
         scope.launch { viewModel.runtimeRomTrust.collectLatest { notifyProfileChanged() } }
         var wasInBattle = false
+        val autoOpenReturn = com.dualdex.companion.BattleAutoOpenReturn()
         scope.launch {
             viewModel.isInBattle.collectLatest { inBattle ->
                 notifyPartyUpdated()
                 if (inBattle && !wasInBattle && viewModel.isBattleAutoOpenEnabled.value && currentTab != CompanionTab.BATTLE) {
+                    autoOpenReturn.onAutoOpened(currentTab)
                     navigateTo(CompanionTab.BATTLE)
+                } else if (!inBattle && wasInBattle) {
+                    autoOpenReturn.onBattleEnded(currentTab)?.let { navigateTo(it) }
                 }
                 wasInBattle = inBattle
             }

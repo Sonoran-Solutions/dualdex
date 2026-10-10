@@ -16,8 +16,14 @@ import com.dualdex.BuildInfo
 import com.dualdex.BuildInfoFormatter
 import com.dualdex.assistant.RomHackAssistant
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.dualdex.settings.SettingsManager
+import com.dualdex.settings.TouchOverlayMode
 import com.dualdex.settings.TriggerShortcutMode
 
 /**
@@ -51,6 +57,7 @@ class SettingsScreenView(
     private fun triggerMappingText(mode: TriggerShortcutMode) = when (mode) {
         TriggerShortcutMode.QUICK_SAVE_LOAD -> "Quick Save (L2) / Quick Load (R2)"
         TriggerShortcutMode.FAST_FORWARD -> "Speed Down (L2) / Speed Up (R2)"
+        TriggerShortcutMode.HOLD_SPEED -> "Hold: Slow-mo (L2) / Fast-forward (R2)"
         TriggerShortcutMode.DISABLED -> "Disabled"
     }
 
@@ -59,6 +66,13 @@ class SettingsScreenView(
         val mode = settingsManager.triggerShortcutMode
         triggerSegment.setSelectedIndex(triggerModes.indexOf(mode))
         triggerMappingValue.text = triggerMappingText(mode)
+    }
+
+    private fun runSessionAction(ok: String, failed: String, action: () -> Boolean) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val success = try { action() } catch (e: Exception) { false }
+            withContext(Dispatchers.Main) { Toast.makeText(context, if (success) ok else failed, Toast.LENGTH_SHORT).show() }
+        }
     }
 
     override fun onAttachedToWindow() {
@@ -229,8 +243,72 @@ class SettingsScreenView(
                 }
             )
             addView(speedSegment)
+
+            addView(TextView(context).apply {
+                text = "Smart Fast-Forward (experimental: menus at 1x, battles stay fast)"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Off", "On"),
+                initialIndex = if (settingsManager.isSmartFastForwardEnabled) 1 else 0,
+                onItemSelected = { idx -> settingsManager.isSmartFastForwardEnabled = idx == 1 }
+            ))
         }
         content.addView(emulationCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        // 3b. Game session: restart / close (#153), both confirmed and both flush the battery save first.
+        val sessionCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Game"))
+            val row = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                addView(DualDexComponents.secondaryButton(context, "Restart Game") {
+                    val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid } ?: return@secondaryButton
+                    DualDexComponents.confirm(context, "Restart game?",
+                        "The cartridge save is written first. Progress since your last in-game save is lost.",
+                        "Restart") {
+                        runSessionAction("Game restarted", "Restart refused: could not write the cartridge save") {
+                            SaveStateManager.getInstance(context).restartGame(identity)
+                        }
+                    }
+                }, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
+                addView(DualDexComponents.destructiveButton(context, "Close Game") {
+                    val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid } ?: return@destructiveButton
+                    DualDexComponents.confirm(context, "Close game?",
+                        "The cartridge save and a resume state are written, then the game is unloaded. " +
+                            "Opening it again resumes where you left off.",
+                        "Close") {
+                        runSessionAction("Game closed", "Close refused: could not write the cartridge save") {
+                            SaveStateManager.getInstance(context).closeGame(
+                                identity,
+                                pauseEmulation = { viewModel.stopPolling(); viewModel.pauseEmulation() },
+                                resumeEmulation = { viewModel.resumeEmulation(); viewModel.startPolling(100L) }
+                            ).also { ok -> if (ok) post { viewModel.clearRomSession() } }
+                        }
+                    }
+                }, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
+            }
+            addView(row)
+            addView(TextView(context).apply {
+                text = "Resume on launch (boot into the newest save state newer than the cartridge save)"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Off", "On"),
+                initialIndex = if (settingsManager.isBootResumeEnabled) 1 else 0,
+                onItemSelected = { idx -> settingsManager.isBootResumeEnabled = idx == 1 }
+            ))
+        }
+        content.addView(sessionCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = context.dp(DualDexTheme.Spacing.section)
         })
 
@@ -381,6 +459,19 @@ class SettingsScreenView(
             )
             addView(autoOpenSegment)
 
+            addView(TextView(context).apply {
+                text = "Status Bar Above Game"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Off", "On"),
+                initialIndex = if (settingsManager.isGameStatusBarEnabled) 1 else 0,
+                onItemSelected = { idx -> settingsManager.isGameStatusBarEnabled = idx == 1 }
+            ))
+
             // Interactive Touch Controls
             val touchControlsLabel = TextView(context).apply {
                 text = "Interactive Touch Controls (Experimental)"
@@ -448,6 +539,31 @@ class SettingsScreenView(
                 }
             )
             addView(triggerSegment)
+            addView(TextView(context).apply {
+                text = "A / B Layout"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Standard", "Swapped"),
+                initialIndex = if (settingsManager.swapAB) 1 else 0,
+                onItemSelected = { idx -> settingsManager.swapAB = idx == 1 }
+            ))
+            addView(TextView(context).apply {
+                text = "Touch Controls"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            val overlayModes = TouchOverlayMode.values().toList()
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = overlayModes.map { it.label },
+                initialIndex = overlayModes.indexOf(settingsManager.touchOverlayMode),
+                onItemSelected = { idx -> settingsManager.touchOverlayMode = overlayModes[idx] }
+            ))
             addView(View(context), LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.compact)))
 
             val mappingRows = listOf(
@@ -456,7 +572,8 @@ class SettingsScreenView(
                 "Button X / Y" to "Turbo / Menu Shortcut",
                 "L1 / R1" to "GBA Left / Right Triggers",
                 "L2 / R2" to triggerMappingText(settingsManager.triggerShortcutMode),
-                "Start / Select" to "GBA Start / Select Buttons"
+                "Start / Select" to "GBA Start / Select Buttons",
+                "Select + R" to "Toggle Fast-forward"
             )
 
             mappingRows.forEachIndexed { index, (key, value) ->

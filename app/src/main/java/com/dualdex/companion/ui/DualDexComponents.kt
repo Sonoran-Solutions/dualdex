@@ -83,6 +83,36 @@ object DualDexComponents {
         )
     }
 
+    /**
+     * Shows a dialog from any companion context. The companion often lives in a Presentation on the
+     * secondary display, whose window context only accepts TYPE_PRESENTATION windows; a plain
+     * `Builder.show()` there throws "Window type mismatch" and crashes the app.
+     */
+    // WindowManager.LayoutParams.TYPE_PRESENTATION is @hide; 2037 is the type the Presentation's window context requires.
+    private const val TYPE_PRESENTATION = 2037
+
+    fun showDialog(builder: android.app.AlertDialog.Builder): android.app.AlertDialog {
+        val dialog = builder.create()
+        val displayId = runCatching { builder.context.display?.displayId }.getOrNull()
+        if (displayId != null && displayId != android.view.Display.DEFAULT_DISPLAY) {
+            dialog.window?.setType(TYPE_PRESENTATION)
+        }
+        dialog.show()
+        return dialog
+    }
+
+    /** Destructive confirmation (Cancel / [action]); [onConfirm] runs only on the positive button. */
+    fun confirm(context: Context, title: String, message: String, action: String, onConfirm: () -> Unit) {
+        val dialog = showDialog(
+            android.app.AlertDialog.Builder(context)
+                .setTitle(title)
+                .setMessage(message)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton(action) { _, _ -> onConfirm() }
+        )
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
+    }
+
     fun primaryButton(context: Context, text: CharSequence, onClick: (() -> Unit)? = null): TextView =
         button(context, text, DualDexButtonStyle.PRIMARY, onClick)
 

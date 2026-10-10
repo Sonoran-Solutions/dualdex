@@ -1,10 +1,13 @@
 package com.dualdex.companion.ui
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -14,6 +17,9 @@ import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveSlotInfo
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.storage.LegacyCandidate
+import com.dualdex.emulator.storage.SaveShareStore
+import com.dualdex.emulator.storage.SaveStateFiles
+import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -59,6 +65,8 @@ class SaveStateScreenView(
     private val quickSaveStatusView: TextView
     private val qSaveBtn: TextView
     private val qLoadBtn: TextView
+    private val undoLoadBtn: TextView
+    private var hasUndo = false
 
     // Save Slots Views
     private val slotsSection: LinearLayout
@@ -76,6 +84,12 @@ class SaveStateScreenView(
     private val storageMirrorStatusView: TextView
     private val chooseFolderBtn: TextView
     private val syncSafBtn: TextView
+
+    // Save sharing with other emulators (#153, opt-in)
+    private val shareStatusView: TextView
+    private val shareFolderBtn: TextView
+    private val loadSharedBtn: TextView
+    private val settingsManager = SettingsManager(context)
 
     // Legacy Migration Views
     private val legacySection: LinearLayout
@@ -184,6 +198,16 @@ class SaveStateScreenView(
                 addView(qLoadBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
             }
             addView(btnRow)
+
+            undoLoadBtn = DualDexComponents.ghostControl(context, "Undo Last Load") {
+                val identity = getRomIdentity() ?: return@ghostControl
+                performAsyncOperation("Restored the game from before the last load", "Nothing to undo") {
+                    saveStateManager.undoLoad(identity)
+                }
+            }
+            addView(undoLoadBtn, LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
+                topMargin = context.dp(DualDexTheme.Spacing.compact)
+            })
         }
         content.addView(quickSaveCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = context.dp(DualDexTheme.Spacing.section)
@@ -289,6 +313,50 @@ class SaveStateScreenView(
                 addView(syncSafBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
             }
             addView(btnRow)
+
+            addView(DualDexComponents.sectionTitle(context, "Share With Other Emulators"), LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = context.dp(DualDexTheme.Spacing.section) })
+            shareStatusView = TextView(context).apply {
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.standard))
+            }
+            addView(shareStatusView)
+
+            val shareRow = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                shareFolderBtn = DualDexComponents.secondaryButton(context, "Share Folder") {
+                    if (settingsManager.shareSavesFolderUri != null) {
+                        DualDexComponents.confirm(context, "Stop sharing saves?",
+                            "DualDex stops copying <rom>.sav to the shared folder. Files already there are left alone.",
+                            "Stop Sharing") {
+                            settingsManager.shareSavesFolderUri = null
+                            refreshUI()
+                        }
+                    } else {
+                        SaveShareStore.requestFolderPicker?.invoke(SaveShareStore.initialPickerUri(context))
+                    }
+                }
+                addView(shareFolderBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
+
+                loadSharedBtn = DualDexComponents.secondaryButton(context, "LOAD SAVE") {
+                    val identity = getRomIdentity() ?: return@secondaryButton
+                    DualDexComponents.confirm(context, "Load the shared save?",
+                        "Your current save is backed up as <rom>.backup-<date>.sav in the shared folder, then the " +
+                            "shared <rom>.sav replaces it and the game restarts. Auto-resume is cleared so an old " +
+                            "state can't overwrite it.",
+                        "Load Save") {
+                        performAsyncOperation("Shared save loaded", "Could not load shared save (missing, wrong size, or backup failed)") {
+                            saveStateManager.loadSharedSave(identity)
+                        }
+                    }
+                }
+                addView(loadSharedBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
+            }
+            addView(shareRow)
         }
         content.addView(storageCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = context.dp(DualDexTheme.Spacing.section)
@@ -328,6 +396,9 @@ class SaveStateScreenView(
         val hasGame = getRomIdentity() != null
         qSaveBtn.isEnabled = !isBusy && hasGame
         qLoadBtn.isEnabled = !isBusy && hasGame
+        undoLoadBtn.isEnabled = !isBusy && hasGame && hasUndo
+        shareFolderBtn.isEnabled = !isBusy
+        loadSharedBtn.isEnabled = !isBusy && hasGame && settingsManager.shareSavesFolderUri != null
         importBtn.isEnabled = !isBusy && hasGame
         exportBtn.isEnabled = !isBusy && hasGame
         chooseFolderBtn.isEnabled = !isBusy
@@ -376,7 +447,16 @@ class SaveStateScreenView(
         val identity = getRomIdentity()
         val profile = viewModel.activeProfile.value
 
+        val sharing = settingsManager.shareSavesFolderUri != null
+        shareFolderBtn.text = if (sharing) "Stop Sharing" else "Share Folder"
+        shareStatusView.text = if (sharing) {
+            "On: in-game saves are also copied to <rom>.sav in the shared folder. A save changed by another " +
+                "emulator is never overwritten; use LOAD SAVE to bring it in."
+        } else {
+            "Off. Pick a folder (e.g. RetroArch/saves/mGBA) to keep a plain <rom>.sav that other emulators can use."
+        }
         if (identity == null || !identity.isValid) {
+            hasUndo = false
             gameContextCard.visibility = View.GONE
             emptyGameView.visibility = View.VISIBLE
             busyDependentButtons.clear()
@@ -423,7 +503,12 @@ class SaveStateScreenView(
             val qFile = saveStateManager.getCanonicalFile(identity, "quicksave.state")
             val qLastModified = if (qFile.exists()) qFile.lastModified() else 0L
 
-            val slots = saveStateManager.getAllSlotsInfo(identity, 5, profile.name, profile.id)
+            val slots = saveStateManager.getAllSlotsInfo(identity, SaveStateFiles.SLOT_COUNT, profile.name, profile.id)
+            val thumbs = slots.associate { slot ->
+                slot.slotIndex to saveStateManager.getSlotThumbnail(identity, slot.slotIndex)
+                    ?.let { runCatching { BitmapFactory.decodeFile(it.absolutePath) }.getOrNull() }
+            }
+            val undoAvailable = saveStateManager.hasUndoLoad(identity)
             val candidates = saveStateManager.discoverLegacyCandidates()
 
             withContext(Dispatchers.Main) {
@@ -455,7 +540,8 @@ class SaveStateScreenView(
                 }
 
                 // Slots
-                renderSlots(slots, identity, profile)
+                hasUndo = undoAvailable
+                renderSlots(slots, thumbs, identity, profile)
 
                 // Legacy Candidates
                 renderLegacyCandidates(candidates, identity)
@@ -463,76 +549,113 @@ class SaveStateScreenView(
         }
     }
 
+    /**
+     * Thumbnail grid, two per row. Tap a filled tile to load it; SAVE writes the slot (asking first
+     * when it would overwrite). The most recently written slot is highlighted as the current one.
+     */
     private fun renderSlots(
         slots: List<SaveSlotInfo>,
+        thumbs: Map<Int, Bitmap?>,
         identity: RomIdentity,
         profile: com.dualdex.romhack.RomHackProfile
     ) {
         busyDependentButtons.clear()
         slotsContainer.removeAllViews()
-        slots.forEachIndexed { index, slot ->
-            val slotRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
-                background = DualDexComponents.surface(context, elevated = false)
-                setPadding(
-                    context.dp(DualDexTheme.Spacing.standard),
-                    context.dp(DualDexTheme.Spacing.compact),
-                    context.dp(DualDexTheme.Spacing.compact),
-                    context.dp(DualDexTheme.Spacing.compact)
-                )
+        val current = slots.filter { it.exists }.maxByOrNull { it.timestampMs }?.slotIndex
+        slots.chunked(2).forEachIndexed { rowIndex, pair ->
+            val row = LinearLayout(context).apply { orientation = HORIZONTAL }
+            pair.forEachIndexed { i, slot ->
+                row.addView(slotTile(slot, thumbs[slot.slotIndex], slot.slotIndex == current, identity, profile),
+                    LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
+                        if (i == 0) marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                    })
             }
+            if (pair.size == 1) row.addView(View(context), LayoutParams(0, 0, 1f))
+            slotsContainer.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                if (rowIndex > 0) topMargin = context.dp(DualDexTheme.Spacing.compact)
+            })
+        }
+        renderBusyState()
+    }
 
-            val labelLayout = LinearLayout(context).apply {
-                orientation = VERTICAL
-                val title = TextView(context).apply {
-                    text = "Slot ${slot.slotIndex}"
-                    setTextColor(DualDexTheme.Color.textPrimary)
-                    textSize = DualDexTheme.Type.body
-                    typeface = Typeface.DEFAULT_BOLD
-                }
-                val subtitle = TextView(context).apply {
-                    text = if (slot.exists) {
-                        "${slot.formattedDate} · ${slot.sizeBytes / 1024} KB"
-                    } else {
-                        "Empty slot"
-                    }
-                    setTextColor(if (slot.exists) DualDexTheme.Color.textSecondary else DualDexTheme.Color.textDisabled)
-                    textSize = DualDexTheme.Type.meta
-                    setPadding(0, context.dp(DualDexTheme.Spacing.tight / 2), 0, 0)
-                }
-                addView(title)
-                addView(subtitle)
+    private fun slotTile(
+        slot: SaveSlotInfo,
+        thumb: Bitmap?,
+        isCurrent: Boolean,
+        identity: RomIdentity,
+        profile: com.dualdex.romhack.RomHackProfile
+    ): View = LinearLayout(context).apply {
+        orientation = VERTICAL
+        background = if (isCurrent) {
+            DualDexComponents.lcdPanel(context, strokeColor = DualDexTheme.Color.accent)
+        } else {
+            DualDexComponents.surface(context)
+        }
+        val pad = context.dp(DualDexTheme.Spacing.compact)
+        setPadding(pad, pad, pad, pad)
+        contentDescription = "Slot ${slot.slotIndex}" + if (slot.exists) ", saved ${slot.formattedDate}" else ", empty"
+
+        // GBA aspect (3:2) from the tile width.
+        val image = object : ImageView(context) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val w = MeasureSpec.getSize(widthMeasureSpec)
+                setMeasuredDimension(w, w * 2 / 3)
             }
-            slotRow.addView(labelLayout, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        }.apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(DualDexTheme.Color.background)
+            if (thumb != null) {
+                setImageBitmap(thumb)
+                drawable?.isFilterBitmap = false // pixel art: no smoothing when scaled up
+            }
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        addView(image, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
-            val loadBtn = DualDexComponents.secondaryButton(context, "Load") {
-                performAsyncOperation("Slot ${slot.slotIndex} loaded!", "Load failed!") {
+        addView(TextView(context).apply {
+            text = "Slot ${slot.slotIndex}" + if (isCurrent) " · current" else ""
+            setTextColor(if (isCurrent) DualDexTheme.Color.accent else DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.body
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+        })
+        addView(TextView(context).apply {
+            text = if (slot.exists) slot.formattedDate else "Empty"
+            setTextColor(if (slot.exists) DualDexTheme.Color.textSecondary else DualDexTheme.Color.textDisabled)
+            textSize = DualDexTheme.Type.meta
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+        })
+
+        if (slot.exists) {
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                if (isBusy) return@setOnClickListener
+                performAsyncOperation("Slot ${slot.slotIndex} loaded (Undo Last Load reverts)", "Load failed!") {
                     saveStateManager.loadSlot(identity, slot.slotIndex, profile.name, profile.id)
                 }
             }
-            busyDependentButtons += loadBtn to slot.exists
-            slotRow.addView(loadBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
-                marginEnd = context.dp(DualDexTheme.Spacing.tight)
-            })
+        }
 
-            val saveBtn = DualDexComponents.secondaryButton(context, "Save") {
+        val saveBtn = DualDexComponents.secondaryButton(context, "SAVE") {
+            val doSave = {
                 performAsyncOperation("Slot ${slot.slotIndex} saved!", "Save failed!") {
                     saveStateManager.saveSlot(identity, slot.slotIndex)
                 }
             }
-            busyDependentButtons += saveBtn to true
-            slotRow.addView(saveBtn, LayoutParams(LayoutParams.WRAP_CONTENT, context.dp(DualDexTheme.Spacing.touchTarget)))
-
-            slotsContainer.addView(slotRow, LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = if (index == slots.lastIndex) 0 else context.dp(DualDexTheme.Spacing.compact)
-            })
+            if (slot.exists) {
+                DualDexComponents.confirm(context, "Overwrite slot ${slot.slotIndex}?",
+                    "Saved ${slot.formattedDate}. The previous state is kept as a .bak until the next overwrite.",
+                    "Overwrite") { doSave() }
+            } else {
+                doSave()
+            }
         }
-        renderBusyState()
+        busyDependentButtons += saveBtn to true
+        addView(saveBtn, LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
+            topMargin = context.dp(DualDexTheme.Spacing.tight)
+        })
     }
 
     private fun renderLegacyCandidates(candidates: List<LegacyCandidate>, identity: RomIdentity) {

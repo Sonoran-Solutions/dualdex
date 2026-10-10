@@ -31,3 +31,20 @@ object CompanionNavigation {
     fun battleModeForGlobalDestination(tab: CompanionTab): BattleMode? =
         if (tab == CompanionTab.BATTLE) BattleMode.BATTLE else null
 }
+
+/**
+ * Remembers the tab the Battle auto-open replaced so the companion can go back when the battle
+ * ends. Returns only if the user is still on Battle; navigating elsewhere mid-battle cancels it.
+ */
+class BattleAutoOpenReturn {
+    private var returnTo: CompanionTab? = null
+
+    /** Battle started and auto-open fired from [previous]. */
+    fun onAutoOpened(previous: CompanionTab) {
+        returnTo = previous
+    }
+
+    /** Battle ended; the tab to navigate to, or null to stay put. */
+    fun onBattleEnded(current: CompanionTab): CompanionTab? =
+        returnTo.also { returnTo = null }?.takeIf { current == CompanionTab.BATTLE }
+}

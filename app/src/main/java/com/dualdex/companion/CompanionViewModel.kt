@@ -25,7 +25,11 @@ data class RomItem(
     val title: String,
     val fileName: String,
     val uri: Uri,
-    val sizeFormatted: String
+    val sizeFormatted: String,
+    /** Cached scan verdict; null when the file could not be inspected. */
+    val status: com.dualdex.romhack.RomCompatibilityStatus? = null,
+    val sha256: String = "",
+    val profileName: String = ""
 )
 
 enum class CompanionTab(val title: String) {
@@ -585,6 +589,10 @@ class CompanionViewModel(
         battlePresenceStabilizer.reset()
     }
 
+    /** Set by the owning activity: synchronously stop / restart the emulator frame loop. */
+    @Volatile var pauseEmulation: () -> Unit = {}
+    @Volatile var resumeEmulation: () -> Unit = {}
+
     fun stopPolling() {
         pollingJob?.cancel()
         pollingJob = null
@@ -616,8 +624,16 @@ class CompanionViewModel(
         _activePlayerBattlerIndex.value = index
     }
 
+    /**
+     * Increments on every not-in-battle -> in-battle transition. Battle presence is polled whether or
+     * not the Battle tab is visible, so this identifies a battle even across identical rematches.
+     */
+    @Volatile var battleSessionId: Long = 0L
+        private set
+
     private fun updateCoverageBattlePresence(active: Boolean) {
         com.dualdex.coverage.HnsCoverage.battle(active)
+        if (active && !_isInBattle.value) battleSessionId++
         _isInBattle.value = active
     }
 

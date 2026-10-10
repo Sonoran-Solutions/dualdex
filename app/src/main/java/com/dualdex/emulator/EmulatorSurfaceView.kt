@@ -25,6 +25,14 @@ class EmulatorSurfaceView @JvmOverloads constructor(
     private val inputManager = InputManager()
 
     fun setShortcutHandler(handler: ((InputManager.Trigger) -> Unit)?) { inputManager.onShortcut = handler }
+    fun setTriggerHoldHandler(handler: ((InputManager.Trigger, Boolean) -> Unit)?) { inputManager.onTriggerHold = handler }
+    fun setChordHandler(handler: ((ChordMatcher.Chord) -> Unit)?) { inputManager.onChord = handler }
+    fun setSwapAB(swap: Boolean) { inputManager.swapAB = swap }
+    fun setTouchMask(mask: Int) { inputManager.touchMask = mask }
+
+    /** Transient hold-to-speed override (L2 slow-mo / R2 fast-forward); 0 = none. */
+    @Volatile
+    var holdSpeed: Float = 0f
     private val pixelBuffer: ByteBuffer = ByteBuffer.allocateDirect(512 * 512 * 4).order(ByteOrder.nativeOrder())
     private val frameMetadata = IntArray(4) // width, height, pitch, pixelFormat
     private var textureId: Int = 0
@@ -34,6 +42,8 @@ class EmulatorSurfaceView @JvmOverloads constructor(
 
     @Volatile
     private var speedMultiplier: Int = 1
+    /** Per-ROM smart fast-forward; null disables it. Set from MainActivity after a ROM loads. */
+    @Volatile var smartFastForward: SmartFastForward? = null
 
     @Volatile
     private var currentFilter: ShaderFilter = ShaderFilter.NEAREST
@@ -127,8 +137,13 @@ class EmulatorSurfaceView @JvmOverloads constructor(
             FastForwardDiagnostics.onEmulationLoopStart()
 
             while (isEmulating) {
-                val speed = speedMultiplier.coerceIn(1, 8)
-                val targetIntervalNs = (baseIntervalNs / speed).coerceAtLeast(1_000_000L)
+                // Smart FF runs every frame (it counts frames to learn/verify) but only ever slows down.
+                val smartSlow = smartFastForward?.onFrame() == true
+                val hold = holdSpeed
+                var rate = if (hold > 0f) hold else speedMultiplier.coerceIn(1, 8).toFloat()
+                if (smartSlow) rate = rate.coerceAtMost(1f)
+                val speed = rate.toInt().coerceIn(1, 8)
+                val targetIntervalNs = (baseIntervalNs / rate).toLong().coerceAtLeast(1_000_000L)
                 FastForwardDiagnostics.onSpeedChanged(speed)
                 FastForwardDiagnostics.setTargetInterval(targetIntervalNs)
                 FastForwardDiagnostics.onLoopIteration()
@@ -310,18 +325,20 @@ class EmulatorSurfaceView @JvmOverloads constructor(
         currentFilter = filter
     }
 
+    /** Last non-1x step, so the toggle returns to the user's chosen fast-forward speed. */
+    private var fastStep = 2
+
     fun setSpeedMultiplier(multiplier: Int) {
-        speedMultiplier = when {
-            multiplier in 1..8 -> multiplier
-            multiplier > 8 -> 8
-            else -> 1
-        }
+        speedMultiplier = multiplier.coerceIn(1, 8)
+        if (speedMultiplier > 1) fastStep = speedMultiplier
     }
 
     fun getSpeedMultiplier(): Int = speedMultiplier
 
-    fun toggleFastForward() {
-        speedMultiplier = if (speedMultiplier == 1) 2 else if (speedMultiplier == 2) 4 else 1
+    /** Toggle between 1x and the last fast-forward step; returns the new speed. */
+    fun toggleFastForward(): Int {
+        speedMultiplier = if (speedMultiplier == 1) fastStep else 1
+        return speedMultiplier
     }
 
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {

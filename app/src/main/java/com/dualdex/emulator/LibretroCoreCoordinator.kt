@@ -42,6 +42,9 @@ open class LibretroCoreCoordinator(
     // Only RomSessionManager binds a successfully loaded image, inside its switch transaction.
     private var cheatRomSha256: String? = null
 
+    /** Set by [unloadRom] until the next successful [loadRom]; [stepFrame] never runs an unloaded core. */
+    private var romUnloaded = false
+
     internal fun bindCheatRom(identity: RomIdentity) {
         check(lock.isHeldByCurrentThread)
         cheatRomSha256 = identity.sha256.takeIf { identity.isValid }?.lowercase()
@@ -103,6 +106,7 @@ open class LibretroCoreCoordinator(
         }
         val acquiredNs = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         try {
+            if (romUnloaded) return false
             if (bridge != null) {
                 return bridge?.stepFrame() ?: true
             }
@@ -130,15 +134,18 @@ open class LibretroCoreCoordinator(
 
     fun loadRom(romPath: String): Boolean = executeExclusive {
         cheatRomSha256 = null
-        bridge?.loadRom(romPath) ?: try {
+        val ok = bridge?.loadRom(romPath) ?: try {
             LibretroHost.nativeLoadRom(romPath)
         } catch (_: UnsatisfiedLinkError) {
             false
         }
+        romUnloaded = !ok
+        ok
     }
 
     fun unloadRom(): Boolean = executeExclusive {
         cheatRomSha256 = null
+        romUnloaded = true
         bridge?.unloadRom() ?: try {
             LibretroHost.nativeUnloadRom()
         } catch (_: UnsatisfiedLinkError) {
@@ -379,6 +386,22 @@ open class LibretroCoreCoordinator(
         2
     } catch (_: Exception) {
         2
+    }
+
+    /** Raw emulated-memory read for smart fast-forward; null when unmapped or unavailable. */
+    open fun readGbaMemory(address: Int, length: Int): ByteArray? = try {
+        val out = ByteArray(length)
+        if (executeExclusive(50L) { LibretroHost.nativeReadGbaMemory(address, out) }) out else null
+    } catch (_: UnsatisfiedLinkError) {
+        null
+    } catch (_: Exception) {
+        null
+    }
+
+    open fun mainStructAddress(gameId: Int): Int = try {
+        LibretroHost.nativeGetMainStructAddress(gameId)
+    } catch (_: UnsatisfiedLinkError) {
+        0
     }
 
     open fun readPlayerLocation(gameId: Int): PlayerLocation? = try {

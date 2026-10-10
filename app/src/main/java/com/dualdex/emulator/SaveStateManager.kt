@@ -10,6 +10,8 @@ import com.dualdex.emulator.storage.MigrationResult
 import com.dualdex.emulator.storage.MirrorStatus
 import com.dualdex.emulator.storage.RomSaveMetadata
 import com.dualdex.emulator.storage.SafMirrorStore
+import com.dualdex.emulator.storage.SaveShareStore
+import com.dualdex.emulator.storage.SaveStateFiles
 import com.dualdex.emulator.storage.SaveWriteResult
 import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.launch
@@ -60,6 +62,7 @@ open class SaveStateManager(
     private val settingsManager by lazy { context?.let { SettingsManager(it) } }
     private val safMirrorStore by lazy { customSafStore ?: SafMirrorStore(context) }
     private val legacyCatalog by lazy { customLegacyCatalog ?: LegacySaveCatalog(context) }
+    val saveShareStore by lazy { SaveShareStore(context) }
 
     var activeIdentity: RomIdentity? = null
     var activeProfileName: String? = null
@@ -208,7 +211,7 @@ open class SaveStateManager(
     }
 
     // ---------------------------------------------------------
-    // Save States (Slots 1..5)
+    // Save States (Slots 1..SLOT_COUNT)
     // ---------------------------------------------------------
 
     /**
@@ -219,29 +222,63 @@ open class SaveStateManager(
     private fun isLoadedRom(identity: RomIdentity): Boolean =
         activeIdentity?.sha256.equals(identity.sha256, ignoreCase = true)
 
-    fun saveSlot(identity: RomIdentity, slotIndex: Int): Boolean = synchronized(globalSaveLock) {
+    private fun refuse(op: String, identity: RomIdentity): Boolean {
         if (!identity.isValid) {
-            Log.e(TAG, "Refusing saveSlot on invalid RomIdentity")
-            return false
+            Log.e(TAG, "Refusing $op on invalid RomIdentity")
+            return true
         }
         if (!isLoadedRom(identity)) {
-            Log.w(TAG, "Refusing saveSlot: ${identity.displayName} is not the loaded ROM")
-            return false
+            Log.w(TAG, "Refusing $op: ${identity.displayName} is not the loaded ROM")
+            return true
         }
-        val fileName = "slot_${slotIndex}.state"
+        return false
+    }
+
+    /** Serializes the core into [fileName] via staging; the previous file is kept as `.bak` by [AtomicSaveFile]. */
+    private fun writeState(identity: RomIdentity, fileName: String): File? {
         val stagingFile = getStagingFile(identity, fileName)
         val ok = nativeSaveState(stagingFile.absolutePath)
-        if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) {
+        if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) return null
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it) }
+    }
+
+    /**
+     * Validates and loads [fileName]. With [snapshotUndo] the current state is first written to
+     * `undo_load.state`, so an accidental load can be reverted with [undoLoad].
+     */
+    private fun loadStateFile(identity: RomIdentity, fileName: String, snapshotUndo: Boolean): Boolean {
+        val canonicalFile = getCanonicalFile(identity, fileName)
+        val expectedSize = nativeGetSaveStateSize()
+        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
+        if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
+        if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
+            Log.e(TAG, "$fileName size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
             return false
         }
-
-        val canonicalFile = getCanonicalFile(identity, fileName)
-        val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
-        if (committed) {
-            safMirrorStore.mirrorFile(identity, fileName, canonicalFile)
-            recordMetadata(identity, activeProfileId)
+        val stagingFile = getStagingFile(identity, fileName)
+        canonicalFile.copyTo(stagingFile, overwrite = true)
+        if (!stagingFile.exists() || stagingFile.length() == 0L) return false
+        if (snapshotUndo) {
+            // Drop the previous undo first: if the new snapshot fails, the UI must not offer an
+            // undo that reverts to some older, unrelated point. The load itself still proceeds.
+            getCanonicalFile(identity, SaveStateFiles.UNDO_LOAD).delete()
+            if (writeState(identity, SaveStateFiles.UNDO_LOAD) == null) {
+                Log.w(TAG, "Could not snapshot undo state before loading $fileName; no undo offered")
+            }
         }
-        return committed
+        return nativeLoadState(stagingFile.absolutePath)
+    }
+
+    fun saveSlot(identity: RomIdentity, slotIndex: Int): Boolean = synchronized(globalSaveLock) {
+        if (refuse("saveSlot", identity)) return false
+        if (slotIndex !in 1..SaveStateFiles.SLOT_COUNT) return false
+        val fileName = SaveStateFiles.slotState(slotIndex)
+        val canonicalFile = writeState(identity, fileName) ?: return false
+        writeThumbnail(identity, slotIndex)
+        safMirrorStore.mirrorFile(identity, fileName, canonicalFile)
+        recordMetadata(identity, activeProfileId)
+        return true
     }
 
     fun loadSlot(
@@ -250,33 +287,42 @@ open class SaveStateManager(
         profileName: String? = null,
         profileId: String? = null
     ): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing loadSlot on invalid RomIdentity")
-            return false
-        }
-        if (!isLoadedRom(identity)) {
-            Log.w(TAG, "Refusing loadSlot: ${identity.displayName} is not the loaded ROM")
-            return false
-        }
-        val fileName = "slot_${slotIndex}.state"
-        val canonicalFile = getCanonicalFile(identity, fileName)
-        val expectedSize = nativeGetSaveStateSize()
-        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
-        if (!canonicalFile.exists() || canonicalFile.length() == 0L) {
-            return false
-        }
+        if (refuse("loadSlot", identity)) return false
+        return loadStateFile(identity, SaveStateFiles.slotState(slotIndex), snapshotUndo = true)
+    }
 
-        // Validate state size before invoking native unserialize
-        if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
-            Log.e(TAG, "Slot $slotIndex state size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
-            return false
+    /** Reverts the most recent slot/quick load by restoring the state captured just before it. */
+    fun undoLoad(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (refuse("undoLoad", identity)) return false
+        return loadStateFile(identity, SaveStateFiles.UNDO_LOAD, snapshotUndo = false)
+    }
+
+    fun hasUndoLoad(identity: RomIdentity): Boolean =
+        identity.isValid && getCanonicalFile(identity, SaveStateFiles.UNDO_LOAD).let { it.isFile && it.length() > 0L }
+
+    fun getSlotThumbnail(identity: RomIdentity, slotIndex: Int): File? =
+        getCanonicalFile(identity, SaveStateFiles.slotThumbnail(slotIndex)).takeIf { it.isFile && it.length() > 0L }
+
+    /** Best effort: a missing thumbnail never fails the save. Skipped off-device (no context / native host). */
+    private fun writeThumbnail(identity: RomIdentity, slotIndex: Int) {
+        if (context == null) return
+        try {
+            val buffer = java.nio.ByteBuffer.allocateDirect(512 * 512 * 4)
+            val meta = IntArray(4) // width, height, pitch, pixelFormat
+            if (!coreCoordinator.getVideoFrame(buffer, meta)) return
+            val (w, h, pitch, fmt) = meta.toList()
+            if (w <= 0 || h <= 0 || pitch <= 0 || pitch.toLong() * h > buffer.capacity()) return
+            val bytes = ByteArray(pitch * h).also { buffer.position(0); buffer.get(it) }
+            val bitmap = android.graphics.Bitmap.createBitmap(
+                SaveStateFiles.opaqueArgb(bytes, w, h, pitch, fmt), w, h, android.graphics.Bitmap.Config.ARGB_8888
+            ) ?: return
+            val png = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png)
+            bitmap.recycle()
+            AtomicSaveFile.writeBytes(getCanonicalFile(identity, SaveStateFiles.slotThumbnail(slotIndex)), png.toByteArray())
+        } catch (t: Throwable) {
+            Log.w(TAG, "Slot thumbnail skipped: ${t.message}")
         }
-
-        val stagingFile = getStagingFile(identity, fileName)
-        canonicalFile.copyTo(stagingFile, overwrite = true)
-        if (!stagingFile.exists() || stagingFile.length() == 0L) return false
-
-        return nativeLoadState(stagingFile.absolutePath)
     }
 
     // ---------------------------------------------------------
@@ -284,28 +330,11 @@ open class SaveStateManager(
     // ---------------------------------------------------------
 
     fun quickSave(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing quickSave on invalid RomIdentity")
-            return false
-        }
-        if (!isLoadedRom(identity)) {
-            Log.w(TAG, "Refusing quickSave: ${identity.displayName} is not the loaded ROM")
-            return false
-        }
-        val fileName = "quicksave.state"
-        val stagingFile = getStagingFile(identity, fileName)
-        val ok = nativeSaveState(stagingFile.absolutePath)
-        if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) {
-            return false
-        }
-
-        val canonicalFile = getCanonicalFile(identity, fileName)
-        val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
-        if (committed) {
-            safMirrorStore.mirrorFile(identity, fileName, canonicalFile)
-            recordMetadata(identity, activeProfileId)
-        }
-        return committed
+        if (refuse("quickSave", identity)) return false
+        val canonicalFile = writeState(identity, SaveStateFiles.QUICK_SAVE) ?: return false
+        safMirrorStore.mirrorFile(identity, SaveStateFiles.QUICK_SAVE, canonicalFile)
+        recordMetadata(identity, activeProfileId)
+        return true
     }
 
     fun quickLoad(
@@ -313,55 +342,88 @@ open class SaveStateManager(
         profileName: String? = null,
         profileId: String? = null
     ): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) return false
-        if (!isLoadedRom(identity)) {
-            Log.w(TAG, "Refusing quickLoad: ${identity.displayName} is not the loaded ROM")
-            return false
-        }
-        val fileName = "quicksave.state"
-        val canonicalFile = getCanonicalFile(identity, fileName)
-        val expectedSize = nativeGetSaveStateSize()
-        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
-        if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
-
-        if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
-            Log.e(TAG, "Quick save state size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
-            return false
-        }
-
-        val stagingFile = getStagingFile(identity, fileName)
-        canonicalFile.copyTo(stagingFile, overwrite = true)
-        if (!stagingFile.exists()) return false
-
-        return nativeLoadState(stagingFile.absolutePath)
+        if (refuse("quickLoad", identity)) return false
+        return loadStateFile(identity, SaveStateFiles.QUICK_SAVE, snapshotUndo = true)
     }
 
     fun saveAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) return false
-        val fileName = "auto_resume.state"
-        val stagingFile = getStagingFile(identity, fileName)
-        val ok = nativeSaveState(stagingFile.absolutePath)
-        if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) {
-            return false
-        }
-
-        val canonicalFile = getCanonicalFile(identity, fileName)
-        return AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        if (refuse("saveAutoResume", identity)) return false
+        return writeState(identity, SaveStateFiles.AUTO_RESUME) != null
     }
 
     fun loadAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (refuse("loadAutoResume", identity)) return false
+        return loadStateFile(identity, SaveStateFiles.AUTO_RESUME, snapshotUndo = false)
+    }
+
+    /**
+     * Boot-time resume: loads the newest of auto-resume and the manual states (see
+     * [SaveStateFiles.newestResumeState]), honouring the barrier set by [clearAutoResume].
+     * Returns the loaded file name, or null when nothing was loaded (the game boots normally).
+     */
+    fun loadNewestResumeState(identity: RomIdentity): String? = synchronized(globalSaveLock) {
+        if (refuse("loadNewestResumeState", identity)) return null
+        val dir = getCanonicalRomDir(identity)
+        val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
+        val newest = SaveStateFiles.newestResumeState(dir, barrier) ?: return null
+        return newest.name.takeIf { loadStateFile(identity, it, snapshotUndo = false) }
+    }
+
+    /**
+     * Deletes the auto-resume state and makes every existing state ineligible for boot-time
+     * resume, so a stale state can't roll back a battery save that was just replaced.
+     * Manual slots stay on disk and remain loadable by hand.
+     */
+    fun clearAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (!identity.isValid) return false
-        val fileName = "auto_resume.state"
-        val canonicalFile = getCanonicalFile(identity, fileName)
-        val expectedSize = nativeGetSaveStateSize()
-        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
-        if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
+        val dir = getCanonicalRomDir(identity)
+        File(dir, SaveStateFiles.AUTO_RESUME).delete()
+        val barrier = File(dir, SaveStateFiles.RESUME_BARRIER)
+        return try {
+            barrier.writeText(System.currentTimeMillis().toString())
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to write resume barrier: ${e.message}")
+            false
+        }
+    }
 
-        val stagingFile = getStagingFile(identity, fileName)
-        canonicalFile.copyTo(stagingFile, overwrite = true)
-        if (!stagingFile.exists()) return false
+    // ---------------------------------------------------------
+    // Restart / Close
+    // ---------------------------------------------------------
 
-        return nativeLoadState(stagingFile.absolutePath)
+    /** Flushes the battery save, then resets the core. Refuses (no reset) if the flush fails. */
+    fun restartGame(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (refuse("restartGame", identity)) return false
+        if (flushBatterySave(identity) !is SaveWriteResult.Success) return false
+        nativeResetCore()
+        return true
+    }
+
+    /**
+     * Close Game, in this order: [pauseEmulation] (caller stops the frame loop and polling), write
+     * the battery save and the resume state, and only if both succeeded unload the ROM. On any
+     * failure nothing is unloaded and [resumeEmulation] restarts the game. On success emulation
+     * stays paused; the caller clears its session.
+     */
+    fun closeGame(
+        identity: RomIdentity,
+        pauseEmulation: () -> Unit = {},
+        resumeEmulation: () -> Unit = {}
+    ): Boolean {
+        pauseEmulation()
+        val closed = synchronized(globalSaveLock) {
+            !refuse("closeGame", identity) &&
+                flushBatterySave(identity) is SaveWriteResult.Success &&
+                saveAutoResume(identity) &&
+                coreCoordinator.executeExclusive {
+                    coreCoordinator.unloadRom()
+                    activeIdentity = null
+                    true
+                }
+        }
+        if (!closed) resumeEmulation()
+        return closed
     }
 
     // ---------------------------------------------------------
@@ -383,7 +445,7 @@ open class SaveStateManager(
 
     fun getAllSlotsInfo(
         identity: RomIdentity,
-        maxSlots: Int = 5,
+        maxSlots: Int = SaveStateFiles.SLOT_COUNT,
         profileName: String? = null,
         profileId: String? = null
     ): List<SaveSlotInfo> {
@@ -442,10 +504,7 @@ open class SaveStateManager(
         profileName: String? = null,
         profileId: String? = null
     ): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing loadBatterySave on invalid RomIdentity")
-            return false
-        }
+        if (refuse("loadBatterySave", identity)) return false
         if (profileName != null) activeProfileName = profileName
         if (profileId != null) activeProfileId = profileId
 
@@ -469,10 +528,9 @@ open class SaveStateManager(
         identity: RomIdentity,
         mirrorSafAsync: Boolean = false
     ): SaveWriteResult = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing flushBatterySave on invalid RomIdentity")
-            return SaveWriteResult.Failure("Invalid ROM identity")
-        }
+        // An activity can hold an identity captured before another entry point switched ROMs;
+        // flushing then would write the loaded ROM's SRAM into this ROM's save.
+        if (refuse("flushBatterySave", identity)) return SaveWriteResult.Failure("Not the loaded ROM")
 
         val stagingFile = getStagingFile(identity, "battery.sav")
         val flushed = nativeFlushSaveRam(stagingFile.absolutePath)
@@ -482,7 +540,11 @@ open class SaveStateManager(
         }
 
         val canonicalFile = getCanonicalFile(identity, "battery.sav")
-        val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        // Unchanged SRAM is not rewritten: a no-op flush (e.g. onDestroy after onPause) must not bump
+        // battery.sav's mtime past the resume state written in between, or the next boot rejects it as stale.
+        val unchanged = canonicalFile.isFile && canonicalFile.length() == stagingFile.length() &&
+            canonicalFile.readBytes().contentEquals(stagingFile.readBytes())
+        val committed = unchanged || AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
         if (!committed) {
             Log.e(TAG, "Atomic commit to canonical battery.sav failed")
             return SaveWriteResult.Failure("Canonical commit failed")
@@ -491,6 +553,7 @@ open class SaveStateManager(
         val initialStatus = if (!mirrorSafAsync) {
             val status = safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
             recordMetadata(identity, activeProfileId, explicitStatus = status)
+            saveShareStore.export(identity, canonicalFile)
             status
         } else {
             val pendingStatus = if (safMirrorStore.isSafConfigured()) MirrorStatus.PENDING else MirrorStatus.UNAVAILABLE
@@ -502,6 +565,7 @@ open class SaveStateManager(
                 try {
                     val finalStatus = safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
                     recordMetadata(identity, activeProfileId, explicitStatus = finalStatus)
+                    synchronized(globalSaveLock) { saveShareStore.export(identity, canonicalFile) }
                 } catch (e: Exception) {
                     Log.w(TAG, "Background SAF mirror failed: ${e.message}")
                     recordMetadata(identity, activeProfileId, explicitStatus = MirrorStatus.FAILED)
@@ -517,10 +581,7 @@ open class SaveStateManager(
     }
 
     fun importBatterySave(identity: RomIdentity, inputStream: InputStream): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing importBatterySave on invalid RomIdentity")
-            return false
-        }
+        if (refuse("importBatterySave", identity)) return false
 
         try {
             val rawBytes = inputStream.use { it.readBytes() }
@@ -599,6 +660,8 @@ open class SaveStateManager(
             // 7. Mirror to SAF and record metadata
             safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
             recordMetadata(identity, activeProfileId)
+            // A resume state carries its own SRAM; booting into an older one would roll back this import.
+            clearAutoResume(identity)
 
             Log.i(TAG, "Import battery save succeeded for ${identity.storageKey} ($expectedRamSize bytes)")
             return true
@@ -609,10 +672,7 @@ open class SaveStateManager(
     }
 
     fun exportBatterySave(identity: RomIdentity, outputStream: OutputStream): Boolean = synchronized(globalSaveLock) {
-        if (!identity.isValid) {
-            Log.e(TAG, "Refusing exportBatterySave on invalid RomIdentity")
-            return false
-        }
+        if (refuse("exportBatterySave", identity)) return false
 
         try {
             // 1. Capture current SRAM into staging
@@ -643,6 +703,22 @@ open class SaveStateManager(
             Log.e(TAG, "Error exporting battery save: ${e.message}", e)
             return false
         }
+    }
+
+    /**
+     * "LOAD SAVE" from the shared folder (#153): backs the current save up as
+     * `<rom>.backup-<yyyyMMdd-HHmmss>.<ext>` beside it (aborting if that fails), then imports the
+     * shared file through [importBatterySave] (size-validated, rollback-safe, clears auto-resume).
+     */
+    fun loadSharedSave(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (refuse("loadSharedSave", identity)) return false
+        val (name, bytes) = saveShareStore.readShared(identity) ?: return false
+        val canonicalFile = getCanonicalFile(identity, "battery.sav")
+        if (flushBatterySave(identity) !is SaveWriteResult.Success) return false
+        if (!saveShareStore.writeBackup(identity, canonicalFile, name.substringAfterLast('.', "sav"))) return false
+        if (!importBatterySave(identity, bytes.inputStream())) return false
+        saveShareStore.markInSync(getCanonicalRomDir(identity), bytes)
+        return true
     }
 
     fun importBatterySave(identity: RomIdentity, uri: Uri): Boolean {
@@ -742,7 +818,7 @@ open class SaveStateManager(
     fun getSlotInfo(gameKey: String, slotIndex: Int): SaveSlotInfo =
         getSlotInfo(identityFromKey(gameKey), slotIndex)
 
-    fun getAllSlotsInfo(gameKey: String, maxSlots: Int = 5): List<SaveSlotInfo> =
+    fun getAllSlotsInfo(gameKey: String, maxSlots: Int = SaveStateFiles.SLOT_COUNT): List<SaveSlotInfo> =
         getAllSlotsInfo(identityFromKey(gameKey), maxSlots)
 
     fun loadBatterySave(gameKey: String): Boolean =

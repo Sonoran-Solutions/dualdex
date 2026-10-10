@@ -50,7 +50,9 @@ pinned toolchain as described there instead of editing it by hand.
 
 ## 2. Adding a New ROM Hack Profile
 
-DualDex uses modular JSON configuration files in `app/src/main/assets/profiles/` to adapt the companion UI, real-time memory offsets, damage calculator rules, and documentation.
+DualDex uses modular JSON configuration files in `app/src/main/assets/profiles/` to adapt the companion UI, ROM detection, damage calculator rules, and documentation.
+
+> **Memory offsets are not read from JSON.** Live reads use the compiled `GameMemoryConfig` tables in `native/src/pokemon_reader.c`, selected by `gameId` (the `GameType` enum in `native/include/pokemon_reader.h`). `playerPartyOffset`/`enemyPartyOffset` in the JSON are documentation only and must be kept in sync with the native config by hand. Supporting a new memory layout means adding a native config (with evidence), not just a profile.
 
 ### Step 1: Create the Profile JSON
 Create a new file in `app/src/main/assets/profiles/<your_hack_id>.json`:
@@ -60,7 +62,7 @@ Create a new file in `app/src/main/assets/profiles/<your_hack_id>.json`:
   "id": "my_rom_hack",
   "name": "Pokemon Custom Hack Name",
   "baseGame": "FireRed",
-  "gameId": 1,
+  "gameId": 2,
   "developer": "Hack Author Name",
   "engine": "CFRU",
   "hasEvs": true,
@@ -98,17 +100,17 @@ Create a new file in `app/src/main/assets/profiles/<your_hack_id>.json`:
 | `id` | String | Unique lowercase identifier (e.g. `ghost_grey`, `radical_red`). |
 | `name` | String | User-facing display title. |
 | `baseGame` | String | Base ROM name (`FireRed`, `Emerald`, `Ruby`, `Sapphire`). |
-| `gameId` | Integer | Internal engine ID (`1` = Emerald, `2` = FireRed, `6` = Ghost Grey, `7` = Radical Red, `8` = Heart & Soul, `9` = Unbound). |
+| `gameId` | Integer | Native `GameType` value that selects the compiled memory layout (`0` = unknown, `1` = Emerald, `2` = FireRed, `3` = LeafGreen, `4` = Ruby, `5` = Sapphire, `6` = Ghost Grey, `7` = Radical Red, `8` = Heart & Soul, `9` = Unbound). |
 | `engine` | String | Engine used (`Vanilla`, `HexManiacAdvance`, `CFRU`, `decomp`). |
 | `hasEvs` | Boolean | Set `false` if the hack removes Effort Values (e.g. Ghost Grey). Hides EV displays. |
 | `hasIvs` | Boolean | Set `false` if Individual Values are removed or normalized. |
 | `hasPhysSpecSplit` | Boolean | `true` if moves have individual Physical/Special categories instead of Gen 3 type categories. |
 | `steelResistsGhostDark`| Boolean | `true` if Steel retains pre-Gen 6 resistance to Ghost and Dark. |
 | `cfruOffsets` | Boolean | Set `true` if built with Complete FireRed Upgrade (expanded memory structures). |
-| `playerPartyOffset` | Long | Decimal address in EWRAM for player party (`0x02024284` = `33702532` for FireRed). |
-| `enemyPartyOffset` | Long | Decimal address in EWRAM for opponent party (`0x0202402C` = `33701932` for FireRed). |
+| `playerPartyOffset` | Long | Documentation only (not read at runtime): decimal GBA address of the player party (`0x02024284` = `33702532` for FireRed). |
+| `enemyPartyOffset` | Long | Documentation only (not read at runtime): decimal GBA address of the opponent party (`0x0202402C` = `33701932` for FireRed). |
 | `docsUrl` | String? | Web dex or spreadsheet URL. If provided, loaded in the Docs WebView tab. |
-| `headerTitles` | List<String> | ASCII strings present in bytes `0xA0..0xAB` of the GBA header. |
+| `headerTitles` | List<String> | Recognition keywords matched against the 12-byte header title (`0xA0..0xAB`) and the filename. Short keywords must be a whole word; 4-letter game codes (e.g. `BPRE`) never pick a hack. Recognition never unlocks memory reads (only an exact `sha256Hashes` match can). |
 | `sha256Hashes` | List<String> | SHA-256 hashes of known patched ROM releases for exact auto-detection. |
 | `customSpecies` | Object | Map of custom species IDs to base stats and typings for regional forms. |
 

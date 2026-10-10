@@ -100,8 +100,8 @@ object RomHackDetector {
         //    Recognition only: an unknown build of a known hack must not inherit its layout trust.
         if (fileName.isNotBlank()) {
             for (p in profiles) {
-                val matches = p.headerTitles.any { ht -> fileName.contains(ht, ignoreCase = true) } ||
-                    (p.name.isNotBlank() && fileName.contains(p.name, ignoreCase = true))
+                val matches = p.headerTitles.any { ht -> keywordMatches(fileName, ht) } ||
+                    (p.name.isNotBlank() && keywordMatches(fileName, p.name))
                 if (matches) {
                     return RomCompatibility.recognizedUnverified(
                         profile = p,
@@ -113,17 +113,17 @@ object RomHackDetector {
             }
         }
 
-        // 3. Header titles and game codes embedded in the ROM header.
+        // 3. Header titles embedded in the ROM header. The 4-byte game code is deliberately not
+        //    compared here: every FireRed hack ships as BPRE, so a code says only "FireRed-based"
+        //    (step 4), never which hack.
         for (p in profiles) {
-            for (ht in p.headerTitles) {
-                if (titleStr.contains(ht, ignoreCase = true) || codeStr.contains(ht, ignoreCase = true)) {
-                    return RomCompatibility.recognizedUnverified(
-                        profile = p,
-                        sha256 = sha256,
-                        matchMethod = ProfileMatchMethod.HEADER_TITLE,
-                        reason = "ROM header suggests ${p.id}, but the exact ROM bytes are not verified"
-                    )
-                }
+            if (p.headerTitles.any { ht -> keywordMatches(titleStr, ht) }) {
+                return RomCompatibility.recognizedUnverified(
+                    profile = p,
+                    sha256 = sha256,
+                    matchMethod = ProfileMatchMethod.HEADER_TITLE,
+                    reason = "ROM header suggests ${p.id}, but the exact ROM bytes are not verified"
+                )
             }
         }
 
@@ -150,6 +150,25 @@ object RomHackDetector {
             sha256 = sha256,
             matchMethod = ProfileMatchMethod.DEFAULT_FALLBACK
         )
+    }
+
+    private val GAME_CODE = Regex("^B[A-Z0-9]{2}[A-Z]$")
+    private const val MIN_SUBSTRING_KEYWORD = 6
+
+    /**
+     * Recognition keyword match, deliberately stricter than a substring test: game codes never
+     * match (they identify the base game only), short keywords must equal a whole word
+     * ("HNS" in "Pokemon HnS 2.0.5", not "pHNSx"), and only keywords of
+     * [MIN_SUBSTRING_KEYWORD]+ alphanumerics may match inside a run-together name.
+     */
+    internal fun keywordMatches(text: String, keyword: String): Boolean {
+        if (GAME_CODE.matches(keyword.trim())) return false
+        val k = keyword.lowercase().replace("&", "and").filter { it.isLetterOrDigit() }
+        if (k.isEmpty()) return false
+        val lower = text.lowercase()
+        if (lower.split(Regex("[^a-z0-9]+")).any { it == k }) return true
+        val squashed = lower.replace("&", "and").filter { it.isLetterOrDigit() }
+        return k.length >= MIN_SUBSTRING_KEYWORD && squashed.contains(k)
     }
 
     /**

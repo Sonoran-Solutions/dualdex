@@ -92,7 +92,7 @@ class CheatsScreenView(
             presetBtn = DualDexComponents.secondaryButton(context, "Load Presets") {
                 val identity = getActiveRomIdentity()
                 if (identity != null && identity.isValid) {
-                    val dialog = AlertDialog.Builder(context)
+                    val dialog = DualDexComponents.showDialog(AlertDialog.Builder(context)
                         .setTitle("Load preset cheats?")
                         .setMessage("This will replace all cheats for this game, including custom cheats.")
                         .setNegativeButton("Cancel", null)
@@ -100,8 +100,7 @@ class CheatsScreenView(
                             val result = cheatManager.loadPresets(identity)
                             refreshUI()
                             Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
-                        }
-                        .show()
+                        })
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
                 }
             }
@@ -314,7 +313,7 @@ class CheatsScreenView(
                     text = "Delete",
                     style = DualDexButtonStyle.DESTRUCTIVE
                 ) {
-                    val dialog = AlertDialog.Builder(context)
+                    val dialog = DualDexComponents.showDialog(AlertDialog.Builder(context)
                         .setTitle("Delete cheat?")
                         .setMessage("Delete \"${cheat.name}\"? This cannot be undone.")
                         .setNegativeButton("Cancel", null)
@@ -322,8 +321,7 @@ class CheatsScreenView(
                             cheatManager.deleteCheat(identity, cheat.id)
                             expandedCheatIds.remove(cheat.id)
                             refreshUI()
-                        }
-                        .show()
+                        })
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
                 }
                 actionRow.addView(deleteBtn)
@@ -416,6 +414,6 @@ class CheatsScreenView(
             }
         }
         builder.setNegativeButton("Cancel", null)
-        builder.show()
+        DualDexComponents.showDialog(builder)
     }
 }

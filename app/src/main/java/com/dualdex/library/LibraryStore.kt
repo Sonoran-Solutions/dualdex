@@ -78,19 +78,22 @@ object LibraryScanner {
     }
 
     private fun inspect(context: Context, doc: DocumentFile, profiles: List<RomHackProfile>): ScanVerdict? {
-        val header = ByteArray(192)
-        val sums = context.contentResolver.openInputStream(doc.uri)?.let { input ->
-            var read = 0
-            while (read < header.size) {
-                val n = input.read(header, read, header.size - read)
-                if (n < 0) break
-                read += n
-            }
-            RomInfo.checksums(SequenceInputStream(header.copyOf(read).inputStream(), input) as InputStream)
-        } ?: return null
+        val (header, sums) = context.contentResolver.openInputStream(doc.uri)?.let(::headerAndChecksums) ?: return null
         val compat = RomHackDetector.detectCompatibilityFromBytes(header, sums.sha256, profiles, doc.name.orEmpty())
         val profileName = if (compat.status == RomCompatibilityStatus.UNSUPPORTED) "" else compat.profile.name
         return ScanVerdict(doc.uri.toString(), doc.length(), doc.lastModified(), sums.sha256, compat.status, profileName)
+    }
+
+    /** Reads the 192-byte header and checksums the whole stream; [input] is always closed. */
+    internal fun headerAndChecksums(input: InputStream): Pair<ByteArray, RomChecksums> = input.use {
+        val header = ByteArray(192)
+        var read = 0
+        while (read < header.size) {
+            val n = it.read(header, read, header.size - read)
+            if (n < 0) break
+            read += n
+        }
+        header to RomInfo.checksums(SequenceInputStream(header.copyOf(read).inputStream(), it) as InputStream)
     }
 
     fun formatSize(length: Long): String = if (length >= 1024 * 1024) {

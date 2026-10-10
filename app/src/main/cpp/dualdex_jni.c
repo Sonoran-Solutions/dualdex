@@ -1254,3 +1254,26 @@ Java_com_dualdex_calculator_DamageCalculator_nativeCleanup(JNIEnv* env, jobject 
     (void)thiz;
     js_calc_cleanup();
 }
+
+/* Smart fast-forward: raw bounds-checked read of emulated GBA memory (IWRAM/EWRAM). */
+JNIEXPORT jboolean JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeReadGbaMemory(JNIEnv* env, jobject thiz, jint address, jbyteArray out) {
+    (void)thiz;
+    if (!out) return JNI_FALSE;
+    jsize len = (*env)->GetArrayLength(env, out);
+    if (len <= 0 || len > 0x8000) return JNI_FALSE;
+    jbyte* buf = (*env)->GetByteArrayElements(env, out, NULL);
+    if (!buf) return JNI_FALSE;
+    bool ok = libretro_host_read_gba_address((uint32_t)address, buf, (size_t)len);
+    (*env)->ReleaseByteArrayElements(env, out, buf, ok ? 0 : JNI_ABORT);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+/* Smart fast-forward: the verified profile's `gMain` address, or 0 when the profile has none. */
+JNIEXPORT jint JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeGetMainStructAddress(JNIEnv* env, jobject thiz, jint game_id) {
+    (void)env;
+    (void)thiz;
+    const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
+    return cfg ? (jint)cfg->main_struct_gba_address : 0;
+}

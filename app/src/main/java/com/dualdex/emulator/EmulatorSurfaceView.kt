@@ -34,6 +34,8 @@ class EmulatorSurfaceView @JvmOverloads constructor(
 
     @Volatile
     private var speedMultiplier: Int = 1
+    /** Per-ROM smart fast-forward; null disables it. Set from MainActivity after a ROM loads. */
+    @Volatile var smartFastForward: SmartFastForward? = null
 
     @Volatile
     private var currentFilter: ShaderFilter = ShaderFilter.NEAREST
@@ -127,7 +129,9 @@ class EmulatorSurfaceView @JvmOverloads constructor(
             FastForwardDiagnostics.onEmulationLoopStart()
 
             while (isEmulating) {
-                val speed = speedMultiplier.coerceIn(1, 8)
+                // Smart FF runs every frame (it counts frames to learn/verify) but only ever slows down.
+                val smartSlow = smartFastForward?.onFrame() == true
+                val speed = if (smartSlow) 1 else speedMultiplier.coerceIn(1, 8)
                 val targetIntervalNs = (baseIntervalNs / speed).coerceAtLeast(1_000_000L)
                 FastForwardDiagnostics.onSpeedChanged(speed)
                 FastForwardDiagnostics.setTargetInterval(targetIntervalNs)

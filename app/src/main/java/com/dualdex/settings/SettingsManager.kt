@@ -49,6 +49,18 @@ open class SettingsManager(private val prefs: SharedPreferences) {
     fun unregisterChangeListener(l: SharedPreferences.OnSharedPreferenceChangeListener) =
         prefs.unregisterOnSharedPreferenceChangeListener(l)
 
+    var isSmartFastForwardEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SMART_FAST_FORWARD, true)
+        set(value) {
+            prefs.edit().putBoolean(KEY_SMART_FAST_FORWARD, value).apply()
+        }
+
+    /** Smart fast-forward's learned field/battle callbacks, per ROM SHA-256. */
+    fun smartFastForwardLearned(romSha256: String): String? = prefs.getString(KEY_SMART_FF_LEARNED + romSha256, null)
+
+    fun setSmartFastForwardLearned(romSha256: String, encoded: String) =
+        prefs.edit().putString(KEY_SMART_FF_LEARNED + romSha256, encoded).apply()
+
     var isAudioEnabled: Boolean
         get() = prefs.getBoolean(KEY_AUDIO_ENABLED, true)
         set(value) {
@@ -164,6 +176,8 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         private const val KEY_TRIGGER_MODE = "key_trigger_shortcut_mode"
         private const val KEY_SHADER_FILTER = "key_shader_filter"
         private const val KEY_FAST_FORWARD = "key_fast_forward"
+        private const val KEY_SMART_FAST_FORWARD = "key_smart_fast_forward"
+        private const val KEY_SMART_FF_LEARNED = "key_smart_ff_learned_"
         private const val KEY_AUDIO_ENABLED = "key_audio_enabled"
         private const val KEY_GEMINI_API_KEY = "key_gemini_api_key"
         private const val KEY_STRETCH_TO_FIT = "key_stretch_to_fit"

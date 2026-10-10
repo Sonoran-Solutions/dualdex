@@ -381,6 +381,22 @@ open class LibretroCoreCoordinator(
         2
     }
 
+    /** Raw emulated-memory read for smart fast-forward; null when unmapped or unavailable. */
+    open fun readGbaMemory(address: Int, length: Int): ByteArray? = try {
+        val out = ByteArray(length)
+        if (executeExclusive(50L) { LibretroHost.nativeReadGbaMemory(address, out) }) out else null
+    } catch (_: UnsatisfiedLinkError) {
+        null
+    } catch (_: Exception) {
+        null
+    }
+
+    open fun mainStructAddress(gameId: Int): Int = try {
+        LibretroHost.nativeGetMainStructAddress(gameId)
+    } catch (_: UnsatisfiedLinkError) {
+        0
+    }
+
     open fun readPlayerLocation(gameId: Int): PlayerLocation? = try {
         executeExclusive(50L) { LibretroHost.nativeReadPlayerLocation(gameId) }
     } catch (_: UnsatisfiedLinkError) {

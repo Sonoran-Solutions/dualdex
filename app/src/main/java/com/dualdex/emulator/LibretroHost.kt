@@ -66,5 +66,7 @@ object LibretroHost {
     external fun nativeGetAudioSampleRate(): Double
     external fun nativeCheatReset()
     external fun nativeCheatSet(index: Int, enabled: Boolean, code: String)
+    external fun nativeReadGbaMemory(address: Int, out: ByteArray): Boolean
+    external fun nativeGetMainStructAddress(gameId: Int): Int
     external fun nativeCleanup()
 }

@@ -37,6 +37,7 @@ import com.dualdex.emulator.InputManager
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.LibretroHost
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.emulator.SmartFastForward
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
 import com.dualdex.emulator.RomUriPermissionManager
@@ -342,6 +343,22 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private fun createSmartFastForward(identity: RomIdentity, gameId: Int): SmartFastForward? {
+        if (!identity.isValid) return null
+        val core = LibretroCoreCoordinator.defaultInstance
+        val sha = identity.sha256.lowercase()
+        return SmartFastForward(
+            memory = { address, length -> core.readGbaMemory(address, length) },
+            knownMainAddress = core.mainStructAddress(gameId),
+            learned = SmartFastForward.Learned.decode(settingsManager.smartFastForwardLearned(sha)),
+            location = {
+                core.readPlayerLocation(gameId)?.let { SmartFastForward.packLocation(it.mapGroup, it.mapNum, it.x, it.y) }
+            },
+            onLearned = { settingsManager.setSmartFastForwardLearned(sha, it.encode()) },
+            isEnabled = { settingsManager.isSmartFastForwardEnabled },
+        )
+    }
+
     private fun handleSelectedRom(
         uri: Uri,
         preferredTitle: String? = null,
@@ -385,6 +402,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                                 protectedUris = setOfNotNull(settingsManager.romsFolderUri, settingsManager.savesFolderUri)
                             )
                         }
+                        emulatorView?.smartFastForward = createSmartFastForward(result.identity, result.profile.gameId)
                         Toast.makeText(
                             this@MainActivity,
                             "Loaded: ${result.profile.name} (${result.profile.engine})",

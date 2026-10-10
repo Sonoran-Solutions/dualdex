@@ -90,6 +90,12 @@ class CompanionViewModel(
     private val _isInteractiveBattleControlsEnabled = MutableStateFlow(false)
     val isInteractiveBattleControlsEnabled: StateFlow<Boolean> = _isInteractiveBattleControlsEnabled.asStateFlow()
 
+    private val _isMoveTileDamageShown = MutableStateFlow(true)
+    val isMoveTileDamageShown: StateFlow<Boolean> = _isMoveTileDamageShown.asStateFlow()
+
+    private val _isMoveTileEffectivenessShown = MutableStateFlow(true)
+    val isMoveTileEffectivenessShown: StateFlow<Boolean> = _isMoveTileEffectivenessShown.asStateFlow()
+
     private val _activeGameId = MutableStateFlow(0)
     val activeGameId: StateFlow<Int> = _activeGameId.asStateFlow()
 
@@ -596,6 +602,14 @@ class CompanionViewModel(
 
     fun setInteractiveBattleControlsEnabled(enabled: Boolean) {
         _isInteractiveBattleControlsEnabled.value = enabled
+    }
+
+    fun setMoveTileDamageShown(shown: Boolean) {
+        _isMoveTileDamageShown.value = shown
+    }
+
+    fun setMoveTileEffectivenessShown(shown: Boolean) {
+        _isMoveTileEffectivenessShown.value = shown
     }
 
     fun setActiveEnemyMemberIndex(index: Int) {

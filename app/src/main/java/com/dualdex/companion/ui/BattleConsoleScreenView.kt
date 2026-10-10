@@ -3,6 +3,7 @@ package com.dualdex.companion.ui
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -11,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.graphics.ColorUtils
 import com.dualdex.battle.*
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.calculator.CalcCapabilityPolicy
@@ -60,17 +62,20 @@ class BattleConsoleScreenView(
         val statChipsRow: LinearLayout
     )
 
-    private class MoveCardHolder(
+    private class MoveTileHolder(
         val root: LinearLayout,
-        val typeBadgeContainer: LinearLayout,
+        val content: LinearLayout,
+        val placeholderView: TextView,
         val nameView: TextView,
+        val typeBadgeContainer: LinearLayout,
         val ppView: TextView,
-        val bpAccView: TextView,
-        val categoryView: TextView,
         val damageView: TextView,
-        val effectivenessView: TextView,
-        val actionPill: TextView
-    )
+        val effectivenessView: TextView
+    ) {
+        /** Type + PP state the background was last built for; avoids drawable churn at 10 Hz. */
+        var styleKey: String? = null
+        var badgeType: PokemonType? = null
+    }
 
     private class PartyMemberRowHolder(
         val root: LinearLayout,
@@ -113,7 +118,11 @@ class BattleConsoleScreenView(
     private val readOnlyNoticeView: LinearLayout
     private val readOnlyNoticeText: TextView
     private val actionFeedbackText: TextView
-    private val moveHolders = ArrayList<MoveCardHolder>(4)
+    private val moveHolders = ArrayList<MoveTileHolder>(4)
+    // Inline long-press details. The companion screen is a presentation window, which cannot
+    // host a Dialog (Window type mismatch crash), so details render in the view hierarchy.
+    private val moveDetailsPanel: TextView
+    private var moveDetailsSlot: Int? = null
     private val partyRowHolders = ArrayList<PartyMemberRowHolder>(6)
     private val partyRowsContainer: LinearLayout
 
@@ -270,13 +279,41 @@ class BattleConsoleScreenView(
             LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT
         ).apply { bottomMargin = context.dp(DualDexTheme.Spacing.compact) })
 
-        for (i in 0 until 4) {
-            val holder = createMoveCardHolder()
-            moveHolders += holder
-            liveBattleContainer.addView(holder.root, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+        // DS-style 2×2 grid in the game's move-menu order: 0 | 1 over 2 | 3.
+        for (row in 0 until 2) {
+            val rowLayout = LinearLayout(context).apply { orientation = HORIZONTAL }
+            for (col in 0 until 2) {
+                val holder = createMoveTileHolder()
+                moveHolders += holder
+                rowLayout.addView(holder.root, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f).apply {
+                    if (col == 0) marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
+            }
+            liveBattleContainer.addView(rowLayout, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
                 bottomMargin = context.dp(DualDexTheme.Spacing.compact)
             })
         }
+
+        moveDetailsPanel = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.meta
+            background = DualDexComponents.surface(context)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact)
+            )
+            visibility = View.GONE
+            isClickable = true
+            setOnClickListener {
+                moveDetailsSlot = null
+                visibility = View.GONE
+            }
+        }
+        liveBattleContainer.addView(moveDetailsPanel, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.compact)
+        })
 
         // Party Switching Section
         liveBattleContainer.addView(DualDexComponents.sectionTitle(context, "Party"), LayoutParams(
@@ -499,31 +536,34 @@ class BattleConsoleScreenView(
         return CombatantHolder(root, roleLabel, nameView, levelView, typesRow, hpBar, hpTextView, statusBadge, statChipsRow)
     }
 
-    private fun createMoveCardHolder(): MoveCardHolder {
+    private fun createMoveTileHolder(): MoveTileHolder {
         val root = LinearLayout(context).apply {
             orientation = VERTICAL
-            background = DualDexComponents.surface(context)
-            minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
+            minimumHeight = context.dp(MOVE_TILE_MIN_HEIGHT_DP)
             setPadding(
-                context.dp(DualDexTheme.Spacing.standard),
                 context.dp(DualDexTheme.Spacing.compact),
-                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.compact),
+                context.dp(DualDexTheme.Spacing.compact),
                 context.dp(DualDexTheme.Spacing.compact)
             )
-            isClickable = false
-            isFocusable = false
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
         }
 
-        // Header Row: Type Badge | Name | PP | BP/Acc | USE pill
-        val header = LinearLayout(context).apply {
-            orientation = HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val placeholderView = TextView(context).apply {
+            text = "—"
+            setTextColor(DualDexTheme.Color.textDisabled)
+            textSize = DualDexTheme.Type.body
+            gravity = Gravity.CENTER
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            visibility = View.GONE
         }
+        root.addView(placeholderView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
 
-        val typeBadgeContainer = LinearLayout(context).apply {
-            orientation = HORIZONTAL
+        val content = LinearLayout(context).apply {
+            orientation = VERTICAL
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         }
-        header.addView(typeBadgeContainer)
+        root.addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         val nameView = TextView(context).apply {
             setTextColor(DualDexTheme.Color.textPrimary)
@@ -531,70 +571,83 @@ class BattleConsoleScreenView(
             typeface = Typeface.DEFAULT_BOLD
             isSingleLine = true
             ellipsize = TextUtils.TruncateAt.END
-            setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), 0)
         }
-        header.addView(nameView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        content.addView(nameView)
 
-        val bpAccView = TextView(context).apply {
-            setTextColor(DualDexTheme.Color.textSecondary)
-            textSize = DualDexTheme.Type.compact
-            setPadding(0, 0, context.dp(DualDexTheme.Spacing.compact), 0)
-        }
-        header.addView(bpAccView)
-
-        val ppView = TextView(context).apply {
-            setTextColor(DualDexTheme.Color.textSecondary)
-            textSize = DualDexTheme.Type.compact
-            setPadding(0, 0, context.dp(DualDexTheme.Spacing.compact), 0)
-        }
-        header.addView(ppView)
-
-        val actionPill = TextView(context).apply {
-            text = "USE"
-            setTextColor(DualDexTheme.Color.onAccent)
-            textSize = DualDexTheme.Type.compact
-            typeface = Typeface.DEFAULT_BOLD
-            gravity = Gravity.CENTER
-            setPadding(context.dp(DualDexTheme.Spacing.compact), context.dp(2), context.dp(DualDexTheme.Spacing.compact), context.dp(2))
-            background = DualDexComponents.roundedDrawable(context, DualDexTheme.Color.accent, DualDexTheme.Radius.pill)
-            visibility = View.GONE
-        }
-        header.addView(actionPill)
-        root.addView(header)
-
-        // Sub Row: Category | Damage Range (%) | Effectiveness
-        val subRow = LinearLayout(context).apply {
+        // Type badge | PP
+        val typeRow = LinearLayout(context).apply {
             orientation = HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
         }
-
-        val categoryView = TextView(context).apply {
-            setTextColor(DualDexTheme.Color.textSecondary)
+        val typeBadgeContainer = LinearLayout(context).apply { orientation = HORIZONTAL }
+        typeRow.addView(typeBadgeContainer, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        val ppView = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textPrimary)
             textSize = DualDexTheme.Type.compact
-            setPadding(0, 0, context.dp(DualDexTheme.Spacing.compact), 0)
+            typeface = DualDexTheme.Type.device
         }
-        subRow.addView(categoryView)
+        typeRow.addView(ppView)
+        content.addView(typeRow)
 
+        // Damage % | Effectiveness
+        val infoRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+        }
         val damageView = TextView(context).apply {
             setTextColor(DualDexTheme.Color.textPrimary)
             textSize = DualDexTheme.Type.compact
             typeface = Typeface.DEFAULT_BOLD
-            isSingleLine = false
-            ellipsize = null
+            isSingleLine = true
+            setPadding(0, 0, context.dp(DualDexTheme.Spacing.tight), 0)
         }
-        subRow.addView(damageView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
-
+        infoRow.addView(damageView)
         val effectivenessView = TextView(context).apply {
-            setTextColor(DualDexTheme.Color.textSecondary)
             textSize = DualDexTheme.Type.compact
             typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.END
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
         }
-        subRow.addView(effectivenessView)
-        root.addView(subRow)
+        infoRow.addView(effectivenessView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        content.addView(infoRow)
 
-        return MoveCardHolder(root, typeBadgeContainer, nameView, ppView, bpAccView, categoryView, damageView, effectivenessView, actionPill)
+        return MoveTileHolder(root, content, placeholderView, nameView, typeBadgeContainer, ppView, damageView, effectivenessView)
     }
+
+    /** Type-tinted tile like the DS move buttons; greyed when the move has no PP left. */
+    private fun moveTileBackground(type: PokemonType?, outOfPp: Boolean): StateListDrawable {
+        val radius = DualDexTheme.Radius.control
+        if (outOfPp || type == null) {
+            val fill = DualDexTheme.Color.surfaceDisabled
+            return StateListDrawable().apply {
+                addState(intArrayOf(android.R.attr.state_pressed), DualDexComponents.roundedDrawable(context, DualDexTheme.Color.surfacePressed, radius, DualDexTheme.Color.border))
+                addState(intArrayOf(), DualDexComponents.roundedDrawable(context, fill, radius, DualDexTheme.Color.border))
+            }
+        }
+        val typeColor = type.colorHex.toInt()
+        val surface = DualDexTheme.Color.elevatedSurface
+        val normal = ColorUtils.blendARGB(surface, typeColor, 0.30f)
+        val pressed = ColorUtils.blendARGB(surface, typeColor, 0.55f)
+        val stroke = DualDexTheme.Control.focusStroke
+        return StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_pressed), DualDexComponents.roundedDrawable(context, pressed, radius, typeColor, stroke))
+            addState(intArrayOf(android.R.attr.state_focused), DualDexComponents.roundedDrawable(context, normal, radius, DualDexTheme.Color.focusRing, stroke))
+            addState(intArrayOf(), DualDexComponents.roundedDrawable(context, normal, radius, typeColor, stroke))
+        }
+    }
+
+    private fun moveDetailsText(pres: MovePresentation, defender: ParsedPokemon?): String = listOf(
+        pres.name,
+        "Type: ${pres.typeName.ifBlank { "—" }} · ${pres.category?.displayName ?: "—"}",
+        "Power: ${pres.powerDisplay} · Accuracy: ${pres.accuracyDisplay} · PP: ${pres.ppDisplay}",
+        "Effectiveness: ${pres.effectiveness}",
+        "Damage: ${MoveTileModels.fullDamageText(pres, defender?.maxHp)}",
+        pres.description,
+        "Tap to close"
+    ).filter { it.isNotBlank() }.joinToString("\n")
 
     private fun createPartyRowHolder(): PartyMemberRowHolder {
         val root = LinearLayout(context).apply {
@@ -786,6 +839,8 @@ class BattleConsoleScreenView(
         scope.launch { viewModel.playerBattlerState.collectLatest { refreshUI() } }
         scope.launch { viewModel.enemyBattlerState.collectLatest { refreshUI() } }
         scope.launch { viewModel.battleUiSnapshot.collectLatest { refreshUI() } }
+        scope.launch { viewModel.isMoveTileDamageShown.collectLatest { refreshUI() } }
+        scope.launch { viewModel.isMoveTileEffectivenessShown.collectLatest { refreshUI() } }
     }
 
     override fun onDetachedFromWindow() {
@@ -1010,60 +1065,81 @@ class BattleConsoleScreenView(
 
     private fun bindMoves(defender: ParsedPokemon?, uiSnap: BattleUiSnapshot) {
         val canSelectMoves = uiSnap.inputSafe && uiSnap.capabilities.selectMove
+        val showDamage = viewModel.isMoveTileDamageShown.value
+        val showEffectiveness = viewModel.isMoveTileEffectivenessShown.value
+        val defenderMaxHp = defender?.maxHp?.takeIf { it > 0 }
 
         for (i in 0 until 4) {
             val holder = moveHolders[i]
-            val pres = lastCachedMoves.getOrNull(i)
+            val pres = lastCachedMoves.getOrNull(i)?.takeIf { it.moveId > 0 }
 
-            if (pres == null || pres.moveId <= 0) {
-                holder.root.visibility = View.GONE
+            if (pres == null) {
+                // Keep the 2×2 shape for Pokémon that know fewer than four moves.
+                holder.content.visibility = View.GONE
+                holder.placeholderView.visibility = View.VISIBLE
+                if (holder.styleKey != PLACEHOLDER_STYLE_KEY) {
+                    holder.styleKey = PLACEHOLDER_STYLE_KEY
+                    holder.root.background = DualDexComponents.roundedDrawable(
+                        context, DualDexTheme.Color.surfaceDisabled, DualDexTheme.Radius.control, DualDexTheme.Color.border
+                    )
+                }
+                holder.root.contentDescription = null
+                holder.root.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                holder.root.setOnClickListener(null)
+                holder.root.setOnLongClickListener(null)
+                holder.root.isClickable = false
+                holder.root.isLongClickable = false
+                holder.root.isFocusable = false
                 continue
             }
 
-            holder.root.visibility = View.VISIBLE
-            holder.nameView.text = pres.name
+            val tile = MoveTileModels.from(pres, defenderMaxHp, showDamage, showEffectiveness, canSelectMoves)
+            val type = PokemonType.fromString(tile.typeName)
 
-            holder.typeBadgeContainer.removeAllViews()
-            val type = PokemonType.fromString(pres.typeName)
-            if (type != null) {
-                holder.typeBadgeContainer.addView(DualDexComponents.typeBadge(context, type))
+            holder.placeholderView.visibility = View.GONE
+            holder.content.visibility = View.VISIBLE
+            holder.root.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            holder.root.contentDescription = tile.contentDescription
+
+            val styleKey = "${type?.name}:${tile.outOfPp}"
+            if (holder.styleKey != styleKey) {
+                holder.styleKey = styleKey
+                holder.root.background = moveTileBackground(type, tile.outOfPp)
+            }
+            if (holder.badgeType != type) {
+                holder.badgeType = type
+                holder.typeBadgeContainer.removeAllViews()
+                if (type != null) holder.typeBadgeContainer.addView(DualDexComponents.typeBadge(context, type))
             }
 
-            holder.bpAccView.text = "BP ${pres.powerDisplay} · Acc ${pres.accuracyDisplay}"
-            holder.ppView.text = "PP ${pres.ppDisplay}"
-            holder.categoryView.text = pres.categoryDisplay
+            val textColor = if (tile.outOfPp) DualDexTheme.Color.textDisabled else DualDexTheme.Color.textPrimary
+            holder.nameView.text = tile.name
+            holder.nameView.setTextColor(textColor)
+            holder.ppView.text = tile.ppText
+            holder.ppView.setTextColor(if (tile.outOfPp) DualDexTheme.Color.danger else textColor)
 
-            // Damage range & percentage
-            val estimateSuffix = if (pres.calculatorSupport == CalcSupport.ESTIMATED) " · Estimate" else ""
-            val ignoredSuffix = DamageBlockerPresentation.ignoredText(pres.damageIgnoredMechanics)
-            val damageText = when {
-                pres.isStatMove -> "Status move"
-                pres.repeatedStrike != null -> pres.repeatedStrike.presentation + estimateSuffix
-                pres.maxDamage > 0 && defender != null && defender.maxHp > 0 -> {
-                    val minPct = (pres.minDamage * 100) / defender.maxHp
-                    val maxPct = (pres.maxDamage * 100) / defender.maxHp
-                    "${pres.minDamage}–${pres.maxDamage} HP · $minPct–$maxPct%" +
-                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix + ignoredSuffix +
-                            (pres.damageScope?.let { " · $it" } ?: "")
-                }
-                pres.maxDamage > 0 -> {
-                    "${pres.minDamage}–${pres.maxDamage} HP" +
-                            (if (pres.koChanceText.isNotBlank()) " · ${pres.koChanceText}" else "") + estimateSuffix + ignoredSuffix +
-                            (pres.damageScope?.let { " · $it" } ?: "")
-                }
-                pres.damageConfidence == DamageConfidence.UNAVAILABLE -> pres.damageUnavailableText
-                else -> pres.damageDisplayText
+            holder.damageView.text = tile.damageText.orEmpty()
+            holder.damageView.setTextColor(textColor)
+            holder.damageView.visibility = if (tile.damageText != null) View.VISIBLE else View.GONE
+            holder.effectivenessView.text = tile.effectivenessText.orEmpty()
+            holder.effectivenessView.setTextColor(when (tile.effectivenessTone) {
+                EffectivenessTone.STRONG -> DualDexTheme.Color.success
+                EffectivenessTone.WEAK -> DualDexTheme.Color.warning
+                EffectivenessTone.NONE -> DualDexTheme.Color.danger
+                else -> DualDexTheme.Color.textSecondary
+            })
+            holder.effectivenessView.visibility = if (tile.effectivenessText != null) View.VISIBLE else View.GONE
+            (holder.effectivenessView.parent as View).visibility =
+                if (tile.damageText != null || tile.effectivenessText != null) View.VISIBLE else View.GONE
+
+            holder.root.setOnLongClickListener {
+                moveDetailsSlot = if (moveDetailsSlot == i) null else i
+                bindMoves(defender, viewModel.battleUiSnapshot.value)
+                true
             }
-            holder.damageView.text = damageText
 
-            val effText = if (pres.effectiveness != MoveEffectiveness.UNAVAILABLE) pres.effectiveness else ""
-            holder.effectivenessView.text = effText
-
-            if (canSelectMoves) {
-                holder.root.isClickable = true
+            if (tile.selectable) {
                 holder.root.isFocusable = true
-                holder.actionPill.visibility = View.VISIBLE
-                holder.root.background = DualDexComponents.controlBackground(context, DualDexButtonStyle.SECONDARY, selected = false)
                 holder.root.setOnClickListener {
                     val currentUi = viewModel.battleUiSnapshot.value
                     if (!currentUi.inputSafe) {
@@ -1080,12 +1156,21 @@ class BattleConsoleScreenView(
                     }
                 }
             } else {
+                // setOnClickListener() re-enables clickable, so clear it afterwards.
+                holder.root.setOnClickListener(null)
                 holder.root.isClickable = false
                 holder.root.isFocusable = false
-                holder.actionPill.visibility = View.GONE
-                holder.root.background = DualDexComponents.surface(context)
-                holder.root.setOnClickListener(null)
             }
+        }
+
+        val detailsPres = moveDetailsSlot?.let { slot -> lastCachedMoves.getOrNull(slot)?.takeIf { it.moveId > 0 } }
+        if (detailsPres == null) {
+            // Moves are briefly empty while a recalculation runs; keep the slot open through that.
+            if (lastCachedMoves.isNotEmpty()) moveDetailsSlot = null
+            moveDetailsPanel.visibility = View.GONE
+        } else {
+            moveDetailsPanel.text = moveDetailsText(detailsPres, defender)
+            moveDetailsPanel.visibility = View.VISIBLE
         }
     }
 
@@ -1397,5 +1482,11 @@ class BattleConsoleScreenView(
                 updateDetailsMode()
             }
         }
+    }
+
+    private companion object {
+        /** Tall enough for name, type/PP and damage lines; above the 48dp touch minimum. */
+        const val MOVE_TILE_MIN_HEIGHT_DP = 64
+        const val PLACEHOLDER_STYLE_KEY = "placeholder"
     }
 }

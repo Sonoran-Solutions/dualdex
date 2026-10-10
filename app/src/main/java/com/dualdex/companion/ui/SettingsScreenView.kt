@@ -381,6 +381,39 @@ class SettingsScreenView(
             )
             addView(autoOpenSegment)
 
+            // Battle move tiles: optional damage % and effectiveness lines
+            addView(TextView(context).apply {
+                text = "Move Tiles: Damage %"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Off", "On"),
+                initialIndex = if (settingsManager.isMoveTileDamageShown) 1 else 0,
+                onItemSelected = { idx ->
+                    settingsManager.isMoveTileDamageShown = idx == 1
+                    viewModel.setMoveTileDamageShown(idx == 1)
+                }
+            ))
+
+            addView(TextView(context).apply {
+                text = "Move Tiles: Effectiveness"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Off", "On"),
+                initialIndex = if (settingsManager.isMoveTileEffectivenessShown) 1 else 0,
+                onItemSelected = { idx ->
+                    settingsManager.isMoveTileEffectivenessShown = idx == 1
+                    viewModel.setMoveTileEffectivenessShown(idx == 1)
+                }
+            ))
+
             // Interactive Touch Controls
             val touchControlsLabel = TextView(context).apply {
                 text = "Interactive Touch Controls (Experimental)"

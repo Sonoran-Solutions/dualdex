@@ -211,9 +211,21 @@ open class SaveStateManager(
     // Save States (Slots 1..5)
     // ---------------------------------------------------------
 
+    /**
+     * Must be called with [globalSaveLock] held (a ROM switch holds it for its whole transaction).
+     * A deferred caller (e.g. a controller shortcut) may carry an identity captured before a ROM switch;
+     * the core would then hold a different ROM and the state would land in the wrong ROM's files.
+     */
+    private fun isLoadedRom(identity: RomIdentity): Boolean =
+        activeIdentity?.sha256.equals(identity.sha256, ignoreCase = true)
+
     fun saveSlot(identity: RomIdentity, slotIndex: Int): Boolean = synchronized(globalSaveLock) {
         if (!identity.isValid) {
             Log.e(TAG, "Refusing saveSlot on invalid RomIdentity")
+            return false
+        }
+        if (!isLoadedRom(identity)) {
+            Log.w(TAG, "Refusing saveSlot: ${identity.displayName} is not the loaded ROM")
             return false
         }
         val fileName = "slot_${slotIndex}.state"
@@ -242,6 +254,10 @@ open class SaveStateManager(
             Log.e(TAG, "Refusing loadSlot on invalid RomIdentity")
             return false
         }
+        if (!isLoadedRom(identity)) {
+            Log.w(TAG, "Refusing loadSlot: ${identity.displayName} is not the loaded ROM")
+            return false
+        }
         val fileName = "slot_${slotIndex}.state"
         val canonicalFile = getCanonicalFile(identity, fileName)
         val expectedSize = nativeGetSaveStateSize()
@@ -266,14 +282,6 @@ open class SaveStateManager(
     // ---------------------------------------------------------
     // Manual Quick Save vs Auto Resume State
     // ---------------------------------------------------------
-
-    /**
-     * Must be called with [globalSaveLock] held (a ROM switch holds it for its whole transaction).
-     * A deferred caller (e.g. a controller shortcut) may carry an identity captured before a ROM switch;
-     * the core would then hold a different ROM and the state would land in the wrong ROM's files.
-     */
-    private fun isLoadedRom(identity: RomIdentity): Boolean =
-        activeIdentity?.sha256.equals(identity.sha256, ignoreCase = true)
 
     fun quickSave(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (!identity.isValid) {

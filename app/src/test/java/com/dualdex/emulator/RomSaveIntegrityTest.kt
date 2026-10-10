@@ -805,6 +805,38 @@ class RomSaveIntegrityTest {
     }
 
     @Test
+    fun test28c_deferredSlotOps_afterRomSwitch_areRefusedAndTouchNothing() {
+        val a = RomIdentity.create(HASH_A, "ROM A")
+        val b = RomIdentity.create(HASH_B, "ROM B")
+        saveStateManager.setActiveGame(a)
+        assertTrue(saveStateManager.saveSlot(a, 2))
+        val slotA = saveStateManager.getCanonicalFile(a, "slot_2.state")
+        val before = slotA.readBytes()
+
+        val captured = java.util.concurrent.CountDownLatch(1)
+        val switched = java.util.concurrent.CountDownLatch(1)
+        val results = BooleanArray(2)
+        val worker = Thread {
+            val identity = a                       // captured when the Save screen button was tapped
+            captured.countDown()
+            switched.await()
+            results[0] = saveStateManager.saveSlot(identity, 2)
+            results[1] = saveStateManager.loadSlot(identity, 2)
+        }
+        worker.start()
+        captured.await()
+        saveStateManager.setActiveGame(b)
+        switched.countDown()
+        worker.join()
+
+        assertFalse("saveSlot must refuse a stale ROM identity", results[0])
+        assertFalse("loadSlot must refuse a stale ROM identity", results[1])
+        assertArrayEquals("ROM A's slot must be untouched", before, slotA.readBytes())
+        assertFalse(saveStateManager.getCanonicalFile(b, "slot_2.state").exists())
+        assertTrue("The loaded ROM can still save a slot", saveStateManager.saveSlot(b, 2))
+    }
+
+    @Test
     fun test29_rapidSuccessiveSaves_serializedCleanly() {
         val identity = RomIdentity.create(HASH_A, "FireRed")
         saveStateManager.setActiveGame(identity)
@@ -1005,6 +1037,7 @@ class RomSaveIntegrityTest {
     @Test
     fun test36_invalidSaveStateSize_rejectedWithoutCrashing() {
         val identity = RomIdentity.create(HASH_A, "Pokemon Emerald")
+        saveStateManager.setActiveGame(identity) // so the size check, not the stale-ROM guard, rejects
         val slotFile = saveStateManager.getCanonicalFile(identity, "slot_1.state")
 
         // Write truncated 500-byte state when 262,144 bytes expected

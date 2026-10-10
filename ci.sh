@@ -152,6 +152,9 @@ calc_goldens_check() {
 # never invent a sequential ID, and the ABILITIES_COUNT_GEN* anchor pattern of
 # the pinned header must resolve explicitly instead of by counter coincidence.
 hns_generator_test() {
+  echo "== calculator beta freeze: frozen evidence inventory hashes =="
+  python3 tools/hns-move-mechanics/check_calculator_beta_freeze.py
+  (cd tools/hns-move-mechanics && python3 -m unittest test_calculator_beta_freeze_check -v)
   echo "== H&S fixed-point accumulator tests =="
   node tools/calc-bundler/test_fixed_point.js
   echo "== H&S runtime-layout and release-phase evidence tests =="
@@ -265,6 +268,7 @@ hns_damage_oracle_test() {
   python3 tools/hns-damage-oracle/semi_invulnerable_evidence.py check
   python3 tools/hns-damage-oracle/belch_evidence.py check
   python3 tools/hns-damage-oracle/rapid_spin_evidence.py check
+  (cd tools/hns-damage-oracle && python3 -m unittest test_rapid_spin_evidence_check -v)
   echo "== H&S differential damage oracle: shipped calculator vs pinned engine =="
   local cc
   cc="$(find_cc)"

@@ -72,7 +72,13 @@ Every scenario asserts `0 < hp <= maxHP` on both sides, which rules out 16-bit w
 - **Miss (`hit: FALSE`)** was removed. In the pinned framework, `hit: FALSE` on this 100-accuracy move did not prevent the hit: the user's Speed still rose. That result contradicts the source's expectation for a miss, so it is recorded as an open framework question (below), not evidence.
 - **`NONE_OF { HP_BAR }` assertions** were removed from zero-damage scenes. The engine emitted an HP bar in those cases. The end-state HP and Speed assertions still run. The cause is not established.
 
-### 5.4 Limitations of the evidence
+### 5.4 Integrity enforcement in CI
+
+- `rapid_spin_evidence.py check` verifies the source digest, the lifecycle scenario IDs, the exact observed lifecycle values (Speed stage, Leech Seed flag, target HP) from §5.2, the HP bounds, and the 16-roll damage vectors.
+- `test_rapid_spin_evidence_check.py` proves that a corrupted lifecycle HP or a flipped Leech Seed state fails the check.
+- `tools/hns-move-mechanics/check_calculator_beta_freeze.py` recomputes every SHA-256 in the frozen evidence inventory (`calculator_beta_freeze.json`). `test_calculator_beta_freeze_check.py` proves that a corrupted or missing evidence file fails. Both run in `./ci.sh test`.
+
+### 5.5 Limitations of the evidence
 
 - Attacker-fainting termination was not separately executed.
 - Only one defender and attacker per scenario (Singles); Doubles behaviour is refused by design.

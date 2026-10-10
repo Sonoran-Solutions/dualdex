@@ -284,11 +284,23 @@ def run(args):
               f"{len(DAMAGE)} damage vectors x {len(ROLLS)} rolls")
 
 
-def check_artifact():
-    doc = json.loads(TARGET.read_text())
+# Frozen lifecycle observations (200-HP fixtures). Any change to these fails the artifact check.
+EXPECTED_LIFECYCLE = {
+    "speed-boost": {"userSpeedStage": 7, "userLeechSeed": False, "targetHp": 170},
+    "cleanup-leech": {"userSpeedStage": 7, "userLeechSeed": False, "targetHp": 170},
+    "sheer-force-suppresses": {"userSpeedStage": 6, "userLeechSeed": True, "targetHp": 188},
+    "blocked-protect": {"userSpeedStage": 6, "userLeechSeed": False, "targetHp": 200},
+}
+
+
+def check_artifact(path=TARGET):
+    doc = json.loads(Path(path).read_text())
     assert doc["schemaVersion"] == 1 and doc["pinnedCommit"] == backend.HNS_PINNED_COMMIT
     assert doc["sourceSha256"] == hashlib.sha256(source("canonical").encode()).hexdigest()
     assert [row["id"] for row in doc["lifecycle"]] == LIFECYCLE
+    for row in doc["lifecycle"]:
+        assert row["observed"] == EXPECTED_LIFECYCLE[row["id"]], (row["id"], row["observed"])
+        assert 0 < row["observed"]["targetHp"] <= 200, row["id"]
     assert [row["id"] for row in doc["damageVectors"]] == [v["id"] for v in DAMAGE]
     for row in doc["damageVectors"]:
         assert len(row["rolls"]) == len(ROLLS)

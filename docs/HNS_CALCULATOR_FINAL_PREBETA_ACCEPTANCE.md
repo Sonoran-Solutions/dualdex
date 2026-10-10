@@ -69,6 +69,12 @@ Roll order: `rolls[k]` is the damage at random factor `(85+k)%`, i.e. `WITH_RNG(
 
 SHA-256 values are recorded in `calculator_beta_freeze.json` under `evidenceInventory`, which includes the corpus, the census, the calculator bundle, the generated `Hns205MoveEffects.kt`, and every committed `*evidence*.json`. Rapid Spin evidence (`rapid-spin-evidence.json`) was produced **locally** from the pinned engine, and its reversed-order replay matched the committed artifact. Earlier slices' evidence artifacts are carried forward and re-checked by the `check` commands in `ci.sh`.
 
+## 6a. Evidence-integrity enforcement
+
+- The frozen evidence inventory (16 SHA-256 entries) is verified in the canonical test path by `tools/hns-move-mechanics/check_calculator_beta_freeze.py` (run from `./ci.sh test`). A corrupted or missing evidence file fails CI; `test_calculator_beta_freeze_check.py` proves it with mutation tests.
+- The Rapid Spin lifecycle observations are verified exactly (Speed stage, Leech Seed flag, target HP) by `rapid_spin_evidence.py check`, and `test_rapid_spin_evidence_check.py` proves that a corrupted observation fails.
+- The production freeze guard (`HnsCalculatorBetaFreezeGuardTest`) continues to protect the admitted move set.
+
 ## 7. Source generation and ABI integrity
 
 - `generate_hns_move_effects.py --verify` against the pinned upstream: passes, reporting 928 resolved effects, 357 ordinary, and 6 unresolved (fail-closed) for the current generator. The starting-head count was not re-captured in this slice.

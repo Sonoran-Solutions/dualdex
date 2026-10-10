@@ -332,6 +332,10 @@ open class RomSessionManager(
                         if (restoredSave) {
                             Log.i(TAG, "Restored existing battery save for ${newIdentity.storageKey}")
                         }
+                        // #153: resume where the player left off (newest of auto-resume and manual states).
+                        saveStateManager.loadNewestResumeState(newIdentity)?.let {
+                            Log.i(TAG, "Resumed ${newIdentity.storageKey} from $it")
+                        }
 
                         coreCoordinator.bindCheatRom(newIdentity)
                         cheatManager.applyCheats(newIdentity)

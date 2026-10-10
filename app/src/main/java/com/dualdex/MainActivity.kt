@@ -167,6 +167,24 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    /** #153 save sharing: opt-in folder where `<rom>.sav` is shared with other emulators. */
+    private val chooseShareSavesFolderLauncher = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                settingsManager.shareSavesFolderUri = uri.toString()
+                Toast.makeText(this, "Save sharing on: saves are copied as <rom>.sav", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Could not get write access to that folder", Toast.LENGTH_LONG).show()
+            }
+            companionPresentation?.refreshSavesTab()
+            currentCompanionScreenView?.refreshSavesTab()
+        }
+    }
+
     private val importSaveLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             val identity = viewModel.activeRomIdentity.value
@@ -299,6 +317,10 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             RomHackAssistant.setModel(settingsManager.geminiModel)
             viewModel.setBattleAutoOpenEnabled(settingsManager.isBattleAutoOpenEnabled)
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
+
+            com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = { initial ->
+                runOnUiThread { chooseShareSavesFolderLauncher.launch(initial) }
+            }
 
             // 6. Setup display UI
             setupDisplays()
@@ -681,6 +703,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     override fun onDestroy() {
         currentCompanionScreenView?.release()
+        com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = null
         super.onDestroy()
         val identity = viewModel.activeRomIdentity.value
         if (identity != null && identity.isValid) {

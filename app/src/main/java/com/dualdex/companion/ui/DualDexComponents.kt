@@ -49,6 +49,17 @@ object DualDexComponents {
         )
     }
 
+    /** Destructive confirmation (Cancel / [action]); [onConfirm] runs only on the positive button. */
+    fun confirm(context: Context, title: String, message: String, action: String, onConfirm: () -> Unit) {
+        val dialog = android.app.AlertDialog.Builder(context)
+            .setTitle(title)
+            .setMessage(message)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton(action) { _, _ -> onConfirm() }
+            .show()
+        dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
+    }
+
     fun primaryButton(context: Context, text: CharSequence, onClick: (() -> Unit)? = null): TextView =
         button(context, text, DualDexButtonStyle.PRIMARY, onClick)
 

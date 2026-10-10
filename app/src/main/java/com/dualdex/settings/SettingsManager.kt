@@ -79,6 +79,13 @@ open class SettingsManager(private val prefs: SharedPreferences) {
             prefs.edit().putString(KEY_SAVES_FOLDER_URI, value).apply()
         }
 
+    /** #153 opt-in: SAF tree where `<rom>.sav` is shared with other emulators; null = sharing off. */
+    var shareSavesFolderUri: String?
+        get() = prefs.getString(KEY_SHARE_SAVES_FOLDER_URI, null)
+        set(value) {
+            prefs.edit().putString(KEY_SHARE_SAVES_FOLDER_URI, value).apply()
+        }
+
     var lastPlayedRomUri: String?
         get() = prefs.getString(KEY_LAST_PLAYED_ROM_URI, null)
         set(value) {
@@ -169,6 +176,7 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         private const val KEY_STRETCH_TO_FIT = "key_stretch_to_fit"
         private const val KEY_ROMS_FOLDER_URI = "key_roms_folder_uri"
         private const val KEY_SAVES_FOLDER_URI = "key_saves_folder_uri"
+        private const val KEY_SHARE_SAVES_FOLDER_URI = "key_share_saves_folder_uri"
         private const val KEY_LAST_PLAYED_ROM_URI = "key_last_played_rom_uri"
         private const val KEY_LAST_PLAYED_ROM_TITLE = "key_last_played_rom_title"
         private const val KEY_GEMINI_MODEL = "key_gemini_model"

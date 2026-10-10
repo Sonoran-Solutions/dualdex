@@ -1,6 +1,8 @@
 package com.dualdex.battle
 
+import com.dualdex.pokemon.GameDataPack
 import com.dualdex.pokemon.ParsedPokemon
+import com.dualdex.pokemon.resolveSpecies
 
 /** One trainer party slot as the Battle tab may show it. [speciesId] is null until revealed. */
 data class FoeSlot(
@@ -11,6 +13,9 @@ data class FoeSlot(
     val fainted: Boolean
 ) {
     val revealed: Boolean get() = speciesId != null
+
+    /** Species name from the active ROM's own data pack (hacks renumber species), or null while hidden. */
+    fun name(pack: GameDataPack): String? = speciesId?.let { pack.resolveSpecies(it).name }
 }
 
 /**

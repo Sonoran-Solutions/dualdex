@@ -991,7 +991,7 @@ class BattleConsoleScreenView(
             val foe = slots.getOrNull(i)
             cell.visibility = if (foe == null) View.GONE else View.VISIBLE
             if (foe == null) continue
-            val name = foe.speciesId?.let { com.dualdex.pokemon.SpeciesDatabase.get(it).name }
+            val name = foe.name(viewModel.activeGameDataPack)
             cell.text = when {
                 name == null -> "\u25D3" // Poke Ball: not yet seen
                 foe.next -> "Next: $name"

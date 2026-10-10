@@ -16,7 +16,12 @@ import com.dualdex.BuildInfo
 import com.dualdex.BuildInfoFormatter
 import com.dualdex.assistant.RomHackAssistant
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.dualdex.settings.SettingsManager
 import com.dualdex.settings.TouchOverlayMode
 import com.dualdex.settings.TriggerShortcutMode
@@ -60,6 +65,13 @@ class SettingsScreenView(
         val mode = settingsManager.triggerShortcutMode
         triggerSegment.setSelectedIndex(triggerModes.indexOf(mode))
         triggerMappingValue.text = triggerMappingText(mode)
+    }
+
+    private fun runSessionAction(ok: String, failed: String, action: () -> Boolean) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val success = try { action() } catch (e: Exception) { false }
+            withContext(Dispatchers.Main) { Toast.makeText(context, if (success) ok else failed, Toast.LENGTH_SHORT).show() }
+        }
     }
 
     override fun onAttachedToWindow() {
@@ -217,6 +229,43 @@ class SettingsScreenView(
             ))
         }
         content.addView(emulationCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
+
+        // 3b. Game session: restart / close (#153), both confirmed and both flush the battery save first.
+        val sessionCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Game"))
+            val row = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                addView(DualDexComponents.secondaryButton(context, "Restart Game") {
+                    val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid } ?: return@secondaryButton
+                    DualDexComponents.confirm(context, "Restart game?",
+                        "The cartridge save is written first. Progress since your last in-game save is lost.",
+                        "Restart") {
+                        runSessionAction("Game restarted", "Restart refused: could not write the cartridge save") {
+                            SaveStateManager.getInstance(context).restartGame(identity)
+                        }
+                    }
+                }, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
+                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
+                })
+                addView(DualDexComponents.destructiveButton(context, "Close Game") {
+                    val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid } ?: return@destructiveButton
+                    DualDexComponents.confirm(context, "Close game?",
+                        "The cartridge save and a resume state are written, then the game is unloaded. " +
+                            "Opening it again resumes where you left off.",
+                        "Close") {
+                        runSessionAction("Game closed", "Close refused: could not write the cartridge save") {
+                            SaveStateManager.getInstance(context).closeGame(identity).also { ok ->
+                                if (ok) post { viewModel.stopPolling(); viewModel.clearRomSession() }
+                            }
+                        }
+                    }
+                }, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
+            }
+            addView(row)
+        }
+        content.addView(sessionCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = context.dp(DualDexTheme.Spacing.section)
         })
 

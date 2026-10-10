@@ -25,7 +25,11 @@ data class RomItem(
     val title: String,
     val fileName: String,
     val uri: Uri,
-    val sizeFormatted: String
+    val sizeFormatted: String,
+    /** Cached scan verdict; null when the file could not be inspected. */
+    val status: com.dualdex.romhack.RomCompatibilityStatus? = null,
+    val sha256: String = "",
+    val profileName: String = ""
 )
 
 enum class CompanionTab(val title: String) {

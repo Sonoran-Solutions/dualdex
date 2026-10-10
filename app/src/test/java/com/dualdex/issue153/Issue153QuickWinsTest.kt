@@ -153,6 +153,15 @@ class Issue153QuickWinsTest {
         assertEquals(ProfileMatchMethod.HEADER_TITLE, byTitle.matchMethod)
     }
 
+    @Test
+    fun foeRevealsDoNotCarryIntoTheNextBattleWithoutAReset() {
+        val t = FoeTeamTracker()
+        t.build(listOf(mon(1), mon(4), mon(7)), activeSlot = 1, nextSlot = null)
+        // Battle tab hidden: no reset() between battles. A new party must start fully hidden.
+        val next = t.build(listOf(mon(10), mon(13), mon(16)), activeSlot = 0, nextSlot = null)
+        assertEquals(listOf(true, false, false), next.map { it.revealed })
+    }
+
     private fun mon(species: Int, hp: Int = 100) = ParsedPokemon(
         isValid = true, isEmpty = false, pid = species.toLong(), tid = 1, sid = 2,
         nickname = "", otName = "", species = species, heldItem = 0, level = 50, nature = 0,

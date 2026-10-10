@@ -28,9 +28,10 @@ data class FoeSlot(
  */
 class FoeTeamTracker {
     private val seen = mutableSetOf<Int>()
+    private var party: List<Long> = emptyList()
 
     /** Battle ended: forget what was revealed. */
-    fun reset() = seen.clear()
+    fun reset() { seen.clear(); party = emptyList() }
 
     /**
      * @param enemies enemy party in slot order (as published by the live reader)
@@ -41,6 +42,10 @@ class FoeTeamTracker {
      */
     fun build(enemies: List<ParsedPokemon>, activeSlot: Int?, nextSlot: Int?): List<FoeSlot> {
         if (enemies.size < 2) return emptyList()
+        // A different enemy party is a different battle, even if no battle end was observed in between
+        // (e.g. the Battle tab was not shown), so reveals never carry over.
+        val pids = enemies.map { it.pid }
+        if (pids != party) { seen.clear(); party = pids }
         val active = activeSlot?.takeIf { it in enemies.indices }
         val next = nextSlot?.takeIf { it in enemies.indices && it != active && enemies[it].currentHp > 0 }
         active?.let { seen += it }

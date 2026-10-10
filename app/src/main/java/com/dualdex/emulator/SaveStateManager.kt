@@ -540,7 +540,11 @@ open class SaveStateManager(
         }
 
         val canonicalFile = getCanonicalFile(identity, "battery.sav")
-        val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        // Unchanged SRAM is not rewritten: a no-op flush (e.g. onDestroy after onPause) must not bump
+        // battery.sav's mtime past the resume state written in between, or the next boot rejects it as stale.
+        val unchanged = canonicalFile.isFile && canonicalFile.length() == stagingFile.length() &&
+            canonicalFile.readBytes().contentEquals(stagingFile.readBytes())
+        val committed = unchanged || AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
         if (!committed) {
             Log.e(TAG, "Atomic commit to canonical battery.sav failed")
             return SaveWriteResult.Failure("Canonical commit failed")

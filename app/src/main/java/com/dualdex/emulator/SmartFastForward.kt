@@ -22,7 +22,7 @@ class SmartFastForward(
     /** Packed player position (map/x/y); null when unreadable. Polled every [LOCATION_INTERVAL] frames. */
     private val location: () -> Long?,
     private val onLearned: (Learned) -> Unit = {},
-    /** Read each frame so the settings toggle applies live; learning continues while off. */
+    /** Read each frame so the settings toggle applies live; while off nothing is read or learned. */
     private val isEnabled: () -> Boolean = { true },
 ) {
     fun interface Memory { fun read(address: Int, length: Int): ByteArray? }
@@ -59,6 +59,8 @@ class SmartFastForward(
 
     /** Call once per emulated frame. Returns true when the game should run at 1x. */
     fun onFrame(): Boolean {
+        // Off means no memory reads at all; re-baseline the counter check when switched back on.
+        if (!isEnabled()) { lastVerifyCounter = -1; return false }
         frame++
         val m = main ?: run { discover(); return false }
         if (frame - lastVerifyFrame >= VERIFY_INTERVAL || lastVerifyCounter < 0) {
@@ -68,7 +70,7 @@ class SmartFastForward(
         val flags = memory.read(m.address + IN_BATTLE_BYTE + (m.counterOffset - 0x20), 1) ?: return false
         val inBattle = (flags[0].toInt() shr IN_BATTLE_BIT) and 1 == 1
         learn(cb2, inBattle)
-        return isEnabled() && isMenu(cb2, inBattle)
+        return isMenu(cb2, inBattle)
     }
 
     private fun isMenu(cb2: Int, inBattle: Boolean): Boolean {

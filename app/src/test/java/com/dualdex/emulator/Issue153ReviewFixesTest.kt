@@ -247,4 +247,25 @@ class Issue153ReviewFixesTest {
         assertThrows(IOException::class.java) { LibraryScanner.headerAndChecksums(failing) }
         assertTrue("stream closed even when the header read throws", failing.closed)
     }
+
+    @Test
+    fun normalExit_onPauseThenOnDestroyFlush_keepsResumeStateBootable() {
+        ssm.setActiveGame(romA)
+        // onPause: flush + resume snapshot.
+        assertTrue(ssm.flushBatterySave(romA) is SaveWriteResult.Success)
+        assertTrue(ssm.saveAutoResume(romA))
+        file(romA, "battery.sav").setLastModified(1_000_000L)
+        file(romA, SaveStateFiles.AUTO_RESUME).setLastModified(1_000_000L)
+        // onDestroy: second flush with unchanged SRAM must not touch battery.sav.
+        assertTrue(ssm.flushBatterySave(romA) is SaveWriteResult.Success)
+        assertEquals(1_000_000L, file(romA, "battery.sav").lastModified())
+        // Relaunch boots the resume state.
+        assertEquals(SaveStateFiles.AUTO_RESUME, ssm.loadNewestResumeState(romA))
+
+        // Genuinely newer SRAM is still committed, and still makes the older state stale.
+        bridge.currentSramBytes = ByteArray(SRAM_SIZE_128K) { 0x77 }
+        assertTrue(ssm.flushBatterySave(romA) is SaveWriteResult.Success)
+        assertTrue(file(romA, "battery.sav").lastModified() > 1_000_000L)
+        assertNull(ssm.loadNewestResumeState(romA))
+    }
 }

@@ -98,6 +98,20 @@ class SmartFastForwardTest {
     }
 
     @Test
+    fun offDoesNoMemoryReadsAtAll() {
+        val g = Game()
+        var reads = 0
+        val counting = SmartFastForward.Memory { a, l -> reads++; g.mem.read(a, l) }
+        var on = false
+        val ff = SmartFastForward(counting, 0, SmartFastForward.Learned(), { reads++; null }, isEnabled = { on })
+        repeat(500) { assertFalse(ff.onFrame()); g.counter++ }
+        assertEquals(0, reads)
+        on = true
+        repeat(20) { ff.onFrame(); g.counter++ }
+        assertTrue(reads > 0)
+    }
+
+    @Test
     fun failedReverifyDropsMain() {
         val g = Game()
         val ff = SmartFastForward(g.mem, 0x03005BD8, SmartFastForward.Learned(), { null })

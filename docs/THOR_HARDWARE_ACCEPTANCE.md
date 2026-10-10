@@ -2,9 +2,9 @@
 
 **Tracking issue:** [#168](https://github.com/Sonoran-Solutions/dualdex/issues/168) (links #40, #14, #75, #38)
 **Date:** 2026-10-09
-**Disposition: BLOCKED**
+**Disposition: HOLD (interim; supersedes the earlier BLOCKED)**
 
-No AYN Thor was available, so no physical scenario was run and **no hardware acceptance is claimed**.
+A real AYN Thor was reached over wireless ADB on 2026-10-09 after the first revision of this report. Only the ADB-observable subset (section 9) has run; mandatory coverage (controller, dual-screen lifecycle, save/lifecycle, 60-minute soak) is still outstanding, so **no hardware acceptance (GO) is claimed**. Sections 1-8 below were written while the device was unavailable; section 9 is authoritative where they differ.
 This document records the discovery evidence, the prerequisite state, the static findings that are
 already known without hardware, and the owner-assisted procedure for the real pass. It is not the
 `0.9.0-beta.1` release-candidate certification and does not claim the public beta is ready.
@@ -132,3 +132,52 @@ from the numbers. Do not state thresholds that are not documented.
 5. Decide #14: implement shortcuts, or remove the Settings/README claims.
 
 Per the disposition rules: **BLOCKED** until a real Thor is available; GO/HOLD can only come from that run.
+
+---
+
+## 9. Interim hardware results (real AYN Thor, 2026-10-09)
+
+**Device:** AYN Thor, `qti/kalama/kalama:13/TKQ1.231222.001/eng.Thor.20260206.163241:user/release-keys`,
+Android 13 (SDK 33), arm64-v8a. Displays: id 0 "Built-in Screen" 1080x1920 (120 Hz default),
+id 4 "Screen-2" 1080x1240 (`FLAG_PRESENTATION`). Input: "Odin Controller", `fts_ts`/`fts_ts_3`
+touch, `hall_switch`, `gpio-keys`. Storage: 219G free of 934G.
+
+**Tested build:** source commit `9eb79b4209ba66cd61e38a0902e3692581fab9ed` (#167 head, pre-merge,
+`./ci.sh build` succeeded), APK SHA-256
+`26bb4d246878a7d3ca65afbd6438ad021b3ec101e04b80711c98bf7a7d0382c9`, `0.9.0-dev` / versionCode 1.
+Not post-merge `main`; must be retested after #167 merges.
+
+**Backup (before install):** all 82 files of `/data/data/com.dualdex/files` (incl. saves_v2, save_staging,
+saves_fallback, rom_cache) archived off-device; per-file SHA-256 on device and host identical;
+the previously installed APK (SHA-256 `788c4adb...1d11`, built 2026-09-24, debug signer
+`1503d5f6...87a9`) and the H&S ROM were also saved. After `adb install -r` (same signer, same
+versionCode) all 82 file hashes were unchanged and `firstInstallTime` was preserved.
+
+| ID | Result | Evidence |
+|---|---|---|
+| A1 install, data preserved | PASS | hashes above; signer match |
+| A2 cold launch / video / companion render | PASS (partial) | `com.dualdex` focused on both displays; top shows game video (starfield intro), bottom shows Library then Party; no FATAL/ANR in logcat. Audio output and input latency **NOT_RUN** (need a human) |
+| A4 process death / reboot / Continue | NOT_RUN | |
+| B1 dual-screen layout | PARTIAL, see F1 | companion on display 4, game on display 0 |
+| D1 party | PASS (single observation) | 6 slots, Lv/HP/nature/item shown for LEET Porygon-Z 237/237; not cross-checked against the in-game party screen |
+| all others in section 5 | NOT_RUN | |
+
+**Observations needing a human, not yet defects:**
+
+- F1: game viewport on the top display measured 1620x648 px inside 1920x1080 (2.5:1) where GBA is 3:2
+  (1620x1080 or 1440x960 would be uniform). That is a non-uniform scale unless a stretch/fill
+  setting is selected. Confirm the scaling mode in Settings and visually on the device; classify
+  P2 if it is unintended.
+- F2: ROM file `Pokémon Heart and Soul (v2.0.0).gba` is byte-identical to the verified 2.0.5 hash
+  `edf76ecf...679b`; the library title is filename-derived and misleading. The profile name shown
+  is "Pokemon Heart & Soul". P3 labeling issue; trust is correctly hash-based.
+- F3: `screencap -d 0/-d 4` returned empty images; physical display IDs
+  (`4630946441858561667`, `4630946482288158084`) work. Evidence images are in
+  `~/thor-backups/shots/` (local, not committed).
+- Memory snapshot right after launch: TOTAL PSS 151,430 KB (single sample, not a soak result).
+
+#14 L2/R2 remain unverified: nothing in the input path calls quick save/load (section 3).
+
+**Remaining human checks:** audio, all physical controller scenarios (C), fold/sleep/wake display
+lifecycle (B3/B4), battle/map/calculator exercises (D2-D5), save/lifecycle matrix (E), and the
+>= 60 min soak (F). The Thor is currently running H&S via auto-resume on the tested build.

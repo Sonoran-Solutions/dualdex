@@ -40,4 +40,15 @@ class SettingsManagerTest {
     fun triggerModeDefaultsToQuickSaveLoad() {
         assertEquals(TriggerShortcutMode.QUICK_SAVE_LOAD, TriggerShortcutMode.values().first())
     }
+
+    @Test
+    fun persistedSpeedDefaultsToNormalAndIsClamped() {
+        val prefs = com.dualdex.emulator.RomDurableResumeTest.FakeSharedPreferences()
+        val settings = SettingsManager(prefs)
+        assertEquals(1, settings.fastForwardMultiplier)   // matches the emulator's startup speed
+        settings.fastForwardMultiplier = 3
+        assertEquals(3, SettingsManager(prefs).fastForwardMultiplier)
+        settings.fastForwardMultiplier = 99
+        assertEquals(4, settings.fastForwardMultiplier)
+    }
 }

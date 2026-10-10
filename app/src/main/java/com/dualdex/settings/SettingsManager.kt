@@ -31,7 +31,7 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         }
 
     var fastForwardMultiplier: Int
-        get() = prefs.getInt(KEY_FAST_FORWARD, 2)
+        get() = prefs.getInt(KEY_FAST_FORWARD, MIN_SPEED).coerceIn(MIN_SPEED, MAX_SPEED)
         set(value) {
             prefs.edit().putInt(KEY_FAST_FORWARD, value).apply()
         }

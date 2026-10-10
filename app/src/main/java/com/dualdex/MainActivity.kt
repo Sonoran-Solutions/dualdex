@@ -455,6 +455,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
             val emu = emulatorView ?: EmulatorSurfaceView(this).apply {
                 setStretchToFit(settingsManager.isStretchToFitEnabled)
+                setSpeedMultiplier(settingsManager.fastForwardMultiplier)
                 setShortcutHandler(::onControllerShortcut)
             }
             emulatorView = emu
@@ -523,6 +524,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
         val emu = emulatorView ?: EmulatorSurfaceView(this).apply {
             setStretchToFit(settingsManager.isStretchToFitEnabled)
+            setSpeedMultiplier(settingsManager.fastForwardMultiplier)
             setShortcutHandler(::onControllerShortcut)
         }
         emulatorView = emu

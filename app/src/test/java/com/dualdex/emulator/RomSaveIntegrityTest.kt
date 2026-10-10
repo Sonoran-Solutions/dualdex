@@ -478,6 +478,7 @@ class RomSaveIntegrityTest {
     @Test
     fun test15_quicksaveAndAutoResume_mutuallyIsolated() {
         val identity = RomIdentity.create(HASH_A, "FireRed")
+        saveStateManager.setActiveGame(identity)
 
         // 1. Quicksave
         assertTrue(saveStateManager.quickSave(identity))
@@ -751,6 +752,7 @@ class RomSaveIntegrityTest {
     @Test
     fun test28_concurrentSaveRequests_serializedByLock() = runBlocking(Dispatchers.Default) {
         val identity = RomIdentity.create(HASH_A, "FireRed")
+        saveStateManager.setActiveGame(identity)
 
         val tasks = (1..20).map { _ ->
             async {
@@ -766,8 +768,46 @@ class RomSaveIntegrityTest {
     }
 
     @Test
+    fun test28b_deferredQuickState_afterRomSwitch_isRefusedAndTouchesNothing() {
+        val a = RomIdentity.create(HASH_A, "ROM A")
+        val b = RomIdentity.create(HASH_B, "ROM B")
+        saveStateManager.setActiveGame(a)
+        assertTrue(saveStateManager.quickSave(a))
+        val fileA = saveStateManager.getCanonicalFile(a, "quicksave.state")
+        val before = fileA.readBytes()
+
+        // A shortcut captured ROM A's identity, then the ROM switch to B ran before the shortcut executed.
+        val captured = java.util.concurrent.CountDownLatch(1)
+        val switched = java.util.concurrent.CountDownLatch(1)
+        val results = BooleanArray(2)
+        val worker = Thread {
+            val identity = a                       // captured on the input thread
+            captured.countDown()
+            switched.await()                       // coroutine delayed past the switch
+            results[0] = saveStateManager.quickSave(identity)
+            results[1] = saveStateManager.quickLoad(identity)
+        }
+        worker.start()
+        captured.await()
+        saveStateManager.setActiveGame(b)          // what RomSessionManager does inside the lock
+        switched.countDown()
+        worker.join()
+
+        assertFalse("quickSave must refuse a stale ROM identity", results[0])
+        assertFalse("quickLoad must refuse a stale ROM identity", results[1])
+        assertArrayEquals("ROM A's quicksave must be untouched", before, fileA.readBytes())
+        assertFalse(
+            "ROM B's state must not be written under A's identity or vice versa",
+            saveStateManager.getCanonicalFile(b, "quicksave.state").exists()
+        )
+        assertTrue("The loaded ROM can still quicksave", saveStateManager.quickSave(b))
+        assertFalse("No active ROM fails closed", run { saveStateManager.activeIdentity = null; saveStateManager.quickSave(b) })
+    }
+
+    @Test
     fun test29_rapidSuccessiveSaves_serializedCleanly() {
         val identity = RomIdentity.create(HASH_A, "FireRed")
+        saveStateManager.setActiveGame(identity)
         for (i in 1..25) {
             val ok = saveStateManager.quickSave(identity)
             assertTrue("Quicksave $i failed", ok)

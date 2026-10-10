@@ -13,14 +13,38 @@ class InputManager {
     @Volatile
     var onShortcut: ((Trigger) -> Unit)? = null
 
+    /** Invoked on every L2/R2 hold-state change (key or analog axis, merged), for hold-to-speed. */
+    @Volatile
+    var onTriggerHold: ((Trigger, Boolean) -> Unit)? = null
+
+    /** Invoked when a hotkey chord completes (see [ChordMatcher]). */
+    @Volatile
+    var onChord: ((ChordMatcher.Chord) -> Unit)? = null
+
+    /** Swap physical A/B keycodes (AYN / Retroid report Xbox positions for Nintendo labels). */
+    @Volatile
+    var swapAB = false
+
+    /** Buttons held on the on-screen touch overlay; OR-ed with physical input. */
+    @Volatile
+    var touchMask = 0
+        set(value) { field = value; publish() }
+
+    private val chords = ChordMatcher(DEFAULT_CHORDS)
+
     private var l2Held = false
     private var r2Held = false
+    private val keyHeld = BooleanArray(Trigger.values().size)
+    private val axisHeld = BooleanArray(Trigger.values().size)
 
     /** Test seam; one physical press can arrive as both a key event and an axis crossing. */
     internal var nanoClock: () -> Long = System::nanoTime
     private val lastFireNs = LongArray(Trigger.values().size) { Long.MIN_VALUE }
 
     companion object {
+        const val CHORD_TOGGLE_FAST_FORWARD = "toggle_fast_forward"
+        val DEFAULT_CHORDS = listOf(ChordMatcher.Chord((1 shl 2) or (1 shl 11), CHORD_TOGGLE_FAST_FORWARD)) // SELECT+R
+
         private const val TRIGGER_PRESS = 0.75f
         private const val TRIGGER_RELEASE = 0.35f
 
@@ -48,30 +72,43 @@ class InputManager {
 
     fun getCurrentMask(): Int = currentMask
 
+    private fun publish() {
+        currentMask = chords.gameMask
+        ControllerInputRouter.setPhysicalMask(currentMask or touchMask)
+    }
+
     fun onKeyDown(keyCode: Int, repeatCount: Int = 0): Boolean {
         triggerFor(keyCode)?.let {
             // Consumed; key-repeat from a held button must not re-trigger a save/load.
             if (repeatCount == 0) fire(it)
+            setHold(it, keyHeld, true)
             return true
         }
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
-            currentMask = currentMask or mask
-            ControllerInputRouter.setPhysicalMask(currentMask)
+            chords.down(mask)?.let { onChord?.invoke(it) }
+            publish()
             return true
         }
         return false
     }
 
     fun onKeyUp(keyCode: Int): Boolean {
-        if (triggerFor(keyCode) != null) return true
+        triggerFor(keyCode)?.let { setHold(it, keyHeld, false); return true }
         val mask = mapKeyCodeToMask(keyCode)
         if (mask != 0) {
-            currentMask = currentMask and mask.inv()
-            ControllerInputRouter.setPhysicalMask(currentMask)
+            chords.up(mask)
+            publish()
             return true
         }
         return false
+    }
+
+    private fun setHold(t: Trigger, source: BooleanArray, down: Boolean) {
+        val before = keyHeld[t.ordinal] || axisHeld[t.ordinal]
+        source[t.ordinal] = down
+        val after = keyHeld[t.ordinal] || axisHeld[t.ordinal]
+        if (before != after) onTriggerHold?.invoke(t, after)
     }
 
     fun onGenericMotionEvent(event: MotionEvent): Boolean {
@@ -90,15 +127,15 @@ class InputManager {
             val dx = if (abs(hatX) > 0.2f) hatX else stickX
             val dy = if (abs(hatY) > 0.2f) hatY else stickY
 
-            var mask = currentMask and (BTN_UP or BTN_DOWN or BTN_LEFT or BTN_RIGHT).inv()
+            var mask = 0
 
             if (dx < -0.4f) mask = mask or BTN_LEFT
             if (dx > 0.4f) mask = mask or BTN_RIGHT
             if (dy < -0.4f) mask = mask or BTN_UP
             if (dy > 0.4f) mask = mask or BTN_DOWN
 
-            currentMask = mask
-            ControllerInputRouter.setPhysicalMask(currentMask)
+            chords.setHeldBits(BTN_UP or BTN_DOWN or BTN_LEFT or BTN_RIGHT, mask)
+            publish()
             return true
         }
         return false
@@ -106,10 +143,10 @@ class InputManager {
 
     /** Analog L2/R2: fire on the press edge (with hysteresis) so a held trigger fires once. */
     fun onTriggerAxes(l2: Float, r2: Float) {
-        if (!l2Held && l2 > TRIGGER_PRESS) { l2Held = true; fire(Trigger.L2) }
-        else if (l2Held && l2 < TRIGGER_RELEASE) l2Held = false
-        if (!r2Held && r2 > TRIGGER_PRESS) { r2Held = true; fire(Trigger.R2) }
-        else if (r2Held && r2 < TRIGGER_RELEASE) r2Held = false
+        if (!l2Held && l2 > TRIGGER_PRESS) { l2Held = true; fire(Trigger.L2); setHold(Trigger.L2, axisHeld, true) }
+        else if (l2Held && l2 < TRIGGER_RELEASE) { l2Held = false; setHold(Trigger.L2, axisHeld, false) }
+        if (!r2Held && r2 > TRIGGER_PRESS) { r2Held = true; fire(Trigger.R2); setHold(Trigger.R2, axisHeld, true) }
+        else if (r2Held && r2 < TRIGGER_RELEASE) { r2Held = false; setHold(Trigger.R2, axisHeld, false) }
     }
 
     private fun fire(s: Trigger) {
@@ -128,8 +165,10 @@ class InputManager {
 
     private fun mapKeyCodeToMask(keyCode: Int): Int {
         return when (keyCode) {
-            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_Z -> BTN_A
-            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_X -> BTN_B
+            KeyEvent.KEYCODE_BUTTON_A -> if (swapAB) BTN_B else BTN_A
+            KeyEvent.KEYCODE_BUTTON_B -> if (swapAB) BTN_A else BTN_B
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_Z -> BTN_A
+            KeyEvent.KEYCODE_X -> BTN_B
             KeyEvent.KEYCODE_BUTTON_X, KeyEvent.KEYCODE_C -> BTN_X
             KeyEvent.KEYCODE_BUTTON_Y, KeyEvent.KEYCODE_V -> BTN_Y
             KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_A -> BTN_L

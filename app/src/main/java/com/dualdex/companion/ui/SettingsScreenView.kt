@@ -18,6 +18,7 @@ import com.dualdex.assistant.RomHackAssistant
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
 import com.dualdex.settings.SettingsManager
+import com.dualdex.settings.TouchOverlayMode
 import com.dualdex.settings.TriggerShortcutMode
 
 /**
@@ -50,6 +51,7 @@ class SettingsScreenView(
     private fun triggerMappingText(mode: TriggerShortcutMode) = when (mode) {
         TriggerShortcutMode.QUICK_SAVE_LOAD -> "Quick Save (L2) / Quick Load (R2)"
         TriggerShortcutMode.FAST_FORWARD -> "Speed Down (L2) / Speed Up (R2)"
+        TriggerShortcutMode.HOLD_SPEED -> "Hold: Slow-mo (L2) / Fast-forward (R2)"
         TriggerShortcutMode.DISABLED -> "Disabled"
     }
 
@@ -432,6 +434,31 @@ class SettingsScreenView(
                 }
             )
             addView(triggerSegment)
+            addView(TextView(context).apply {
+                text = "A / B Layout"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = listOf("Standard", "Swapped"),
+                initialIndex = if (settingsManager.swapAB) 1 else 0,
+                onItemSelected = { idx -> settingsManager.swapAB = idx == 1 }
+            ))
+            addView(TextView(context).apply {
+                text = "Touch Controls"
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.tight))
+            })
+            val overlayModes = TouchOverlayMode.values().toList()
+            addView(DualDexComponents.segmentedControl(
+                context = context,
+                items = overlayModes.map { it.label },
+                initialIndex = overlayModes.indexOf(settingsManager.touchOverlayMode),
+                onItemSelected = { idx -> settingsManager.touchOverlayMode = overlayModes[idx] }
+            ))
             addView(View(context), LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.compact)))
 
             val mappingRows = listOf(
@@ -440,7 +467,8 @@ class SettingsScreenView(
                 "Button X / Y" to "Turbo / Menu Shortcut",
                 "L1 / R1" to "GBA Left / Right Triggers",
                 "L2 / R2" to triggerMappingText(settingsManager.triggerShortcutMode),
-                "Start / Select" to "GBA Start / Select Buttons"
+                "Start / Select" to "GBA Start / Select Buttons",
+                "Select + R" to "Toggle Fast-forward"
             )
 
             mappingRows.forEachIndexed { index, (key, value) ->

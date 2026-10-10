@@ -113,6 +113,13 @@ open class SettingsManager(private val prefs: SharedPreferences) {
             prefs.edit().putString(KEY_GEMINI_MODEL, value).apply()
         }
 
+    /** Optional status bar above the game (#153). Off by default. */
+    var isGameStatusBarEnabled: Boolean
+        get() = prefs.getBoolean(KEY_GAME_STATUS_BAR, false)
+        set(value) {
+            prefs.edit().putBoolean(KEY_GAME_STATUS_BAR, value).apply()
+        }
+
     /** Whether the Battle Console opens automatically when a battle starts. */
     var isBattleAutoOpenEnabled: Boolean
         get() {
@@ -173,6 +180,7 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         private const val KEY_LAST_PLAYED_ROM_TITLE = "key_last_played_rom_title"
         private const val KEY_GEMINI_MODEL = "key_gemini_model"
         private const val KEY_BATTLE_AUTO_OPEN = "key_battle_auto_open"
+        const val KEY_GAME_STATUS_BAR = "key_game_status_bar"
         private const val LEGACY_KEY_BATTLE_AUTO_OPEN = "key_battle_tab_enabled"
         private const val KEY_INTERACTIVE_BATTLE_CONTROLS_ENABLED = "key_interactive_battle_controls_enabled"
         private const val KEY_LEGACY_SAVES_CHECKED = "key_legacy_saves_checked"

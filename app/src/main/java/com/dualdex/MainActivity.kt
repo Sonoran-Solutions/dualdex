@@ -460,11 +460,10 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             }
             emulatorView = emu
             (emu.parent as? ViewGroup)?.removeView(emu)
-            emu.layoutParams = FrameLayout.LayoutParams(
+            topRoot.addView(gameFrameFor(emu), FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            topRoot.addView(emu)
+            ))
 
             val restoreBtn = TextView(this).apply {
                 text = "📱 Restore Companion"
@@ -511,6 +510,15 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    /** Emulator surface inside the frame that adds the optional status bar (#153). */
+    private fun gameFrameFor(emu: EmulatorSurfaceView): com.dualdex.emulator.GameFrameLayout {
+        val frame = (emu.parent as? com.dualdex.emulator.GameFrameLayout)
+            ?: com.dualdex.emulator.GameFrameLayout(this, viewModel, settingsManager)
+        (frame.parent as? ViewGroup)?.removeView(frame)
+        frame.setGameView(emu)
+        return frame
+    }
+
     private fun setupSplitScreen() {
         Log.i("DualDex", "Running in split-screen fallback mode.")
         restoreBottomScreenBtn?.visibility = View.GONE
@@ -529,12 +537,11 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
         emulatorView = emu
         (emu.parent as? ViewGroup)?.removeView(emu)
-        emu.layoutParams = LinearLayout.LayoutParams(
+        splitLayout.addView(gameFrameFor(emu), LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             0,
             1.0f
-        )
-        splitLayout.addView(emu)
+        ))
 
         val companionView = CompanionScreenView(
             context = this,

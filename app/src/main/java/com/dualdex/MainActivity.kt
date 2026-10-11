@@ -321,6 +321,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             RomHackAssistant.setModel(settingsManager.geminiModel)
             viewModel.setBattleAutoOpenEnabled(settingsManager.isBattleAutoOpenEnabled)
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
+            viewModel.setMoveTileDamageShown(settingsManager.isMoveTileDamageShown)
+            viewModel.setMoveTileEffectivenessShown(settingsManager.isMoveTileEffectivenessShown)
 
             // 5.5 Input defaults (#153): one-time AYN/Retroid A/B swap for untouched configs
             settingsManager.migrateSwapABDefault(Build.MANUFACTURER, Build.BRAND, Build.MODEL)

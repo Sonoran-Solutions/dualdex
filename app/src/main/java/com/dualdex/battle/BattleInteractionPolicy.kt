@@ -31,7 +31,9 @@ object BattleInteractionPolicy {
         uiState: BattleUiState,
         selectedActionIndex: Int? = null,
         selectedMoveIndex: Int? = null,
-        selectedPartySlot: Int? = null
+        selectedPartySlot: Int? = null,
+        battlerIndex: Int? = null,
+        playerBattlerCount: Int? = null
     ): BattleUiSnapshot {
         val exactRuntimeVerified = runtimeTrust?.exactRuntimeVerified == true &&
             profile.sha256Hashes.any { it.equals(runtimeTrust.activeRomSha256, ignoreCase = true) }
@@ -48,7 +50,7 @@ object BattleInteractionPolicy {
             readCommandCursor = baseUiVerified && profile.commandCursorVerified,
             readMoveCursor = baseUiVerified && profile.moveCursorVerified,
             readPartyCursor = baseUiVerified && profile.partyCursorVerified,
-            selectMove = permissionGranted && selectMoveVerified,
+            selectMove = permissionGranted && selectMoveVerified && playerBattlerCount == 1,
             switchPokemon = permissionGranted && switchPokemonVerified,
             confidence = if (baseUiVerified) DataConfidence.VERIFIED else DataConfidence.UNAVAILABLE
         )
@@ -57,12 +59,18 @@ object BattleInteractionPolicy {
                 uiState == BattleUiState.MOVE_MENU ||
                 uiState == BattleUiState.PARTY_MENU
         val cursorAvailable = when (uiState) {
-            BattleUiState.COMMAND_MENU -> selectedActionIndex != null
-            BattleUiState.MOVE_MENU -> selectedMoveIndex != null
-            BattleUiState.PARTY_MENU -> selectedPartySlot != null
+            BattleUiState.COMMAND_MENU -> selectedActionIndex in 0..3
+            BattleUiState.MOVE_MENU -> selectedMoveIndex in 0..3
+            BattleUiState.PARTY_MENU -> selectedPartySlot in 0..5
             else -> false
         }
-        val isInputAccepted = permissionGranted && inBattle && stateIsInteractive && cursorAvailable
+        val stateCapability = when (uiState) {
+            BattleUiState.MOVE_MENU -> capabilities.selectMove
+            BattleUiState.PARTY_MENU -> capabilities.switchPokemon
+            BattleUiState.COMMAND_MENU -> capabilities.isInteractiveSupported
+            else -> false
+        }
+        val isInputAccepted = stateCapability && inBattle && stateIsInteractive && cursorAvailable
         val stateConfidence = if (baseUiVerified && inBattle && stateIsInteractive) {
             DataConfidence.VERIFIED
         } else {
@@ -75,6 +83,7 @@ object BattleInteractionPolicy {
             !inBattle -> "Read-only: no active battle detected."
             !stateIsInteractive -> "Read-only: battle UI state is unknown or transitioning."
             !cursorAvailable -> "Read-only: battle menu cursor state is unavailable."
+            selectMoveVerified && playerBattlerCount != 1 && !switchPokemonVerified -> "Read-only: move selection requires a verified singles battle."
             !userEnabled -> "Read-only: touch battle controls are disabled in Settings."
             else -> null
         }
@@ -84,6 +93,8 @@ object BattleInteractionPolicy {
             selectedActionIndex = selectedActionIndex,
             selectedMoveIndex = selectedMoveIndex,
             selectedPartySlot = selectedPartySlot,
+            battlerIndex = battlerIndex,
+            playerBattlerCount = playerBattlerCount,
             stateConfidence = stateConfidence,
             isInputAccepted = isInputAccepted,
             capabilities = capabilities,

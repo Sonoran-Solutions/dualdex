@@ -59,6 +59,9 @@ PHASE_EVIDENCE = json.loads(Path(__file__).with_name("release_phase_evidence.jso
 BATTLE_MAIN_FUNC_GBA_ADDRESS = PHASE_EVIDENCE["gBattleMainFunc"]["address"]
 ACTION_SELECTION_FUNC_PTR = PHASE_EVIDENCE["functions"]["HandleTurnActionSelectionState"]["releaseAddress"] | 1
 RUN_TURN_ACTIONS_FUNC_PTR = PHASE_EVIDENCE["functions"]["RunTurnActionsFunctions"]["releaseAddress"] | 1
+MENU_GLOBAL_ADDRESSES = {name: binding['address'] for name, binding in PHASE_EVIDENCE['globals'].items()}
+MENU_HANDLER_ADDRESSES = {name: PHASE_EVIDENCE['functions'][name]['releaseAddress']
+                         for name in ('HandleInputChooseAction', 'HandleInputChooseMove', 'HandleInputChooseTarget')}
 TURN_ORDER_GLOBAL_ADDRESSES = {
     "gLockedMoves": 0x02000378,
     "gChosenMoveByBattler": 0x020002DC,
@@ -71,6 +74,8 @@ TURN_ORDER_GLOBAL_ADDRESSES = {
     "gCurrentTurnActionNumber": 0x02000302,
     "gActionsByTurnOrder": 0x02000304,
     "gBattlerByTurnOrder": 0x020003B8,
+    "gActionSelectionCursor": MENU_GLOBAL_ADDRESSES['gActionSelectionCursor'],
+    "gMoveSelectionCursor": MENU_GLOBAL_ADDRESSES['gMoveSelectionCursor'],
 }
 
 # Same compiled-evidence flags as the other two H&S layout generators (§10 of
@@ -414,6 +419,14 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
     pins["battle_main_func_gba_address"] = BATTLE_MAIN_FUNC_GBA_ADDRESS
     pins["action_selection_func_ptr"] = ACTION_SELECTION_FUNC_PTR
     pins["run_turn_actions_func_ptr"] = RUN_TURN_ACTIONS_FUNC_PTR
+    player_source = (upstream_path / 'src/battle_controller_player.c').read_text()
+    for name in MENU_HANDLER_ADDRESSES:
+        if not re.search(rf'\bvoid\s+{name}\(enum BattlerId battler\)', player_source):
+            fail(f'player menu handler declaration changed: {name}')
+    for name in MENU_GLOBAL_ADDRESSES:
+        if not re.search(rf'\b{name}\s*\[MAX_BATTLERS_COUNT\]',
+                         battle_h + (upstream_path / 'include/battle_controllers.h').read_text()):
+            fail(f'per-battler menu array declaration changed: {name}')
     pins.update({f"{name.lower()}_gba_address": address
                  for name, address in TURN_ORDER_GLOBAL_ADDRESSES.items()})
 
@@ -444,7 +457,15 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
         for symbol, expected in TURN_ORDER_GLOBAL_ADDRESSES.items():
             if symbols.get(symbol) != expected:
                 fail(f"pinned EWRAM symbol {symbol} changed")
+        if symbols.get('gBattlerControllerFuncs') != PHASE_EVIDENCE['globals']['gBattlerControllerFuncs']['sourceValue']:
+            fail('source controller-array symbol changed')
     return pins
+
+
+def menu_defines():
+    return [f"#define HNS_LIVE_GBATTLERCONTROLLERFUNCS_GBA_ADDRESS 0x{MENU_GLOBAL_ADDRESSES['gBattlerControllerFuncs']:08X}u",
+            *[f"#define HNS_LIVE_{name.upper()}_FUNC_PTR 0x{address | 1:08X}u"
+              for name, address in MENU_HANDLER_ADDRESSES.items()]]
 
 
 def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> str:
@@ -668,6 +689,7 @@ def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> 
         f"#define HNS_LIVE_BP_VOLATILE_NEUTRALIZING_GAS_BIT {compiled['volatile_neutralizing_gas_bit']}",
         f"#define HNS_LIVE_B_ACTION_USE_MOVE {compiled['b_action_use_move']}",
         *[f"#define HNS_LIVE_{name.upper()}_GBA_ADDRESS 0x{address:08X}u" for name, address in TURN_ORDER_GLOBAL_ADDRESSES.items()],
+        *menu_defines(),
         "",
         "/*",
         " * Field-domain sentinels from the pinned source, recorded here so the",

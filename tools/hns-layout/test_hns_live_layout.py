@@ -9,6 +9,48 @@ import generate_hns_release_phase_evidence as phase
 
 
 class LayoutTest(unittest.TestCase):
+    def test_menu_bindings_and_generated_defines(self):
+        header = (Path(__file__).resolve().parents[2] / 'native/src/hns_live_battle_layout_gen.h').read_text()
+        p = layout.PHASE_EVIDENCE
+        self.assertEqual(set(phase.MENU_PREFIXES), set(layout.MENU_HANDLER_ADDRESSES))
+        for line in layout.menu_defines():
+            self.assertEqual(header.count(line + '\n'), 1)
+        for name in ('gActionSelectionCursor', 'gMoveSelectionCursor'):
+            v = p['globals'][name]
+            self.assertEqual(v['sourceValue'], v['address'])
+            self.assertIn(f'#define HNS_LIVE_{name.upper()}_GBA_ADDRESS 0x{v["address"]:08X}u\n', header)
+        funcs = p['globals']['gBattlerControllerFuncs']
+        self.assertEqual(funcs['address'], funcs['corroboration']['address'])
+        self.assertNotEqual(funcs['sourceValue'], funcs['address'])
+        for name in ('HandleInputChooseMove', 'HandleInputChooseTarget'):
+            self.assertEqual(p['functions'][name]['interior']['matches'], 1)
+        self.assertEqual(p['functions']['HandleInputChooseMove']['reference']['address'],
+                         p['functions']['HandleInputChooseMove']['releaseAddress'] | 1)
+
+    def test_static_action_symbol_is_resolved_only_in_player_translation_unit(self):
+        symbols = '\n'.join(f'{address:08x} l 00000080 {name}' for name, address in [
+            ('HandleInputChooseAction', 0x08000100), ('HandleInputChooseAction', 0x08000200),
+            ('HandleInputChooseAction', 0x08000300), ('HandleInputChooseMove', 0x08000220),
+            ('HandleInputChooseTarget', 0x08000240)])
+        map_text = ' .text 0x08000200 0x80 src/battle_controller_player.o\n'
+        self.assertEqual(phase.player_symbols(symbols, map_text)['HandleInputChooseAction'], 0x08000200)
+        with self.assertRaises(ValueError):
+            phase.player_symbols(symbols + '\n08000202 l 00000010 HandleInputChooseAction', map_text)
+        with self.assertRaises(ValueError):
+            phase.player_symbols(symbols, '')
+
+    def test_release_data_literal_is_resolved_independently_of_source_address(self):
+        # Synthetic instructions and pools; no cartridge bytes.
+        code = struct.pack('<8H', 0x4803, 0x2200, 0x2101, 0x2302, 0x2403, 0x2504, 0x2605, 0x4770)
+        source = code + struct.pack('<I', 0x03000020)
+        release = bytes(32) + code + struct.pack('<I', 0x03000038)
+        result = phase.bind_literal(source, release, 0x08000000, 16, 0x03000020)
+        self.assertEqual(result['address'], 0x03000038)
+        with self.assertRaises(ValueError):
+            phase.bind_literal(source, release, 0x08000000, 16, 0x03000021)
+        with self.assertRaises(ValueError):
+            phase.literal_load(bytes(32), 0x08000000)
+
     def test_retained_official_rom_transitions_and_phase_invalidation(self):
         path = Path(__file__).resolve().parents[1] / 'hns-runtime-probe/verify_group_d_evidence.py'
         spec = importlib.util.spec_from_file_location('evidence', path)

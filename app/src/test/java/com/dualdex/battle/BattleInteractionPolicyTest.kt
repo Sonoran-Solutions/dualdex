@@ -53,7 +53,8 @@ class BattleInteractionPolicyTest {
         state: BattleUiState = BattleUiState.COMMAND_MENU,
         commandCursor: Int? = 1,
         moveCursor: Int? = null,
-        partyCursor: Int? = null
+        partyCursor: Int? = null,
+        players: Int? = 1
     ) = BattleInteractionPolicy.evaluate(
         profile = profile,
         runtimeTrust = runtimeTrust,
@@ -62,7 +63,8 @@ class BattleInteractionPolicyTest {
         uiState = state,
         selectedActionIndex = commandCursor,
         selectedMoveIndex = moveCursor,
-        selectedPartySlot = partyCursor
+        selectedPartySlot = partyCursor,
+        playerBattlerCount = players
     )
 
     @Test
@@ -161,6 +163,42 @@ class BattleInteractionPolicyTest {
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(0))
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(5))
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(999))
+        assertEquals(BattleUiState.TARGET_SELECT, BattleUiState.fromNativeCode(6))
+    }
+
+    @Test fun moveSelectionRequiresObservedSinglesEvenWithEveryFlagVerified() {
+        val movesOnly = profile().copy(partySwitchVerified = false)
+        for (count in listOf(null, 0, 2, 4)) {
+            val ui = evaluate(movesOnly, state = BattleUiState.MOVE_MENU, moveCursor = 2, players = count)
+            assertFalse(ui.capabilities.selectMove)
+            assertFalse(ui.inputSafe)
+            assertEquals("Read-only: move selection requires a verified singles battle.", ui.readOnlyReason)
+        }
+        assertTrue(evaluate(movesOnly, state = BattleUiState.MOVE_MENU, moveCursor = 2).inputSafe)
+    }
+
+    @Test fun packedCursorsFeedAuthorizationAndInvalidValuesStayUnavailable() {
+        val raw = BattleUiSnapshot.fromNativePacked(2 or (2 shl 4) or (4 shl 8) or (3 shl 12) or (1 shl 16))
+        assertEquals(1, raw.battlerIndex)
+        assertEquals(3, raw.selectedActionIndex)
+        assertEquals(2, raw.selectedMoveIndex)
+        val authorized = evaluate(profile(), state = raw.state, commandCursor = raw.selectedActionIndex,
+            moveCursor = raw.selectedMoveIndex, players = raw.playerBattlerCount)
+        assertTrue(authorized.inputSafe)
+        assertEquals(2, authorized.selectedMoveIndex)
+        for (sentinel in listOf(0, 5, 7)) {
+            val invalid = BattleUiSnapshot.fromNativePacked(2 or (sentinel shl 12))
+            assertNull(invalid.selectedMoveIndex)
+        }
+        assertFalse(evaluate(profile(), state = BattleUiState.MOVE_MENU, moveCursor = 4).inputSafe)
+        assertFalse(evaluate(profile(), commandCursor = -1).inputSafe)
+    }
+
+    @Test fun falseMoveVerificationFlagsKeepTilesReadOnlyWithValidCursors() {
+        val disabled = profile(battleUiVerified = false, cursorAndActionReadersVerified = false)
+        val ui = evaluate(disabled, state = BattleUiState.MOVE_MENU, moveCursor = 3)
+        assertFalse(ui.capabilities.selectMove)
+        assertFalse(ui.inputSafe)
     }
 
     @Test

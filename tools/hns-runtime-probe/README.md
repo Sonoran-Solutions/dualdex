@@ -416,6 +416,7 @@ python3 tools/hns-layout/generate_hns_release_phase_evidence.py \
   --upstream /path/to/pinned/pokehns-expansion \
   --source-rom /path/to/source-build/pokehns.gba \
   --source-symbols /path/to/source-build/pokehns.sym \
+  --source-map /path/to/source-build/pokehns.map \
   --release-rom /path/to/official-hns-2.0.5.gba --verify
 ```
 

@@ -232,27 +232,10 @@ class BattleSafetyHardeningTest {
     // 8. Transition timeout returns UnexpectedTransition or Timeout
     @Test
     fun test8_transitionTimeoutReturnsUnexpectedTransition() = runBlocking {
-        val dispatcher = RecordingDispatcher()
-        // stateReader persistently returns COMMAND_MENU instead of expected MOVE_MENU
-        val adapter = BattleInputAdapter(dispatcher) {
-            BattleUiSnapshot(
-                state = BattleUiState.COMMAND_MENU,
-                selectedActionIndex = 0,
-                selectedMoveIndex = 0,
-                stateConfidence = DataConfidence.VERIFIED,
-                isInputAccepted = true,
-                capabilities = BattleInteractionCapabilities.FULL_VERIFIED
-            )
-        }
-
-        val initialUi = BattleUiSnapshot(
-            state = BattleUiState.COMMAND_MENU,
-            selectedActionIndex = 0,
-            selectedMoveIndex = 0,
-            stateConfidence = DataConfidence.VERIFIED,
-            isInputAccepted = true,
-            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
-        )
+        val dispatcher = MoveMenuInput(BattleUiState.COMMAND_MENU)
+        dispatcher.openMoveMenu = false
+        val adapter = dispatcher.adapter()
+        val initialUi = dispatcher.snapshot
 
         val result = adapter.executeSelectMove(1, initialUi)
         assertTrue("Unsuccessful state transition must return UnexpectedTransition", result is BattleInputResult.UnexpectedTransition)
@@ -323,38 +306,20 @@ class BattleSafetyHardeningTest {
     // 12. Full BattleInputAdapter actions are serialized, not just individual button presses
     @Test
     fun test12_concurrentBattleActionsCannotInterleave() = runBlocking {
-        val events = mutableListOf<String>()
-        var dispatchActive = false
-        var interleaved = false
-        val dispatcher = BattleInputDispatcher { button, _, _ ->
-            synchronized(events) {
-                if (dispatchActive) interleaved = true
-                dispatchActive = true
-                events += "start:$button"
-            }
-            delay(5L)
-            synchronized(events) {
-                events += "end:$button"
-                dispatchActive = false
-            }
-            true
+        val dispatcher = MoveMenuInput()
+        val entered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val release = kotlinx.coroutines.CompletableDeferred<Unit>()
+        dispatcher.onPress = {
+            entered.complete(Unit)
+            release.await()
         }
-        val adapter = BattleInputAdapter(dispatcher)
-        val ui = BattleUiSnapshot(
-            state = BattleUiState.MOVE_MENU,
-            selectedMoveIndex = 0,
-            stateConfidence = DataConfidence.VERIFIED,
-            isInputAccepted = true,
-            capabilities = BattleInteractionCapabilities.FULL_VERIFIED
-        )
-
-        val first = async(Dispatchers.Default) { adapter.executeSelectMove(3, ui) }
-        val second = async(Dispatchers.Default) { adapter.executeSelectMove(0, ui) }
-
+        val adapter = dispatcher.adapter()
+        val first = async { adapter.executeSelectMove(3, dispatcher.snapshot) }
+        entered.await()
+        assertEquals(BattleInputResult.Busy, adapter.executeSelectMove(0, dispatcher.snapshot))
+        release.complete(Unit)
         assertEquals(BattleInputResult.Success, first.await())
-        assertEquals(BattleInputResult.Success, second.await())
-        assertFalse("A second action must not enter while the first is emitting buttons", interleaved)
-        assertEquals(events.count { it.startsWith("start:") }, events.count { it.startsWith("end:") })
+        assertEquals(1, dispatcher.buttons.count { it == InputManager.BTN_A })
     }
 
     // 13. Gen 3 vanilla: Clefairy is Normal type (NOT Fairy)

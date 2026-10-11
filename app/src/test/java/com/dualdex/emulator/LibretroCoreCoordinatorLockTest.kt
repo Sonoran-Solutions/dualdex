@@ -23,6 +23,20 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Core mutation, stepFrame and the protected memory readers must still be mutually exclusive.
  */
 class LibretroCoreCoordinatorLockTest {
+    @Test fun `only successfully completed core frames advance the input clock`() {
+        var advances = false
+        val coordinator = LibretroCoreCoordinator(bridge = object : LibretroCoreBridge {
+            override fun stepFrame() = advances
+        })
+        assertFalse(coordinator.stepFrame())
+        assertEquals(0L, coordinator.completedFrames)
+        advances = true
+        assertTrue(coordinator.stepFrame())
+        assertEquals(1L, coordinator.completedFrames)
+        advances = false
+        assertFalse(coordinator.stepFrame())
+        assertEquals(1L, coordinator.completedFrames)
+    }
 
     private class RecordingBridge : LibretroCoreBridge {
         val stepped = java.util.concurrent.atomic.AtomicInteger(0)

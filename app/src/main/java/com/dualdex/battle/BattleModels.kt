@@ -396,6 +396,7 @@ enum class BattleUiState(val displayName: String) {
             2 -> MOVE_MENU
             3 -> PARTY_MENU
             4 -> ANIMATION_OR_TEXT
+            6 -> TARGET_SELECT
             else -> UNKNOWN
         }
     }
@@ -406,11 +407,27 @@ data class BattleUiSnapshot(
     val selectedActionIndex: Int? = null,
     val selectedMoveIndex: Int? = null,
     val selectedPartySlot: Int? = null,
+    val battlerIndex: Int? = null,
+    val playerBattlerCount: Int? = null,
     val stateConfidence: DataConfidence = DataConfidence.UNAVAILABLE,
     val isInputAccepted: Boolean = false,
     val capabilities: BattleInteractionCapabilities = BattleInteractionCapabilities.READ_ONLY,
     val readOnlyReason: String? = null
 ) {
+    companion object {
+        /** Mirrors pokemon_read_battle_ui_gba; zero/invalid field values remain unavailable. */
+        fun fromNativePacked(packed: Int): BattleUiSnapshot {
+            fun index(shift: Int) = ((packed ushr shift) and 7).takeIf { it in 1..4 }?.minus(1)
+            return BattleUiSnapshot(
+                state = BattleUiState.fromNativeCode(packed and 15),
+                battlerIndex = index(4),
+                selectedActionIndex = index(8),
+                selectedMoveIndex = index(12),
+                playerBattlerCount = ((packed ushr 16) and 7).takeIf { it in 1..2 }
+            )
+        }
+    }
+
     val inputSafe: Boolean
         get() = isInputAccepted &&
                 stateConfidence == DataConfidence.VERIFIED &&

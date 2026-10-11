@@ -45,6 +45,11 @@ open class LibretroCoreCoordinator(
     /** Set by [unloadRom] until the next successful [loadRom]; [stepFrame] never runs an unloaded core. */
     private var romUnloaded = false
 
+    @Volatile var emulationRunning = false
+        internal set
+    @Volatile var completedFrames = 0L
+        private set
+
     internal fun bindCheatRom(identity: RomIdentity) {
         check(lock.isHeldByCurrentThread)
         cheatRomSha256 = identity.sha256.takeIf { identity.isValid }?.lowercase()
@@ -108,9 +113,12 @@ open class LibretroCoreCoordinator(
         try {
             if (romUnloaded) return false
             if (bridge != null) {
-                return bridge?.stepFrame() ?: true
+                val stepped = bridge?.stepFrame() ?: false
+                if (stepped) completedFrames++
+                return stepped
             }
             LibretroHost.nativeStepFrame()
+            completedFrames++
             return true
         } finally {
             if (diag) {

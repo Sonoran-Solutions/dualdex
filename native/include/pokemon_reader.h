@@ -998,12 +998,24 @@ bool pokemon_read_battler_runtime_state_gba(
  * 3 = PARTY_MENU (Party screen)
  * 4 = ANIMATION_OR_TEXT (Battle script running / dialogue)
  * 5 = UNKNOWN / TRANSITION (Active battle, but menu state not authoritatively verified)
+ * 6 = TARGET_SELECT (no automated target confirmation)
  *
  * Returns 0 for a NULL or GAME_UNKNOWN configuration.
  */
 uint8_t pokemon_read_battle_ui_state(
     const uint8_t* ewram,
     size_t ewram_size,
+    const GameMemoryConfig* config
+);
+
+/** Exact H&S menu reader, using the lifecycle/IWRAM gate and player-side battler positions.
+ * Packed JNI contract: state bits 0..3; battler+1 bits 4..6; actionCursor+1 bits 8..10;
+ * moveCursor+1 bits 12..14; player battler count bits 16..18. Zero means unavailable
+ * for battler/cursors/count. Out-of-domain cursors are never clamped. Other layouts
+ * retain pokemon_read_battle_ui_state() with no cursor or topology authority.
+ */
+uint32_t pokemon_read_battle_ui_gba(
+    DualDexGbaReadFn read, void* user, const uint8_t* ewram, size_t ewram_size,
     const GameMemoryConfig* config
 );
 

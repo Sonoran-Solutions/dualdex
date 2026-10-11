@@ -72,12 +72,14 @@ object ControllerInputRouter {
                 setButtons(effective)
             }
 
-            delay(durationMs)
-
-            synchronized(lock) {
-                automatedMask = automatedMask and buttonMask.inv()
-                val effective = physicalMask or automatedMask
-                setButtons(effective)
+            try {
+                delay(durationMs)
+            } finally {
+                synchronized(lock) {
+                    automatedMask = automatedMask and buttonMask.inv()
+                    val effective = physicalMask or automatedMask
+                    setButtons(effective)
+                }
             }
 
             if (delayMs > 0) {
@@ -85,6 +87,30 @@ object ControllerInputRouter {
             }
             true
         }
+    }
+
+    /** Each edge spans a completed core frame. Cancellation always releases automation. */
+    suspend fun sendAutomatedFrameButton(
+        buttonMask: Int,
+        settleFrames: Int,
+        waitFrames: suspend (Int) -> Boolean,
+        setButtons: (Int) -> Unit = { dispatchEffectiveMask(it) }
+    ): Boolean = inputMutex.withLock {
+        // A physically held copy of this button prevents JOY_NEW; preserve it and refuse.
+        if (physicalMask and buttonMask != 0) return@withLock false
+        try {
+            synchronized(lock) {
+                automatedMask = buttonMask
+                setButtons(physicalMask or automatedMask)
+            }
+            if (!waitFrames(1)) return@withLock false
+        } finally {
+            synchronized(lock) {
+                automatedMask = 0
+                setButtons(physicalMask)
+            }
+        }
+        waitFrames(1 + settleFrames)
     }
 
     private fun updateEffectiveMask() {

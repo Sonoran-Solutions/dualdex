@@ -40,6 +40,7 @@ object LibretroHost {
     external fun nativeResolveActiveEnemy(gameId: Int): IntArray?
 
     external fun nativeReadBattleStatStages(gameId: Int, battlerIndex: Int): IntArray?
+    /** Packed battle menu tuple; decode with BattleUiSnapshot.fromNativePacked. */
     external fun nativeReadBattleUiState(gameId: Int): Int
     external fun nativeReadBattlePresence(gameId: Int): Int
     external fun nativeReadPlayerLocation(gameId: Int): PlayerLocation?

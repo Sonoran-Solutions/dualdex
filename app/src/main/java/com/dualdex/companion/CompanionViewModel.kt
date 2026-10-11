@@ -125,8 +125,31 @@ class CompanionViewModel(
     val battleUiSnapshot: StateFlow<com.dualdex.battle.BattleUiSnapshot> = _battleUiSnapshot.asStateFlow()
 
     var battleInputAdapter: com.dualdex.battle.BattleInputAdapter = com.dualdex.battle.BattleInputAdapter(
-        stateReader = { _battleUiSnapshot.value }
+        dispatcher = com.dualdex.battle.DefaultBattleInputDispatcher { coreCoordinator },
+        isPaused = { !coreCoordinator.emulationRunning },
+        frameReader = { coreCoordinator.completedFrames },
+        stateReader = { readBattleUiSnapshot() }
     )
+
+    private fun readBattleUiSnapshot(): com.dualdex.battle.BattleUiSnapshot {
+        val trust = _runtimeRomTrust.value
+        if (!trust.exactRuntimeVerified) return com.dualdex.battle.BattleUiSnapshot()
+        val raw = com.dualdex.battle.BattleUiSnapshot.fromNativePacked(
+            coreCoordinator.readBattleUiState(_activeProfile.value.gameId)
+        )
+        if (trust != _runtimeRomTrust.value) return com.dualdex.battle.BattleUiSnapshot()
+        return com.dualdex.battle.BattleInteractionPolicy.evaluate(
+            profile = _activeProfile.value,
+            runtimeTrust = trust,
+            userEnabled = _isInteractiveBattleControlsEnabled.value,
+            inBattle = _isInBattle.value,
+            uiState = raw.state,
+            selectedActionIndex = raw.selectedActionIndex,
+            selectedMoveIndex = raw.selectedMoveIndex,
+            battlerIndex = raw.battlerIndex,
+            playerBattlerCount = raw.playerBattlerCount
+        )
+    }
 
     val activeGameDataPack: com.dualdex.pokemon.GameDataPack
         get() = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(_activeProfile.value)
@@ -429,14 +452,7 @@ class CompanionViewModel(
             val eStages = coreCoordinator.readBattleStatStages(gameId, 1)
             _enemyStatStages.value = com.dualdex.battle.StatStages.fromRawArray(eStages)
 
-            val uiCode = coreCoordinator.readBattleUiState(gameId)
-            _battleUiSnapshot.value = com.dualdex.battle.BattleInteractionPolicy.evaluate(
-                profile = _activeProfile.value,
-                runtimeTrust = _runtimeRomTrust.value,
-                userEnabled = _isInteractiveBattleControlsEnabled.value,
-                inBattle = inBattle,
-                uiState = com.dualdex.battle.BattleUiState.fromNativeCode(uiCode)
-            )
+            _battleUiSnapshot.value = readBattleUiSnapshot()
         } else {
             if (_activeEnemyMemberIndex.value != -1) {
                 _activeEnemyMemberIndex.value = -1

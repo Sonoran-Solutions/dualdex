@@ -1,5 +1,6 @@
 package com.dualdex.battle
 
+import android.util.Log
 import com.dualdex.emulator.ControllerInputRouter
 import com.dualdex.emulator.InputManager
 import com.dualdex.emulator.LibretroCoreCoordinator
@@ -23,8 +24,21 @@ fun interface BattleInputDispatcher {
     suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean
     suspend fun sendFrameButton(buttonMask: Int, settleFrames: Int): Boolean = false
     suspend fun waitFrames(frames: Int): Boolean = false
+    /** Lock-timeout retries of the most recent input session, for acceptance evidence (#175). */
+    val writeStats: EdgeWriteStats? get() = null
     suspend fun <T> withExclusiveAutomation(block: suspend () -> T): T =
         ControllerInputRouter.withExclusiveAutomation(block = block)
+}
+
+/** Write attempts beyond the first, per edge kind; exhausted = every attempt timed out. Zero writes count as release. */
+class EdgeWriteStats {
+    var pressRetries = 0
+    var releaseRetries = 0
+    var pressExhausted = 0
+    var releaseExhausted = 0
+
+    override fun toString() = "pressRetries=$pressRetries releaseRetries=$releaseRetries " +
+        "pressExhausted=$pressExhausted releaseExhausted=$releaseExhausted"
 }
 
 /**
@@ -37,6 +51,8 @@ class DefaultBattleInputDispatcher(
     override val stateGeneration: Long get() = coordinator().stateGeneration
     // Accessed only by the macro owning the router's automation mutex.
     private var inputSession: Pair<LibretroCoreCoordinator, Long>? = null
+    private var sessionStats: EdgeWriteStats? = null
+    override val writeStats: EdgeWriteStats? get() = sessionStats
 
     private companion object {
         const val WRITE_ATTEMPTS = 3
@@ -80,7 +96,16 @@ class DefaultBattleInputDispatcher(
                     }
                     return
                 } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
-                    if (attempt + 1 == WRITE_ATTEMPTS) throw e
+                    val last = attempt + 1 == WRITE_ATTEMPTS
+                    sessionStats?.apply {
+                        when {
+                            mask == 0 && last -> releaseExhausted++
+                            mask == 0 -> releaseRetries++
+                            last -> pressExhausted++
+                            else -> pressRetries++
+                        }
+                    }
+                    if (last) throw e
                 }
             }
         } catch (e: Exception) {
@@ -93,6 +118,7 @@ class DefaultBattleInputDispatcher(
     override suspend fun <T> withExclusiveAutomation(block: suspend () -> T): T {
         val core = coordinator()
         val generation = core.stateGeneration
+        sessionStats = EdgeWriteStats()
         return ControllerInputRouter.withExclusiveAutomation({ writeMask(core, it, generation) }) {
             inputSession = core to generation
             try { block() } finally { inputSession = null }
@@ -166,17 +192,61 @@ class BattleInputAdapter(
         const val OBSERVATION_FRAMES = 120
         const val READ_ATTEMPTS = 3
         const val CONFIRM_REGISTRATION_FRAMES = 6L
+        const val LOG_TAG = "DualDex_MoveSelect"
+    }
+
+    /**
+     * One evidence line per tap (#175): presses as `BUTTON@startFrame-endFrame` and every change of
+     * observed state after an A press as `STATE@frame`, all relative to the macro's first frame.
+     */
+    private class MoveMacroTrace(private val frames: () -> Long) {
+        private val start = frames()
+        private val timeline = StringBuilder()
+        private var lastState: BattleUiState? = null
+        private var pressStart = 0L
+
+        private fun add(label: String) {
+            if (timeline.isNotEmpty()) timeline.append(' ')
+            timeline.append(label)
+        }
+        fun frame() = frames() - start
+        fun pressStarted() { pressStart = frame() }
+        fun pressed(button: Int) {
+            val name = when (button) {
+                InputManager.BTN_A -> "A"
+                InputManager.BTN_LEFT -> "LEFT"
+                InputManager.BTN_RIGHT -> "RIGHT"
+                InputManager.BTN_UP -> "UP"
+                InputManager.BTN_DOWN -> "DOWN"
+                else -> "0x" + button.toString(16)
+            }
+            add("$name@$pressStart-${frame()}")
+            lastState = null
+        }
+        fun observed(state: BattleUiState) {
+            if (state != lastState) add("${state.name}@${frame()}")
+            lastState = state
+        }
+        fun summary(slot: Int, ui: BattleUiSnapshot, result: BattleInputResult, writes: EdgeWriteStats?) =
+            "slot=$slot start=${ui.state} actionCursor=${ui.selectedActionIndex} moveCursor=${ui.selectedMoveIndex} " +
+                "battler=${ui.battlerIndex} players=${ui.playerBattlerCount} result=$result frames=${frame()} " +
+                "timeline=[$timeline] ${writes ?: "writes=none"}"
     }
 
     suspend fun executeSelectMove(slot: Int, currentUi: BattleUiSnapshot): BattleInputResult {
+        val trace = MoveMacroTrace(frameReader)
         // A second tap is rejected, never queued against a snapshot from the previous turn.
-        if (!actionMutex.tryLock()) return BattleInputResult.Busy
+        if (!actionMutex.tryLock()) {
+            Log.i(LOG_TAG, trace.summary(slot, currentUi, BattleInputResult.Busy, null))
+            return BattleInputResult.Busy
+        }
         try {
             val generation = dispatcher.stateGeneration
+            val stats = dispatcher.writeStats
             return withContext(macroDispatcher) {
                 withTimeoutOrNull(20_000L) {
                     try {
-                        executeSelectMoveInternal(slot, currentUi, generation)
+                        executeSelectMoveInternal(slot, currentUi, generation, trace)
                     } catch (abort: MoveMacroAbort) {
                         abort.result
                     } catch (_: ControllerInputRouter.PhysicalButtonHeld) {
@@ -187,6 +257,10 @@ class BattleInputAdapter(
                         BattleInputResult.Timeout("Core input session unavailable")
                     }
                 } ?: BattleInputResult.Timeout("Move-selection watchdog expired")
+            }.also { result ->
+                // A session that never started keeps the previous session's object: report none.
+                val writes = dispatcher.writeStats?.takeIf { it !== stats }
+                Log.i(LOG_TAG, trace.summary(slot, currentUi, result, writes))
             }
         } finally {
             actionMutex.unlock()
@@ -196,7 +270,7 @@ class BattleInputAdapter(
     private class MoveMacroAbort(val result: BattleInputResult) : RuntimeException()
 
     private suspend fun executeSelectMoveInternal(
-        slot: Int, currentUi: BattleUiSnapshot, generation: Long
+        slot: Int, currentUi: BattleUiSnapshot, generation: Long, trace: MoveMacroTrace
     ): BattleInputResult {
         if (slot !in 0..3) return BattleInputResult.IllegalTarget("Move slot $slot out of bounds (0..3)")
         if (currentUi.state == BattleUiState.ANIMATION_OR_TEXT) return BattleInputResult.Busy
@@ -255,7 +329,10 @@ class BattleInputAdapter(
         suspend fun press(button: Int) {
             running()
             val settle = if (button == InputManager.BTN_A) 0 else DIRECTION_SETTLE_FRAMES
-            if (!dispatcher.sendFrameButton(button, settle)) {
+            trace.pressStarted()
+            val sent = dispatcher.sendFrameButton(button, settle)
+            trace.pressed(button)
+            if (!sent) {
                 running()
                 abort(BattleInputResult.Timeout("Core frames or input dispatch unavailable"))
             }
@@ -288,11 +365,13 @@ class BattleInputAdapter(
                 walk(BattleUiState.COMMAND_MENU, 0)
                 press(InputManager.BTN_A)
                 var observed = read()
+                trace.observed(observed.state)
                 var frames = 0
                 while (observed.state != BattleUiState.MOVE_MENU && frames < OBSERVATION_FRAMES) {
                     waitFrame()
                     frames++
                     observed = read()
+                    trace.observed(observed.state)
                 }
                 if (observed.state != BattleUiState.MOVE_MENU) {
                     abort(BattleInputResult.UnexpectedTransition(BattleUiState.MOVE_MENU, observed.state))
@@ -304,6 +383,7 @@ class BattleInputAdapter(
             var nonMenuObserved = false
             for (frames in 0..OBSERVATION_FRAMES) {
                 val observed = read()
+                trace.observed(observed.state)
                 when (observed.state) {
                     BattleUiState.TURN_RUNNING -> {
                         authority(observed)

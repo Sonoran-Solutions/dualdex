@@ -533,7 +533,7 @@ class SettingsScreenView(
             addView(touchSegment)
 
             val touchDisclaimer = TextView(context).apply {
-                text = "Touch controls require exact ROM profiles with verified cursor and party menu readers. Safe read-only mode is active for all standard profiles."
+                text = "Tap-to-select moves is supported in singles battles on the verified Pokémon Heart & Soul 2.0.5 ROM. Every other ROM, and party switching everywhere, stays read-only."
                 setTextColor(DualDexTheme.Color.textDisabled)
                 textSize = DualDexTheme.Type.compact
                 setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)

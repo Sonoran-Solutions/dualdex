@@ -20,7 +20,13 @@
   "isVerified": true,
   "memoryLayoutVerified": true,
   "battleStateReadVerified": true,
-  "battleUiVerified": false,
+  "battleUiVerified": true,
+  "commandCursorVerified": true,
+  "moveCursorVerified": true,
+  "moveSelectionVerified": true,
   "interactiveControlsVerified": false,
+  "partyCursorVerified": false,
+  "partySwitchVerified": false,
+  "partyActionMenuVerified": false,
   "gameDataPackId": "hns_2_0_5"
 }

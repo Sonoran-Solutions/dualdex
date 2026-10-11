@@ -66,12 +66,14 @@ open class LibretroCoreCoordinator(
     val isExclusiveLocked: Boolean
         get() = lock.isLocked
 
+    class LockTimeoutException(message: String) : IllegalStateException(message)
+
     /**
      * Executes an exclusive operation with respect to the Libretro core.
      * While held, frame execution (nativeStepFrame) and other operations yield.
      * Supports reentrant execution on the same thread without self-deadlock.
      */
-    fun <T> executeExclusive(timeoutMs: Long = 5000L, block: () -> T): T {
+    open fun <T> executeExclusive(timeoutMs: Long = 5000L, block: () -> T): T {
         val diag = FastForwardDiagnostics.enabled
         val waitStart = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         val acquired = if (timeoutMs > 0) {
@@ -83,7 +85,7 @@ open class LibretroCoreCoordinator(
             if (diag) FastForwardDiagnostics.onCompanionTimeout()
             val msg = "Timed out after ${timeoutMs}ms waiting for Libretro core exclusive lock"
             Log.e(TAG, msg)
-            throw IllegalStateException(msg)
+            throw LockTimeoutException(msg)
         }
         val acquiredNs = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         try {

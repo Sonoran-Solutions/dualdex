@@ -33,6 +33,11 @@ fun interface BattleInputDispatcher {
 class DefaultBattleInputDispatcher(
     private val coordinator: () -> LibretroCoreCoordinator = { LibretroCoreCoordinator.defaultInstance }
 ) : BattleInputDispatcher {
+    private companion object {
+        const val WRITE_ATTEMPTS = 3
+        const val WRITE_TIMEOUT_MS = 2L // At most 6 ms of lock waits per edge (~3 frames at 8x).
+    }
+
     override suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean {
         return ControllerInputRouter.sendAutomatedButton(buttonMask, durationMs, delayMs)
     }
@@ -52,7 +57,14 @@ class DefaultBattleInputDispatcher(
 
     private fun writeMask(core: LibretroCoreCoordinator, mask: Int) {
         try {
-            core.executeExclusive(50L) { core.setInputButtons(mask) }
+            repeat(WRITE_ATTEMPTS) { attempt ->
+                try {
+                    core.executeExclusive(WRITE_TIMEOUT_MS) { core.setInputButtons(mask) }
+                    return
+                } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
+                    if (attempt + 1 == WRITE_ATTEMPTS) throw e
+                }
+            }
         } catch (e: Exception) {
             // A stalled core must not retain automation, even if its lock cannot be acquired.
             if (mask == 0) core.setInputButtons(0)
@@ -94,6 +106,7 @@ sealed class BattleInputResult {
     data object Paused : BattleInputResult()
     data object TargetSelectionRequired : BattleInputResult()
     data object MoveRefused : BattleInputResult()
+    data object ConfirmNotRegistered : BattleInputResult()
     data class Timeout(val message: String) : BattleInputResult()
     data class Cancelled(val reason: String) : BattleInputResult()
 
@@ -130,6 +143,7 @@ class BattleInputAdapter(
         const val WATCHDOG_FRAMES = 1200L
         const val OBSERVATION_FRAMES = 120
         const val READ_ATTEMPTS = 3
+        const val CONFIRM_REGISTRATION_FRAMES = 6L
     }
 
     suspend fun executeSelectMove(slot: Int, currentUi: BattleUiSnapshot): BattleInputResult {
@@ -259,6 +273,8 @@ class BattleInputAdapter(
             }
             walk(BattleUiState.MOVE_MENU, slot)
             press(InputManager.BTN_A)
+            val confirmStartFrame = frameReader()
+            var nonMenuObserved = false
             for (frames in 0..OBSERVATION_FRAMES) {
                 val observed = read()
                 when (observed.state) {
@@ -272,9 +288,12 @@ class BattleInputAdapter(
                     }
                     BattleUiState.MOVE_MENU, BattleUiState.COMMAND_MENU -> {
                         authority(observed)
-                        return@withExclusiveAutomation BattleInputResult.MoveRefused
+                        if (nonMenuObserved) return@withExclusiveAutomation BattleInputResult.MoveRefused
+                        if (frameReader() - confirmStartFrame >= CONFIRM_REGISTRATION_FRAMES) {
+                            return@withExclusiveAutomation BattleInputResult.ConfirmNotRegistered
+                        }
                     }
-                    else -> Unit // Text/animation may precede acceptance or refusal.
+                    else -> nonMenuObserved = true // Refusal requires leaving the menu first.
                 }
                 if (frames < OBSERVATION_FRAMES) waitFrame()
             }

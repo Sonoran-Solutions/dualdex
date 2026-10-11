@@ -281,6 +281,49 @@ class BattleInputAdapterTest {
         assertEquals(2L + BattleInputAdapter.OBSERVATION_FRAMES, stuck.frames)
     }
 
+    @Test fun droppedConfirmReportsUnregisteredAndNeverRetriesA() = runBlocking {
+        val input = MoveMenuInput()
+        input.drop = InputManager.BTN_A
+        assertEquals(BattleInputResult.ConfirmNotRegistered,
+            input.adapter().executeSelectMove(0, input.snapshot))
+        assertEquals(listOf(InputManager.BTN_A), input.buttons)
+        assertNull(input.selected)
+        assertEquals(2L + BattleInputAdapter.CONFIRM_REGISTRATION_FRAMES, input.frames)
+    }
+
+    @Test fun initialMenuFramesDoNotHideDelayedTextOrAcceptance() = runBlocking {
+        for (end in listOf(BattleUiState.MOVE_MENU, BattleUiState.COMMAND_MENU,
+                           BattleUiState.TURN_RUNNING, BattleUiState.TARGET_SELECT)) {
+            val input = MoveMenuInput()
+            input.drop = InputManager.BTN_A
+            var frames = 0
+            input.onWait = {
+                frames++
+                input.state = when {
+                    frames < 2 -> BattleUiState.MOVE_MENU
+                    frames < 4 -> BattleUiState.ANIMATION_OR_TEXT
+                    else -> end
+                }
+            }
+            val expected = when (end) {
+                BattleUiState.TURN_RUNNING -> BattleInputResult.Success
+                BattleUiState.TARGET_SELECT -> BattleInputResult.TargetSelectionRequired
+                else -> BattleInputResult.MoveRefused
+            }
+            assertEquals(expected, input.adapter().executeSelectMove(0, input.snapshot))
+            assertEquals(4, frames)
+            assertEquals(listOf(InputManager.BTN_A), input.buttons)
+        }
+    }
+
+    @Test fun unregisteredConfirmStillChecksPlayerAuthority() = runBlocking {
+        val input = MoveMenuInput()
+        input.drop = InputManager.BTN_A
+        input.onWait = { input.battler = 2 }
+        assertTrue(input.adapter().executeSelectMove(0, input.snapshot) is BattleInputResult.UnsupportedProfile)
+        assertEquals(listOf(InputManager.BTN_A), input.buttons)
+    }
+
     @Test fun finalCursorHasOneReadImmediatelyBeforeA() = runBlocking {
         for (from in 0..3) for (target in 0..3) {
             val input = MoveMenuInput(move = from)

@@ -2,9 +2,14 @@ package com.dualdex.emulator
 
 import android.os.SystemClock
 import com.dualdex.battle.DefaultBattleInputDispatcher
+import com.dualdex.battle.BattleInputAdapter
+import com.dualdex.battle.BattleInputResult
+import com.dualdex.battle.MoveMenuInput
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -87,6 +92,140 @@ class LibretroCoreCoordinatorLockTest {
             holder.join(5000)
         }
         assertEquals(null, coordinator.readBattleUiState(8)) // Missing JNI is also unavailable.
+    }
+
+    /** Synthetic lock failures and core frames; never sleeps or loads a ROM/native core. */
+    private class EdgeWriteCore : LibretroCoreCoordinator() {
+        var heldMask = 0
+        val attempts = mutableListOf<Pair<Int, Long>>()
+        val writes = mutableListOf<Pair<Int, Boolean>>()
+        val frameMasks = mutableListOf<Int>()
+        var failure: (Int, Int) -> Exception? = { _, _ -> null }
+        var advanceOnTimeout = false
+        var onWrite: (Int) -> Unit = {}
+
+        init {
+            emulationRunning = true
+            bridge = object : LibretroCoreBridge {
+                override fun stepFrame(): Boolean {
+                    frameMasks += heldMask
+                    return true
+                }
+            }
+        }
+
+        override fun <T> executeExclusive(timeoutMs: Long, block: () -> T): T {
+            val mask = ControllerInputRouter.getEffectiveMask()
+            attempts += mask to timeoutMs
+            failure(mask, attempts.count { it.first == mask })?.let {
+                if (advanceOnTimeout && it is LockTimeoutException) stepFrame()
+                throw it
+            }
+            return super.executeExclusive(timeoutMs, block)
+        }
+
+        override fun setInputButtons(buttonMask: Int) {
+            onWrite(buttonMask)
+            writes += buttonMask to lock.isHeldByCurrentThread
+            heldMask = buttonMask
+        }
+    }
+
+    @Test fun pressWriteRetriesTwoTimeoutsAndCountsDownFrameAfterSuccessfulWrite() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val core = EdgeWriteCore()
+            core.advanceOnTimeout = true
+            core.failure = { mask, attempt ->
+                if (mask == InputManager.BTN_A && attempt <= 2)
+                    LibretroCoreCoordinator.LockTimeoutException("Synthetic lock timeout") else null
+            }
+            val dispatcher = DefaultBattleInputDispatcher { core }
+            val pressing = async(start = CoroutineStart.UNDISPATCHED) {
+                dispatcher.sendFrameButton(InputManager.BTN_A, 0)
+            }
+            assertEquals(listOf(InputManager.BTN_A to 2L, InputManager.BTN_A to 2L, InputManager.BTN_A to 2L),
+                core.attempts)
+            assertEquals(listOf(0, 0), core.frameMasks) // Frames during retries cannot count as down.
+            assertEquals(listOf(InputManager.BTN_A to true), core.writes)
+            assertFalse(pressing.isCompleted)
+            core.stepFrame()
+            yield()
+            assertEquals(listOf(InputManager.BTN_A to true, 0 to true), core.writes)
+            assertFalse(pressing.isCompleted) // A completed up frame is still required.
+            core.stepFrame()
+            assertTrue(pressing.await())
+            assertEquals(listOf(0, 0, InputManager.BTN_A, 0), core.frameMasks)
+            assertEquals(0, core.heldMask)
+        } finally {
+            ControllerInputRouter.reset()
+        }
+    }
+
+    @Test fun exhaustedPressWriteRetriesReturnExistingTimeoutWithoutHoldingInput() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val core = EdgeWriteCore()
+            core.failure = { mask, _ ->
+                if (mask != 0) LibretroCoreCoordinator.LockTimeoutException("Synthetic lock timeout") else null
+            }
+            val ui = MoveMenuInput().snapshot
+            val adapter = BattleInputAdapter(DefaultBattleInputDispatcher { core }, { false },
+                { core.completedFrames }, Dispatchers.Unconfined) { ui }
+            assertEquals(BattleInputResult.Timeout("Core frames or input dispatch unavailable"),
+                adapter.executeSelectMove(1, ui))
+            assertEquals(List(3) { InputManager.BTN_RIGHT to 2L }, core.attempts.filter { it.first != 0 })
+            assertEquals(0, core.heldMask)
+            assertEquals(0, ControllerInputRouter.getEffectiveMask())
+            assertTrue(core.writes.all { it.first == 0 })
+        } finally {
+            ControllerInputRouter.reset()
+        }
+    }
+
+    @Test fun exhaustedReleaseWriteRetriesFallBackToUnlockedZero() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val core = EdgeWriteCore()
+            core.failure = { mask, _ ->
+                if (mask == 0) LibretroCoreCoordinator.LockTimeoutException("Synthetic lock timeout") else null
+            }
+            val dispatcher = DefaultBattleInputDispatcher { core }
+            val pressing = async(start = CoroutineStart.UNDISPATCHED) {
+                dispatcher.sendFrameButton(InputManager.BTN_A, 0)
+            }
+            core.stepFrame()
+            assertFalse(pressing.await())
+            assertEquals(List(3) { 0 to 2L }, core.attempts.filter { it.first == 0 })
+            assertEquals(listOf(InputManager.BTN_A to true, 0 to false), core.writes)
+            assertEquals(listOf(InputManager.BTN_A), core.frameMasks)
+            assertEquals(0, core.heldMask)
+            assertEquals(0, ControllerInputRouter.getEffectiveMask())
+        } finally {
+            ControllerInputRouter.reset()
+        }
+    }
+
+    @Test fun nonTimeoutEdgeWriteExceptionIsNeverRetried() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val core = EdgeWriteCore()
+            var failedWrites = 0
+            core.onWrite = { mask ->
+                if (mask != 0) {
+                    failedWrites++
+                    throw IllegalStateException("Synthetic native write failure")
+                }
+            }
+            assertFalse(DefaultBattleInputDispatcher { core }.sendFrameButton(InputManager.BTN_A, 0))
+            assertEquals(1, failedWrites)
+            assertEquals(listOf(InputManager.BTN_A to 2L), core.attempts.filter { it.first != 0 })
+            assertEquals(listOf(0 to true), core.writes)
+            assertTrue(core.frameMasks.isEmpty())
+            assertEquals(0, core.heldMask)
+        } finally {
+            ControllerInputRouter.reset()
+        }
     }
 
     private class RecordingBridge : LibretroCoreBridge {
@@ -240,5 +379,7 @@ class LibretroCoreCoordinatorLockTest {
         }
 
         assertNotNull("a timed-out exclusive operation must not proceed", error)
+        assertTrue("only lock acquisition failure has the retryable type",
+            error is LibretroCoreCoordinator.LockTimeoutException)
     }
 }

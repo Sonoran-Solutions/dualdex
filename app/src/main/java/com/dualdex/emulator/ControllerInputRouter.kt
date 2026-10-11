@@ -4,58 +4,81 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/**
- * Thread-safe controller input arbitration layer.
- *
- * Responsibilities:
- * - Owns the effective emulator input mask written to LibretroHost.nativeSetInputButtons()
- * - Tracks physical held-button state from physical gamepads/touch controls
- * - Tracks temporary automated button state from BattleInputAdapter
- * - Merges them atomically: effectiveMask = physicalMask OR automatedMask
- * - Serializes macros using a Mutex to prevent overlapping automated actions
- * - Never resets physical input when an automated press ends
- */
+/** Physical state is retained; move macros exclusively own the effective input mask. */
 object ControllerInputRouter {
-
     private val inputMutex = Mutex()
-
-    @Volatile
-    private var physicalMask: Int = 0
-
-    @Volatile
-    private var automatedMask: Int = 0
-
+    private val automationMutex = Mutex()
     private val lock = Any()
+    // Serialize writes separately: physical updates must not wait on a core-lock acquisition.
+    private val dispatchLock = Any()
+    @Volatile private var physicalMask = 0
+    private var automatedMask = 0
+    private var latchedMask = 0
+    private var exclusive = false
 
-    /**
-     * Called by InputManager when physical or touch buttons change.
-     */
+    class PhysicalButtonHeld : RuntimeException()
+
+    private fun effectiveMask() = if (exclusive) automatedMask
+        else (physicalMask and latchedMask.inv()) or automatedMask
+
     fun setPhysicalMask(mask: Int) {
         synchronized(lock) {
             physicalMask = mask
-            updateEffectiveMask()
+            latchedMask = latchedMask and mask
+            if (exclusive) return
+        }
+        synchronized(dispatchLock) {
+            val effective = synchronized(lock) {
+                if (exclusive) return
+                effectiveMask()
+            }
+            dispatchEffectiveMask(effective)
         }
     }
 
-    /**
-     * Get current physical button mask.
-     */
     fun getPhysicalMask(): Int = physicalMask
+    fun getEffectiveMask(): Int = synchronized(lock) { effectiveMask() }
 
-    /**
-     * Get current effective button mask.
-     */
-    fun getEffectiveMask(): Int = physicalMask or automatedMask
-
-    /**
-     * Sends an automated button press sequence while preserving any physically held buttons.
-     * Serialized via Mutex so multiple automated macros cannot interleave.
-     */
     private fun dispatchEffectiveMask(mask: Int) {
         try {
             LibretroCoreCoordinator.defaultInstance.setInputButtons(mask)
-        } catch (_: Throwable) {
-            // Expected in host JVM unit tests where libretro native library is not loaded
+        } catch (_: UnsatisfiedLinkError) {
+            // Host JVM checks do not load the native library.
+        }
+    }
+
+    private fun setAutomatedMask(mask: Int, setButtons: (Int) -> Unit) {
+        synchronized(dispatchLock) {
+            val effective = synchronized(lock) {
+                automatedMask = mask
+                effectiveMask()
+            }
+            setButtons(effective)
+        }
+    }
+
+    suspend fun <T> withExclusiveAutomation(
+        setButtons: (Int) -> Unit = ::dispatchEffectiveMask,
+        block: suspend () -> T
+    ): T = automationMutex.withLock {
+        synchronized(lock) {
+            if (physicalMask != 0) throw PhysicalButtonHeld()
+            exclusive = true
+        }
+        try {
+            setAutomatedMask(0, setButtons)
+            block()
+        } finally {
+            synchronized(dispatchLock) {
+                val effective = synchronized(lock) {
+                    automatedMask = 0
+                    latchedMask = latchedMask or physicalMask
+                    exclusive = false
+                    effectiveMask()
+                }
+                // Restore physical routing, but held buttons need release/repress for JOY_NEW.
+                setButtons(effective)
+            }
         }
     }
 
@@ -63,51 +86,46 @@ object ControllerInputRouter {
         buttonMask: Int,
         durationMs: Long,
         delayMs: Long,
-        setButtons: (Int) -> Unit = { dispatchEffectiveMask(it) }
-    ): Boolean {
-        return inputMutex.withLock {
-            synchronized(lock) {
-                automatedMask = automatedMask or buttonMask
-                val effective = physicalMask or automatedMask
-                setButtons(effective)
+        setButtons: (Int) -> Unit = ::dispatchEffectiveMask
+    ): Boolean = automationMutex.withLock {
+        inputMutex.withLock {
+            try {
+                setAutomatedMask(buttonMask, setButtons)
+                delay(durationMs)
+            } finally {
+                setAutomatedMask(0, setButtons)
             }
-
-            delay(durationMs)
-
-            synchronized(lock) {
-                automatedMask = automatedMask and buttonMask.inv()
-                val effective = physicalMask or automatedMask
-                setButtons(effective)
-            }
-
-            if (delayMs > 0) {
-                delay(delayMs)
-            }
+            if (delayMs > 0) delay(delayMs)
             true
         }
     }
 
-    private fun updateEffectiveMask() {
-        val effective = physicalMask or automatedMask
-        dispatchEffectiveMask(effective)
-    }
-
-    /**
-     * Executes an action holding the input router mutex lock.
-     */
-    suspend fun <T> withRouterLock(action: suspend () -> T): T {
-        return inputMutex.withLock {
-            action()
+    /** Each edge spans a completed core frame. Cancellation always releases automation. */
+    suspend fun sendAutomatedFrameButton(
+        buttonMask: Int,
+        settleFrames: Int,
+        waitFrames: suspend (Int) -> Boolean,
+        setButtons: (Int) -> Unit = ::dispatchEffectiveMask
+    ): Boolean = inputMutex.withLock {
+        if (synchronized(lock) { !exclusive && physicalMask and buttonMask != 0 }) return@withLock false
+        try {
+            setAutomatedMask(buttonMask, setButtons)
+            if (!waitFrames(1)) return@withLock false
+        } finally {
+            setAutomatedMask(0, setButtons)
         }
+        waitFrames(1 + settleFrames)
     }
 
-    /**
-     * Reset router state (e.g. on game unload or pause).
-     */
+    suspend fun <T> withRouterLock(action: suspend () -> T): T = inputMutex.withLock { action() }
+
     fun reset() {
-        synchronized(lock) {
-            physicalMask = 0
-            automatedMask = 0
+        synchronized(dispatchLock) {
+            synchronized(lock) {
+                physicalMask = 0
+                automatedMask = 0
+                latchedMask = 0
+            }
             dispatchEffectiveMask(0)
         }
     }

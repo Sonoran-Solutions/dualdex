@@ -128,6 +128,7 @@ class EmulatorSurfaceView @JvmOverloads constructor(
     fun startEmulation() {
         if (isEmulating) return
         isEmulating = true
+        LibretroCoreCoordinator.defaultInstance.emulationRunning = true
         emuThread = Thread({
             val targetFps = 59.7275
             val baseIntervalNs = (1_000_000_000.0 / targetFps).toLong() // 16,742,706 ns
@@ -136,52 +137,56 @@ class EmulatorSurfaceView @JvmOverloads constructor(
             FastForwardDiagnostics.refreshFromSystemProperty()
             FastForwardDiagnostics.onEmulationLoopStart()
 
-            while (isEmulating) {
-                // Smart FF runs every frame (it counts frames to learn/verify) but only ever slows down.
-                val smartSlow = smartFastForward?.onFrame() == true
-                val hold = holdSpeed
-                var rate = if (hold > 0f) hold else speedMultiplier.coerceIn(1, 8).toFloat()
-                if (smartSlow) rate = rate.coerceAtMost(1f)
-                val speed = rate.toInt().coerceIn(1, 8)
-                val targetIntervalNs = (baseIntervalNs / rate).toLong().coerceAtLeast(1_000_000L)
-                FastForwardDiagnostics.onSpeedChanged(speed)
-                FastForwardDiagnostics.setTargetInterval(targetIntervalNs)
-                FastForwardDiagnostics.onLoopIteration()
+            try {
+                while (isEmulating) {
+                    // Smart FF runs every frame (it counts frames to learn/verify) but only ever slows down.
+                    val smartSlow = smartFastForward?.onFrame() == true
+                    val hold = holdSpeed
+                    var rate = if (hold > 0f) hold else speedMultiplier.coerceIn(1, 8).toFloat()
+                    if (smartSlow) rate = rate.coerceAtMost(1f)
+                    val speed = rate.toInt().coerceIn(1, 8)
+                    val targetIntervalNs = (baseIntervalNs / rate).toLong().coerceAtLeast(1_000_000L)
+                    FastForwardDiagnostics.onSpeedChanged(speed)
+                    FastForwardDiagnostics.setTargetInterval(targetIntervalNs)
+                    FastForwardDiagnostics.onLoopIteration()
 
-                // A throw here previously killed the loop silently, leaving a permanently black
-                // screen with audio still playing and no diagnostic anywhere.
-                try {
-                    LibretroCoreCoordinator.defaultInstance.stepFrame()
-                } catch (t: Throwable) {
-                    Log.e(TAG, "stepFrame() failed; emulation loop is aborting", t)
-                    break
-                }
+                    // A throw here previously killed the loop silently, leaving a permanently black
+                    // screen with audio still playing and no diagnostic anywhere.
+                    try {
+                        LibretroCoreCoordinator.defaultInstance.stepFrame()
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "stepFrame() failed; emulation loop is aborting", t)
+                        break
+                    }
 
-                nextDeadlineNs += targetIntervalNs
-                val now = System.nanoTime()
-                val sleepNs = nextDeadlineNs - now
+                    nextDeadlineNs += targetIntervalNs
+                    val now = System.nanoTime()
+                    val sleepNs = nextDeadlineNs - now
 
-                if (sleepNs > 0) {
-                    val sleepMs = sleepNs / 1_000_000L
-                    val sleepRemNs = (sleepNs % 1_000_000L).toInt()
-                    if (sleepMs > 0 || sleepRemNs > 200_000) {
-                        try {
-                            Thread.sleep(sleepMs, sleepRemNs)
-                        } catch (e: InterruptedException) {
-                            break
+                    if (sleepNs > 0) {
+                        val sleepMs = sleepNs / 1_000_000L
+                        val sleepRemNs = (sleepNs % 1_000_000L).toInt()
+                        if (sleepMs > 0 || sleepRemNs > 200_000) {
+                            try {
+                                Thread.sleep(sleepMs, sleepRemNs)
+                            } catch (e: InterruptedException) {
+                                break
+                            }
+                        }
+                        FastForwardDiagnostics.noteWakeLateness(System.nanoTime() - nextDeadlineNs)
+                    } else {
+                        FastForwardDiagnostics.onLeftOverDeadline(-sleepNs)
+                        if (sleepNs < -targetIntervalNs * 3) {
+                            // Fell behind deadline by more than 3 frames (e.g. hitch or pause) -> reset deadline
+                            FastForwardDiagnostics.onDeadlineReset(-sleepNs / targetIntervalNs)
+                            nextDeadlineNs = now
                         }
                     }
-                    FastForwardDiagnostics.noteWakeLateness(System.nanoTime() - nextDeadlineNs)
-                } else {
-                    FastForwardDiagnostics.onLeftOverDeadline(-sleepNs)
-                    if (sleepNs < -targetIntervalNs * 3) {
-                        // Fell behind deadline by more than 3 frames (e.g. hitch or pause) -> reset deadline
-                        FastForwardDiagnostics.onDeadlineReset(-sleepNs / targetIntervalNs)
-                        nextDeadlineNs = now
-                    }
-                }
 
-                FastForwardDiagnostics.tick()
+                    FastForwardDiagnostics.tick()
+                }
+            } finally {
+                LibretroCoreCoordinator.defaultInstance.emulationRunning = false
             }
         }, "DualDexEmuLoop").apply {
             priority = Thread.MAX_PRIORITY
@@ -191,6 +196,7 @@ class EmulatorSurfaceView @JvmOverloads constructor(
 
     fun stopEmulation() {
         isEmulating = false
+        LibretroCoreCoordinator.defaultInstance.emulationRunning = false
         emuThread?.interrupt()
         try {
             emuThread?.join(300)

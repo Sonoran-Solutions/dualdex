@@ -5,6 +5,8 @@ import android.util.Log
 import com.dualdex.battle.ActiveEnemyResolution
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -45,6 +47,16 @@ open class LibretroCoreCoordinator(
     /** Set by [unloadRom] until the next successful [loadRom]; [stepFrame] never runs an unloaded core. */
     private var romUnloaded = false
 
+    @Volatile var emulationRunning = false
+        internal set
+    private val _frameCompletions = MutableStateFlow(0L)
+    val frameCompletions = _frameCompletions.asStateFlow()
+    val completedFrames: Long get() = frameCompletions.value
+
+    /** Invalidates in-flight input before replacing core state, even when the mutation fails. */
+    @Volatile var stateGeneration = 0L
+        private set
+
     internal fun bindCheatRom(identity: RomIdentity) {
         check(lock.isHeldByCurrentThread)
         cheatRomSha256 = identity.sha256.takeIf { identity.isValid }?.lowercase()
@@ -58,12 +70,14 @@ open class LibretroCoreCoordinator(
     val isExclusiveLocked: Boolean
         get() = lock.isLocked
 
+    class LockTimeoutException(message: String) : IllegalStateException(message)
+
     /**
      * Executes an exclusive operation with respect to the Libretro core.
      * While held, frame execution (nativeStepFrame) and other operations yield.
      * Supports reentrant execution on the same thread without self-deadlock.
      */
-    fun <T> executeExclusive(timeoutMs: Long = 5000L, block: () -> T): T {
+    open fun <T> executeExclusive(timeoutMs: Long = 5000L, block: () -> T): T {
         val diag = FastForwardDiagnostics.enabled
         val waitStart = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         val acquired = if (timeoutMs > 0) {
@@ -75,7 +89,7 @@ open class LibretroCoreCoordinator(
             if (diag) FastForwardDiagnostics.onCompanionTimeout()
             val msg = "Timed out after ${timeoutMs}ms waiting for Libretro core exclusive lock"
             Log.e(TAG, msg)
-            throw IllegalStateException(msg)
+            throw LockTimeoutException(msg)
         }
         val acquiredNs = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         try {
@@ -108,9 +122,12 @@ open class LibretroCoreCoordinator(
         try {
             if (romUnloaded) return false
             if (bridge != null) {
-                return bridge?.stepFrame() ?: true
+                val stepped = bridge?.stepFrame() ?: false
+                if (stepped) _frameCompletions.value++
+                return stepped
             }
             LibretroHost.nativeStepFrame()
+            _frameCompletions.value++
             return true
         } finally {
             if (diag) {
@@ -124,6 +141,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadCore(coreLibPath: String): Boolean = executeExclusive {
+        stateGeneration++
         cheatRomSha256 = null
         try {
             LibretroHost.nativeLoadCore(coreLibPath)
@@ -133,6 +151,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadRom(romPath: String): Boolean = executeExclusive {
+        stateGeneration++
         cheatRomSha256 = null
         val ok = bridge?.loadRom(romPath) ?: try {
             LibretroHost.nativeLoadRom(romPath)
@@ -144,6 +163,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun unloadRom(): Boolean = executeExclusive {
+        stateGeneration++
         cheatRomSha256 = null
         romUnloaded = true
         bridge?.unloadRom() ?: try {
@@ -178,6 +198,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadState(statePath: String): Boolean = executeExclusive {
+        stateGeneration++
         bridge?.loadState(statePath) ?: try {
             LibretroHost.nativeLoadState(statePath)
         } catch (_: UnsatisfiedLinkError) {
@@ -186,6 +207,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadSaveRam(savePath: String): Boolean = executeExclusive {
+        stateGeneration++
         bridge?.loadSaveRam(savePath) ?: try {
             LibretroHost.nativeLoadSaveRam(savePath)
         } catch (_: UnsatisfiedLinkError) {
@@ -202,6 +224,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun resetCore(): Unit = executeExclusive {
+        stateGeneration++
         if (bridge != null) {
             bridge?.resetCore()
         } else {
@@ -220,6 +243,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun cleanup(): Unit = executeExclusive {
+        stateGeneration++
         cheatRomSha256 = null
         if (bridge == null) {
             try {
@@ -299,7 +323,7 @@ open class LibretroCoreCoordinator(
         return n
     }
 
-    fun setInputButtons(buttonMask: Int) {
+    open fun setInputButtons(buttonMask: Int) {
         LibretroHost.nativeSetInputButtons(buttonMask)
     }
 
@@ -372,12 +396,12 @@ open class LibretroCoreCoordinator(
         null
     }
 
-    open fun readBattleUiState(gameId: Int): Int = try {
+    open fun readBattleUiState(gameId: Int): Int? = try {
         executeExclusive(50L) { LibretroHost.nativeReadBattleUiState(gameId) }
     } catch (_: UnsatisfiedLinkError) {
-        0
+        null
     } catch (_: Exception) {
-        0
+        null
     }
 
     open fun readBattlePresence(gameId: Int): Int = try {

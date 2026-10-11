@@ -6738,6 +6738,100 @@ static void test_hns_contact_reaction_observation(void) {
         "out-of-domain chosen move stays unknown");
 }
 
+static bool menu_read_without_controller(void* user, uint32_t address, uint8_t* out, size_t length) {
+    if (address >= HNS_LIVE_GBATTLERCONTROLLERFUNCS_GBA_ADDRESS &&
+        address < HNS_LIVE_GBATTLERCONTROLLERFUNCS_GBA_ADDRESS + 16) return false;
+    return fake_gba_read(user, address, out, length);
+}
+
+static void test_hns_battle_menu_reader(void) {
+    printf("Running test_hns_battle_menu_reader...\n");
+    static FakeGba gba, unavailable;
+    HnsBattleFixture fx;
+    hns_battle_fixture_init(&fx, &gba, pokemon_get_game_config(GAME_HEART_AND_SOUL));
+    hns_battle_begin_single_wild(&fx, 0, 19);
+    const GameMemoryConfig* cfg = fx.cfg;
+    const uint32_t controller = HNS_LIVE_GBATTLERCONTROLLERFUNCS_GBA_ADDRESS - 0x03000000u;
+    const uint32_t action = HNS_LIVE_GACTIONSELECTIONCURSOR_GBA_ADDRESS - 0x02000000u;
+    const uint32_t move = HNS_LIVE_GMOVESELECTIONCURSOR_GBA_ADDRESS - 0x02000000u;
+    const uint32_t handlers[] = {HNS_LIVE_HANDLEINPUTCHOOSEACTION_FUNC_PTR,
+        HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR, HNS_LIVE_HANDLEINPUTCHOOSETARGET_FUNC_PTR, 0x08000001u};
+    const uint8_t states[] = {1, 2, 6, 4};
+    for (int i = 0; i < 4; i++) {
+        for (int thumb = 0; thumb < 2; thumb++) {
+            write32_le_t(gba.iwram + controller, (handlers[i] & ~1u) | thumb);
+            gba.ewram[action] = 3;
+            gba.ewram[move] = 2;
+            uint32_t result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+            TEST_ASSERT((result & 15) == states[i], "each player handler maps to its menu state, masking Thumb bit");
+            TEST_ASSERT(((result >> 4) & 7) == 1 && ((result >> 16) & 7) == 1, "player battler and singles topology");
+            TEST_ASSERT(((result >> 8) & 7) == 4 && ((result >> 12) & 7) == 3, "per-battler cursor contract");
+        }
+    }
+    gba.ewram[action] = 4;
+    gba.ewram[move] = 255;
+    uint32_t result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+    TEST_ASSERT(((result >> 8) & 7) == 0 && ((result >> 12) & 7) == 0, "out-of-domain cursors remain unknown");
+    // Opponent is engine battler 0 here. Do not accidentally inspect it or gActiveBattler.
+    hns_battle_set_battler(&fx, 0, 1, 0);
+    hns_battle_set_battler(&fx, 1, 0, 0);
+    write32_le_t(gba.iwram + controller, HNS_LIVE_HANDLEINPUTCHOOSEACTION_FUNC_PTR);
+    write32_le_t(gba.iwram + controller + 4, HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR);
+    gba.ewram[action + 1] = 1;
+    gba.ewram[move + 1] = 3;
+    result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+    TEST_ASSERT((result & 15) == 2 && ((result >> 4) & 7) == 2 && ((result >> 12) & 7) == 4,
+                "menu and cursors follow player-side positions, not battler zero");
+    hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
+    result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+    TEST_ASSERT((result & 15) == 7 && ((result >> 4) & 7) == 2 && ((result >> 16) & 7) == 1,
+                "pinned RunTurnActions reports TURN_RUNNING with player identity");
+    TEST_ASSERT(((result >> 8) & 7) == 0 && ((result >> 12) & 7) == 0,
+                "TURN_RUNNING never authorizes stale menu cursors");
+    const uint32_t unknown_callbacks[] = {0, 0xDEADBEEFu, HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR};
+    for (size_t i = 0; i < sizeof(unknown_callbacks) / sizeof(unknown_callbacks[0]); i++) {
+        hns_battle_set_main_callback(&fx, unknown_callbacks[i]);
+        result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+        TEST_ASSERT(result == 5, "zero, invalid and unrelated ROM callbacks remain UNKNOWN without cursors");
+    }
+    hns_battle_set_main_callback(&fx, cfg->action_selection_func_ptr);
+    write32_le_t(gba.iwram + controller + 4, 0);
+    result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+    TEST_ASSERT((result & 15) == 4, "action selection with a non-menu controller remains ANIMATION_OR_TEXT");
+    write32_le_t(gba.iwram + controller + 4, HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR);
+    hns_battle_set_in_battle(&fx, false);
+    TEST_ASSERT(pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg) == 5,
+                "inactive lifecycle withholds stale menu pointers");
+    hns_battle_set_in_battle(&fx, true);
+    fake_gba_init(&unavailable, false, true);
+    memcpy(unavailable.ewram, gba.ewram, sizeof(gba.ewram));
+    TEST_ASSERT(pokemon_read_battle_ui_gba(fake_gba_read, &unavailable.table, unavailable.ewram,
+                sizeof(unavailable.ewram), cfg) == 5, "unreadable IWRAM fails closed");
+    TEST_ASSERT(pokemon_read_battle_ui_gba(NULL, NULL, gba.ewram, sizeof(gba.ewram), cfg) == 5,
+                "missing absolute reader fails closed");
+    TEST_ASSERT(pokemon_read_battle_ui_gba(menu_read_without_controller, &gba.table, gba.ewram, sizeof(gba.ewram), cfg) == 5,
+                "controller-array read failure with a readable lifecycle still fails closed");
+    hns_battle_set_counters(&fx, 2, 1, 0);
+    TEST_ASSERT(pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg) == 5,
+                "two battlers with a doubles flag cannot authorize singles");
+    hns_battle_set_counters(&fx, 2, 1u << 1, 0);
+    TEST_ASSERT(pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg) == 5,
+                "link/partner formats cannot authorize singles");
+    hns_battle_set_counters(&fx, 4, 1, 0);
+    for (int b = 0; b < 4; b++) hns_battle_set_battler(&fx, b, b, b / 2);
+    result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+    TEST_ASSERT((result & 15) == 5 && ((result >> 16) & 7) == 2 && ((result >> 4) & 7) == 0,
+                "doubles never arbitrarily selects a player battler");
+    for (int game = GAME_UNKNOWN; game <= GAME_UNBOUND; game++) {
+        if (game == GAME_HEART_AND_SOUL) continue;
+        const GameMemoryConfig* other = pokemon_get_game_config(game);
+        TEST_ASSERT(pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), other) ==
+                    pokemon_read_battle_ui_state(gba.ewram, sizeof(gba.ewram), other), "other layouts retain legacy behavior");
+    }
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battle_menu_reader" ANSI_RESET "\n");
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
@@ -6753,6 +6847,7 @@ int main(void) {
 
     // Heart & Soul 2.0.5 evidence-backed foundation (issue #40, first implementation phase).
     test_hns_config_matches_release_runtime_evidence();
+    test_hns_battle_menu_reader();
     test_hns_release_rom_party_fixture();
     test_hns_party_counts_are_independent_symbols();
     test_vanilla_party_count_symbols_are_adjacent();

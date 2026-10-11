@@ -3480,6 +3480,53 @@ bool pokemon_read_battle_stat_stages(
     return true;
 }
 
+uint32_t pokemon_read_battle_ui_gba(
+    DualDexGbaReadFn read, void* user, const uint8_t* ewram, size_t ewram_size,
+    const GameMemoryConfig* config
+) {
+    if (config != pokemon_get_game_config(GAME_HEART_AND_SOUL)) {
+        return pokemon_read_battle_ui_state(ewram, ewram_size, config);
+    }
+    BattleStateRaw battle;
+    uint8_t bytes[4];
+    if (!read || pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, &battle) !=
+            BATTLE_LIFECYCLE_ACTIVE || !battle.absent_flags_readable ||
+        !read(user, config->battle_main_func_gba_address, bytes, sizeof(bytes))) {
+        return 5;
+    }
+    const uint32_t callback = read32_le(bytes) & ~1u;
+    uint8_t players = 0;
+    int battler = -1;
+    for (uint8_t b = 0; b < battle.battlers_count; b++) {
+        if ((battle.position[b] & 1u) == 0) {
+            players++;
+            if (!(battle.absent_battler_flags & (1u << b))) battler = b;
+        }
+    }
+    // Count all player positions: doubles are refused even with an absent partner.
+    // No arbitrary flank is chosen; gActiveBattler (battle-loop scratch) is never read.
+    if (players != 1 || battler < 0) return 5u | ((uint32_t)players << 16);
+    if (battle.kind != BATTLE_KIND_WILD_SINGLE && battle.kind != BATTLE_KIND_TRAINER_SINGLE) return 5;
+    if (callback == (config->run_turn_actions_func_ptr & ~1u)) {
+        return 7u | ((uint32_t)(battler + 1) << 4) | ((uint32_t)players << 16);
+    }
+    // A different callback is not evidence that the selected move was accepted.
+    if (callback != (config->action_selection_func_ptr & ~1u)) return 5;
+    if (!read(user, HNS_LIVE_GBATTLERCONTROLLERFUNCS_GBA_ADDRESS + (uint32_t)battler * 4u,
+              bytes, sizeof(bytes))) return 5;
+    uint32_t handler = read32_le(bytes) & ~1u;
+    uint32_t state = 4;
+    if (handler == (HNS_LIVE_HANDLEINPUTCHOOSEACTION_FUNC_PTR & ~1u)) state = 1;
+    else if (handler == (HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR & ~1u)) state = 2;
+    else if (handler == (HNS_LIVE_HANDLEINPUTCHOOSETARGET_FUNC_PTR & ~1u)) state = 6;
+    uint8_t action, move;
+    if (!read(user, HNS_LIVE_GACTIONSELECTIONCURSOR_GBA_ADDRESS + battler, &action, 1) ||
+        !read(user, HNS_LIVE_GMOVESELECTIONCURSOR_GBA_ADDRESS + battler, &move, 1)) return 5;
+    return state | ((uint32_t)(battler + 1) << 4) | ((uint32_t)players << 16) |
+           (action < 4 ? (uint32_t)(action + 1) << 8 : 0) |
+           (move < 4 ? (uint32_t)(move + 1) << 12 : 0);
+}
+
 uint8_t pokemon_read_battle_ui_state(
     const uint8_t* ewram,
     size_t ewram_size,

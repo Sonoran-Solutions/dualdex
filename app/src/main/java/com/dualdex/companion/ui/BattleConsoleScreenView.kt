@@ -1211,9 +1211,13 @@ class BattleConsoleScreenView(
                     showFeedback("Selecting ${pres.name}...")
                     val scope = viewScope ?: CoroutineScope(Dispatchers.Main)
                     scope.launch {
-                        val ok = viewModel.battleInputAdapter.selectMove(i, currentUi)
-                        if (!ok) {
-                            showFeedback("Move selection aborted")
+                        when (val result = viewModel.battleInputAdapter.executeSelectMove(i, currentUi)) {
+                            com.dualdex.battle.BattleInputResult.Success -> Unit
+                            com.dualdex.battle.BattleInputResult.MoveRefused -> showFeedback("The game refused that move")
+                            com.dualdex.battle.BattleInputResult.ConfirmNotRegistered -> showFeedback("The game didn't register the selection — tap again")
+                            com.dualdex.battle.BattleInputResult.TargetSelectionRequired -> showFeedback("Choose a target in the game")
+                            is com.dualdex.battle.BattleInputResult.Cancelled -> showFeedback(result.reason)
+                            else -> showFeedback("Move selection aborted")
                         }
                     }
                 }

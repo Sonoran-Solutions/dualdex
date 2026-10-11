@@ -7,6 +7,51 @@
       "releaseAddress": 134750960,
       "sourceAddress": 134752456
     },
+    "HandleInputChooseAction": {
+      "matchedInstructionSha256": "e8b2dd212534e0e4416a6fa732dcce2a56e5f13ccef8ec51d531186763de1521",
+      "matches": 1,
+      "prefixBytes": 128,
+      "releaseAddress": 134599120,
+      "sourceAddress": 134600264
+    },
+    "HandleInputChooseMove": {
+      "interior": {
+        "matchedInstructionSha256": "074d0e85a395441f3f344e6a1c47e4245e2a550e214237ae34d19c9d024cdc8b",
+        "matches": 1,
+        "prefixBytes": 64,
+        "releaseAddress": 134594798,
+        "sourceAddress": 134596158
+      },
+      "matchedInstructionSha256": "86757cfd98198b1c853169246eaac6c8b31a216806ad68c4275fee0566ee9092",
+      "matches": 1,
+      "prefixBytes": 16,
+      "reference": {
+        "address": 134594717,
+        "literalAddress": 134594332,
+        "matchedInstructionSha256": "f51c918812763ab129e6757b8a28c3734e46db7978707655bc3df8a684a9acef",
+        "matches": 1,
+        "prefixBytes": 32,
+        "releaseAddress": 134593788,
+        "sourceAddress": 134595150,
+        "sourceValue": 134596077
+      },
+      "releaseAddress": 134594716,
+      "sourceAddress": 134596076
+    },
+    "HandleInputChooseTarget": {
+      "interior": {
+        "matchedInstructionSha256": "e144a1e5bb95fbc3fe459c246b1a7bbb24979f55242a2cf29ba0071dc3c09c77",
+        "matches": 1,
+        "prefixBytes": 64,
+        "releaseAddress": 134593480,
+        "sourceAddress": 134594844
+      },
+      "matchedInstructionSha256": "90db56301098faf5be306e90bbb0e6b27b0a9b73d1bbd20d30a3a9d35244ffd1",
+      "matches": 1,
+      "prefixBytes": 30,
+      "releaseAddress": 134593412,
+      "sourceAddress": 134594776
+    },
     "HandleTurnActionSelectionState": {
       "matchedInstructionSha256": "c18c6b34b520bd6d0fbb0dbcb59301a23cd7bf5aa21f5147c668396581a05db0",
       "matches": 1,
@@ -26,13 +71,57 @@
     "address": 50343796,
     "literalAddress": 134751008
   },
+  "globals": {
+    "gActionSelectionCursor": {
+      "address": 33555364,
+      "literalAddress": 134599968,
+      "matchedInstructionSha256": "fc57d0bb1f89a76c64f1d22758dfa5062091a5cfd441a4284279b89bbbe4c3c0",
+      "matches": 1,
+      "prefixBytes": 28,
+      "releaseAddress": 134599262,
+      "sourceAddress": 134600406,
+      "sourceValue": 33555364
+    },
+    "gBattlerControllerFuncs": {
+      "address": 50343764,
+      "corroboration": {
+        "address": 50343764,
+        "literalAddress": 134594328,
+        "matchedInstructionSha256": "bcf078017af766e9363837069a8149d196ba650a416675538cce5cca258238f6",
+        "matches": 1,
+        "prefixBytes": 32,
+        "releaseAddress": 134593786,
+        "sourceAddress": 134595148,
+        "sourceValue": 50343740
+      },
+      "literalAddress": 134595608,
+      "matchedInstructionSha256": "7c4277e1b7766e98c4060206ed16022c6d6d174692fbeb8035ddd7328daacdb2",
+      "matches": 1,
+      "prefixBytes": 32,
+      "releaseAddress": 134594998,
+      "sourceAddress": 134596358,
+      "sourceValue": 50343740
+    },
+    "gMoveSelectionCursor": {
+      "address": 33555368,
+      "literalAddress": 134595592,
+      "matchedInstructionSha256": "334ef8e6cd97bafbb325514e29ac9d90dce697fe7d1f8abaf0020abfb058420d",
+      "matches": 1,
+      "prefixBytes": 32,
+      "releaseAddress": 134594896,
+      "sourceAddress": 134596256,
+      "sourceValue": 33555368
+    }
+  },
   "releaseRomSha256": "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b",
   "schemaVersion": 1,
   "sourceBuildRomSha256": "250ca2943e1ec531b8a423d78b2963fb22cde5201ecb0ecad4c358d8d11c255b",
   "sourceFiles": {
+    "src/battle_controller_player.c": "9d8fc53ac6188095c1c5ab576b54183418cc6c203f14e025f2bc9ac7b2f7aecb",
     "src/battle_main.c": "36020a55dfdd8838ccdfe50be9ea4d69e9fa479dceed41a6725cbdb81d248c93",
     "src/battle_util.c": "dfe173ebef230849e789be6b417a316c359ec6fa7d0ecae2b1a59b5885903377"
   },
+  "sourceMapSha256": "2f761905b54ee83c683229e2ff2f58f0f8a25201f5775cdeb086cdd45610777a",
   "sourceSymbolsSha256": "8d4ecf92e01b125c4d102f3ef99cd75dfdf423acf9117ee77a3f0858de5a1d68",
   "upstreamCommit": "1f42b74dff0e9fe942419845d040663dd829a973"
 }

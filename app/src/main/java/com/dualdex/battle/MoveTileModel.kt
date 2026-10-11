@@ -26,6 +26,15 @@ data class MoveTileModel(
 
 object MoveTileModels {
 
+    const val MOVE_SLOTS = 4
+
+    /**
+     * One entry per source move slot (0..3), null where the slot is empty. Never compacted: grid
+     * tile i, its details, and (later) the in-game move-menu target must all be source slot i.
+     */
+    fun <T : Any> bySourceSlot(moveIds: List<Int>, build: (slot: Int, moveId: Int) -> T): List<T?> =
+        List(MOVE_SLOTS) { slot -> moveIds.getOrNull(slot)?.takeIf { it > 0 }?.let { build(slot, it) } }
+
     fun from(
         pres: MovePresentation,
         defenderMaxHp: Int?,

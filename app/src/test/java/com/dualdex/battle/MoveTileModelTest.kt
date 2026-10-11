@@ -84,4 +84,22 @@ class MoveTileModelTest {
     fun `full damage text keeps the HP range for the details sheet`() {
         assertEquals("58–69 HP · 58–69%", MoveTileModels.fullDamageText(pres(), 100))
     }
+
+    @Test
+    fun `internal empty move slot keeps later moves in their source slots`() {
+        // Thunderbolt, (empty), Ice Beam, Dark Pulse: tile 2 must be Ice Beam, not Dark Pulse.
+        val built = mutableListOf<Int>()
+        val slots = MoveTileModels.bySourceSlot(listOf(85, 0, 58, 399)) { slot, moveId ->
+            built += slot
+            "$slot:$moveId"
+        }
+        assertEquals(listOf("0:85", null, "2:58", "3:399"), slots)
+        assertEquals(listOf(0, 2, 3), built)
+    }
+
+    @Test
+    fun `short or missing move lists still yield four source slots`() {
+        assertEquals(listOf("0:33", null, null, null), MoveTileModels.bySourceSlot(listOf(33)) { s, m -> "$s:$m" })
+        assertEquals(listOf<String?>(null, null, null, null), MoveTileModels.bySourceSlot(listOf(-1, 0)) { s, m -> "$s:$m" })
+    }
 }

@@ -141,7 +141,8 @@ class BattleConsoleScreenView(
     private val damageCalculator: BattleDamageCalculator = CachingBattleDamageCalculator()
     private var lastMovePresentationKey: BattleMovePresentationCacheKey? = null
     private var latestMovePresentationKey: BattleMovePresentationCacheKey? = null
-    private var lastCachedMoves: List<MovePresentation> = emptyList()
+    /** Indexed by source move slot (null = empty slot); empty while a calculation is pending. */
+    private var lastCachedMoves: List<MovePresentation?> = emptyList()
 
     init {
         orientation = VERTICAL
@@ -1398,14 +1399,15 @@ class BattleConsoleScreenView(
 
         // Update Detailed Move Calculations
         moveDetailsContainer.removeAllViews()
-        if (lastCachedMoves.isEmpty()) {
+        val knownMoves = lastCachedMoves.filterNotNull()
+        if (knownMoves.isEmpty()) {
             moveDetailsContainer.addView(TextView(context).apply {
                 text = "No move calculations available."
                 setTextColor(DualDexTheme.Color.textSecondary)
                 textSize = DualDexTheme.Type.meta
             })
         } else {
-            lastCachedMoves.forEach { pres ->
+            knownMoves.forEach { pres ->
                 val card = LinearLayout(context).apply {
                     orientation = VERTICAL
                     background = DualDexComponents.surface(context)
@@ -1512,13 +1514,9 @@ class BattleConsoleScreenView(
         val dataPack = viewModel.activeGameDataPack
         calculationJob = scope.launch {
             val presentations = withContext(Dispatchers.Default) {
-                val list = mutableListOf<MovePresentation>()
-                for (i in attacker.moves.indices) {
-                    val moveId = attacker.moves[i]
-                    if (moveId <= 0) continue
-                    val info = MoveDatabase.get(moveId, dataPack)
-                    val pres = BattlePresentationBuilder.build(
-                        moveInfo = info,
+                MoveTileModels.bySourceSlot(attacker.moves.asList()) { i, moveId ->
+                    BattlePresentationBuilder.build(
+                        moveInfo = MoveDatabase.get(moveId, dataPack),
                         currentPp = attacker.pp.getOrNull(i)?.takeIf { it >= 0 },
                         attacker = attacker,
                         defender = defender,
@@ -1529,9 +1527,7 @@ class BattleConsoleScreenView(
                         defenderStages = enemyStages,
                         hnsCalculationContext = hnsCalculationContext
                     )
-                    list += pres
                 }
-                list
             }
             if (latestMovePresentationKey != key) return@launch
             lastMovePresentationKey = key

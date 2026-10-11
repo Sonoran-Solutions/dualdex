@@ -19,6 +19,7 @@ import kotlinx.coroutines.CancellationException
  * Decoupled to enable 100% deterministic testing without an Android device or emulator.
  */
 fun interface BattleInputDispatcher {
+    val stateGeneration: Long get() = 0L
     suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean
     suspend fun sendFrameButton(buttonMask: Int, settleFrames: Int): Boolean = false
     suspend fun waitFrames(frames: Int): Boolean = false
@@ -33,6 +34,10 @@ fun interface BattleInputDispatcher {
 class DefaultBattleInputDispatcher(
     private val coordinator: () -> LibretroCoreCoordinator = { LibretroCoreCoordinator.defaultInstance }
 ) : BattleInputDispatcher {
+    override val stateGeneration: Long get() = coordinator().stateGeneration
+    // Accessed only by the macro owning the router's automation mutex.
+    private var inputSession: Pair<LibretroCoreCoordinator, Long>? = null
+
     private companion object {
         const val WRITE_ATTEMPTS = 3
         // No button is held until the press write succeeds: allow about one 1x frame per attempt.
@@ -47,23 +52,32 @@ class DefaultBattleInputDispatcher(
 
     override suspend fun waitFrames(frames: Int): Boolean {
         require(frames >= 0)
-        val core = coordinator()
-        if (!core.emulationRunning) return false
+        val core = inputSession?.first ?: coordinator()
+        if (!core.emulationRunning || coordinator() !== core) return false
+        val generation = inputSession?.second ?: core.stateGeneration
+        if (core.stateGeneration != generation) return false
         val target = core.completedFrames + frames
         return withTimeoutOrNull(2000L) {
             core.frameCompletions.first {
-                it >= target || !core.emulationRunning || coordinator() !== core
+                it >= target || !core.emulationRunning || coordinator() !== core || core.stateGeneration != generation
             }
-            core.emulationRunning && coordinator() === core && core.completedFrames >= target
+            core.emulationRunning && coordinator() === core && core.stateGeneration == generation &&
+                core.completedFrames >= target
         } ?: false
     }
 
-    private fun writeMask(core: LibretroCoreCoordinator, mask: Int) {
+    private fun writeMask(core: LibretroCoreCoordinator, mask: Int, generation: Long) {
         val timeoutMs = if (mask == 0) RELEASE_WRITE_TIMEOUT_MS else PRESS_WRITE_TIMEOUT_MS
         try {
             repeat(WRITE_ATTEMPTS) { attempt ->
                 try {
-                    core.executeExclusive(timeoutMs) { core.setInputButtons(mask) }
+                    core.executeExclusive(timeoutMs) {
+                        // Check under the same lock as load/switch: a queued press cannot cross a restore.
+                        check(mask == 0 || (coordinator() === core && core.stateGeneration == generation)) {
+                            "Core state changed during automated input"
+                        }
+                        core.setInputButtons(mask)
+                    }
                     return
                 } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
                     if (attempt + 1 == WRITE_ATTEMPTS) throw e
@@ -78,15 +92,19 @@ class DefaultBattleInputDispatcher(
 
     override suspend fun <T> withExclusiveAutomation(block: suspend () -> T): T {
         val core = coordinator()
-        return ControllerInputRouter.withExclusiveAutomation({ writeMask(core, it) }, block)
+        val generation = core.stateGeneration
+        return ControllerInputRouter.withExclusiveAutomation({ writeMask(core, it, generation) }) {
+            inputSession = core to generation
+            try { block() } finally { inputSession = null }
+        }
     }
 
     override suspend fun sendFrameButton(buttonMask: Int, settleFrames: Int): Boolean {
-        val core = coordinator()
+        val (core, generation) = inputSession ?: coordinator().let { it to it.stateGeneration }
         return try {
             ControllerInputRouter.sendAutomatedFrameButton(buttonMask, settleFrames, ::waitFrames) { mask ->
                 // Router state is unlocked before waiting for a boundary between retro_run calls.
-                writeMask(core, mask)
+                writeMask(core, mask, generation)
             }
         } catch (e: CancellationException) {
             throw e
@@ -154,10 +172,11 @@ class BattleInputAdapter(
         // A second tap is rejected, never queued against a snapshot from the previous turn.
         if (!actionMutex.tryLock()) return BattleInputResult.Busy
         try {
+            val generation = dispatcher.stateGeneration
             return withContext(macroDispatcher) {
                 withTimeoutOrNull(20_000L) {
                     try {
-                        executeSelectMoveInternal(slot, currentUi)
+                        executeSelectMoveInternal(slot, currentUi, generation)
                     } catch (abort: MoveMacroAbort) {
                         abort.result
                     } catch (_: ControllerInputRouter.PhysicalButtonHeld) {
@@ -176,7 +195,9 @@ class BattleInputAdapter(
 
     private class MoveMacroAbort(val result: BattleInputResult) : RuntimeException()
 
-    private suspend fun executeSelectMoveInternal(slot: Int, currentUi: BattleUiSnapshot): BattleInputResult {
+    private suspend fun executeSelectMoveInternal(
+        slot: Int, currentUi: BattleUiSnapshot, generation: Long
+    ): BattleInputResult {
         if (slot !in 0..3) return BattleInputResult.IllegalTarget("Move slot $slot out of bounds (0..3)")
         if (currentUi.state == BattleUiState.ANIMATION_OR_TEXT) return BattleInputResult.Busy
         if (!currentUi.capabilities.selectMove) return BattleInputResult.UnsupportedProfile("Move selection is not verified")
@@ -197,6 +218,7 @@ class BattleInputAdapter(
         val startFrame = frameReader()
         fun abort(result: BattleInputResult): Nothing = throw MoveMacroAbort(result)
         fun running() {
+            if (dispatcher.stateGeneration != generation) abort(BattleInputResult.Cancelled("Core state changed"))
             if (isPaused()) abort(BattleInputResult.Paused)
             if (frameReader() - startFrame >= WATCHDOG_FRAMES) {
                 abort(BattleInputResult.Timeout("Move-selection frame watchdog expired"))
@@ -204,13 +226,14 @@ class BattleInputAdapter(
         }
         suspend fun waitFrame() {
             running()
-            if (!dispatcher.waitFrames(1)) abort(BattleInputResult.Timeout("Core frames unavailable"))
+            val advanced = dispatcher.waitFrames(1)
             running()
+            if (!advanced) abort(BattleInputResult.Timeout("Core frames unavailable"))
         }
         suspend fun read(): BattleUiSnapshot {
             repeat(READ_ATTEMPTS) { attempt ->
                 running()
-                reader()?.let { return it }
+                reader()?.let { running(); return it }
                 if (attempt + 1 < READ_ATTEMPTS) waitFrame()
             }
             abort(BattleInputResult.Timeout("Core battle UI read unavailable after $READ_ATTEMPTS attempts"))

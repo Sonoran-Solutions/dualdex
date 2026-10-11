@@ -51,8 +51,9 @@ menu state and no selected battler, including a doubles battle with an absent
 partner. Link/partner and inconsistent format flags also fail closed.
 The action-selection battle-main callback authorizes the menu handlers;
 unrecognized player controller functions yield animation/text. An ACTIVE singles
-battle whose main callback leaves action selection yields TURN_RUNNING, with
-player identity but no menu cursors. Cursor values outside 0..3 remain unavailable.
+battle whose main callback matches the pinned RunTurnActions yields TURN_RUNNING,
+with player identity but no menu cursors. Zero, invalid, or unrelated main callbacks
+yield UNKNOWN without cursor authority. Cursor values outside 0..3 remain unavailable.
 Other layouts retain legacy behavior.
 
 JNI packs state in bits 0..3, battler+1 in 4..6, action cursor+1 in 8..10, move
@@ -69,7 +70,14 @@ presses add 20 settle frames. Navigation changes the observed column, then row,
 only when needed. Each directional result is checked against a direct core read.
 The last read authorizes A without a duplicate cursor read. Input authority/battler
 changes, missing cursors, dropped required directions, pause, dispatch failure,
-and watchdog expiry abort.
+and watchdog expiry abort. The coordinator generation is captured at macro entry
+before background dispatch. ROM/core replacement, state loading, SRAM replacement,
+reset, and cleanup increment it under the core lock before mutation, including
+failed mutation attempts. Every macro read/wait/press checks this generation;
+press writes also check it under the same core lock, so a restore between the
+cursor check and lock acquisition cannot send a stale press. Releases always
+remain allowed. Quick Load during a directional settle cancels without sending A,
+even if the restored menu, battler and cursor match.
 
 After the move A, text/animation can precede a result. TURN_RUNNING proves success,
 target selection reports without further input, and returning to a move/command

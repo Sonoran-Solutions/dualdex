@@ -53,6 +53,10 @@ open class LibretroCoreCoordinator(
     val frameCompletions = _frameCompletions.asStateFlow()
     val completedFrames: Long get() = frameCompletions.value
 
+    /** Invalidates in-flight input before replacing core state, even when the mutation fails. */
+    @Volatile var stateGeneration = 0L
+        private set
+
     internal fun bindCheatRom(identity: RomIdentity) {
         check(lock.isHeldByCurrentThread)
         cheatRomSha256 = identity.sha256.takeIf { identity.isValid }?.lowercase()
@@ -137,6 +141,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadCore(coreLibPath: String): Boolean = executeExclusive {
+        stateGeneration++
         cheatRomSha256 = null
         try {
             LibretroHost.nativeLoadCore(coreLibPath)
@@ -146,6 +151,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadRom(romPath: String): Boolean = executeExclusive {
+        stateGeneration++
         cheatRomSha256 = null
         val ok = bridge?.loadRom(romPath) ?: try {
             LibretroHost.nativeLoadRom(romPath)
@@ -157,6 +163,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun unloadRom(): Boolean = executeExclusive {
+        stateGeneration++
         cheatRomSha256 = null
         romUnloaded = true
         bridge?.unloadRom() ?: try {
@@ -191,6 +198,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadState(statePath: String): Boolean = executeExclusive {
+        stateGeneration++
         bridge?.loadState(statePath) ?: try {
             LibretroHost.nativeLoadState(statePath)
         } catch (_: UnsatisfiedLinkError) {
@@ -199,6 +207,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadSaveRam(savePath: String): Boolean = executeExclusive {
+        stateGeneration++
         bridge?.loadSaveRam(savePath) ?: try {
             LibretroHost.nativeLoadSaveRam(savePath)
         } catch (_: UnsatisfiedLinkError) {
@@ -215,6 +224,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun resetCore(): Unit = executeExclusive {
+        stateGeneration++
         if (bridge != null) {
             bridge?.resetCore()
         } else {
@@ -233,6 +243,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun cleanup(): Unit = executeExclusive {
+        stateGeneration++
         cheatRomSha256 = null
         if (bridge == null) {
             try {

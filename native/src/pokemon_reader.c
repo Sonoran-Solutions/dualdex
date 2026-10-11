@@ -3494,7 +3494,7 @@ uint32_t pokemon_read_battle_ui_gba(
         !read(user, config->battle_main_func_gba_address, bytes, sizeof(bytes))) {
         return 5;
     }
-    const bool turn_running = (read32_le(bytes) & ~1u) != (config->action_selection_func_ptr & ~1u);
+    const uint32_t callback = read32_le(bytes) & ~1u;
     uint8_t players = 0;
     int battler = -1;
     for (uint8_t b = 0; b < battle.battlers_count; b++) {
@@ -3507,7 +3507,11 @@ uint32_t pokemon_read_battle_ui_gba(
     // No arbitrary flank is chosen; gActiveBattler (battle-loop scratch) is never read.
     if (players != 1 || battler < 0) return 5u | ((uint32_t)players << 16);
     if (battle.kind != BATTLE_KIND_WILD_SINGLE && battle.kind != BATTLE_KIND_TRAINER_SINGLE) return 5;
-    if (turn_running) return 7u | ((uint32_t)(battler + 1) << 4) | ((uint32_t)players << 16);
+    if (callback == (config->run_turn_actions_func_ptr & ~1u)) {
+        return 7u | ((uint32_t)(battler + 1) << 4) | ((uint32_t)players << 16);
+    }
+    // A different callback is not evidence that the selected move was accepted.
+    if (callback != (config->action_selection_func_ptr & ~1u)) return 5;
     if (!read(user, HNS_LIVE_GBATTLERCONTROLLERFUNCS_GBA_ADDRESS + (uint32_t)battler * 4u,
               bytes, sizeof(bytes))) return 5;
     uint32_t handler = read32_le(bytes) & ~1u;

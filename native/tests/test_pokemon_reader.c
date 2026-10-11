@@ -6785,10 +6785,20 @@ static void test_hns_battle_menu_reader(void) {
     hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
     result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
     TEST_ASSERT((result & 15) == 7 && ((result >> 4) & 7) == 2 && ((result >> 16) & 7) == 1,
-                "ACTIVE singles leaving action selection reports TURN_RUNNING with player identity");
+                "pinned RunTurnActions reports TURN_RUNNING with player identity");
     TEST_ASSERT(((result >> 8) & 7) == 0 && ((result >> 12) & 7) == 0,
                 "TURN_RUNNING never authorizes stale menu cursors");
+    const uint32_t unknown_callbacks[] = {0, 0xDEADBEEFu, HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR};
+    for (size_t i = 0; i < sizeof(unknown_callbacks) / sizeof(unknown_callbacks[0]); i++) {
+        hns_battle_set_main_callback(&fx, unknown_callbacks[i]);
+        result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+        TEST_ASSERT(result == 5, "zero, invalid and unrelated ROM callbacks remain UNKNOWN without cursors");
+    }
     hns_battle_set_main_callback(&fx, cfg->action_selection_func_ptr);
+    write32_le_t(gba.iwram + controller + 4, 0);
+    result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+    TEST_ASSERT((result & 15) == 4, "action selection with a non-menu controller remains ANIMATION_OR_TEXT");
+    write32_le_t(gba.iwram + controller + 4, HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR);
     hns_battle_set_in_battle(&fx, false);
     TEST_ASSERT(pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg) == 5,
                 "inactive lifecycle withholds stale menu pointers");

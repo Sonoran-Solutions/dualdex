@@ -15,6 +15,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import java.nio.file.Files
 import java.nio.ByteBuffer
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -73,6 +75,80 @@ class LibretroCoreCoordinatorLockTest {
         assertFalse(dispatcher.waitFrames(1))
     }
 
+    @Test fun stateGenerationChangesBeforeMutationsIncludingFailedLoads() {
+        val core = LibretroCoreCoordinator(object : LibretroCoreBridge {
+            override fun loadState(statePath: String) = false
+            override fun loadRom(romPath: String) = false
+        })
+        var generation = core.stateGeneration
+        val mutations = listOf<() -> Unit>(
+            { core.loadCore("synthetic") }, { core.loadRom("synthetic") }, { core.unloadRom() },
+            { core.loadState("synthetic") }, { core.loadSaveRam("synthetic") },
+            { core.resetCore() }, { core.cleanup() }
+        )
+        for (mutate in mutations) {
+            mutate()
+            assertEquals(++generation, core.stateGeneration)
+        }
+        core.saveState("synthetic")
+        core.stepFrame()
+        assertEquals(generation, core.stateGeneration) // Saving and advancing frames do not replace state.
+    }
+
+    @Test fun quickLoadDuringDirectionalSettleCancelsWithoutConfirmingRestoredMenu() = runBlocking {
+        ControllerInputRouter.reset()
+        val dir = Files.createTempDirectory("dualdex_move_quick_load_").toFile()
+        try {
+            val input = MoveMenuInput()
+            val masks = mutableListOf<Int>()
+            var held = 0
+            val core = object : LibretroCoreCoordinator(object : LibretroCoreBridge {
+                override fun getSaveStateSize() = 32L
+                override fun saveState(statePath: String): Boolean {
+                    File(statePath).writeBytes(ByteArray(32)) // Synthetic state; no ROM/game data.
+                    return true
+                }
+                override fun loadState(statePath: String): Boolean {
+                    input.move = 1 // Same menu, battler and cursor expected after RIGHT.
+                    return File(statePath).length() == 32L
+                }
+            }) {
+                override fun setInputButtons(buttonMask: Int) {
+                    masks += buttonMask
+                    held = buttonMask
+                }
+            }
+            core.emulationRunning = true
+            val saves = SaveStateManager(customBaseDir = dir, customCoordinator = core)
+            val identity = RomIdentity("a".repeat(64), "Synthetic")
+            saves.setActiveGame(identity)
+            assertTrue(saves.quickSave(identity))
+            val adapter = BattleInputAdapter(DefaultBattleInputDispatcher { core }, { false },
+                { core.completedFrames }, Dispatchers.Unconfined) { input.snapshot }
+            val macro = async(start = CoroutineStart.UNDISPATCHED) {
+                adapter.executeSelectMove(1, input.snapshot)
+            }
+            assertEquals(InputManager.BTN_RIGHT, held)
+            core.stepFrame()
+            yield()
+            assertEquals(0, held)
+            core.stepFrame() // Completed up frame: the remaining wait is directional settle.
+            yield()
+            assertFalse(macro.isCompleted)
+            assertTrue(saves.quickLoad(identity))
+            core.stepFrame()
+            yield()
+            assertEquals(BattleInputResult.Cancelled("Core state changed"), macro.await())
+            assertEquals(listOf(InputManager.BTN_RIGHT), masks.filter { it != 0 })
+            assertEquals(3L, core.completedFrames)
+            assertEquals(0, held)
+            assertEquals(0, ControllerInputRouter.getEffectiveMask())
+        } finally {
+            dir.deleteRecursively()
+            ControllerInputRouter.reset()
+        }
+    }
+
     @Test fun failedBattleUiReadHasNoNativeStateValue() {
         val coordinator = LibretroCoreCoordinator()
         val acquired = CountDownLatch(1)
@@ -128,6 +204,32 @@ class LibretroCoreCoordinatorLockTest {
             onWrite(buttonMask)
             writes += buttonMask to lock.isHeldByCurrentThread
             heldMask = buttonMask
+        }
+    }
+
+    @Test fun restoreBetweenPressCheckAndCoreLockNeverWritesThePress() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val core = EdgeWriteCore()
+            var restored = false
+            core.failure = { mask, _ ->
+                if (mask != 0 && !restored) {
+                    restored = true
+                    core.loadState("synthetic") // Restore before the queued writer acquires the lock.
+                }
+                null
+            }
+            val dispatcher = DefaultBattleInputDispatcher { core }
+            dispatcher.withExclusiveAutomation {
+                assertFalse(dispatcher.sendFrameButton(InputManager.BTN_A, 0))
+            }
+            assertTrue(restored)
+            assertTrue(core.writes.all { it.first == 0 })
+            assertTrue(core.frameMasks.isEmpty())
+            assertEquals(0, core.heldMask)
+            assertEquals(0, ControllerInputRouter.getEffectiveMask())
+        } finally {
+            ControllerInputRouter.reset()
         }
     }
 

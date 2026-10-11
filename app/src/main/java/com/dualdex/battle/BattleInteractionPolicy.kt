@@ -81,6 +81,7 @@ object BattleInteractionPolicy {
             !exactRuntimeVerified -> "Read-only: ROM/profile is not exact-verified."
             !baseUiVerified -> "Read-only: verified battle UI readers are unavailable."
             !inBattle -> "Read-only: no active battle detected."
+            selectMoveVerified && (playerBattlerCount ?: 0) > 1 -> "Read-only: move selection requires a verified singles battle."
             !stateIsInteractive -> "Read-only: battle UI state is unknown or transitioning."
             !cursorAvailable -> "Read-only: battle menu cursor state is unavailable."
             selectMoveVerified && playerBattlerCount != 1 && !switchPokemonVerified -> "Read-only: move selection requires a verified singles battle."

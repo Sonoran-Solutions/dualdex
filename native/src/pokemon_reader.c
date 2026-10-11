@@ -3491,10 +3491,10 @@ uint32_t pokemon_read_battle_ui_gba(
     uint8_t bytes[4];
     if (!read || pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, &battle) !=
             BATTLE_LIFECYCLE_ACTIVE || !battle.absent_flags_readable ||
-        !read(user, config->battle_main_func_gba_address, bytes, sizeof(bytes)) ||
-        (read32_le(bytes) & ~1u) != (config->action_selection_func_ptr & ~1u)) {
+        !read(user, config->battle_main_func_gba_address, bytes, sizeof(bytes))) {
         return 5;
     }
+    const bool turn_running = (read32_le(bytes) & ~1u) != (config->action_selection_func_ptr & ~1u);
     uint8_t players = 0;
     int battler = -1;
     for (uint8_t b = 0; b < battle.battlers_count; b++) {
@@ -3503,10 +3503,11 @@ uint32_t pokemon_read_battle_ui_gba(
             if (!(battle.absent_battler_flags & (1u << b))) battler = b;
         }
     }
-    // Singles only, including doubles with a temporarily absent partner. No arbitrary
-    // player flank is chosen, and gActiveBattler (battle-loop scratch) is never read.
+    // Count all player positions: doubles are refused even with an absent partner.
+    // No arbitrary flank is chosen; gActiveBattler (battle-loop scratch) is never read.
     if (players != 1 || battler < 0) return 5u | ((uint32_t)players << 16);
     if (battle.kind != BATTLE_KIND_WILD_SINGLE && battle.kind != BATTLE_KIND_TRAINER_SINGLE) return 5;
+    if (turn_running) return 7u | ((uint32_t)(battler + 1) << 4) | ((uint32_t)players << 16);
     if (!read(user, HNS_LIVE_GBATTLERCONTROLLERFUNCS_GBA_ADDRESS + (uint32_t)battler * 4u,
               bytes, sizeof(bytes))) return 5;
     uint32_t handler = read32_le(bytes) & ~1u;

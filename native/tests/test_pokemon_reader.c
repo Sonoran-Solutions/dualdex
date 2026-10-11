@@ -6745,6 +6745,7 @@ static bool menu_read_without_controller(void* user, uint32_t address, uint8_t* 
 }
 
 static void test_hns_battle_menu_reader(void) {
+    printf("Running test_hns_battle_menu_reader...\n");
     static FakeGba gba, unavailable;
     HnsBattleFixture fx;
     hns_battle_fixture_init(&fx, &gba, pokemon_get_game_config(GAME_HEART_AND_SOUL));
@@ -6782,8 +6783,11 @@ static void test_hns_battle_menu_reader(void) {
     TEST_ASSERT((result & 15) == 2 && ((result >> 4) & 7) == 2 && ((result >> 12) & 7) == 4,
                 "menu and cursors follow player-side positions, not battler zero");
     hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
-    TEST_ASSERT(pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg) == 5,
-                "wrong battle main callback withholds menus and cursors");
+    result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
+    TEST_ASSERT((result & 15) == 7 && ((result >> 4) & 7) == 2 && ((result >> 16) & 7) == 1,
+                "ACTIVE singles leaving action selection reports TURN_RUNNING with player identity");
+    TEST_ASSERT(((result >> 8) & 7) == 0 && ((result >> 12) & 7) == 0,
+                "TURN_RUNNING never authorizes stale menu cursors");
     hns_battle_set_main_callback(&fx, cfg->action_selection_func_ptr);
     hns_battle_set_in_battle(&fx, false);
     TEST_ASSERT(pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg) == 5,
@@ -6815,10 +6819,10 @@ static void test_hns_battle_menu_reader(void) {
                     pokemon_read_battle_ui_state(gba.ewram, sizeof(gba.ewram), other), "other layouts retain legacy behavior");
     }
     g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_hns_battle_menu_reader" ANSI_RESET "\n");
 }
 
 int main(void) {
-    test_hns_battle_menu_reader();
     printf("===================================================\n");
     printf("   DualDex Gen 3 Memory Parser Test Suite\n");
     printf("===================================================\n");
@@ -6833,6 +6837,7 @@ int main(void) {
 
     // Heart & Soul 2.0.5 evidence-backed foundation (issue #40, first implementation phase).
     test_hns_config_matches_release_runtime_evidence();
+    test_hns_battle_menu_reader();
     test_hns_release_rom_party_fixture();
     test_hns_party_counts_are_independent_symbols();
     test_vanilla_party_count_symbols_are_adjacent();

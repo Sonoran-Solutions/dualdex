@@ -388,6 +388,7 @@ enum class BattleUiState(val displayName: String) {
     TARGET_SELECT("Target Select"),
     BAG_MENU("Bag Menu"),
     ANIMATION_OR_TEXT("Waiting / Anim"),
+    TURN_RUNNING("Turn Running"),
     UNKNOWN("Unknown / Inactive");
 
     companion object {
@@ -397,6 +398,7 @@ enum class BattleUiState(val displayName: String) {
             3 -> PARTY_MENU
             4 -> ANIMATION_OR_TEXT
             6 -> TARGET_SELECT
+            7 -> TURN_RUNNING
             else -> UNKNOWN
         }
     }

@@ -44,32 +44,48 @@ instruction/literal/static-symbol cases.
 
 ## Runtime contract
 
-The new native reader requires the exact compiled H&S configuration, ACTIVE
-lifecycle, readable IWRAM, and the action-selection battle-main callback. Player
-positions identify the battler; `gActiveBattler` is never read. More than one player
-flank yields unknown menu state and no selected battler, including a doubles battle
-with an absent partner. Link/partner and inconsistent format flags also fail closed.
-Unrecognized player controller functions yield animation/text.
-Cursor values outside 0..3 remain unavailable. Other layouts retain legacy behavior.
+The native reader requires the exact compiled H&S configuration, ACTIVE lifecycle,
+readable IWRAM, and a verified singles topology. Player positions identify the
+battler; gActiveBattler is never read. More than one player flank yields unknown
+menu state and no selected battler, including a doubles battle with an absent
+partner. Link/partner and inconsistent format flags also fail closed.
+The action-selection battle-main callback authorizes the menu handlers;
+unrecognized player controller functions yield animation/text. An ACTIVE singles
+battle whose main callback leaves action selection yields TURN_RUNNING, with
+player identity but no menu cursors. Cursor values outside 0..3 remain unavailable.
+Other layouts retain legacy behavior.
 
 JNI packs state in bits 0..3, battler+1 in 4..6, action cursor+1 in 8..10, move
 cursor+1 in 12..14, and player count in 16..18. Zero is unavailable for the latter
-fields. Native code 6 is target selection. The ViewModel decodes this same tuple
-for polling and direct macro reads, passing both cursors and topology to the policy.
+fields. Native code 6 is target selection; 7 is TURN_RUNNING. The ViewModel decodes
+this tuple for polling and direct macro reads, passing both cursors and topology to
+the policy. A failed core read is null, distinct from native state zero; polling
+retains the previous snapshot and macros retry up to three times, one frame apart.
 
-Move macros reject overlapping taps, unknown topology, pause, or unavailable core
-readers. Each button spans at least one completed frame down and one up; edges start
-between core frames, with 20 additional settle frames. Navigation always starts LEFT,
-UP, then RIGHT/DOWN as needed. Every directional result is checked against a direct
-core read, including command normalization before opening FIGHT. The final move
-cursor is read again before A. Input authority/battler changes, missing cursors,
-dropped required directions, pause, dispatch failure, and watchdog expiry abort.
-A target-selection state after A is reported with no additional input. Physical
-inputs remain merged; a physically held copy of the automated button is refused
-because it cannot generate a fresh edge. Cancellation releases automated input.
+Move macros run on Dispatchers.Default and reject overlapping taps, unknown
+topology, pause, or unavailable core readers. Each button spans at least one
+completed frame down and one up; edges start between core frames. Only directional
+presses add 20 settle frames. Navigation changes the observed column, then row,
+only when needed. Each directional result is checked against a direct core read.
+The last read authorizes A without a duplicate cursor read. Input authority/battler
+changes, missing cursors, dropped required directions, pause, dispatch failure,
+and watchdog expiry abort.
+
+After the move A, text/animation can precede a result. TURN_RUNNING proves success,
+target selection reports without further input, and returning to a move/command
+menu for the same player reports MoveRefused. Otherwise observation times out.
+Frame waits suspend on the coordinator's completed-frame StateFlow.
+
+An exclusive session spans navigation through post-A observation. A physical
+button held at session start refuses the tap with Cancelled("Physical button
+held"). During the session, physical changes are recorded but never dispatched.
+Session cleanup restores physical routing and latches held buttons until released;
+only release/repress can produce another physical edge. Cancellation, exceptions,
+and watchdogs release the session. Core writes happen outside the router state lock.
 
 Bounds: singles move selection only; 1200 completed-frame / 20-second macro watchdog,
-2-second stalled-frame wait, and 120 frames to observe the command-to-move transition.
+2-second stalled-frame wait, and 120 frame-by-frame observations for transitions
+and move acceptance (each read may also consume up to two retry frames).
 Party switching remains outside this issue. Existing tile source-slot order and
-zero-PP disabling are unchanged. Device timing, restrictions such as Encore/Taunt,
-and physical input during a macro still require #175's acceptance matrix.
+zero-PP disabling are unchanged. Device timing, actual move restrictions such as
+Encore/Taunt, and the hardware input matrix still require #175's acceptance.

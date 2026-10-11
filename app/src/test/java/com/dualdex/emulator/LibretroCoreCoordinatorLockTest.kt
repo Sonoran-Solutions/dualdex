@@ -1,6 +1,10 @@
 package com.dualdex.emulator
 
 import android.os.SystemClock
+import com.dualdex.battle.DefaultBattleInputDispatcher
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -36,6 +40,53 @@ class LibretroCoreCoordinatorLockTest {
         advances = false
         assertFalse(coordinator.stepFrame())
         assertEquals(1L, coordinator.completedFrames)
+    }
+
+    @Test fun completedFrameFlowWakesWaitersWithoutPollingAndChecksPauseAndCoreSwap() = runBlocking {
+        val core = LibretroCoreCoordinator(object : LibretroCoreBridge { override fun stepFrame() = true })
+        core.emulationRunning = true
+        var current = core
+        val dispatcher = DefaultBattleInputDispatcher { current }
+        val waiting = async(start = CoroutineStart.UNDISPATCHED) { dispatcher.waitFrames(2) }
+        assertFalse(waiting.isCompleted)
+        core.stepFrame()
+        assertEquals(1L, core.frameCompletions.value)
+        assertFalse(waiting.isCompleted)
+        core.stepFrame()
+        assertTrue(waiting.await())
+        assertEquals(core.completedFrames, core.frameCompletions.value)
+
+        val swapped = async(start = CoroutineStart.UNDISPATCHED) { dispatcher.waitFrames(2) }
+        current = LibretroCoreCoordinator()
+        core.stepFrame()
+        assertFalse(swapped.await())
+        current = core
+        val paused = async(start = CoroutineStart.UNDISPATCHED) { dispatcher.waitFrames(2) }
+        core.emulationRunning = false
+        core.stepFrame()
+        assertFalse(paused.await())
+        assertFalse(dispatcher.waitFrames(1))
+    }
+
+    @Test fun failedBattleUiReadHasNoNativeStateValue() {
+        val coordinator = LibretroCoreCoordinator()
+        val acquired = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val holder = Thread {
+            coordinator.executeExclusive {
+                acquired.countDown()
+                release.await(5, TimeUnit.SECONDS)
+            }
+        }
+        holder.start()
+        assertTrue(acquired.await(5, TimeUnit.SECONDS))
+        try {
+            assertEquals(null, coordinator.readBattleUiState(8))
+        } finally {
+            release.countDown()
+            holder.join(5000)
+        }
+        assertEquals(null, coordinator.readBattleUiState(8)) // Missing JNI is also unavailable.
     }
 
     private class RecordingBridge : LibretroCoreBridge {

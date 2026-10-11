@@ -131,11 +131,11 @@ class CompanionViewModel(
         stateReader = { readBattleUiSnapshot() }
     )
 
-    private fun readBattleUiSnapshot(): com.dualdex.battle.BattleUiSnapshot {
+    private fun readBattleUiSnapshot(): com.dualdex.battle.BattleUiSnapshot? {
         val trust = _runtimeRomTrust.value
         if (!trust.exactRuntimeVerified) return com.dualdex.battle.BattleUiSnapshot()
         val raw = com.dualdex.battle.BattleUiSnapshot.fromNativePacked(
-            coreCoordinator.readBattleUiState(_activeProfile.value.gameId)
+            coreCoordinator.readBattleUiState(_activeProfile.value.gameId) ?: return null
         )
         if (trust != _runtimeRomTrust.value) return com.dualdex.battle.BattleUiSnapshot()
         return com.dualdex.battle.BattleInteractionPolicy.evaluate(
@@ -452,7 +452,7 @@ class CompanionViewModel(
             val eStages = coreCoordinator.readBattleStatStages(gameId, 1)
             _enemyStatStages.value = com.dualdex.battle.StatStages.fromRawArray(eStages)
 
-            _battleUiSnapshot.value = readBattleUiSnapshot()
+            readBattleUiSnapshot()?.let { _battleUiSnapshot.value = it }
         } else {
             if (_activeEnemyMemberIndex.value != -1) {
                 _activeEnemyMemberIndex.value = -1

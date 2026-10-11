@@ -164,6 +164,7 @@ class BattleInteractionPolicyTest {
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(5))
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(999))
         assertEquals(BattleUiState.TARGET_SELECT, BattleUiState.fromNativeCode(6))
+        assertEquals(BattleUiState.TURN_RUNNING, BattleUiSnapshot.fromNativePacked(7).state)
     }
 
     @Test fun moveSelectionRequiresObservedSinglesEvenWithEveryFlagVerified() {
@@ -175,6 +176,13 @@ class BattleInteractionPolicyTest {
             assertEquals("Read-only: move selection requires a verified singles battle.", ui.readOnlyReason)
         }
         assertTrue(evaluate(movesOnly, state = BattleUiState.MOVE_MENU, moveCursor = 2).inputSafe)
+    }
+
+    @Test fun doublesReasonPrecedesUnknownMenuStateEvenWithPartyVerification() {
+        val ui = evaluate(profile(), state = BattleUiState.UNKNOWN, players = 2)
+        assertFalse(ui.inputSafe)
+        assertFalse(ui.capabilities.selectMove)
+        assertEquals("Read-only: move selection requires a verified singles battle.", ui.readOnlyReason)
     }
 
     @Test fun packedCursorsFeedAuthorizationAndInvalidValuesStayUnavailable() {

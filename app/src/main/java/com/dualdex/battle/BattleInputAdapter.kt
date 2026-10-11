@@ -4,6 +4,10 @@ import com.dualdex.emulator.ControllerInputRouter
 import com.dualdex.emulator.InputManager
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.pokemon.ParsedPokemon
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -18,11 +22,13 @@ fun interface BattleInputDispatcher {
     suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean
     suspend fun sendFrameButton(buttonMask: Int, settleFrames: Int): Boolean = false
     suspend fun waitFrames(frames: Int): Boolean = false
+    suspend fun <T> withExclusiveAutomation(block: suspend () -> T): T =
+        ControllerInputRouter.withExclusiveAutomation(block = block)
 }
 
 /**
  * Production dispatcher that writes button masks through ControllerInputRouter.
- * Guarantees physical controller inputs are never cleared and automated sequences are serialized.
+ * Move macros suppress physical edges until the session ends and held buttons are released.
  */
 class DefaultBattleInputDispatcher(
     private val coordinator: () -> LibretroCoreCoordinator = { LibretroCoreCoordinator.defaultInstance }
@@ -32,30 +38,39 @@ class DefaultBattleInputDispatcher(
     }
 
     override suspend fun waitFrames(frames: Int): Boolean {
+        require(frames >= 0)
         val core = coordinator()
-        val start = core.completedFrames
+        if (!core.emulationRunning) return false
+        val target = core.completedFrames + frames
         return withTimeoutOrNull(2000L) {
-            while (core.completedFrames - start < frames) {
-                if (!core.emulationRunning || coordinator() !== core) return@withTimeoutOrNull false
-                delay(1L)
+            core.frameCompletions.first {
+                it >= target || !core.emulationRunning || coordinator() !== core
             }
-            core.emulationRunning
+            core.emulationRunning && coordinator() === core && core.completedFrames >= target
         } ?: false
+    }
+
+    private fun writeMask(core: LibretroCoreCoordinator, mask: Int) {
+        try {
+            core.executeExclusive(50L) { core.setInputButtons(mask) }
+        } catch (e: Exception) {
+            // A stalled core must not retain automation, even if its lock cannot be acquired.
+            if (mask == 0) core.setInputButtons(0)
+            throw e
+        }
+    }
+
+    override suspend fun <T> withExclusiveAutomation(block: suspend () -> T): T {
+        val core = coordinator()
+        return ControllerInputRouter.withExclusiveAutomation({ writeMask(core, it) }, block)
     }
 
     override suspend fun sendFrameButton(buttonMask: Int, settleFrames: Int): Boolean {
         val core = coordinator()
         return try {
             ControllerInputRouter.sendAutomatedFrameButton(buttonMask, settleFrames, ::waitFrames) { mask ->
-                // Both edges start between retro_run calls: an in-flight frame already past
-                // its input poll must not count as a down/up frame.
-                try {
-                    core.executeExclusive(50L) { core.setInputButtons(mask) }
-                } catch (e: Exception) {
-                    // Even a wedged core must not retain an automated held button.
-                    if (mask and buttonMask == 0) core.setInputButtons(mask)
-                    throw e
-                }
+                // Router state is unlocked before waiting for a boundary between retro_run calls.
+                writeMask(core, mask)
             }
         } catch (e: CancellationException) {
             throw e
@@ -78,6 +93,7 @@ sealed class BattleInputResult {
     data object Busy : BattleInputResult()
     data object Paused : BattleInputResult()
     data object TargetSelectionRequired : BattleInputResult()
+    data object MoveRefused : BattleInputResult()
     data class Timeout(val message: String) : BattleInputResult()
     data class Cancelled(val reason: String) : BattleInputResult()
 
@@ -93,13 +109,14 @@ sealed class BattleInputResult {
  * - Unverified profile => read-only / rejected
  * - Cursor null or unobserved => rejected (never defaults to 0)
  * - Transitions must be validated before confirming actions
- * - Physical held buttons are preserved through ControllerInputRouter
+ * - Physical state is recorded but suppressed during the move transaction
  */
 class BattleInputAdapter(
     private val dispatcher: BattleInputDispatcher = DefaultBattleInputDispatcher(),
     private val isPaused: () -> Boolean = { !LibretroCoreCoordinator.defaultInstance.emulationRunning },
     private val frameReader: () -> Long = { LibretroCoreCoordinator.defaultInstance.completedFrames },
-    private val stateReader: (() -> BattleUiSnapshot)? = null
+    private val macroDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val stateReader: (() -> BattleUiSnapshot?)? = null
 ) {
     private val actionMutex = Mutex()
 
@@ -111,19 +128,29 @@ class BattleInputAdapter(
         const val TRANSITION_TIMEOUT_MS = 500L
         const val DIRECTION_SETTLE_FRAMES = 20
         const val WATCHDOG_FRAMES = 1200L
+        const val OBSERVATION_FRAMES = 120
+        const val READ_ATTEMPTS = 3
     }
 
     suspend fun executeSelectMove(slot: Int, currentUi: BattleUiSnapshot): BattleInputResult {
         // A second tap is rejected, never queued against a snapshot from the previous turn.
         if (!actionMutex.tryLock()) return BattleInputResult.Busy
         try {
-            return withTimeoutOrNull(20_000L) {
-                try {
-                    executeSelectMoveInternal(slot, currentUi)
-                } catch (abort: MoveMacroAbort) {
-                    abort.result
-                }
-            } ?: BattleInputResult.Timeout("Move-selection watchdog expired")
+            return withContext(macroDispatcher) {
+                withTimeoutOrNull(20_000L) {
+                    try {
+                        executeSelectMoveInternal(slot, currentUi)
+                    } catch (abort: MoveMacroAbort) {
+                        abort.result
+                    } catch (_: ControllerInputRouter.PhysicalButtonHeld) {
+                        BattleInputResult.Cancelled("Physical button held")
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        BattleInputResult.Timeout("Core input session unavailable")
+                    }
+                } ?: BattleInputResult.Timeout("Move-selection watchdog expired")
+            }
         } finally {
             actionMutex.unlock()
         }
@@ -157,69 +184,102 @@ class BattleInputAdapter(
                 abort(BattleInputResult.Timeout("Move-selection frame watchdog expired"))
             }
         }
-        fun menu(expected: BattleUiState): BattleUiSnapshot {
+        suspend fun waitFrame() {
             running()
-            val ui = reader()
-            if (ui.state != expected) abort(BattleInputResult.UnexpectedTransition(expected, ui.state))
+            if (!dispatcher.waitFrames(1)) abort(BattleInputResult.Timeout("Core frames unavailable"))
+            running()
+        }
+        suspend fun read(): BattleUiSnapshot {
+            repeat(READ_ATTEMPTS) { attempt ->
+                running()
+                reader()?.let { return it }
+                if (attempt + 1 < READ_ATTEMPTS) waitFrame()
+            }
+            abort(BattleInputResult.Timeout("Core battle UI read unavailable after $READ_ATTEMPTS attempts"))
+        }
+        fun authority(ui: BattleUiSnapshot) {
             if (ui.battlerIndex != currentUi.battlerIndex || ui.playerBattlerCount != 1 ||
-                !ui.capabilities.selectMove || !ui.inputSafe) {
+                !ui.capabilities.selectMove) {
                 abort(BattleInputResult.UnsupportedProfile("Battle input authority changed"))
             }
+        }
+        suspend fun menu(expected: BattleUiState): BattleUiSnapshot {
+            val ui = read()
+            if (ui.state != expected) abort(BattleInputResult.UnexpectedTransition(expected, ui.state))
+            authority(ui)
+            if (!ui.inputSafe) abort(BattleInputResult.UnsupportedProfile("Battle input authority changed"))
             if (cursor(ui) !in 0..3) abort(BattleInputResult.CursorUnavailable("Battle menu cursor is unknown"))
             return ui
         }
         suspend fun press(button: Int) {
             running()
-            if (!dispatcher.sendFrameButton(button, DIRECTION_SETTLE_FRAMES)) {
+            val settle = if (button == InputManager.BTN_A) 0 else DIRECTION_SETTLE_FRAMES
+            if (!dispatcher.sendFrameButton(button, settle)) {
                 running()
                 abort(BattleInputResult.Timeout("Core frames or input dispatch unavailable"))
             }
             running()
         }
         suspend fun walk(state: BattleUiState, target: Int) {
-            val directions = mutableListOf(InputManager.BTN_LEFT, InputManager.BTN_UP)
-            if (target and 1 != 0) directions += InputManager.BTN_RIGHT
-            if (target and 2 != 0) directions += InputManager.BTN_DOWN
-            for (button in directions) {
-                val from = cursor(menu(state))!!
-                val expected = when (button) {
-                    InputManager.BTN_LEFT -> from and 2
-                    InputManager.BTN_UP -> from and 1
-                    InputManager.BTN_RIGHT -> from or 1
-                    else -> from or 2
+            var ui = menu(state)
+            // Use each observed cursor: only change the column/row that differs.
+            for (bit in listOf(1, 2)) {
+                val from = cursor(ui)!!
+                if (from and bit == target and bit) continue
+                val button = if (bit == 1) {
+                    if (target and bit == 0) InputManager.BTN_LEFT else InputManager.BTN_RIGHT
+                } else {
+                    if (target and bit == 0) InputManager.BTN_UP else InputManager.BTN_DOWN
                 }
+                val expected = (from and bit.inv()) or (target and bit)
                 press(button)
-                if (cursor(menu(state)) != expected) {
+                ui = menu(state)
+                if (cursor(ui) != expected) {
                     abort(BattleInputResult.CursorUnavailable("Directional press did not reach the expected cursor"))
                 }
             }
-            if (cursor(menu(state)) != target) abort(BattleInputResult.CursorUnavailable("Target cursor was not observed"))
+            // This last direct read (initial or post-direction) is the sole authorization before A.
+            if (cursor(ui) != target) abort(BattleInputResult.CursorUnavailable("Target cursor was not observed"))
         }
 
-        if (currentUi.state == BattleUiState.COMMAND_MENU) {
-            walk(BattleUiState.COMMAND_MENU, 0)
-            // The command cursor is verified too: a dropped normalization must never open BAG/RUN.
+        return dispatcher.withExclusiveAutomation {
+            if (currentUi.state == BattleUiState.COMMAND_MENU) {
+                walk(BattleUiState.COMMAND_MENU, 0)
+                press(InputManager.BTN_A)
+                var observed = read()
+                var frames = 0
+                while (observed.state != BattleUiState.MOVE_MENU && frames < OBSERVATION_FRAMES) {
+                    waitFrame()
+                    frames++
+                    observed = read()
+                }
+                if (observed.state != BattleUiState.MOVE_MENU) {
+                    abort(BattleInputResult.UnexpectedTransition(BattleUiState.MOVE_MENU, observed.state))
+                }
+            }
+            walk(BattleUiState.MOVE_MENU, slot)
             press(InputManager.BTN_A)
-            var observed = reader()
-            var frames = 0
-            while (observed.state != BattleUiState.MOVE_MENU && frames < 120) {
-                running()
-                if (!dispatcher.waitFrames(1)) abort(BattleInputResult.Timeout("Move menu did not become available"))
-                frames++
-                observed = reader()
+            for (frames in 0..OBSERVATION_FRAMES) {
+                val observed = read()
+                when (observed.state) {
+                    BattleUiState.TURN_RUNNING -> {
+                        authority(observed)
+                        return@withExclusiveAutomation BattleInputResult.Success
+                    }
+                    BattleUiState.TARGET_SELECT -> {
+                        authority(observed)
+                        return@withExclusiveAutomation BattleInputResult.TargetSelectionRequired
+                    }
+                    BattleUiState.MOVE_MENU, BattleUiState.COMMAND_MENU -> {
+                        authority(observed)
+                        return@withExclusiveAutomation BattleInputResult.MoveRefused
+                    }
+                    else -> Unit // Text/animation may precede acceptance or refusal.
+                }
+                if (frames < OBSERVATION_FRAMES) waitFrame()
             }
-            if (observed.state != BattleUiState.MOVE_MENU) {
-                abort(BattleInputResult.UnexpectedTransition(BattleUiState.MOVE_MENU, observed.state))
-            }
+            BattleInputResult.Timeout("Move acceptance was not observed")
         }
-        walk(BattleUiState.MOVE_MENU, slot)
-        // Direct core read immediately before A; never authorize using the 100ms UI cache.
-        if (cursor(menu(BattleUiState.MOVE_MENU)) != slot) {
-            abort(BattleInputResult.CursorUnavailable("Target move cursor was not observed before confirmation"))
-        }
-        press(InputManager.BTN_A)
-        return if (reader().state == BattleUiState.TARGET_SELECT) BattleInputResult.TargetSelectionRequired
-               else BattleInputResult.Success
     }
 
     suspend fun selectMove(slot: Int, currentUi: BattleUiSnapshot): Boolean {
@@ -287,7 +347,7 @@ class BattleInputAdapter(
             val observedPartyCursor: Int = if (stateReader != null) {
                 val transitionedUi = waitForUiState(BattleUiState.PARTY_MENU, TRANSITION_TIMEOUT_MS)
                 if (transitionedUi == null) {
-                    val actual = stateReader.invoke().state
+                    val actual = stateReader.invoke()?.state ?: BattleUiState.UNKNOWN
                     return BattleInputResult.UnexpectedTransition(BattleUiState.PARTY_MENU, actual)
                 }
                 transitionedUi.selectedPartySlot
@@ -344,7 +404,7 @@ class BattleInputAdapter(
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             val snapshot = reader.invoke()
-            if (snapshot.state == expected) {
+            if (snapshot?.state == expected) {
                 return snapshot
             }
             delay(TRANSITION_POLL_INTERVAL_MS)

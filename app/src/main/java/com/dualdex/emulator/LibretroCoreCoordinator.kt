@@ -5,6 +5,8 @@ import android.util.Log
 import com.dualdex.battle.ActiveEnemyResolution
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -47,8 +49,9 @@ open class LibretroCoreCoordinator(
 
     @Volatile var emulationRunning = false
         internal set
-    @Volatile var completedFrames = 0L
-        private set
+    private val _frameCompletions = MutableStateFlow(0L)
+    val frameCompletions = _frameCompletions.asStateFlow()
+    val completedFrames: Long get() = frameCompletions.value
 
     internal fun bindCheatRom(identity: RomIdentity) {
         check(lock.isHeldByCurrentThread)
@@ -114,11 +117,11 @@ open class LibretroCoreCoordinator(
             if (romUnloaded) return false
             if (bridge != null) {
                 val stepped = bridge?.stepFrame() ?: false
-                if (stepped) completedFrames++
+                if (stepped) _frameCompletions.value++
                 return stepped
             }
             LibretroHost.nativeStepFrame()
-            completedFrames++
+            _frameCompletions.value++
             return true
         } finally {
             if (diag) {
@@ -307,7 +310,7 @@ open class LibretroCoreCoordinator(
         return n
     }
 
-    fun setInputButtons(buttonMask: Int) {
+    open fun setInputButtons(buttonMask: Int) {
         LibretroHost.nativeSetInputButtons(buttonMask)
     }
 
@@ -380,12 +383,12 @@ open class LibretroCoreCoordinator(
         null
     }
 
-    open fun readBattleUiState(gameId: Int): Int = try {
+    open fun readBattleUiState(gameId: Int): Int? = try {
         executeExclusive(50L) { LibretroHost.nativeReadBattleUiState(gameId) }
     } catch (_: UnsatisfiedLinkError) {
-        0
+        null
     } catch (_: Exception) {
-        0
+        null
     }
 
     open fun readBattlePresence(gameId: Int): Int = try {

@@ -999,6 +999,7 @@ bool pokemon_read_battler_runtime_state_gba(
  * 4 = ANIMATION_OR_TEXT (Battle script running / dialogue)
  * 5 = UNKNOWN / TRANSITION (Active battle, but menu state not authoritatively verified)
  * 6 = TARGET_SELECT (no automated target confirmation)
+ * 7 = TURN_RUNNING (H&S ACTIVE singles lifecycle, battle-main callback left action selection)
  *
  * Returns 0 for a NULL or GAME_UNKNOWN configuration.
  */

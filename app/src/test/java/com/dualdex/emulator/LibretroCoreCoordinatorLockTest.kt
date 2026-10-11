@@ -144,7 +144,7 @@ class LibretroCoreCoordinatorLockTest {
             val pressing = async(start = CoroutineStart.UNDISPATCHED) {
                 dispatcher.sendFrameButton(InputManager.BTN_A, 0)
             }
-            assertEquals(listOf(InputManager.BTN_A to 2L, InputManager.BTN_A to 2L, InputManager.BTN_A to 2L),
+            assertEquals(List(3) { InputManager.BTN_A to 17L },
                 core.attempts)
             assertEquals(listOf(0, 0), core.frameMasks) // Frames during retries cannot count as down.
             assertEquals(listOf(InputManager.BTN_A to true), core.writes)
@@ -152,11 +152,33 @@ class LibretroCoreCoordinatorLockTest {
             core.stepFrame()
             yield()
             assertEquals(listOf(InputManager.BTN_A to true, 0 to true), core.writes)
+            assertEquals(List(3) { InputManager.BTN_A to 17L } + (0 to 2L), core.attempts)
             assertFalse(pressing.isCompleted) // A completed up frame is still required.
             core.stepFrame()
             assertTrue(pressing.await())
             assertEquals(listOf(0, 0, InputManager.BTN_A, 0), core.frameMasks)
             assertEquals(0, core.heldMask)
+        } finally {
+            ControllerInputRouter.reset()
+        }
+    }
+
+    @Test fun sessionStartAndCleanupZeroWritesUseShortReleaseBudget() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val core = EdgeWriteCore()
+            core.failure = { mask, attempt ->
+                if (mask == 0 && attempt <= 2)
+                    LibretroCoreCoordinator.LockTimeoutException("Synthetic lock timeout") else null
+            }
+            DefaultBattleInputDispatcher { core }.withExclusiveAutomation {
+                assertEquals(List(3) { 0 to 2L }, core.attempts)
+                assertEquals(listOf(0 to true), core.writes)
+                assertEquals(0, core.heldMask)
+            }
+            assertEquals(List(4) { 0 to 2L }, core.attempts)
+            assertEquals(listOf(0 to true, 0 to true), core.writes)
+            assertTrue(core.frameMasks.isEmpty())
         } finally {
             ControllerInputRouter.reset()
         }
@@ -174,7 +196,8 @@ class LibretroCoreCoordinatorLockTest {
                 { core.completedFrames }, Dispatchers.Unconfined) { ui }
             assertEquals(BattleInputResult.Timeout("Core frames or input dispatch unavailable"),
                 adapter.executeSelectMove(1, ui))
-            assertEquals(List(3) { InputManager.BTN_RIGHT to 2L }, core.attempts.filter { it.first != 0 })
+            assertEquals(List(3) { InputManager.BTN_RIGHT to 17L }, core.attempts.filter { it.first != 0 })
+            assertEquals(List(3) { 0 to 2L }, core.attempts.filter { it.first == 0 })
             assertEquals(0, core.heldMask)
             assertEquals(0, ControllerInputRouter.getEffectiveMask())
             assertTrue(core.writes.all { it.first == 0 })
@@ -219,7 +242,7 @@ class LibretroCoreCoordinatorLockTest {
             }
             assertFalse(DefaultBattleInputDispatcher { core }.sendFrameButton(InputManager.BTN_A, 0))
             assertEquals(1, failedWrites)
-            assertEquals(listOf(InputManager.BTN_A to 2L), core.attempts.filter { it.first != 0 })
+            assertEquals(listOf(InputManager.BTN_A to 17L), core.attempts.filter { it.first != 0 })
             assertEquals(listOf(0 to true), core.writes)
             assertTrue(core.frameMasks.isEmpty())
             assertEquals(0, core.heldMask)

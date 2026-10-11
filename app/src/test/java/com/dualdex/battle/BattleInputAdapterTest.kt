@@ -291,6 +291,22 @@ class BattleInputAdapterTest {
         assertEquals(2L + BattleInputAdapter.CONFIRM_REGISTRATION_FRAMES, input.frames)
     }
 
+    @Test fun droppedConfirmWithTransientUnknownOrUnexpectedStateDoesNotImplyRefusal() = runBlocking {
+        for (transient in listOf(BattleUiState.UNKNOWN, BattleUiState.PARTY_MENU, BattleUiState.BAG_MENU)) {
+            val input = MoveMenuInput()
+            input.drop = InputManager.BTN_A
+            var frames = 0
+            input.onWait = {
+                input.state = if (++frames == 1) transient else BattleUiState.MOVE_MENU
+            }
+            assertEquals("$transient is not evidence of text/animation", BattleInputResult.ConfirmNotRegistered,
+                input.adapter().executeSelectMove(0, input.snapshot))
+            assertEquals(listOf(InputManager.BTN_A), input.buttons)
+            assertNull(input.selected)
+            assertEquals(2L + BattleInputAdapter.CONFIRM_REGISTRATION_FRAMES, input.frames)
+        }
+    }
+
     @Test fun initialMenuFramesDoNotHideDelayedTextOrAcceptance() = runBlocking {
         for (end in listOf(BattleUiState.MOVE_MENU, BattleUiState.COMMAND_MENU,
                            BattleUiState.TURN_RUNNING, BattleUiState.TARGET_SELECT)) {

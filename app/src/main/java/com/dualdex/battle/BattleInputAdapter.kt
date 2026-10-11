@@ -35,7 +35,10 @@ class DefaultBattleInputDispatcher(
 ) : BattleInputDispatcher {
     private companion object {
         const val WRITE_ATTEMPTS = 3
-        const val WRITE_TIMEOUT_MS = 2L // At most 6 ms of lock waits per edge (~3 frames at 8x).
+        // No button is held until the press write succeeds: allow about one 1x frame per attempt.
+        const val PRESS_WRITE_TIMEOUT_MS = 17L // Three attempts: at most 51 ms of lock waits.
+        // Zero also initializes the session; keep release waits short to avoid stretching a held edge.
+        const val RELEASE_WRITE_TIMEOUT_MS = 2L // Three attempts: at most 6 ms, then unlocked zero.
     }
 
     override suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean {
@@ -56,10 +59,11 @@ class DefaultBattleInputDispatcher(
     }
 
     private fun writeMask(core: LibretroCoreCoordinator, mask: Int) {
+        val timeoutMs = if (mask == 0) RELEASE_WRITE_TIMEOUT_MS else PRESS_WRITE_TIMEOUT_MS
         try {
             repeat(WRITE_ATTEMPTS) { attempt ->
                 try {
-                    core.executeExclusive(WRITE_TIMEOUT_MS) { core.setInputButtons(mask) }
+                    core.executeExclusive(timeoutMs) { core.setInputButtons(mask) }
                     return
                 } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
                     if (attempt + 1 == WRITE_ATTEMPTS) throw e
@@ -293,7 +297,8 @@ class BattleInputAdapter(
                             return@withExclusiveAutomation BattleInputResult.ConfirmNotRegistered
                         }
                     }
-                    else -> nonMenuObserved = true // Refusal requires leaving the menu first.
+                    BattleUiState.ANIMATION_OR_TEXT -> nonMenuObserved = true
+                    else -> Unit // Unknown/unexpected state does not prove that A registered.
                 }
                 if (frames < OBSERVATION_FRAMES) waitFrame()
             }

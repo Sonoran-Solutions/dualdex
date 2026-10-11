@@ -73,7 +73,8 @@ and watchdog expiry abort.
 
 After the move A, text/animation can precede a result. TURN_RUNNING proves success,
 target selection reports without further input, and returning to a move/command
-menu for the same player after a non-menu state reports MoveRefused. If the menu
+menu for the same player after observed text/animation reports MoveRefused.
+UNKNOWN or other unexpected states do not prove that A registered. If the menu
 never leaves within six completed frames, ConfirmNotRegistered asks the user to
 tap again; automation never retries A. Otherwise observation times out.
 Frame waits suspend on the coordinator's completed-frame StateFlow.
@@ -84,9 +85,13 @@ held"). During the session, physical changes are recorded but never dispatched.
 Session cleanup restores physical routing and latches held buttons until released;
 only release/repress can produce another physical edge. Cancellation, exceptions,
 and watchdogs release the session. Core writes happen outside the router state lock.
-Only the coordinator's distinct LockTimeoutException retries an edge write: three
-attempts with 2 ms lock waits bound total acquisition waits to 6 ms per edge (about
-three emulated frames at 8x). Other exceptions fail immediately. Exhausted release
+Only the coordinator's distinct LockTimeoutException retries an edge write, up to
+three attempts. Press-down allows 17 ms per attempt (51 ms total): about one 1x
+frame per attempt, with nothing held before a successful write. Release allows
+2 ms per attempt (6 ms total) to limit extra hold time. Session initialization also
+writes zero and uses the release budget; failure clears zero and aborts before any
+press. These bounds remain well below the frame/wall-clock watchdogs.
+Other exceptions fail immediately. Exhausted release
 writes clear input with an unlocked zero as the last resort, then fail. The down
 frame starts counting only after a successful press write.
 

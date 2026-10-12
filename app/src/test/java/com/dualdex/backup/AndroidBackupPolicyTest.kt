@@ -12,7 +12,13 @@ import javax.xml.XMLConstants
 import javax.xml.parsers.DocumentBuilderFactory
 
 class AndroidBackupPolicyTest {
-    private data class PathRule(val domain: String, val path: String) {
+    private data class PathRule(
+        val domain: String,
+        val path: String,
+        val requiredFlags: Set<String> = emptySet()
+    ) {
+        val key: Pair<String, String> get() = domain to path
+
         fun matches(candidateDomain: String, candidatePath: String): Boolean {
             if (domain != candidateDomain) return false
             val relative = candidatePath.trimStart('/')
@@ -21,11 +27,19 @@ class AndroidBackupPolicyTest {
         }
     }
 
-    private data class Rules(val includes: List<PathRule>, val excludes: List<PathRule>) {
+    private data class Rules(
+        val includes: List<PathRule>,
+        val excludes: List<PathRule>,
+        val transportFlags: Set<String> = emptySet()
+    ) {
         fun allows(domain: String, path: String): Boolean {
-            val included = if (includes.isEmpty()) true else includes.any { it.matches(domain, path) }
+            val included = if (includes.isEmpty()) true else includes.any {
+                it.matches(domain, path) && transportFlags.containsAll(it.requiredFlags)
+            }
             return included && excludes.none { it.matches(domain, path) }
         }
+
+        fun forTransport(flags: Set<String>) = copy(transportFlags = flags)
     }
 
     private val root by lazy {
@@ -110,9 +124,10 @@ class AndroidBackupPolicyTest {
         val document = parse(File(root, "app/src/main/res/xml/data_extraction_rules.xml"))
         val cloud = rulesFor(document, "cloud-backup")
         val transfer = rulesFor(document, "device-transfer")
-        assertEquals(expectedIncludes, cloud.includes.toSet())
+        assertEquals(expectedIncludes, cloud.includes.map { it.key }.toSet())
         assertEquals(cloud, transfer)
         assertEquals("true", section(document, "cloud-backup").getAttribute("disableIfNoEncryptionCapabilities"))
+        assertEquals("", section(document, "device-transfer").getAttribute("disableIfNoEncryptionCapabilities"))
 
         mandatoryExclusions().forEach { (domain, path) ->
             assertFalse("cloud:$domain:$path", cloud.allows(domain, path))
@@ -123,9 +138,32 @@ class AndroidBackupPolicyTest {
     @Test
     fun legacyRulesApplyEquivalentProtection() {
         val rules = legacyRules()
-        assertEquals(expectedIncludes, rules.includes.toSet())
+        assertEquals(expectedIncludes, rules.includes.map { it.key }.toSet())
         mandatoryExclusions().forEach { (domain, path) ->
             assertFalse("legacy:$domain:$path", rules.allows(domain, path))
+        }
+    }
+
+    @Test
+    fun legacyRulesRequireEncryptionForCloudAndKeepDeviceTransferEligible() {
+        val rules = legacyRuleSet()
+        assertEquals(expectedIncludes.size * 2, rules.includes.size)
+        assertTrue(rules.includes.none { it.requiredFlags.isEmpty() })
+        expectedIncludes.forEach { (domain, path) ->
+            val requirements = rules.includes.filter { it.key == (domain to path) }.map { it.requiredFlags }.toSet()
+            assertEquals(
+                setOf(setOf(CLIENT_SIDE_ENCRYPTION), setOf(DEVICE_TO_DEVICE_TRANSFER)),
+                requirements
+            )
+        }
+
+        val unflagged = rules.forTransport(emptySet())
+        val encryptedCloud = rules.forTransport(setOf(CLIENT_SIDE_ENCRYPTION))
+        val deviceTransfer = rules.forTransport(setOf(DEVICE_TO_DEVICE_TRANSFER))
+        expectedIncludes.forEach { (domain, path) ->
+            assertFalse("unflagged:$domain:$path", unflagged.allows(domain, path))
+            assertTrue("encrypted-cloud:$domain:$path", encryptedCloud.allows(domain, path))
+            assertTrue("device-transfer:$domain:$path", deviceTransfer.allows(domain, path))
         }
     }
 
@@ -172,6 +210,9 @@ class AndroidBackupPolicyTest {
     }
 
     private fun legacyRules() = rulesFor(parse(File(root, "app/src/main/res/xml/backup_rules.xml")), "full-backup-content")
+        .forTransport(setOf(CLIENT_SIDE_ENCRYPTION))
+
+    private fun legacyRuleSet() = rulesFor(parse(File(root, "app/src/main/res/xml/backup_rules.xml")), "full-backup-content")
 
     private fun mandatoryExclusions() = listOf(
         "file" to "rom_cache/game.gba",
@@ -186,14 +227,19 @@ class AndroidBackupPolicyTest {
     )
 
     private val expectedIncludes = setOf(
-        PathRule("file", "saves_v2/"),
-        PathRule("file", "saves/"),
-        PathRule("file", "saves_fallback/"),
-        PathRule("sharedpref", "dualdex_legacy_catalog.xml")
+        "file" to "saves_v2/",
+        "file" to "saves/",
+        "file" to "saves_fallback/",
+        "sharedpref" to "dualdex_legacy_catalog.xml"
     )
 
+    private companion object {
+        const val CLIENT_SIDE_ENCRYPTION = "clientSideEncryption"
+        const val DEVICE_TO_DEVICE_TRANSFER = "deviceToDeviceTransfer"
+    }
+
     private fun isExactAllowlist(rules: Rules): Boolean =
-        rules.includes.toSet() == expectedIncludes &&
+        rules.includes.map { it.key }.toSet() == expectedIncludes &&
             rules.includes.none { '*' in it.path || '?' in it.path } &&
             rules.excludes.isEmpty()
 
@@ -205,7 +251,12 @@ class AndroidBackupPolicyTest {
         for (i in 0 until nodes.length) {
             val node = nodes.item(i)
             if (node !is Element) continue
-            val rule = PathRule(node.getAttribute("domain"), node.getAttribute("path"))
+            val requiredFlags = node.getAttribute("requireFlags")
+                .takeIf(String::isNotEmpty)
+                ?.split('|')
+                ?.toSet()
+                .orEmpty()
+            val rule = PathRule(node.getAttribute("domain"), node.getAttribute("path"), requiredFlags)
             when (node.tagName) {
                 "include" -> includes += rule
                 "exclude" -> excludes += rule

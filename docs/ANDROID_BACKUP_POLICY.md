@@ -29,11 +29,25 @@ All other app files, databases, ordinary preferences, device-protected storage, 
 ## Android version behavior
 
 - Android 12+ uses `dataExtractionRules`. Cloud backup and device-to-device transfer have separate, matching allowlists; omitting one mode's section would leave that mode at Android's default behavior. Cloud backup is disabled when the transport cannot provide encryption. Device transfer remains eligible because it is a separate local transfer mode.
-- Android 11 and earlier use `fullBackupContent`. That legacy format applies the same allowlist to the available backup/transfer operation; it cannot express the Android 12+ cloud-versus-device-transfer distinction.
+- Android 11 and earlier use `fullBackupContent`. Since the app's minimum Android version is API 28, the legacy rules use `requireFlags` to gate cloud includes on `clientSideEncryption` and provide separate `deviceToDeviceTransfer` includes. These are alternative entries for each allowlisted path, so a local transfer remains eligible without the cloud-encryption flag.
 - `android:allowBackup` remains `true`; the XML allowlists define the data boundary. Android documents that `allowBackup="false"` does not disable device-to-device transfer consistently on every manufacturer.
 - DualDex does not configure cross-platform transfer. It has no iOS companion target or platform-specific transfer identity; adding one would require its own explicit rules and review.
 
 Android Auto Backup is best-effort. The platform documents a 25 MB per-app cloud quota, stores only the latest cloud backup, and runs backups only when device/account settings and runtime conditions permit. Large save states or legacy recovery copies can exceed that quota, and a device may never complete a backup. Keep independent save exports; automatic backup is not a replacement for an explicit export. See the [Android Auto Backup guide](https://developer.android.com/identity/data/autobackup) and [backup best practices](https://developer.android.com/privacy-and-security/risks/backup-best-practices).
+
+### Thor cloud-quota measurement (2026-10-12)
+
+The preserved pre-update Thor manifest contains 65 files matched by the current allowlist, totaling **118,773,282 bytes (113.271 MiB)**. That is **4.53× a 25 MiB quota**, so this dataset is over quota and Android Auto Backup will not write it to cloud storage. This is an observed size for the Thor dataset, not a guarantee about other installations.
+
+| Eligible category | Files | Bytes | MiB |
+| --- | ---: | ---: | ---: |
+| Primary battery saves and essential metadata | 13 | 919,695 | 0.877 |
+| Save states and resume markers | 18 | 9,512,064 | 9.071 |
+| Thumbnails | 3 | 17,153 | 0.016 |
+| Recovery copies, including fallback and prior-generation saves | 31 | 108,324,370 | 103.306 |
+| **Total** | **65** | **118,773,282** | **113.271** |
+
+The primary battery/metadata set fits under the quota on this device, but the existing XML cannot select those filenames across arbitrary ROM-hash directories. A separate quota-aware design should define a bounded cloud snapshot or custom backup agent and retain the broader device-transfer set; it must account for installations whose primary saves alone exceed the quota. The local-transfer policy remains useful for this dataset. Measurement used the protected pre-update per-file manifest (`ed63e0aed3502afd6b5f39da84a671a4bb7f7338e7cd368f8e1a7691f3c9a929`); that manifest stays outside the repository with the device backup because it contains user-data paths and hashes.
 
 ## Restore behavior and limits
 

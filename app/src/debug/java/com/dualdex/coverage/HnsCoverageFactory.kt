@@ -3,6 +3,7 @@ package com.dualdex.coverage
 import android.content.Context
 import android.content.Intent
 import android.app.AlertDialog
+import android.util.Log
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.content.FileProvider
@@ -80,6 +81,8 @@ internal class DebugHnsCalcCoverageLogger(
     private var repository: CoverageRepository? = null,
     private var worker: java.util.concurrent.ExecutorService? = null
 ) : HnsCalcCoverageLogger {
+    private companion object { const val TAG = "HnsCoverage" }
+
     // One worker serializes lifecycle, observations, persistence, clear and export snapshots.
     private var epoch = 0L
     private var active = false
@@ -165,8 +168,13 @@ internal class DebugHnsCalcCoverageLogger(
                             .putExtra(Intent.EXTRA_STREAM, uri)
                             .apply { clipData = android.content.ClipData.newRawUri("H&S coverage", uri) }
                             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        context.startActivity(Intent.createChooser(share, "Export H&S Coverage Log"))
-                    }.onFailure { Toast.makeText(context, "Unable to share coverage log", Toast.LENGTH_SHORT).show() }
+                        val chooser = Intent.createChooser(share, "Export H&S Coverage Log")
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        context.startActivity(chooser)
+                    }.onFailure {
+                        Log.e(TAG, "Unable to launch H&S coverage share chooser", it)
+                        Toast.makeText(context, "Unable to share coverage log", Toast.LENGTH_SHORT).show()
+                    }
                 }.onFailure { Toast.makeText(context, "Unable to export coverage log", Toast.LENGTH_SHORT).show() }
             }
         }

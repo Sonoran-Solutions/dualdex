@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Explicit allowlist: preserve saves and recovery data, never other app-private files. -->
+    <include domain="file" path="saves_v2/" />
+    <include domain="file" path="saves/" />
+    <include domain="file" path="saves_fallback/" />
+    <!-- Legacy source-to-ROM assignments prevent an ambiguous save being silently reassigned. -->
+    <include domain="sharedpref" path="dualdex_legacy_catalog.xml" />
+</full-backup-content>

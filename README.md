@@ -182,6 +182,8 @@ DualDex does not include Pokémon ROMs, BIOS files, or other commercial game dat
 
 Because DualDex is still pre-beta, keep external backups of any save files you care about. Save safety and recovery are release blockers for the first public beta.
 
+Android's save-only backup and device-transfer policy, including its cloud-backup limits, is documented in [docs/ANDROID_BACKUP_POLICY.md](docs/ANDROID_BACKUP_POLICY.md).
+
 ## Project roadmap
 
 The immediate goal is a stable **AYN Thor GBA beta**, but new ROM support is deliberately sequenced behind correctness work rather than developed in parallel.

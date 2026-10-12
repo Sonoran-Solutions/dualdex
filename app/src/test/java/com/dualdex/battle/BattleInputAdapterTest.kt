@@ -281,6 +281,33 @@ class BattleInputAdapterTest {
         assertEquals(2L + BattleInputAdapter.OBSERVATION_FRAMES, stuck.frames)
     }
 
+    @Test fun refusalMessageReportsRefusedWithoutWaitingAndReleasesInput() = runBlocking {
+        // H&S refusal text waits for the player's A/B, so the menu never returns on its own (#175).
+        for (textFrames in listOf(0, 2)) {
+            val input = MoveMenuInput()
+            input.afterPress = {
+                if (input.selected != null) input.state =
+                    if (textFrames == 0) BattleUiState.SELECTION_MESSAGE else BattleUiState.ANIMATION_OR_TEXT
+            }
+            var waits = 0
+            input.onWait = { if (++waits == textFrames) input.state = BattleUiState.SELECTION_MESSAGE }
+            assertEquals(BattleInputResult.MoveRefused, input.adapter().executeSelectMove(3, input.snapshot))
+            assertEquals(listOf(InputManager.BTN_RIGHT, InputManager.BTN_DOWN, InputManager.BTN_A), input.buttons)
+            assertEquals(46L + textFrames, input.frames)
+            assertEquals(0, input.coreMasks.last())
+        }
+    }
+
+    @Test fun refusedFightMessageNeverSendsAMoveConfirm() = runBlocking {
+        val input = MoveMenuInput(state = BattleUiState.COMMAND_MENU)
+        input.openMoveMenu = false
+        input.afterPress = { input.state = BattleUiState.SELECTION_MESSAGE }
+        assertEquals(BattleInputResult.UnexpectedTransition(BattleUiState.MOVE_MENU, BattleUiState.SELECTION_MESSAGE),
+            input.adapter().executeSelectMove(1, input.snapshot))
+        assertEquals(listOf(InputManager.BTN_A), input.buttons)
+        assertEquals(2L, input.frames)
+    }
+
     @Test fun droppedConfirmReportsUnregisteredAndNeverRetriesA() = runBlocking {
         val input = MoveMenuInput()
         input.drop = InputManager.BTN_A

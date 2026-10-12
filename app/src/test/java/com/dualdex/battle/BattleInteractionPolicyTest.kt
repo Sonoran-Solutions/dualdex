@@ -165,6 +165,9 @@ class BattleInteractionPolicyTest {
         assertEquals(BattleUiState.UNKNOWN, BattleUiState.fromNativeCode(999))
         assertEquals(BattleUiState.TARGET_SELECT, BattleUiState.fromNativeCode(6))
         assertEquals(BattleUiState.TURN_RUNNING, BattleUiSnapshot.fromNativePacked(7).state)
+        assertEquals(BattleUiState.SELECTION_MESSAGE, BattleUiSnapshot.fromNativePacked(8).state)
+        val message = evaluate(profile(), state = BattleUiState.SELECTION_MESSAGE, moveCursor = 2, players = 1)
+        assertFalse("a game message is never an input target", message.inputSafe)
     }
 
     @Test fun moveSelectionRequiresObservedSinglesEvenWithEveryFlagVerified() {

@@ -3519,6 +3519,9 @@ uint32_t pokemon_read_battle_ui_gba(
     if (handler == (HNS_LIVE_HANDLEINPUTCHOOSEACTION_FUNC_PTR & ~1u)) state = 1;
     else if (handler == (HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR & ~1u)) state = 2;
     else if (handler == (HNS_LIVE_HANDLEINPUTCHOOSETARGET_FUNC_PTR & ~1u)) state = 6;
+    // Still in action selection, so this string is a selection-time refusal (choice lock, Disable,
+    // Taunt, no PP). H&S waits for the player's A/B on it; it never returns to the menu by itself.
+    else if (handler == (HNS_LIVE_CONTROLLER_WAITFORSTRING_FUNC_PTR & ~1u)) state = 8;
     uint8_t action, move;
     if (!read(user, HNS_LIVE_GACTIONSELECTIONCURSOR_GBA_ADDRESS + battler, &action, 1) ||
         !read(user, HNS_LIVE_GMOVESELECTIONCURSOR_GBA_ADDRESS + battler, &move, 1)) return 5;

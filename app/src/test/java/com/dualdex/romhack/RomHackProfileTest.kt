@@ -6,8 +6,19 @@ import java.io.File
 
 class RomHackProfileTest {
 
+    private fun interactiveFlags(profile: RomHackProfile) = mapOf(
+        "battleUiVerified" to profile.battleUiVerified,
+        "interactiveControlsVerified" to profile.interactiveControlsVerified,
+        "commandCursorVerified" to profile.commandCursorVerified,
+        "moveCursorVerified" to profile.moveCursorVerified,
+        "partyCursorVerified" to profile.partyCursorVerified,
+        "moveSelectionVerified" to profile.moveSelectionVerified,
+        "partySwitchVerified" to profile.partySwitchVerified,
+        "partyActionMenuVerified" to profile.partyActionMenuVerified
+    ).filterValues { it }.keys
+
     @Test
-    fun everyBundledProfileRemainsReadOnlyForBattleControls() {
+    fun onlyHeartAndSoulEnablesMoveSelectionAndNoProfileSwitchesParty() {
         val profilesDir = generateSequence(File(System.getProperty("user.dir") ?: ".")) { it.parentFile }
             .map { File(it, "app/src/main/assets/profiles") }
             .firstOrNull { it.isDirectory }
@@ -16,12 +27,21 @@ class RomHackProfileTest {
         val profiles = profilesDir.listFiles { file -> file.extension == "json" }
             ?.map { ProfileLoader.parseProfile(it.readText()) }
             ?: throw AssertionError("No bundled ROM profiles found")
-        assertTrue(profiles.isNotEmpty())
+        assertTrue(profiles.size > 1)
+        // Device evidence: docs/HNS_BATTLE_MOVE_SELECT_EVIDENCE.md (#175). Party switching is unverified.
+        val hns = profiles.single { it.id == "heart_and_soul" }
+        assertEquals(
+            setOf("battleUiVerified", "commandCursorVerified", "moveCursorVerified", "moveSelectionVerified"),
+            interactiveFlags(hns)
+        )
+        assertEquals(listOf("edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"), hns.sha256Hashes)
+        profiles.filter { it.id != "heart_and_soul" }.forEach { profile ->
+            assertEquals("${profile.id} must stay read-only for battle controls", emptySet<String>(), interactiveFlags(profile))
+        }
         profiles.forEach { profile ->
-            assertFalse("${profile.id} must not claim a verified battle UI reader", profile.battleUiVerified)
-            assertFalse("${profile.id} must not enable generic interaction", profile.interactiveControlsVerified)
-            assertFalse("${profile.id} must not enable move selection", profile.moveSelectionVerified)
+            assertFalse("${profile.id} must not enable party cursor reads", profile.partyCursorVerified)
             assertFalse("${profile.id} must not enable party switching", profile.partySwitchVerified)
+            assertFalse("${profile.id} must not enable the party action menu", profile.partyActionMenuVerified)
         }
     }
 

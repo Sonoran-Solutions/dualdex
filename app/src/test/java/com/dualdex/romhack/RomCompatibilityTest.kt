@@ -582,8 +582,7 @@ class RomCompatibilityTest {
         val trust = RuntimeRomTrust.from(result, c4eExactHnsSha)
         assertTrue(trust.exactRuntimeVerified)
         assertTrue(trust.mayReadLiveMemory)
-        // The independent capability flags are unchanged by the hash promotion.
-        assertFalse(profile.battleUiVerified)
+        // Battle UI flags are separate device evidence (#175), asserted in RomHackProfileTest.
         assertFalse(profile.interactiveControlsVerified)
     }
 

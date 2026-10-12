@@ -140,6 +140,15 @@ def main():
     if move_pointer['address'] != functions['HandleInputChooseMove']['releaseAddress'] | 1:
         raise ValueError('target handler does not reference the bound move entry')
     functions['HandleInputChooseMove']['reference'] = move_pointer
+    # Selection-time refusal text (choice lock, Disable, Taunt, no PP) parks the player's controller
+    # in Controller_WaitForString while gBattleMainFunc stays in action selection. Its 24-byte
+    # prologue is unique; BtlController_HandlePrintString's stored pointer corroborates it.
+    functions['Controller_WaitForString'] = bind(source, release, symbols['Controller_WaitForString'], 24)
+    wait_pointer = bind_literal(source, release, symbols['BtlController_HandlePrintString'] + 64, 32,
+                                symbols['Controller_WaitForString'] | 1)
+    if wait_pointer['address'] != functions['Controller_WaitForString']['releaseAddress'] | 1:
+        raise ValueError('print-string handler does not reference the bound wait-for-string entry')
+    functions['Controller_WaitForString']['reference'] = wait_pointer
     for name in ('gActionSelectionCursor', 'gMoveSelectionCursor'):
         if globals_[name]['address'] != symbols[name]:
             raise ValueError(f'{name}: release/source EWRAM addresses differ')
@@ -155,7 +164,8 @@ def main():
             'sourceBuildRomSha256':digest(source),'sourceSymbolsSha256':digest(args.source_symbols.read_bytes()),
             'sourceMapSha256':digest(args.source_map.read_bytes()),
             'functions':functions,'globals':globals_,'gBattleMainFunc':{'literalAddress':literal,'address':slot},
-            'sourceFiles':{p:digest((args.upstream/p).read_bytes()) for p in ['src/battle_main.c','src/battle_util.c','src/battle_controller_player.c']}}
+            'sourceFiles':{p:digest((args.upstream/p).read_bytes()) for p in ['src/battle_main.c','src/battle_util.c','src/battle_controller_player.c',
+                                                                     'src/battle_controllers.c']}}
     rendered=json.dumps(result,indent=2,sort_keys=True)+'\n'
     if args.verify:
         if OUTPUT.read_text()!=rendered: raise ValueError('release phase evidence is stale')

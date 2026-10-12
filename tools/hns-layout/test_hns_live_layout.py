@@ -26,6 +26,10 @@ class LayoutTest(unittest.TestCase):
             self.assertEqual(p['functions'][name]['interior']['matches'], 1)
         self.assertEqual(p['functions']['HandleInputChooseMove']['reference']['address'],
                          p['functions']['HandleInputChooseMove']['releaseAddress'] | 1)
+        wait = p['functions']['Controller_WaitForString']
+        self.assertEqual(wait['matches'], 1)
+        self.assertEqual(wait['reference']['address'], wait['releaseAddress'] | 1)
+        self.assertIn('src/battle_controllers.c', p['sourceFiles'])
 
     def test_static_action_symbol_is_resolved_only_in_player_translation_unit(self):
         symbols = '\n'.join(f'{address:08x} l 00000080 {name}' for name, address in [

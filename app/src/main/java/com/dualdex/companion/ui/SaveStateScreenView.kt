@@ -330,7 +330,7 @@ class SaveStateScreenView(
                     if (settingsManager.shareSavesFolderUri != null) {
                         DualDexComponents.confirm(context, "Stop sharing saves?",
                             "DualDex stops copying <rom>.sav to the shared folder. Files already there are left alone.",
-                            "Stop Sharing") {
+                            "Stop Sharing", owner = this@SaveStateScreenView) {
                             settingsManager.shareSavesFolderUri = null
                             refreshUI()
                         }
@@ -348,7 +348,9 @@ class SaveStateScreenView(
                         "Your current save is backed up as <rom>.backup-<date>.sav in the shared folder, then the " +
                             "shared <rom>.sav replaces it and the game restarts. Auto-resume is cleared so an old " +
                             "state can't overwrite it.",
-                        "Load Save") {
+                        "Load Save",
+                        owner = this@SaveStateScreenView,
+                        isCurrent = { getRomIdentity()?.sha256.equals(identity.sha256, ignoreCase = true) }) {
                         performAsyncOperation("Shared save loaded", "Could not load shared save (missing, wrong size, or backup failed)") {
                             saveStateManager.loadSharedSave(identity)
                         }
@@ -647,7 +649,9 @@ class SaveStateScreenView(
             if (slot.exists) {
                 DualDexComponents.confirm(context, "Overwrite slot ${slot.slotIndex}?",
                     "Saved ${slot.formattedDate}. The previous state is kept as a .bak until the next overwrite.",
-                    "Overwrite") { doSave() }
+                    "Overwrite",
+                    owner = this@SaveStateScreenView,
+                    isCurrent = { getRomIdentity()?.sha256.equals(identity.sha256, ignoreCase = true) }) { doSave() }
             } else {
                 doSave()
             }

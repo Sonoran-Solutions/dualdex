@@ -266,7 +266,9 @@ class SettingsScreenView(
                     val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid } ?: return@secondaryButton
                     DualDexComponents.confirm(context, "Restart game?",
                         "The cartridge save is written first. Progress since your last in-game save is lost.",
-                        "Restart") {
+                        "Restart",
+                        owner = this@SettingsScreenView,
+                        isCurrent = { viewModel.activeRomIdentity.value?.sha256.equals(identity.sha256, ignoreCase = true) }) {
                         runSessionAction("Game restarted", "Restart refused: could not write the cartridge save") {
                             SaveStateManager.getInstance(context).restartGame(identity)
                         }
@@ -279,7 +281,9 @@ class SettingsScreenView(
                     DualDexComponents.confirm(context, "Close game?",
                         "The cartridge save and a resume state are written, then the game is unloaded. " +
                             "Opening it again resumes where you left off.",
-                        "Close") {
+                        "Close",
+                        owner = this@SettingsScreenView,
+                        isCurrent = { viewModel.activeRomIdentity.value?.sha256.equals(identity.sha256, ignoreCase = true) }) {
                         runSessionAction("Game closed", "Close refused: could not write the cartridge save") {
                             SaveStateManager.getInstance(context).closeGame(
                                 identity,

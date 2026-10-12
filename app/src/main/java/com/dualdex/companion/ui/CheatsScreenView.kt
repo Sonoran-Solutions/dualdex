@@ -11,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import com.dualdex.companion.CompanionTab
 import com.dualdex.cheats.CheatItem
 import com.dualdex.cheats.CheatManager
 import com.dualdex.companion.CompanionViewModel
@@ -92,15 +93,21 @@ class CheatsScreenView(
             presetBtn = DualDexComponents.secondaryButton(context, "Load Presets") {
                 val identity = getActiveRomIdentity()
                 if (identity != null && identity.isValid) {
-                    val dialog = DualDexComponents.showDialog(AlertDialog.Builder(context)
-                        .setTitle("Load preset cheats?")
-                        .setMessage("This will replace all cheats for this game, including custom cheats.")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Replace Cheats") { _, _ ->
-                            val result = cheatManager.loadPresets(identity)
-                            refreshUI()
-                            Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
-                        })
+                    val action = romBoundAction(identity) {
+                        val result = cheatManager.loadPresets(identity)
+                        refreshUI()
+                        Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                    }
+                    val dialog = DualDexComponents.showDialog(
+                        AlertDialog.Builder(context)
+                            .setTitle("Load preset cheats?")
+                            .setMessage("This will replace all cheats for this game, including custom cheats.")
+                            .setNegativeButton("Cancel") { _, _ -> action.cancel() }
+                            .setOnCancelListener { action.cancel() }
+                            .setPositiveButton("Replace Cheats") { _, _ -> action.confirm() },
+                        owner = this@CheatsScreenView,
+                        onDismiss = action::cancel
+                    )
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
                 }
             }
@@ -313,15 +320,22 @@ class CheatsScreenView(
                     text = "Delete",
                     style = DualDexButtonStyle.DESTRUCTIVE
                 ) {
-                    val dialog = DualDexComponents.showDialog(AlertDialog.Builder(context)
-                        .setTitle("Delete cheat?")
-                        .setMessage("Delete \"${cheat.name}\"? This cannot be undone.")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Delete") { _, _ ->
-                            cheatManager.deleteCheat(identity, cheat.id)
-                            expandedCheatIds.remove(cheat.id)
-                            refreshUI()
-                        })
+                    val action = romBoundAction(identity) {
+                        val result = cheatManager.deleteCheat(identity, cheat.id)
+                        expandedCheatIds.remove(cheat.id)
+                        refreshUI()
+                        Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
+                    }
+                    val dialog = DualDexComponents.showDialog(
+                        AlertDialog.Builder(context)
+                            .setTitle("Delete cheat?")
+                            .setMessage("Delete \"${cheat.name}\"? This cannot be undone.")
+                            .setNegativeButton("Cancel") { _, _ -> action.cancel() }
+                            .setOnCancelListener { action.cancel() }
+                            .setPositiveButton("Delete") { _, _ -> action.confirm() },
+                        owner = this@CheatsScreenView,
+                        onDismiss = action::cancel
+                    )
                     dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
                 }
                 actionRow.addView(deleteBtn)
@@ -398,10 +412,12 @@ class CheatsScreenView(
 
         builder.setView(dialogContent)
 
-        builder.setPositiveButton("Add & Enable") { _, _ ->
+        val action = romBoundAction(identity) {
             val name = nameInput.text.toString().trim()
             val code = codeInput.text.toString().trim()
-            if (code.isNotBlank()) {
+            if (code.isBlank()) {
+                Toast.makeText(context, "Enter a cheat code before adding.", Toast.LENGTH_SHORT).show()
+            } else {
                 val cheat = CheatItem(
                     name = if (name.isNotBlank()) name else "Custom Cheat",
                     code = code,
@@ -413,7 +429,24 @@ class CheatsScreenView(
                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
             }
         }
-        builder.setNegativeButton("Cancel", null)
-        DualDexComponents.showDialog(builder)
+        builder.setPositiveButton("Add & Enable") { _, _ -> action.confirm() }
+        builder.setNegativeButton("Cancel") { _, _ -> action.cancel() }
+        builder.setOnCancelListener { action.cancel() }
+        DualDexComponents.showDialog(builder, owner = this, onDismiss = action::cancel)
     }
+
+    private fun romBoundAction(identity: RomIdentity, action: () -> Unit) = RomBoundAction(
+        isStillCurrent = {
+            isAttachedToWindow &&
+                viewModel.selectedTab.value == CompanionTab.CHEATS &&
+                getActiveRomIdentity()?.sha256.equals(identity.sha256, ignoreCase = true)
+        },
+        onStale = {
+            if (isAttachedToWindow) {
+                Toast.makeText(context, "Game or screen changed; reopen Cheats before continuing.", Toast.LENGTH_SHORT).show()
+            }
+        },
+        action = action
+    )
+
 }

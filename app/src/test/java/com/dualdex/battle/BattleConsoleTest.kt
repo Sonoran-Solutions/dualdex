@@ -576,7 +576,7 @@ class BattleConsoleTest {
             id = "vanilla_emerald_test",
             name = "Pokemon Emerald",
             baseGame = "Emerald",
-            gameId = 3
+            gameId = 1
         )
         val emeraldPres = BattlePresentationBuilder.build(
             moveInfo = firePunch,

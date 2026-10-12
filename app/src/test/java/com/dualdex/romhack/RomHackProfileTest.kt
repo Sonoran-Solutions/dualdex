@@ -1,10 +1,52 @@
 package com.dualdex.romhack
 
+import com.dualdex.pokemon.GbaGame
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
 
 class RomHackProfileTest {
+
+    private fun repositoryRoot(): File =
+        generateSequence(File(System.getProperty("user.dir") ?: ".")) { it.parentFile }
+            .firstOrNull {
+                File(it, "app/src/main/assets/profiles").isDirectory &&
+                    File(it, "native/include/pokemon_reader.h").isFile
+            }
+            ?: throw AssertionError("Unable to locate DualDex repository root")
+
+    private fun loadBundledProfiles(): List<RomHackProfile> {
+        val profilesDir = File(repositoryRoot(), "app/src/main/assets/profiles")
+
+        return profilesDir.listFiles { file -> file.extension == "json" }
+            ?.map { ProfileLoader.parseProfile(it.readText()) }
+            ?: throw AssertionError("No bundled ROM profiles found")
+    }
+
+    private fun nativeGameIds(): Map<String, Int> {
+        val header = File(repositoryRoot(), "native/include/pokemon_reader.h").readText()
+        val enumBody = Regex("""typedef enum\s*\{([\s\S]*?)}\s*GbaGameId\s*;""")
+            .find(header)?.groupValues?.get(1)
+            ?: throw AssertionError("Unable to locate native GbaGameId enum")
+        val entryPattern = Regex("""^\s*(GAME_[A-Z_]+)(?:\s*=\s*(\d+))?\s*,?\s*(?://.*)?$""")
+        var nextId = 0
+
+        return enumBody.lineSequence().mapNotNull { line ->
+            if (!line.trimStart().startsWith("GAME_")) return@mapNotNull null
+            val match = entryPattern.matchEntire(line)
+                ?: throw AssertionError("Unable to parse native GbaGameId entry: $line")
+            val id = match.groupValues[2].toIntOrNull() ?: nextId
+            nextId = id + 1
+            match.groupValues[1] to id
+        }.toMap()
+    }
+
+    private fun assertNativeGameId(profile: RomHackProfile, expected: GbaGame, nativeIds: Map<String, Int>) {
+        val nativeId = nativeIds.getValue("GAME_${expected.name}")
+        assertEquals("${expected.name} Kotlin/native mapping", nativeId, expected.id)
+        assertEquals("${profile.id} profile gameId", nativeId, profile.gameId)
+        assertEquals("${profile.id} native layout", expected, GbaGame.fromId(profile.gameId))
+    }
 
     private fun interactiveFlags(profile: RomHackProfile) = mapOf(
         "battleUiVerified" to profile.battleUiVerified,
@@ -19,14 +61,7 @@ class RomHackProfileTest {
 
     @Test
     fun onlyHeartAndSoulEnablesMoveSelectionAndNoProfileSwitchesParty() {
-        val profilesDir = generateSequence(File(System.getProperty("user.dir") ?: ".")) { it.parentFile }
-            .map { File(it, "app/src/main/assets/profiles") }
-            .firstOrNull { it.isDirectory }
-            ?: throw AssertionError("Unable to locate bundled ROM profiles")
-
-        val profiles = profilesDir.listFiles { file -> file.extension == "json" }
-            ?.map { ProfileLoader.parseProfile(it.readText()) }
-            ?: throw AssertionError("No bundled ROM profiles found")
+        val profiles = loadBundledProfiles()
         assertTrue(profiles.size > 1)
         // Device evidence: docs/HNS_BATTLE_MOVE_SELECT_EVIDENCE.md (#175). Party switching is unverified.
         val hns = profiles.single { it.id == "heart_and_soul" }
@@ -42,6 +77,49 @@ class RomHackProfileTest {
             assertFalse("${profile.id} must not enable party cursor reads", profile.partyCursorVerified)
             assertFalse("${profile.id} must not enable party switching", profile.partySwitchVerified)
             assertFalse("${profile.id} must not enable the party action menu", profile.partyActionMenuVerified)
+        }
+    }
+
+    @Test
+    fun bundledProfilesUseTheNativeGameLayoutIds() {
+        val expectedGames = mapOf(
+            "vanilla_emerald" to GbaGame.EMERALD,
+            "vanilla_firered" to GbaGame.FIRERED,
+            "ghost_grey" to GbaGame.GHOST_GREY,
+            "radical_red" to GbaGame.RADICAL_RED,
+            "heart_and_soul" to GbaGame.HEART_AND_SOUL,
+            "unbound" to GbaGame.UNBOUND
+        )
+        val profiles = loadBundledProfiles()
+        val nativeIds = nativeGameIds()
+
+        assertEquals(GbaGame.values().map { "GAME_${it.name}" }.toSet(), nativeIds.keys)
+        GbaGame.values().forEach { game ->
+            assertEquals("${game.name} Kotlin/native mapping", nativeIds.getValue("GAME_${game.name}"), game.id)
+        }
+        assertEquals(expectedGames.keys, profiles.map { it.id }.toSet())
+        profiles.forEach { profile ->
+            assertNativeGameId(profile, expectedGames.getValue(profile.id), nativeIds)
+        }
+    }
+
+    @Test
+    fun staleProfileIdsAreCaughtBeforeTheyCanChooseAnotherNativeLayout() {
+        val staleRadicalRed = ProfileLoader.parseProfile(
+            radicalRedJson.replace("\"gameId\": 7", "\"gameId\": 5")
+        )
+        val staleHeartAndSoul = ProfileLoader.parseProfile(
+            heartAndSoulJson.replace("\"gameId\": 8", "\"gameId\": 1")
+        )
+        val nativeIds = nativeGameIds()
+
+        assertEquals(GbaGame.SAPPHIRE, GbaGame.fromId(staleRadicalRed.gameId))
+        assertEquals(GbaGame.EMERALD, GbaGame.fromId(staleHeartAndSoul.gameId))
+        assertThrows(AssertionError::class.java) {
+            assertNativeGameId(staleRadicalRed, GbaGame.RADICAL_RED, nativeIds)
+        }
+        assertThrows(AssertionError::class.java) {
+            assertNativeGameId(staleHeartAndSoul, GbaGame.HEART_AND_SOUL, nativeIds)
         }
     }
 
@@ -74,7 +152,7 @@ class RomHackProfileTest {
           "id": "radical_red",
           "name": "Pokemon Radical Red",
           "baseGame": "FireRed",
-          "gameId": 5,
+          "gameId": 7,
           "engine": "CFRU",
           "hasEvs": true,
           "hasIvs": true,
@@ -136,6 +214,7 @@ class RomHackProfileTest {
         assertTrue(profile.hasEvs)
         assertTrue(profile.hasIvs)
         assertTrue(profile.cfruOffsets)
+        assertEquals(7, profile.gameId)
         assertEquals("https://dex.radicalred.net", profile.docsUrl)
     }
 
@@ -163,7 +242,7 @@ class RomHackProfileTest {
           "id": "heart_and_soul",
           "name": "Pokemon Heart & Soul",
           "baseGame": "Emerald",
-          "gameId": 1,
+          "gameId": 8,
           "developer": "Lil Dill / PokemonHnS-Development",
           "engine": "pokeemerald-expansion",
           "hasEvs": true,
@@ -184,7 +263,7 @@ class RomHackProfileTest {
         assertEquals("heart_and_soul", profile.id)
         assertEquals("Pokemon Heart & Soul", profile.name)
         assertEquals("Emerald", profile.baseGame)
-        assertEquals(1, profile.gameId)
+        assertEquals(8, profile.gameId)
         assertTrue(profile.hasEvs)
         assertTrue(profile.hasIvs)
         assertTrue(profile.hasPhysSpecSplit)

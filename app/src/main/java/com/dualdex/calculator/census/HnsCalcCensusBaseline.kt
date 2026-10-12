@@ -94,7 +94,7 @@ object HnsCalcCensusBaseline {
         id = PROFILE_ID,
         name = "Pokemon Heart & Soul 2.0.5 (census)",
         baseGame = "Emerald",
-        gameId = 3,
+        gameId = 8,
         engine = UPSTREAM_ENGINE,
         hasEvs = true,
         hasIvs = true,

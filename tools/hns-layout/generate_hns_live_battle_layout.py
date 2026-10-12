@@ -62,6 +62,8 @@ RUN_TURN_ACTIONS_FUNC_PTR = PHASE_EVIDENCE["functions"]["RunTurnActionsFunctions
 MENU_GLOBAL_ADDRESSES = {name: binding['address'] for name, binding in PHASE_EVIDENCE['globals'].items()}
 MENU_HANDLER_ADDRESSES = {name: PHASE_EVIDENCE['functions'][name]['releaseAddress']
                          for name in ('HandleInputChooseAction', 'HandleInputChooseMove', 'HandleInputChooseTarget')}
+# Shared battle-string wait; in action selection it means a selection-time (refusal) message.
+WAIT_FOR_STRING_ADDRESS = PHASE_EVIDENCE['functions']['Controller_WaitForString']['releaseAddress']
 TURN_ORDER_GLOBAL_ADDRESSES = {
     "gLockedMoves": 0x02000378,
     "gChosenMoveByBattler": 0x020002DC,
@@ -423,6 +425,14 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
     for name in MENU_HANDLER_ADDRESSES:
         if not re.search(rf'\bvoid\s+{name}\(enum BattlerId battler\)', player_source):
             fail(f'player menu handler declaration changed: {name}')
+    # Refusal messages: printselectionstring -> PLAYERONLY print string -> Controller_WaitForString.
+    controllers_source = (upstream_path / 'src/battle_controllers.c').read_text()
+    if not (re.search(r'\[CONTROLLER_PRINTSTRINGPLAYERONLY\]\s*=\s*BtlController_HandlePrintStringPlayerOnly,',
+                      player_source)
+            and 'gBattleResources->transferBuffer[0] = CONTROLLER_PRINTSTRINGPLAYERONLY;' in controllers_source
+            and 'gBattlerControllerFuncs[battler] = Controller_WaitForString;' in controllers_source
+            and re.search(r'\bvoid\s+Controller_WaitForString\(enum BattlerId battler\)', controllers_source)):
+        fail('selection-string controller path changed; re-audit the refusal-message state')
     for name in MENU_GLOBAL_ADDRESSES:
         if not re.search(rf'\b{name}\s*\[MAX_BATTLERS_COUNT\]',
                          battle_h + (upstream_path / 'include/battle_controllers.h').read_text()):
@@ -465,7 +475,8 @@ def parse_source_pins(upstream_path: Path) -> dict[str, int]:
 def menu_defines():
     return [f"#define HNS_LIVE_GBATTLERCONTROLLERFUNCS_GBA_ADDRESS 0x{MENU_GLOBAL_ADDRESSES['gBattlerControllerFuncs']:08X}u",
             *[f"#define HNS_LIVE_{name.upper()}_FUNC_PTR 0x{address | 1:08X}u"
-              for name, address in MENU_HANDLER_ADDRESSES.items()]]
+              for name, address in MENU_HANDLER_ADDRESSES.items()],
+            f"#define HNS_LIVE_CONTROLLER_WAITFORSTRING_FUNC_PTR 0x{WAIT_FOR_STRING_ADDRESS | 1:08X}u"]
 
 
 def render_header(arm_gcc, compiled: dict, pins: dict, previous: str | None) -> str:

@@ -6755,9 +6755,10 @@ static void test_hns_battle_menu_reader(void) {
     const uint32_t action = HNS_LIVE_GACTIONSELECTIONCURSOR_GBA_ADDRESS - 0x02000000u;
     const uint32_t move = HNS_LIVE_GMOVESELECTIONCURSOR_GBA_ADDRESS - 0x02000000u;
     const uint32_t handlers[] = {HNS_LIVE_HANDLEINPUTCHOOSEACTION_FUNC_PTR,
-        HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR, HNS_LIVE_HANDLEINPUTCHOOSETARGET_FUNC_PTR, 0x08000001u};
-    const uint8_t states[] = {1, 2, 6, 4};
-    for (int i = 0; i < 4; i++) {
+        HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR, HNS_LIVE_HANDLEINPUTCHOOSETARGET_FUNC_PTR,
+        HNS_LIVE_CONTROLLER_WAITFORSTRING_FUNC_PTR, 0x08000001u};
+    const uint8_t states[] = {1, 2, 6, 8, 4};
+    for (int i = 0; i < 5; i++) {
         for (int thumb = 0; thumb < 2; thumb++) {
             write32_le_t(gba.iwram + controller, (handlers[i] & ~1u) | thumb);
             gba.ewram[action] = 3;
@@ -6783,9 +6784,11 @@ static void test_hns_battle_menu_reader(void) {
     TEST_ASSERT((result & 15) == 2 && ((result >> 4) & 7) == 2 && ((result >> 12) & 7) == 4,
                 "menu and cursors follow player-side positions, not battler zero");
     hns_battle_set_main_callback(&fx, HNS_LIVE_RUN_TURN_ACTIONS_FUNC_PTR);
+    write32_le_t(gba.iwram + controller + 4, HNS_LIVE_CONTROLLER_WAITFORSTRING_FUNC_PTR);
     result = pokemon_read_battle_ui_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg);
     TEST_ASSERT((result & 15) == 7 && ((result >> 4) & 7) == 2 && ((result >> 16) & 7) == 1,
-                "pinned RunTurnActions reports TURN_RUNNING with player identity");
+                "pinned RunTurnActions reports TURN_RUNNING with player identity, even while turn text waits");
+    write32_le_t(gba.iwram + controller + 4, HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR);
     TEST_ASSERT(((result >> 8) & 7) == 0 && ((result >> 12) & 7) == 0,
                 "TURN_RUNNING never authorizes stale menu cursors");
     const uint32_t unknown_callbacks[] = {0, 0xDEADBEEFu, HNS_LIVE_HANDLEINPUTCHOOSEMOVE_FUNC_PTR};

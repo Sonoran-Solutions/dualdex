@@ -367,7 +367,9 @@ class BattleInputAdapter(
                 var observed = read()
                 trace.observed(observed.state)
                 var frames = 0
-                while (observed.state != BattleUiState.MOVE_MENU && frames < OBSERVATION_FRAMES) {
+                // A refused FIGHT (e.g. no usable moves) shows a message the player must dismiss.
+                while (observed.state != BattleUiState.MOVE_MENU &&
+                    observed.state != BattleUiState.SELECTION_MESSAGE && frames < OBSERVATION_FRAMES) {
                     waitFrame()
                     frames++
                     observed = read()
@@ -392,6 +394,11 @@ class BattleInputAdapter(
                     BattleUiState.TARGET_SELECT -> {
                         authority(observed)
                         return@withExclusiveAutomation BattleInputResult.TargetSelectionRequired
+                    }
+                    // H&S waits for the player's A/B on refusal text; release input so they can dismiss it.
+                    BattleUiState.SELECTION_MESSAGE -> {
+                        authority(observed)
+                        return@withExclusiveAutomation BattleInputResult.MoveRefused
                     }
                     BattleUiState.MOVE_MENU, BattleUiState.COMMAND_MENU -> {
                         authority(observed)

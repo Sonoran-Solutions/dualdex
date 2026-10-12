@@ -389,6 +389,8 @@ enum class BattleUiState(val displayName: String) {
     BAG_MENU("Bag Menu"),
     ANIMATION_OR_TEXT("Waiting / Anim"),
     TURN_RUNNING("Turn Running"),
+    /** A selection-time game message (move refusal) waiting for the player's A/B. */
+    SELECTION_MESSAGE("Game Message"),
     UNKNOWN("Unknown / Inactive");
 
     companion object {
@@ -399,6 +401,7 @@ enum class BattleUiState(val displayName: String) {
             4 -> ANIMATION_OR_TEXT
             6 -> TARGET_SELECT
             7 -> TURN_RUNNING
+            8 -> SELECTION_MESSAGE
             else -> UNKNOWN
         }
     }

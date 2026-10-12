@@ -7,6 +7,23 @@
       "releaseAddress": 134750960,
       "sourceAddress": 134752456
     },
+    "Controller_WaitForString": {
+      "matchedInstructionSha256": "a4cea8af6bfca2761b07d86b278d24755e3313e9257dc07a561a5b1122c6e38d",
+      "matches": 1,
+      "prefixBytes": 24,
+      "reference": {
+        "address": 134618949,
+        "literalAddress": 134631108,
+        "matchedInstructionSha256": "d9bbfef0809f0771015422559c8810dd12393ead4e3b58c6877682c2595e6854",
+        "matches": 1,
+        "prefixBytes": 32,
+        "releaseAddress": 134630952,
+        "sourceAddress": 134630004,
+        "sourceValue": 134618197
+      },
+      "releaseAddress": 134618948,
+      "sourceAddress": 134618196
+    },
     "HandleInputChooseAction": {
       "matchedInstructionSha256": "e8b2dd212534e0e4416a6fa732dcce2a56e5f13ccef8ec51d531186763de1521",
       "matches": 1,
@@ -118,6 +135,7 @@
   "sourceBuildRomSha256": "250ca2943e1ec531b8a423d78b2963fb22cde5201ecb0ecad4c358d8d11c255b",
   "sourceFiles": {
     "src/battle_controller_player.c": "9d8fc53ac6188095c1c5ab576b54183418cc6c203f14e025f2bc9ac7b2f7aecb",
+    "src/battle_controllers.c": "b8ca63b7efdec7caeb9e041b0b32e4a7b146b4ca65e1b9650f424c804c8035be",
     "src/battle_main.c": "36020a55dfdd8838ccdfe50be9ea4d69e9fa479dceed41a6725cbdb81d248c93",
     "src/battle_util.c": "dfe173ebef230849e789be6b417a316c359ec6fa7d0ecae2b1a59b5885903377"
   },

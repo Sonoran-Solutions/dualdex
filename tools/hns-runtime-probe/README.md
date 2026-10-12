@@ -230,8 +230,9 @@ generated into a temporary directory and are not committed.
 The probe runs in a developer-only host process and reads live memory through production reader
 functions. Current `heart_and_soul.json` already allowlists the exact H&S 2.0.5 SHA-256 and sets
 `battleStateReadVerified=true` (the C4e promotion); the former empty-allowlist description is
-historical. `battleUiVerified=false` and `interactiveControlsVerified=false` remain unchanged.
-Running a diagnostic does not itself promote any product trust capability.
+historical. Since #175 the battle-UI and move-selection flags are true on device evidence
+(`docs/HNS_BATTLE_MOVE_SELECT_EVIDENCE.md`); `interactiveControlsVerified` and the party flags stay
+false. Running a diagnostic does not itself promote any product trust capability.
 
 For **evidence bookkeeping**, every run prints the SHA-256 of the ROM file it actually loaded
 (`rom sha256 : ...` and `[ROM] path=... sha256=... loaded=1`) so a committed log is bound to the

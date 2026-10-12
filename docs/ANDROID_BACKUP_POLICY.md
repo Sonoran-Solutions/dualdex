@@ -49,6 +49,8 @@ The preserved pre-update Thor manifest contains 65 files matched by the current 
 
 The primary battery/metadata set fits under the quota on this device, but the existing XML cannot select those filenames across arbitrary ROM-hash directories. A separate quota-aware design should define a bounded cloud snapshot or custom backup agent and retain the broader device-transfer set; it must account for installations whose primary saves alone exceed the quota. The local-transfer policy remains useful for this dataset. Measurement used the protected pre-update per-file manifest (`ed63e0aed3502afd6b5f39da84a671a4bb7f7338e7cd368f8e1a7691f3c9a929`); that manifest stays outside the repository with the device backup because it contains user-data paths and hashes.
 
+The follow-up design spike and host-only policy prototype are documented in [ANDROID_CLOUD_BACKUP_DESIGN.md](ANDROID_CLOUD_BACKUP_DESIGN.md). They do not change the shipping rules above.
+
 ## Restore behavior and limits
 
 Restore does not require the original ROM to be present: save files and metadata remain in the restored hash-keyed directory. DualDex loads a battery save only after a ROM is selected and computes that ROM's SHA-256. Selecting the same bytes resolves to the same identity; ROMs with similar names but different bytes have separate directories. If the ROM is absent, the save remains stored but cannot be loaded yet. Legacy candidates remain available for explicit review/migration; the included catalog preserves assignments when present.

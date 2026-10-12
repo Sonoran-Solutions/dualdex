@@ -19,7 +19,7 @@ class CalcDataOverridesTest {
         id = "pokemon_heart_and_soul",
         name = "Pokemon Heart & Soul 2.0.5",
         baseGame = "Emerald",
-        gameId = 3,
+        gameId = 8,
         engine = "pokeemerald-expansion",
         gameDataPackId = "hns_2_0_5",
         hasPhysSpecSplit = true

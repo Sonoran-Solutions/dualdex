@@ -90,7 +90,7 @@ class SecondaryScreensUiTest {
         val ghostProfile = RomHackProfile(
             id = "ghost_grey",
             name = "Pokemon Ghost Grey",
-            gameId = 1,
+            gameId = 6,
             baseGame = "FireRed v1.0",
             developer = "Community",
             engine = "CFRU"

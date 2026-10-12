@@ -51,7 +51,7 @@ class RomCompatibilityTest {
         id = "radical_red",
         name = "Pokemon Radical Red",
         baseGame = "FireRed",
-        gameId = 5,
+        gameId = 7,
         engine = "CFRU",
         headerTitles = listOf("RADICALRED"),
         sha256Hashes = listOf(radicalRedSha),

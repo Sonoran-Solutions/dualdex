@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!--
+        Android 9-11: separate includes make the transport conditions alternatives.
+        Cloud requires client-side encryption; local transfers require the D2D flag.
+    -->
+    <include domain="file" path="saves_v2/" requireFlags="clientSideEncryption" />
+    <include domain="file" path="saves/" requireFlags="clientSideEncryption" />
+    <include domain="file" path="saves_fallback/" requireFlags="clientSideEncryption" />
+    <include domain="sharedpref" path="dualdex_legacy_catalog.xml" requireFlags="clientSideEncryption" />
+
+    <include domain="file" path="saves_v2/" requireFlags="deviceToDeviceTransfer" />
+    <include domain="file" path="saves/" requireFlags="deviceToDeviceTransfer" />
+    <include domain="file" path="saves_fallback/" requireFlags="deviceToDeviceTransfer" />
+    <include domain="sharedpref" path="dualdex_legacy_catalog.xml" requireFlags="deviceToDeviceTransfer" />
+</full-backup-content>

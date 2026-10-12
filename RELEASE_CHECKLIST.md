@@ -384,11 +384,13 @@ Should define:
 
 ### Android Backups
 
-- [ ] Review `android:allowBackup`.
-- [ ] Add explicit backup rules.
-- [ ] Exclude cached/copied ROM files, API keys/secrets, and temporary files.
-- [ ] Decide whether battery saves should be included in Android backup.
-- [ ] Document where saves live.
+- [x] Keep `android:allowBackup` enabled and define explicit save-only allowlists for cloud backup and device transfer.
+- [x] Add Android 12+ `dataExtractionRules` and Android 11-and-earlier `fullBackupContent` rules.
+- [x] Exclude ROM caches/copies, sensitive preferences, debug data, generated caches, and dedicated save staging.
+- [x] Include canonical battery saves, save states, metadata, and unmigrated legacy/recovery saves.
+- [x] Document storage scope, backup-size limitations, and independent save-export guidance in [ANDROID_BACKUP_POLICY.md](docs/ANDROID_BACKUP_POLICY.md).
+- [ ] On a disposable Android device/profile, verify cloud restore and device-to-device transfer; do not use the owner's only saves for restore experiments.
+- [ ] On AYN Thor, after confirming version/signing compatibility and preserving save digests, verify existing saves, ROM loading, companion operation, and effective installed rules.
 
 ### Privacy Policy
 
@@ -652,7 +654,7 @@ The static audit produced GitHub issues **#1–#19**. Work through the following
 11. [ ] **#10 — Fix cached Docs tab lifecycle bug.** The Assistant screen has been retired from the build.
 12. [ ] **#14 — Implement the controller shortcuts currently advertised by DualDex.**
 13. [ ] **#6 — Persist direct-ROM URI permissions and recover cleanly from stale URIs.**
-14. [ ] **#12 — Define Android backup/data-transfer policy for ROM cache and saves.** Gemini credential and Assistant disclosure work is no longer applicable after the feature retirement.
+14. [ ] **#12 — Define Android backup/data-transfer policy for ROM cache and saves.** The policy and host regressions are implemented, and safe same-signer AYN Thor update, save-integrity, ROM-load, companion, and installed-rule checks passed on 2026-10-12. Keep this open until disposable cloud/device-transfer restore validation is complete; details are in [ANDROID_BACKUP_POLICY.md](docs/ANDROID_BACKUP_POLICY.md). Gemini credential and Assistant disclosure work is retired after the feature removal.
 15. [x] **#13 — Retire the Assistant fallback from the app build.** Its source is retained under `disabled/assistant/`; the project decided not to use it for now.
 
 ### Tier 4 — Cleanup and Regression Prevention

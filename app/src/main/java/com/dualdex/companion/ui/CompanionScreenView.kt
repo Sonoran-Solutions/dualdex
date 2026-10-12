@@ -106,9 +106,6 @@ class CompanionScreenView(
     private val savesView: SaveStateScreenView by lazy {
         SaveStateScreenView(context, viewModel, onImportSaveRequested, onExportSaveRequested, onChooseSavesFolderRequested)
     }
-    private val assistantView: com.dualdex.assistant.AssistantScreenView by lazy {
-        com.dualdex.assistant.AssistantScreenView(context, viewModel)
-    }
     private val settingsView: SettingsScreenView by lazy {
         SettingsScreenView(
             context,
@@ -306,7 +303,6 @@ class CompanionScreenView(
             CompanionTab.DOCS -> docsView.apply { refreshUI() }
             CompanionTab.CHEATS -> cheatsView.apply { refreshUI() }
             CompanionTab.SAVES -> savesView.apply { refreshUI() }
-            CompanionTab.ASSISTANT -> assistantView
             CompanionTab.SETTINGS -> settingsView
             CompanionTab.MORE -> moreView
         }

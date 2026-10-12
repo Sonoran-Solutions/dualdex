@@ -51,4 +51,19 @@ class SettingsManagerTest {
         settings.fastForwardMultiplier = 99
         assertEquals(4, settings.fastForwardMultiplier)
     }
+
+    @Test
+    fun removesLegacyAssistantCredentialsAndModel() {
+        val prefs = com.dualdex.emulator.RomDurableResumeTest.FakeSharedPreferences().apply {
+            edit()
+                .putString("key_gemini_api_key", "legacy-secret")
+                .putString("key_gemini_model", "gemini-2.5-flash")
+                .apply()
+        }
+
+        SettingsManager(prefs)
+
+        assertFalse(prefs.contains("key_gemini_api_key"))
+        assertFalse(prefs.contains("key_gemini_model"))
+    }
 }

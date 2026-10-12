@@ -43,7 +43,6 @@ class MoreScreenView(
         })
         content.addView(row("Saves", "Battery saves, states, and recovery", CompanionTab.SAVES))
         content.addView(row("Docs", "Game documentation", CompanionTab.DOCS))
-        content.addView(row("Assistant", "ROM hack help", CompanionTab.ASSISTANT))
         content.addView(row("Cheats", "Manage game-specific cheats", CompanionTab.CHEATS))
         content.addView(row("Settings", "Display, controls, and storage", CompanionTab.SETTINGS))
     }

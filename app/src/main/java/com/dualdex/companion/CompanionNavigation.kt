@@ -22,7 +22,6 @@ object CompanionNavigation {
         CompanionTab.TYPES,
         CompanionTab.SAVES,
         CompanionTab.DOCS,
-        CompanionTab.ASSISTANT,
         CompanionTab.CHEATS,
         CompanionTab.SETTINGS -> CompanionTab.MORE
     }

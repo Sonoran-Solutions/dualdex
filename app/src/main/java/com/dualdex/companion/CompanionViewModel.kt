@@ -42,7 +42,6 @@ enum class CompanionTab(val title: String) {
     DOCS("Docs"),
     CHEATS("Cheats"),
     SAVES("Saves"),
-    ASSISTANT("Assistant"),
     BATTLE("Battle"),
     SETTINGS("Settings"),
     MORE("More")

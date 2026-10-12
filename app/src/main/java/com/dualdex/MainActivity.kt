@@ -25,7 +25,6 @@ import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.dualdex.assistant.RomHackAssistant
 import com.dualdex.calculator.DamageCalculator
 import com.dualdex.companion.CompanionPresentation
 import com.dualdex.companion.CompanionTab
@@ -313,12 +312,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             displayManager = getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager
             displayManager?.registerDisplayListener(this, null)
 
-            // 5. Apply saved Gemini settings and feature gates
-            val apiKey = settingsManager.geminiApiKey
-            if (!apiKey.isNullOrBlank()) {
-                RomHackAssistant.setApiKey(apiKey)
-            }
-            RomHackAssistant.setModel(settingsManager.geminiModel)
+            // 5. Apply feature gates
             viewModel.setBattleAutoOpenEnabled(settingsManager.isBattleAutoOpenEnabled)
             viewModel.setInteractiveBattleControlsEnabled(settingsManager.isInteractiveBattleControlsEnabled)
             viewModel.setMoveTileDamageShown(settingsManager.isMoveTileDamageShown)

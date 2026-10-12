@@ -113,7 +113,7 @@ The calculator's planned pre-beta feature development is complete with this free
 2. Save protection, backup, recovery, and ROM-switch soak testing.
 3. Battle/Party/Map presentation verification.
 4. Controller shortcuts.
-5. Assistant cross-ROM fallback correctness and Gemini credential/backup security.
+5. Android backup policy for ROM cache and saves. Assistant fallback and Gemini credential work are no longer applicable after the feature was removed from the build.
 6. Exact R.O.W.E. and Unbound integration in the established serial order.
 7. Release-candidate and public-beta validation.
 

@@ -60,7 +60,6 @@ graph TB
         CALC_UI["CalcTabScreenView (secondary)"]
         DOCS["DocsScreenView (WebView/Offline)"]
         SAVES["SaveStateScreenView"]
-        LLM["AssistantScreenView (Gemini 2.5 Flash)"]
     end
 
     CONTROLLER --> INP
@@ -79,7 +78,6 @@ graph TB
     CP --> CALC_UI
     CP --> DOCS
     CP --> SAVES
-    CP --> LLM
     CALC_UI --> QJS
     QJS --> CALC_JS
     CP --> HW_BOT
@@ -87,7 +85,9 @@ graph TB
 
 ### Companion Navigation
 
-The companion shell has five primary destinations: **Library**, **Party**, **Battle**, **Map**, and **More**. Battle opens `BattleConsoleScreenView`, the canonical live battle destination. More is the secondary utility hub for Calculator, Type Matchups, Saves, Docs, Assistant, Cheats, and Settings; those screen identities remain available for direct internal navigation without appearing as primary tabs.
+The companion shell has five primary destinations: **Library**, **Party**, **Battle**, **Map**, and **More**. Battle opens `BattleConsoleScreenView`, the canonical live battle destination. More is the secondary utility hub for Calculator, Type Matchups, Saves, Docs, Cheats, and Settings; those screen identities remain available for direct internal navigation without appearing as primary tabs.
+
+The Assistant was removed from the app build and Settings. The project decided not to use it for now; its source and tests remain under `disabled/assistant/`, outside the app source sets.
 
 ---
 

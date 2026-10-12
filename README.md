@@ -8,7 +8,7 @@ DualDex reads game state directly from the emulator for supported ROM profiles, 
 
 > **Project status:** DualDex is currently being prepared for its first public beta. **Exact Pokémon Heart & Soul 2.0.5 core integration is complete**: the exact supported release is `Release-v2.0.5` (upstream commit `1f42b74dff0e9fe942419845d040663dd829a973`) at ROM SHA-256 `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`, which is the only H&S build trusted for live memory reads. The project is now in the **general pre-beta hardening phase**, using H&S as the primary complex validation ROM alongside the vanilla FireRed/Emerald regression baselines. Only then will new ROM integrations resume: R.O.W.E. (#59) first, followed by Pokémon Unbound (#60), before the release-candidate/beta cut. R.O.W.E. does not begin until that hardening pass is sufficiently complete.
 >
-> See [docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md) for exactly what is verified for H&S 2.0.5, what is deliberately bounded or unverified, and what moved into the hardening phase. That audit certifies the **core** H&S live-companion, battle, map and calculator integration only: the optional Assistant remains uncertified hardening work. The [#17 cheat policy](docs/CHEAT_COMPATIBILITY.md) offers no built-ins without exact-target evidence; custom cheats remain user-supplied/unverified, and no AYN Thor hardware run is claimed.
+> See [docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md) for exactly what is verified for H&S 2.0.5, what is deliberately bounded or unverified, and what moved into the hardening phase. That audit certifies the **core** H&S live-companion, battle, map and calculator integration only. The Assistant has since been removed from the build; the project decided not to use it for now, and its source remains under `disabled/assistant/`. The [#17 cheat policy](docs/CHEAT_COMPATIBILITY.md) offers no built-ins without exact-target evidence; custom cheats remain user-supplied/unverified, and no AYN Thor hardware run is claimed.
 
 See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the current release plan and the [open issues](https://github.com/Sonoran-Solutions/dualdex/issues) for known bugs and engineering work.
 
@@ -67,10 +67,9 @@ The bottom-screen companion currently includes tools for things such as:
 - Map/location data
 - Save management
 - Game documentation
-- Optional Gemini-powered assistance
 - Settings and emulator options
 
-The Assistant is optional and is not required for emulation, live party reading, calculations, or the other local companion features.
+**Assistant status:** Removed from the app build, navigation, and Settings. We decided not to use it for now. Its implementation and tests are retained under `disabled/assistant/` for possible future reimplementation.
 
 ## ROM profiles
 
@@ -190,7 +189,7 @@ The immediate goal is a stable **AYN Thor GBA beta**, but new ROM support is del
 ### Current pre-beta order
 
 1. **Finish Heart & Soul 2.0.5 to the full supported beta contract.** Complete calculator/ruleset work, exact trust promotion, battle/location acceptance, and remaining H&S-specific capability evidence.
-2. **Finish the remaining general pre-beta blockers using H&S as the primary stress-test ROM.** Save safety, ROM switching, cheat gating, Assistant fallback truthfulness, credential/backup security, controller shortcuts, hardware soak, and release behavior should all be exercised against H&S in addition to the vanilla baselines.
+2. **Finish the remaining general pre-beta blockers using H&S as the primary stress-test ROM.** Save safety, ROM switching, cheat gating, backup security, controller shortcuts, hardware soak, and release behavior should all be exercised against H&S in addition to the vanilla baselines.
 3. **Integrate R.O.W.E. next.** Treat one exact release as the first deliberate reuse test for the pokeemerald-expansion-oriented tooling and abstractions built during H&S. Reuse must be proven; H&S-specific assumptions should not simply be copied.
 4. **Integrate Pokémon Unbound after R.O.W.E.** Pin one exact release and build a separate evidence-backed CFRU/FireRed-derived compatibility contract.
 5. **Cut the release candidate and public beta only after those steps are complete.**

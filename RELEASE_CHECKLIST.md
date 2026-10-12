@@ -11,7 +11,7 @@ Before working down the individual tasks, keep the following release-level rules
 - **H&S calculator feature freeze (takes effect automatically on merge of PR #167; remains active until explicitly lifted by the project owner after the public `0.9.0-beta.1` release).**
   - The H&S calculator has completed its planned pre-beta feature development. New mechanic coverage is deferred until after the first public beta.
   - Only correctness and beta-blocking fixes are allowed during the freeze. Follow the exception rules in [docs/CALCULATOR_BETA_FREEZE.md](docs/CALCULATOR_BETA_FREEZE.md) §3.
-  - Do not start another calculator slice. Future agents should work on general beta hardening (AYN Thor acceptance, save protection and recovery, presentation verification, controller shortcuts, Assistant fallback, and release-candidate validation), not another damage-mechanic coverage slice.
+  - Do not start another calculator slice. Future agents should work on general beta hardening (AYN Thor acceptance, save protection and recovery, presentation verification, controller shortcuts, and release-candidate validation), not another damage-mechanic coverage slice.
   - Only the project owner may lift the freeze, and only after the public beta release.
 - [ ] **Feature-freeze major additions until the beta blockers are complete.**
   - Do not add new major companion features, broad single-screen work, ads, cloud saves, or speculative emulator features during hardening.
@@ -22,7 +22,8 @@ Before working down the individual tasks, keep the following release-level rules
   - Reliable GBA Pokémon emulation on AYN Thor.
   - Protected/recoverable saves.
   - Trustworthy live companion data for a small, explicitly verified set of ROM versions.
-- [ ] Treat Assistant and Cheats as optional/experimental if they are not fully verified by release time rather than delaying the core beta.
+- [x] Remove the Assistant from the app build and Settings; the project decided not to use it for now. Its source and tests are retained under `disabled/assistant/`.
+- [ ] Treat Cheats as optional/experimental if they are not fully verified by release time rather than delaying the core beta.
 - [ ] Avoid unnecessary rewrites during beta hardening.
   - No full Compose rewrite.
   - No large dependency modernization project unless required for a blocker.
@@ -36,11 +37,11 @@ New ROM support is **not** parallel work during the current hardening pass. The 
    - Close its remaining calculator/ruleset, exact-trust, battle, location, and capability-evidence gaps.
    - Do not start another ROM integration while H&S still has unresolved first-class support blockers.
    - **Complete as of the #40 closure audit** ([docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md)): exact `Release-v2.0.5` / SHA-256 `edf76ecf…7679b` is intentionally trusted; #1, #9 and #11 are closed; every **core** live companion capability H&S exposes — party/data, battle lifecycle, location/map and the bounded calculator — is evidence-backed at the level the UI promises, and every unsupported capability **within those core surfaces** fails closed.
-   - This step certifies the core H&S live-companion/battle/map/calculator integration only. It does **not** certify the optional **Cheats** and **Assistant** surfaces: the #17 implementation now denies built-in cheats without exact-target code approval (the production catalog is empty; see [cheat compatibility](docs/CHEAT_COMPATIBILITY.md)), while the offline Assistant can still present base-game facts under the H&S name (#13). Custom cheats remain user-supplied/unverified. Review and hardware acceptance remain part of step 2.
+   - This step certifies the core H&S live-companion/battle/map/calculator integration only. It does **not** certify optional **Cheats**: the #17 implementation now denies built-in cheats without exact-target code approval (the production catalog is empty; see [cheat compatibility](docs/CHEAT_COMPATIBILITY.md)). The Assistant has since been removed from the build, so its offline fallback issue (#13) is no longer in scope. Custom cheats remain user-supplied/unverified. Review and hardware acceptance remain part of step 2.
    - The AYN Thor RC matrix in that issue is **not** claimed complete — it moves into step 2 below, which is where this checklist always placed it.
 2. [ ] **Finish the remaining general pre-beta product/release blockers using H&S as the primary complex validation ROM.**
    - Keep exact vanilla FireRed/Emerald as regression baselines.
-   - Exercise H&S through save safety and recovery, ROM switching, process death/reboot, suspend/resume, fast-forward, save states, cheat gating, Assistant fallback behavior, credential/backup policy, controller shortcuts, second-display reconnect, and extended Thor soak testing.
+   - Exercise H&S through save safety and recovery, ROM switching, process death/reboot, suspend/resume, fast-forward, save states, cheat gating, backup policy, controller shortcuts, second-display reconnect, and extended Thor soak testing.
    - Fix general product defects before adding another compatibility target rather than discovering them independently in every future hack.
    - **This is the active phase.** Hardware soak is required before beta but was never a prerequisite for declaring the H&S software integration complete. Carried-in items are listed as R1-R7 in the closure audit; R.O.W.E. (step 3) does not begin until this pass is sufficiently complete.
 3. [ ] **Add one exact R.O.W.E. release next.**
@@ -332,7 +333,7 @@ Should define:
 - [ ] Add installation instructions for sideloading.
 - [ ] Add an FAQ.
 - [ ] Add troubleshooting instructions.
-- [ ] Audit Gemini model/version wording in README and Settings so code and documentation agree.
+- [x] Document the Assistant's removal from the build and Settings, and the decision not to use it for now.
 
 ## Phase 3 — Diagnostics and Supportability
 
@@ -353,7 +354,7 @@ Should define:
   - Compatibility state
   - Engine/layout profile
   - Current companion features enabled/disabled
-- [ ] Never include ROM contents, save contents, Gemini API key, or user questions/chat history.
+- [ ] Never include ROM contents, save contents, or user-supplied credentials in diagnostics/crash output.
 - [ ] Add optional debug-log export later.
 
 ### GitHub Issue Templates
@@ -374,23 +375,12 @@ Should define:
 
 ## Phase 4 — Privacy and Security
 
-### Gemini API Key
+### Assistant (Retired)
 
-- [ ] Stop displaying saved API keys in plain text.
-- [ ] Use a password/masked input field.
-- [ ] Move API key storage away from ordinary plaintext SharedPreferences.
-- [ ] Prefer Android Keystore-backed encryption.
-- [ ] Add `Clear API Key`.
-- [ ] Clearly explain that the user's Gemini key is used directly by DualDex.
-
-### AI Assistant Disclosure
-
-- [ ] Explain what information is sent when Assistant is used:
-  - User's question
-  - Active ROM/profile
-  - Relevant party information
-- [ ] Explain that normal emulation and local companion features do not require Gemini.
-- [ ] Keep Assistant optional.
+- [x] Remove Assistant screens, navigation, and Settings controls from the app build.
+- [x] Clear any legacy Gemini key and model preferences when settings are initialized.
+- [x] Retain the implementation and tests under `disabled/assistant/` for possible future reimplementation.
+- [x] Record the project decision not to use the feature for now.
 
 ### Android Backups
 
@@ -404,7 +394,6 @@ Should define:
 
 - [ ] Write a basic privacy policy before adding advertising or Play Store distribution.
 - [ ] Explain networking behavior.
-- [ ] Explain Gemini usage.
 - [ ] Explain any future crash analytics.
 - [ ] Explain advertising SDK behavior if ads are eventually introduced.
 
@@ -660,11 +649,11 @@ The static audit produced GitHub issues **#1–#19**. Work through the following
 
 ### Tier 3 — Fix Public-Beta UX and Feature Reliability
 
-11. [ ] **#10 — Fix cached-tab lifecycle bugs in Assistant and Docs.**
+11. [ ] **#10 — Fix cached Docs tab lifecycle bug.** The Assistant screen has been retired from the build.
 12. [ ] **#14 — Implement the controller shortcuts currently advertised by DualDex.**
 13. [ ] **#6 — Persist direct-ROM URI permissions and recover cleanly from stale URIs.**
-14. [ ] **#12 — Secure Gemini credentials and define explicit Android backup exclusions.**
-15. [ ] **#13 — Remove cross-ROM incorrect fallback guidance from Assistant/Docs.**
+14. [ ] **#12 — Define Android backup/data-transfer policy for ROM cache and saves.** Gemini credential and Assistant disclosure work is no longer applicable after the feature retirement.
+15. [x] **#13 — Retire the Assistant fallback from the app build.** Its source is retained under `disabled/assistant/`; the project decided not to use it for now.
 
 ### Tier 4 — Cleanup and Regression Prevention
 
@@ -688,13 +677,13 @@ Before moving from bug fixing back to ROM-hack expansion:
 
 1. **Complete audit Tier 1: save safety + emulator core ownership (#2, #3, #5, #4).**
 2. **Complete audit Tier 2: trustworthy battle/ROM/profile/calculator state (#1, #7, #8, #9, #16, #11).**
-3. **Complete audit Tier 3 public-beta reliability fixes (#10, #14, #6, #12, #13).**
+3. **Complete audit Tier 3 public-beta reliability fixes (#10, #14, #6, #12).**
 4. **Complete audit Tier 4 cleanup/regression work (#15, #17, #18, #19).**
 5. **Finish save-import wording + cross-emulator validation.**
 6. **Add diagnostics and GitHub issue templates.**
 7. **Clean up documentation and supported-version tables.**
 8. **Set up permanent signing, CI, and GitHub release process.**
-9. **Finish privacy policy / Assistant disclosure work.**
+9. **Finish privacy policy and general network disclosure work.**
 10. **Finish Unbound + a few other high-value hacks only after profile architecture is stable.**
 11. **Run the complete per-ROM beta compatibility matrix.**
 12. **Release free AYN Thor beta.**
@@ -714,6 +703,6 @@ DualDex is ready for `0.9.0-beta.1` when:
 - Supported ROM versions are documented and tested.
 - Public builds are permanently signed and reproducible.
 - A tester can send useful diagnostics without sending their ROM.
-- Gemini/API-key handling is appropriate for someone else's device.
+- ROM, save, and user credential handling is appropriate for someone else's device.
 - Installation and update instructions are clear.
 - The AYN Thor experience is polished enough that the remaining issues are legitimately beta bugs rather than missing release infrastructure.

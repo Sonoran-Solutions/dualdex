@@ -77,18 +77,6 @@ class SavesAndSettingsUiTest {
     }
 
     @Test
-    fun geminiModelOptionsAreValidIdentifiers() {
-        val models = listOf("gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash")
-        val modelLabels = listOf("Flash 3.8", "Flash 2.5", "Flash 2.0")
-        assertEquals(models.size, modelLabels.size)
-
-        models.forEach { modelId ->
-            assertTrue("Model ID must start with gemini: $modelId", modelId.startsWith("gemini-"))
-            assertFalse("Model ID must not contain spaces: $modelId", modelId.contains(" "))
-        }
-    }
-
-    @Test
     fun saveSlotInfoProvidesCleanDisplayStrings() {
         val occupied = SaveSlotInfo(
             slotIndex = 1,

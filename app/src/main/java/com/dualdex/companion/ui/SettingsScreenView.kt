@@ -3,18 +3,15 @@ package com.dualdex.companion.ui
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Typeface
-import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.dualdex.BuildInfo
 import com.dualdex.BuildInfoFormatter
-import com.dualdex.assistant.RomHackAssistant
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
@@ -28,8 +25,8 @@ import com.dualdex.settings.TriggerShortcutMode
 
 /**
  * Redesigned Settings screen adhering to the Quiet Handheld Companion design system.
- * Groups settings logically (Display, Emulation, Save Storage, Assistant, Preferences,
- * Controls, and About/Diagnostics) using neutral surfaces, segmented controls, and
+ * Groups settings logically (Display, Emulation, Save Storage, Preferences, Controls,
+ * and About/Diagnostics) using neutral surfaces, segmented controls, and
  * density-independent spacing.
  */
 class SettingsScreenView(
@@ -44,7 +41,6 @@ class SettingsScreenView(
 ) : LinearLayout(context) {
 
     private val settingsManager = SettingsManager(context)
-    private val apiKeyInput: EditText
     private lateinit var speedSegment: DualDexSegmentedControl
     private lateinit var triggerSegment: DualDexSegmentedControl
     private lateinit var triggerMappingValue: TextView
@@ -355,80 +351,7 @@ class SettingsScreenView(
             bottomMargin = context.dp(DualDexTheme.Spacing.section)
         })
 
-        // 5. Assistant Section (AI)
-        val assistantCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
-            addView(DualDexComponents.sectionTitle(context, "Assistant"))
-
-            val desc = TextView(context).apply {
-                text = "Optional Google Gemini integration for walkthrough questions and ROM hack grounding."
-                setTextColor(DualDexTheme.Color.textSecondary)
-                textSize = DualDexTheme.Type.meta
-                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
-            }
-            addView(desc)
-
-            apiKeyInput = DualDexComponents.styledInput(context, "Gemini API Key (AIzaSy...)").apply {
-                setText(settingsManager.geminiApiKey.orEmpty())
-                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            }
-            addView(apiKeyInput, LayoutParams(
-                LayoutParams.MATCH_PARENT,
-                context.dp(DualDexTheme.Spacing.touchTarget)
-            ).apply { bottomMargin = context.dp(DualDexTheme.Spacing.compact) })
-
-            val keyBtnRow = LinearLayout(context).apply {
-                orientation = HORIZONTAL
-                val saveKeyBtn = DualDexComponents.primaryButton(context, "Save Key") {
-                    val key = apiKeyInput.text.toString().trim()
-                    settingsManager.geminiApiKey = if (key.isNotEmpty()) key else null
-                    RomHackAssistant.setApiKey(settingsManager.geminiApiKey)
-                    Toast.makeText(context, if (key.isNotEmpty()) "Gemini API key saved" else "API key cleared", Toast.LENGTH_SHORT).show()
-                }
-                addView(saveKeyBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
-                    marginEnd = context.dp(DualDexTheme.Spacing.compact)
-                })
-
-                val clearKeyBtn = DualDexComponents.ghostControl(context, "Clear Key") {
-                    apiKeyInput.setText("")
-                    settingsManager.geminiApiKey = null
-                    RomHackAssistant.setApiKey(null)
-                    Toast.makeText(context, "API key cleared", Toast.LENGTH_SHORT).show()
-                }
-                addView(clearKeyBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
-            }
-            addView(keyBtnRow)
-
-            val modelLabel = TextView(context).apply {
-                text = "Active AI Model"
-                setTextColor(DualDexTheme.Color.textSecondary)
-                textSize = DualDexTheme.Type.meta
-                setPadding(0, context.dp(DualDexTheme.Spacing.standard), 0, context.dp(DualDexTheme.Spacing.tight))
-            }
-            addView(modelLabel)
-
-            val models = listOf("gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash")
-            val modelLabels = listOf("Flash 3.8", "Flash 2.5", "Flash 2.0")
-            val currentModel = settingsManager.geminiModel
-            val initialModelIdx = models.indexOf(currentModel).coerceAtLeast(0)
-
-            val modelSegment = DualDexComponents.segmentedControl(
-                context = context,
-                items = modelLabels,
-                initialIndex = initialModelIdx,
-                onItemSelected = { idx ->
-                    val chosen = models[idx]
-                    settingsManager.geminiModel = chosen
-                    RomHackAssistant.setModel(chosen)
-                    Toast.makeText(context, "Set model to ${modelLabels[idx]}", Toast.LENGTH_SHORT).show()
-                }
-            )
-            addView(modelSegment)
-        }
-        content.addView(assistantCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
-            bottomMargin = context.dp(DualDexTheme.Spacing.section)
-        })
-
-        // 6. Preferences & Experimental Section
+        // 5. Preferences & Experimental Section
         val preferencesCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
             addView(DualDexComponents.sectionTitle(context, "Preferences"))
 
@@ -544,7 +467,7 @@ class SettingsScreenView(
             bottomMargin = context.dp(DualDexTheme.Spacing.section)
         })
 
-        // 7. Controls Reference Section (AYN Thor Hardware Mapping)
+        // 6. Controls Reference Section (AYN Thor Hardware Mapping)
         val controlsCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
             addView(DualDexComponents.sectionTitle(context, "Controls"))
 
@@ -646,7 +569,7 @@ class SettingsScreenView(
             bottomMargin = context.dp(DualDexTheme.Spacing.section)
         })
 
-        // 8. About & Diagnostics Section
+        // 7. About & Diagnostics Section
         val aboutCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
             addView(DualDexComponents.sectionTitle(context, "About & Diagnostics"))
 

@@ -51,23 +51,6 @@ class SecondaryScreensUiTest {
     }
 
     @Test
-    fun assistantPromptSuggestionsAreVersatileAndEmojiFree() {
-        val prompts = listOf(
-            "Evolution changes",
-            "Gym leader teams",
-            "Type effectiveness",
-            "Item locations",
-            "Where is Fly?"
-        )
-        assertEquals(5, prompts.size)
-
-        prompts.forEach { prompt ->
-            assertFalse("Prompt suggestion should not contain emoji: $prompt", prompt.any { it.code > 127 })
-            assertTrue("Prompt suggestion should be non-empty", prompt.isNotBlank())
-        }
-    }
-
-    @Test
     fun cheatsToggleStatesAndBadgeAreConsistent() {
         val preset = CheatItem(
             id = "test-preset-1",

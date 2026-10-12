@@ -1,6 +1,6 @@
 # DualDex UI Design Audit & Redesign Roadmap
 
-This document reviews the current companion UI from the implementation in `app/src/main/java/com/dualdex/companion/ui` and `assistant/AssistantScreenView.kt`.
+This is a historical review of the companion UI as it existed before the Assistant was removed. The Assistant sections describe retired UI; the app build no longer includes it. The source remains under `disabled/assistant/src/main/java/com/dualdex/assistant/` because the project decided not to use the feature for now.
 
 The goal is not to redesign DualDex into a generic Material app. The goal is to make it feel intentionally designed for a gaming handheld: compact, fast, readable, consistent, and clearly its own product.
 

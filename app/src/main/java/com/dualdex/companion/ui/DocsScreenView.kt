@@ -229,7 +229,7 @@ class DocsScreenView(
             }
 
             sb.appendLine()
-            sb.appendLine("Tip: Open the Assistant tab in More for specific item locations and moveset details.")
+            sb.appendLine("Assistant: removed from this build; we decided not to use it for now.")
 
             val body = TextView(context).apply {
                 text = sb.toString().trimEnd()

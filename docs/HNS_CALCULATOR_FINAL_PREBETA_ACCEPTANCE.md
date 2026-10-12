@@ -114,6 +114,6 @@ Both are recorded so that a future reviewer does not mistake them for validated 
 
 - **Accepted for the bounded beta feature set**, subject to senior review of the reviewed PR.
 - **Not accepted as a hardware acceptance.** AYN Thor and other device acceptance remain required and are `NOT_RUN`.
-- **Not general beta readiness.** Save safety, ROM switching, controller shortcuts, Assistant fallback, and release-candidate validation remain open per [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md).
+- **Not general beta readiness.** Save safety, ROM switching, controller shortcuts, and release-candidate validation remain open per [RELEASE_CHECKLIST.md](../RELEASE_CHECKLIST.md). The Assistant fallback is no longer shipped because the feature was removed from the build.
 - H&S remains **ESTIMATED**.
 - This acceptance does not lift or start the feature freeze. The freeze takes effect only when the reviewed PR merges.

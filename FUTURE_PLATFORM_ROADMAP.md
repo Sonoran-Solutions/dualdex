@@ -1047,7 +1047,7 @@ This roadmap stays **outside the current release checklist’s beta exit criteri
 The GBA work immediately before this roadmap is intentionally ordered:
 
 1. finish exact Heart & Soul 2.0.5 to the full supported compatibility contract;
-2. finish save safety, ROM switching, security/privacy, controller, Assistant/Cheats gating, release, and hardware-soak blockers using H&S as the primary complex validation ROM while retaining FireRed/Emerald regression coverage;
+2. finish save safety, ROM switching, security/privacy, controller, Cheats gating, release, and hardware-soak blockers using H&S as the primary complex validation ROM while retaining FireRed/Emerald regression coverage;
 3. integrate one exact R.O.W.E. release and use it to prove the pokeemerald-expansion-oriented tooling and abstractions generalize beyond H&S;
 4. integrate one exact Pokémon Unbound release with an independent CFRU/FireRed-derived compatibility contract;
 5. cut, soak, and release the first AYN Thor beta;

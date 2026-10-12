@@ -26,7 +26,6 @@ class CompanionNavigationTest {
             CompanionTab.TYPES to CompanionTab.MORE,
             CompanionTab.SAVES to CompanionTab.MORE,
             CompanionTab.DOCS to CompanionTab.MORE,
-            CompanionTab.ASSISTANT to CompanionTab.MORE,
             CompanionTab.CHEATS to CompanionTab.MORE,
             CompanionTab.SETTINGS to CompanionTab.MORE
         )

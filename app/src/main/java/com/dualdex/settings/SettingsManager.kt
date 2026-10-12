@@ -18,6 +18,16 @@ enum class TriggerShortcutMode(val label: String) {
 
 open class SettingsManager(private val prefs: SharedPreferences) {
 
+    init {
+        // Remove credentials and model selection saved by the retired Assistant feature.
+        if (prefs.contains("key_gemini_api_key") || prefs.contains("key_gemini_model")) {
+            prefs.edit()
+                .remove("key_gemini_api_key")
+                .remove("key_gemini_model")
+                .apply()
+        }
+    }
+
     constructor(context: Context) : this(
         context.getSharedPreferences("dualdex_settings", Context.MODE_PRIVATE)
     )
@@ -120,12 +130,6 @@ open class SettingsManager(private val prefs: SharedPreferences) {
             prefs.edit().putBoolean(KEY_AUDIO_ENABLED, value).apply()
         }
 
-    var geminiApiKey: String?
-        get() = prefs.getString(KEY_GEMINI_API_KEY, null)
-        set(value) {
-            prefs.edit().putString(KEY_GEMINI_API_KEY, value).apply()
-        }
-
     var isStretchToFitEnabled: Boolean
         get() = prefs.getBoolean(KEY_STRETCH_TO_FIT, false)
         set(value) {
@@ -178,12 +182,6 @@ open class SettingsManager(private val prefs: SharedPreferences) {
             .remove(KEY_LAST_PLAYED_ROM_TITLE)
             .apply()
     }
-
-    var geminiModel: String
-        get() = prefs.getString(KEY_GEMINI_MODEL, "gemini-3.8-flash") ?: "gemini-3.8-flash"
-        set(value) {
-            prefs.edit().putString(KEY_GEMINI_MODEL, value).apply()
-        }
 
     /** Optional status bar above the game (#153). Off by default. */
     var isGameStatusBarEnabled: Boolean
@@ -277,14 +275,12 @@ open class SettingsManager(private val prefs: SharedPreferences) {
         private const val KEY_BOOT_RESUME = "key_boot_resume"
         private const val KEY_COMPANION_VISUAL_STYLE = "key_companion_visual_style"
         private const val KEY_AUDIO_ENABLED = "key_audio_enabled"
-        private const val KEY_GEMINI_API_KEY = "key_gemini_api_key"
         private const val KEY_STRETCH_TO_FIT = "key_stretch_to_fit"
         private const val KEY_ROMS_FOLDER_URI = "key_roms_folder_uri"
         private const val KEY_SAVES_FOLDER_URI = "key_saves_folder_uri"
         private const val KEY_SHARE_SAVES_FOLDER_URI = "key_share_saves_folder_uri"
         private const val KEY_LAST_PLAYED_ROM_URI = "key_last_played_rom_uri"
         private const val KEY_LAST_PLAYED_ROM_TITLE = "key_last_played_rom_title"
-        private const val KEY_GEMINI_MODEL = "key_gemini_model"
         private const val KEY_BATTLE_AUTO_OPEN = "key_battle_auto_open"
         const val KEY_GAME_STATUS_BAR = "key_game_status_bar"
         private const val LEGACY_KEY_BATTLE_AUTO_OPEN = "key_battle_tab_enabled"

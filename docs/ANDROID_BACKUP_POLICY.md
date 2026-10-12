@@ -41,7 +41,13 @@ Restore does not require the original ROM to be present: save files and metadata
 
 On load, the existing save code recovers interrupted atomic writes, rejects missing/empty or wrong-size states, and honors the resume barrier and battery-save timestamp so an older resume state cannot roll back a newer battery save. The native core can still reject an otherwise size-valid state; no restore engine or cross-version state compatibility is promised. Existing fail-closed save switching, save identity, import/export, and migration behavior are unchanged by this policy.
 
-No connected AYN Thor was available during this change, so installation compatibility, byte-for-byte device save preservation, and real device-transfer restore are **NOT_RUN**. XML parsing, host tests, and a merged-manifest build do not verify Android transport behavior. Do not use an owner's only save data for a destructive restore experiment; use a disposable device/profile for cloud-restore and transfer validation.
+### AYN Thor validation (2026-10-12)
+
+Safe update checks were run on an AYN Thor running Android 13. The installed `com.dualdex` app was `0.9.0-dev` (versionCode 1); its signer matched the candidate debug APK. An in-place `adb install -r` succeeded without clearing app data. Before installing, the app-private save, state, recovery, staging, and legacy-catalog data (83 files) and the installed APK were copied to permission-restricted local storage, with per-file SHA-256 digests recorded. All 83 private-data digests matched immediately after the update.
+
+After loading the existing ROM, all 17 battery/legacy `.sav` files and all 30 `.state` files remained byte-identical. The app refreshed two active-ROM metadata files during normal startup (`mirrorStatus`, generation, and `updatedAt`); both remained present and valid. Logs confirmed the existing battery save and `auto_resume.state` loaded under the same per-ROM identity. The game rendered, the companion presentation appeared on the second display, and its Team tab showed live party data. The installed APK's manifest and both extracted rule resources contained the expected allowlists.
+
+The app-selected SAF mirror was also found (5 `.sav`, 7 `.state`, and 1 metadata file) and copied to protected local storage. Its device-side modification times predate the app update, but a separate pre-install digest baseline was not recorded for this external folder. Cloud backup restore and device-to-device restore remain **NOT_RUN**; XML, host tests, and a same-device update do not verify Android transport behavior. Keep issue #12 open until those restores are exercised in a disposable device/profile. Do not use an owner's only save data for a destructive restore experiment.
 
 ## Assistant retirement
 

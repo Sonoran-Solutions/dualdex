@@ -2,12 +2,14 @@ package com.dualdex.coverage
 
 import android.content.Context
 import android.content.Intent
+import android.app.AlertDialog
 import android.widget.LinearLayout
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import com.dualdex.BuildInfo
 import com.dualdex.companion.ui.DualDexComponents
+import com.dualdex.companion.ui.DualDexTheme
+import com.dualdex.companion.ui.RomBoundAction
 import com.dualdex.battle.BattleHnsCalculationContext
 import com.dualdex.calculator.CalcRequestOutcome
 import com.dualdex.pokemon.*
@@ -28,10 +30,28 @@ object HnsCoverageFactory {
         container.addView(DualDexComponents.secondaryButton(container.context, "Export H&S Coverage Log") {
             debugLogger.export(container.context)
         })
+        var clearDialog: AlertDialog? = null
         container.addView(DualDexComponents.secondaryButton(container.context, "Clear H&S Coverage Log") {
-            AlertDialog.Builder(container.context).setTitle("Clear H&S Coverage Log?")
-                .setMessage("Delete all collected calculator playtest observations?")
-                .setNegativeButton("Cancel", null).setPositiveButton("Clear") { _, _ -> debugLogger.clear(container.context) }.show()
+            if (!container.isAttachedToWindow || clearDialog?.isShowing == true) return@secondaryButton
+            val action = RomBoundAction(
+                isStillCurrent = { container.isAttachedToWindow },
+                action = { debugLogger.clear(container.context) }
+            )
+            val dialog = DualDexComponents.showDialog(
+                AlertDialog.Builder(container.context)
+                    .setTitle("Clear H&S Coverage Log?")
+                    .setMessage("Delete all collected calculator playtest observations?")
+                    .setNegativeButton("Cancel") { _, _ -> action.cancel() }
+                    .setOnCancelListener { action.cancel() }
+                    .setPositiveButton("Clear") { _, _ -> action.confirm() },
+                owner = container,
+                onDismiss = {
+                    clearDialog = null
+                    action.cancel()
+                }
+            )
+            clearDialog = dialog
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
         })
     }
 }

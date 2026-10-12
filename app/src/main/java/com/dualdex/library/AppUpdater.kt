@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import android.view.View
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.dualdex.BuildConfig
@@ -31,21 +32,25 @@ object AppUpdater {
     @Volatile private var pendingInstall: File? = null
 
     /** Called when the library screen opens; checks once per process in release builds. */
-    fun onLibraryOpened(context: Context) {
+    fun onLibraryOpened(context: Context, owner: View? = null) {
         if (BuildConfig.DEBUG || autoChecked) return
         autoChecked = true
-        check(context, userInitiated = false)
+        check(context, userInitiated = false, owner = owner)
     }
 
-    fun check(context: Context, userInitiated: Boolean) {
+    fun check(context: Context, userInitiated: Boolean, owner: View? = null) {
         CoroutineScope(Dispatchers.IO).launch {
             val update = runCatching {
                 UpdateChecker.selectUpdate(httpGet(UpdateChecker.RELEASES_URL), BuildConfig.VERSION_NAME)
             }.onFailure { Log.w(TAG, "Update check failed: ${it.message}") }
             withContext(Dispatchers.Main) {
+                if (owner?.isAttachedToWindow == false) {
+                    if (!userInitiated) autoChecked = false
+                    return@withContext
+                }
                 val found = update.getOrNull()
                 when {
-                    found != null -> prompt(context, found)
+                    found != null -> prompt(context, found, owner)
                     !userInitiated -> Unit
                     update.isFailure -> toast(context, "Update check failed: ${update.exceptionOrNull()?.message}")
                     else -> toast(context, "DualDex ${BuildConfig.VERSION_NAME} is up to date")
@@ -54,7 +59,8 @@ object AppUpdater {
         }
     }
 
-    private fun prompt(context: Context, update: AvailableUpdate) {
+    private fun prompt(context: Context, update: AvailableUpdate, owner: View?) {
+        if (owner?.isAttachedToWindow == false) return
         val debugNote = if (BuildConfig.DEBUG) "\n\nThis is a debug build; Android will refuse to install a release APK over it." else ""
         runCatching {
             com.dualdex.companion.ui.DualDexComponents.showDialog(
@@ -62,7 +68,8 @@ object AppUpdater {
                     .setTitle("Update available: ${update.name}")
                     .setMessage(update.notes.take(1500).ifBlank { update.tag } + debugNote)
                     .setPositiveButton("Download & install") { _, _ -> download(context, update) }
-                    .setNegativeButton("Later", null)
+                    .setNegativeButton("Later", null),
+                owner = owner
             )
         }.onFailure { toast(context, "Update ${update.tag} available") }
     }

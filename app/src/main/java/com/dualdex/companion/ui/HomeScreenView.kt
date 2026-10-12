@@ -134,7 +134,7 @@ class HomeScreenView(
                 marginEnd = context.dp(DualDexTheme.Spacing.compact)
             })
             addView(DualDexComponents.ghostControl(context, "Check for Updates") {
-                AppUpdater.check(context, userInitiated = true)
+                AppUpdater.check(context, userInitiated = true, owner = this@HomeScreenView)
             }, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
         }
         content.addView(libraryControls, LayoutParams(
@@ -374,7 +374,8 @@ class HomeScreenView(
     }
 
     private fun dialog(build: (AlertDialog.Builder) -> AlertDialog.Builder) {
-        runCatching { DualDexComponents.showDialog(build(AlertDialog.Builder(context))) }
+        if (!isAttachedToWindow) return
+        runCatching { DualDexComponents.showDialog(build(AlertDialog.Builder(context)), owner = this) }
             .onFailure { Toast.makeText(context, "Could not open dialog: ${it.message}", Toast.LENGTH_SHORT).show() }
     }
 
@@ -382,7 +383,7 @@ class HomeScreenView(
         super.onAttachedToWindow()
         viewScope?.cancel()
         viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob()).also { scope ->
-            AppUpdater.onLibraryOpened(context)
+            AppUpdater.onLibraryOpened(context, this)
             scope.launch {
                 viewModel.scannedRoms.collectLatest { roms ->
                     allRoms = roms

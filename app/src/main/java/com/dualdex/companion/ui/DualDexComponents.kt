@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.PorterDuff
 import android.graphics.Typeface
+import android.os.Build
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
@@ -91,24 +92,70 @@ object DualDexComponents {
     // WindowManager.LayoutParams.TYPE_PRESENTATION is @hide; 2037 is the type the Presentation's window context requires.
     private const val TYPE_PRESENTATION = 2037
 
-    fun showDialog(builder: android.app.AlertDialog.Builder): android.app.AlertDialog {
+    internal fun presentationDialogWindowType(displayId: Int?): Int? =
+        if (displayId != null && displayId != android.view.Display.DEFAULT_DISPLAY) TYPE_PRESENTATION else null
+
+    fun showDialog(
+        builder: android.app.AlertDialog.Builder,
+        owner: View? = null,
+        onDismiss: () -> Unit = {}
+    ): android.app.AlertDialog {
         val dialog = builder.create()
-        val displayId = runCatching { builder.context.display?.displayId }.getOrNull()
-        if (displayId != null && displayId != android.view.Display.DEFAULT_DISPLAY) {
-            dialog.window?.setType(TYPE_PRESENTATION)
+        // Context.display was added in API 30. Earlier releases do not have display-scoped
+        // window contexts, so keep their normal Dialog behavior without invoking a missing API.
+        val displayId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching { builder.context.display?.displayId }.getOrNull()
+        } else null
+        presentationDialogWindowType(displayId)?.let { dialog.window?.setType(it) }
+        val detachListener = owner?.let { host ->
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(view: View) = Unit
+                override fun onViewDetachedFromWindow(view: View) {
+                    dialog.dismiss()
+                }
+            }.also(host::addOnAttachStateChangeListener)
         }
-        dialog.show()
+        dialog.setOnDismissListener {
+            if (detachListener != null) owner?.removeOnAttachStateChangeListener(detachListener)
+            onDismiss()
+        }
+        try {
+            dialog.show()
+        } catch (failure: Throwable) {
+            if (detachListener != null) owner?.removeOnAttachStateChangeListener(detachListener)
+            throw failure
+        }
         return dialog
     }
 
     /** Destructive confirmation (Cancel / [action]); [onConfirm] runs only on the positive button. */
-    fun confirm(context: Context, title: String, message: String, action: String, onConfirm: () -> Unit) {
+    fun confirm(
+        context: Context,
+        title: String,
+        message: String,
+        action: String,
+        owner: View? = null,
+        isCurrent: () -> Boolean = { true },
+        onConfirm: () -> Unit
+    ) {
+        val confirmedAction = RomBoundAction(
+            isStillCurrent = { owner?.isAttachedToWindow != false && isCurrent() },
+            onStale = {
+                if (owner?.isAttachedToWindow == true) {
+                    android.widget.Toast.makeText(context, "The game or screen changed; review and try again.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            },
+            action = onConfirm
+        )
         val dialog = showDialog(
             android.app.AlertDialog.Builder(context)
                 .setTitle(title)
                 .setMessage(message)
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton(action) { _, _ -> onConfirm() }
+                .setNegativeButton("Cancel") { _, _ -> confirmedAction.cancel() }
+                .setOnCancelListener { confirmedAction.cancel() }
+                .setPositiveButton(action) { _, _ -> confirmedAction.confirm() },
+            owner = owner,
+            onDismiss = confirmedAction::cancel
         )
         dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setTextColor(DualDexTheme.Color.danger)
     }

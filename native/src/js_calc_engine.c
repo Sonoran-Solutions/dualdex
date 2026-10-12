@@ -1,5 +1,6 @@
 #include "js_calc_engine.h"
 #include "quickjs.h"
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,7 +19,27 @@
 static JSRuntime* g_rt = NULL;
 static JSContext* g_ctx = NULL;
 
-bool js_calc_init(const char* bundle_js_code) {
+// JNI calls arrive on several threads (coroutine pools, the UI). A QuickJS runtime is not
+// thread-safe, and its stack-overflow check is relative to the stack top it last recorded, so
+// another thread's stack reads as "Maximum call stack size exceeded" (#177) or is unchecked.
+// Every entry point holds this lock, and each call re-anchors the limit on the calling thread.
+static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
+// Stay well inside a 1 MiB Android Java-thread stack after the JNI/ART frames above us, so a
+// runaway script throws instead of hitting the guard page.
+#define JS_CALC_STACK_SIZE (512 * 1024)
+
+static void cleanup_locked(void) {
+    if (g_ctx) {
+        JS_FreeContext(g_ctx);
+        g_ctx = NULL;
+    }
+    if (g_rt) {
+        JS_FreeRuntime(g_rt);
+        g_rt = NULL;
+    }
+}
+
+static bool init_locked(const char* bundle_js_code) {
     if (!bundle_js_code) return false;
 
     if (g_ctx != NULL) {
@@ -31,6 +52,7 @@ bool js_calc_init(const char* bundle_js_code) {
 
     // Set reasonable memory limit for mobile/handheld (e.g., 32 MB)
     JS_SetMemoryLimit(g_rt, 32 * 1024 * 1024);
+    JS_SetMaxStackSize(g_rt, JS_CALC_STACK_SIZE);
 
     g_ctx = JS_NewContext(g_rt);
     if (!g_ctx) {
@@ -48,7 +70,7 @@ bool js_calc_init(const char* bundle_js_code) {
         JS_FreeCString(g_ctx, exc_str);
         JS_FreeValue(g_ctx, exc);
         JS_FreeValue(g_ctx, val);
-        js_calc_cleanup();
+        cleanup_locked();
         return false;
     }
 
@@ -56,8 +78,16 @@ bool js_calc_init(const char* bundle_js_code) {
     return true;
 }
 
-char* js_calc_calculate(const char* input_json_str) {
+bool js_calc_init(const char* bundle_js_code) {
+    pthread_mutex_lock(&g_lock);
+    bool ok = init_locked(bundle_js_code);
+    pthread_mutex_unlock(&g_lock);
+    return ok;
+}
+
+static char* calculate_locked(const char* input_json_str) {
     if (!g_ctx || !input_json_str) return NULL;
+    JS_UpdateStackTop(g_rt);
 
     JSValue global = JS_GetGlobalObject(g_ctx);
     JSValue calc_obj = JS_GetPropertyStr(g_ctx, global, "DualDexCalc");
@@ -105,13 +135,15 @@ char* js_calc_calculate(const char* input_json_str) {
     return out_str;
 }
 
+char* js_calc_calculate(const char* input_json_str) {
+    pthread_mutex_lock(&g_lock);
+    char* out = calculate_locked(input_json_str);
+    pthread_mutex_unlock(&g_lock);
+    return out;
+}
+
 void js_calc_cleanup(void) {
-    if (g_ctx) {
-        JS_FreeContext(g_ctx);
-        g_ctx = NULL;
-    }
-    if (g_rt) {
-        JS_FreeRuntime(g_rt);
-        g_rt = NULL;
-    }
+    pthread_mutex_lock(&g_lock);
+    cleanup_locked();
+    pthread_mutex_unlock(&g_lock);
 }

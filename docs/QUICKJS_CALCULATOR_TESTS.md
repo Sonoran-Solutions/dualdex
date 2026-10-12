@@ -47,6 +47,21 @@ partially accepting it, and it is what lets the suite assert typed values
 (numbers, strings, arrays) rather than substrings - a substring check such as
 `"minDamage":22` also matches `"minDamage":220`.
 
+## Threading (issue #177)
+
+The app reaches the engine through JNI from several threads (coroutine pools and
+the UI), but one QuickJS runtime is not thread-safe. Its stack-overflow check is
+also relative to the stack top it last recorded. Before the fix, any thread
+other than the initialising one failed with "Maximum call stack size exceeded",
+and concurrent calls corrupted the runtime's heap (a native abort on device).
+
+`js_calc_engine.c` now serialises init, calculate and cleanup behind one mutex.
+Each calculation calls `JS_UpdateStackTop` on the calling thread, with a 512 KiB
+limit that fits inside a 1 MiB Android Java-thread stack.
+`api_calculate_from_other_threads` runs a fixture from two concurrent threads
+and requires the initialising thread's exact result every time. Without the fix
+the suite aborts.
+
 ## Fixture coverage
 
 | Fixture | Purpose |

@@ -48,6 +48,7 @@
 
 #include <limits.h>
 #include <math.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1700,6 +1701,41 @@ static void check_api_error_paths(void) {
 
     g_fixture = "api_calculate_null_input";
     check_condition("js_calc_calculate(NULL) returns NULL", js_calc_calculate(NULL) == NULL);
+}
+
+/* The app calls the engine through JNI from several threads (#177). Before the
+ * engine serialised calls and re-anchored the stack limit, a calculation on any
+ * thread but the initialising one failed with "Maximum call stack size exceeded",
+ * and concurrent calls corrupted the shared runtime's heap. */
+#define CROSS_THREAD_CALLS 25
+typedef struct { const char* request; const char* expected; int mismatches; } CalcThreadJob;
+
+static void* run_calc_thread(void* arg) {
+    CalcThreadJob* job = arg;
+    for (int i = 0; i < CROSS_THREAD_CALLS; i++) {
+        char* out = js_calc_calculate(job->request);
+        if (!out || strcmp(out, job->expected) != 0) job->mismatches++;
+        free(out);
+    }
+    return NULL;
+}
+
+static void check_calls_from_other_threads(const char* request) {
+    g_fixture = "api_calculate_from_other_threads";
+    char* expected = js_calc_calculate(request);
+    check_condition("initialising-thread baseline calculates", expected != NULL);
+    if (!expected) return;
+    CalcThreadJob jobs[2] = {{request, expected, 0}, {request, expected, 0}};
+    pthread_t threads[2];
+    int started = 0;
+    for (; started < 2; started++) {
+        if (pthread_create(&threads[started], NULL, run_calc_thread, &jobs[started]) != 0) break;
+    }
+    check_condition("worker threads start", started == 2);
+    for (int i = 0; i < started; i++) pthread_join(threads[i], NULL);
+    check_int("concurrent other-thread results differing from the baseline", 0,
+              jobs[0].mismatches + jobs[1].mismatches);
+    free(expected);
 }
 
 static int load_bundle(void) {
@@ -4342,6 +4378,11 @@ int main(void) {
     if (load_bundle() != 0) {
         printf(ANSI_RED "calculator suite cannot run without a working engine\n" ANSI_RESET);
         return 1;
+    }
+
+    printf("-- calls from other threads (JNI coroutine pools) --\n");
+    for (int i = 0; i < FIXTURE_COUNT; i++) {
+        if (FIXTURES[i].expect_success) { check_calls_from_other_threads(FIXTURES[i].request); break; }
     }
 
     printf("-- battle-format (field.gameType) contract, Gen III mechanics, error paths --\n");

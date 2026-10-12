@@ -1,6 +1,6 @@
 # Quota-Aware Android Cloud Backup Design
 
-Status: design spike only. This document and its host-only selector do not add a production `BackupAgent`, change shipping backup rules, or claim that cloud backup works end to end.
+Status: implementation candidate in progress (2026-10-12). The selector, filesystem inventory, and archive codec now have production sources, but the candidate `QuotaAwareBackupAgent` is not registered and restore import/conflict handling is not complete. This is not a shipping or end-to-end backup claim.
 
 ## Problem and current contract
 
@@ -92,3 +92,10 @@ Before implementation, validate archive construction/restore using synthetic fil
 ## Follow-up implementation issue
 
 Implementation follow-up: [issue #186](https://github.com/Sonoran-Solutions/dualdex/issues/186), linked to #12. It covers the production agent, bounded archive, staged import, and disposable transport validation. Keep #12 open for the remaining device-to-device/cloud restore checks. Do not treat this design spike as a shipped backup feature.
+
+
+## Issue #186 implementation checkpoint (2026-10-12)
+
+The selector has been promoted from test-only code into `app/src/main/java/com/dualdex/emulator/backup/QuotaBackupSelection.kt`. It now refuses explicit non-positive quotas, bounds per-entry size/count/path/manifest inputs, uses checked aggregate arithmetic, isolates full SHA-256 identities, and validates legacy bindings against only canonical `saves/` or `saves_fallback/` battery-save sources with nonempty content and a matching digest. `SaveBackupInventory` walks the three permitted save roots without following symlinks and reports incomplete/invalid inventory conditions. `CloudSnapshotArchive` writes deterministic stored ZIP entries with a bounded versioned binary manifest and completion marker, verifies content hashes and source stamps, validates before publication, and atomically moves the completed archive into its destination.
+
+The unregistered candidate `QuotaAwareBackupAgent` now routes encrypted cloud versus D2D callbacks, emits only the selected archive or allowlisted D2D roots, handles quota refusal, and stages restore files without writing canonical destinations. It validates the new cloud archive and checks ordinary staged restore paths, but it does not commit reviewed imports, resolve local-save conflicts, or establish actual transport behavior. The Saves screen explicitly says that the candidate is inactive in the shipping build. The proposed conservative owner defaults remain pending acceptance. The custom-agent and restore work, instrumented API 28–34 tests, disposable cloud/D2D transport tests, and exact-head hosted CI are still required before this candidate can be considered complete.

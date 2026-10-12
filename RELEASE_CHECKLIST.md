@@ -384,6 +384,7 @@ Should define:
 
 ### Android Backups
 
+- [ ] Do not enable quota-aware cloud backup until issue #186 restore staging, review UI, owner decisions, and disposable transport validation are complete. No quota-aware agent is registered in normal builds.
 - [x] Keep `android:allowBackup` enabled and define explicit save-only allowlists for cloud backup and device transfer.
 - [x] Add Android 12+ `dataExtractionRules` and Android 11-and-earlier `fullBackupContent` rules.
 - [x] Exclude ROM caches/copies, sensitive preferences, debug data, generated caches, and dedicated save staging.

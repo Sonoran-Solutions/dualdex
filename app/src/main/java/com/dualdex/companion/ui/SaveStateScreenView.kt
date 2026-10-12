@@ -16,6 +16,7 @@ import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveSlotInfo
 import com.dualdex.emulator.SaveStateManager
+import com.dualdex.emulator.backup.BackupStatusStore
 import com.dualdex.emulator.storage.LegacyCandidate
 import com.dualdex.emulator.storage.SaveShareStore
 import com.dualdex.emulator.storage.SaveStateFiles
@@ -123,6 +124,33 @@ class SaveStateScreenView(
                 bottomMargin = context.dp(DualDexTheme.Spacing.section)
             }
         )
+
+        // Android backup status is conservative: snapshot preparation never confirms a transport upload.
+        val backupStatusCard = DualDexComponents.surfaceCard(context, elevated = false).apply {
+            addView(DualDexComponents.sectionTitle(context, "Android Backup"))
+            val (backupStatus, statusDetail) = BackupStatusStore.get(context)
+            val statusText = when (backupStatus) {
+                BackupStatusStore.Status.PREPARING -> "Preparing a local backup snapshot."
+                BackupStatusStore.Status.ESSENTIAL_SELECTED -> "Essential data was selected for the latest preparation; upload is not confirmed."
+                BackupStatusStore.Status.OPTIONAL_OMITTED -> "Essential data was selected; some optional data was omitted. Upload is not confirmed."
+                BackupStatusStore.Status.REFUSED_OR_INCOMPLETE -> "The latest backup preparation was refused or incomplete."
+                BackupStatusStore.Status.RESTORE_PENDING -> "Restored data is staged and has not changed your saves."
+                BackupStatusStore.Status.RESTORE_VALIDATION_FAILED -> "Restored data failed validation; existing saves were left untouched."
+                BackupStatusStore.Status.RESTORED_DATA_READY -> "Verified restored data is ready for review."
+                BackupStatusStore.Status.NOT_VERIFIED -> "System backup may transfer the existing save allowlist, but DualDex cannot confirm an upload."
+            }
+            addView(TextView(context).apply {
+                text = listOf(statusText, statusDetail.takeIf { it.isNotBlank() },
+                    "Quota-aware backup and staged restore are not active in this build. Keep an independent save export.")
+                    .filterNotNull().joinToString(" ")
+                setTextColor(DualDexTheme.Color.textSecondary)
+                textSize = DualDexTheme.Type.meta
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+            })
+        }
+        content.addView(backupStatusCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.section)
+        })
 
         // 2. Active Game Context Card
         gameContextCard = DualDexComponents.surfaceCard(context, elevated = false).apply {

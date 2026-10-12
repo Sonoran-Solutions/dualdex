@@ -68,3 +68,9 @@ The app-selected SAF mirror was also found (5 `.sav`, 7 `.state`, and 1 metadata
 ## Assistant retirement
 
 Issue #12 originally also requested Gemini credential storage, model selection, and Assistant network disclosure. The Assistant was removed from the app in PR #182; those requirements are retired and are not rebuilt here. The only applicable issue #12 scope is Android backup and device-transfer policy.
+
+## Quota-aware backup implementation candidate (2026-10-12)
+
+A production selector, filesystem inventory, and bounded cloud snapshot codec are under review in issue #186. The selector enforces the proposed 20 MiB cap, a 256 KiB reserve, explicit zero-quota refusal, bounded entries/paths, complete essential coverage, and checked aggregate accounting. The inventory walks only `saves_v2/`, `saves/`, and `saves_fallback/`; legacy battery data requires a portable source path, exact ROM identity, and matching content digest. The archive is deterministic, versioned, digest/marker protected, source-mutation checked, and atomically published after validation.
+
+**The candidate `QuotaAwareBackupAgent` is not registered in the normal manifest.** Existing Android XML allowlists remain active, so system backup eligibility is best-effort and does not mean that an upload completed. Restore callbacks now stage bounded, allowlisted files without writing canonical saves; imports and collision resolution remain unavailable. No transport selection, cloud quota, or device-transfer behavior is claimed as verified by this candidate. It must not be enabled until review/import, conflict handling, disposable API 28–34 transport checks, and owner acceptance are complete. Keep manual save exports.

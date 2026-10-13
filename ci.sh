@@ -5,11 +5,12 @@
 # One command vocabulary shared by humans, Antigravity, agents, and GitHub
 # Actions. Run from the repo root:
 #
-#   ./ci.sh test     # native reader suite + H&S tracker selftests +
+#   ./ci.sh test     # native reader + memory fixture replay + H&S tracker selftests +
 #                    # QuickJS calculator suite + H&S differential damage oracle
 #                    # (committed corpus, ROM-free) + data-pack generator tests
 #                    # + H&S census source-reader tests + Kotlin unit tests
 #                    # (which include the committed issue #84 census artifact check)
+#   ./ci.sh fixture-test # ROM-free EWRAM/IWRAM production-reader replay suite
 #   ./ci.sh coverage-test # focused H&S debug coverage tests + structural release proof
 #   ./ci.sh build    # assemble the debug APK
 #   ./ci.sh all      # test then build (default)
@@ -54,6 +55,28 @@ init_submodules() {
     return 1
   fi
   echo "  native/quickjs @ ${actual}"
+}
+
+# Host-only snapshots through the production memory map and readers. No emulator,
+# ROM, upstream checkout, Android SDK, or QuickJS required for the focused target.
+fixture_test() {
+  echo "== ROM-free native memory fixture replay =="
+  local cc
+  cc="$(find_cc)"
+  if [ -z "$cc" ]; then
+    echo "error: no host C compiler found; fixture replay is required" >&2
+    return 1
+  fi
+  mkdir -p native/build
+  "$cc" -O2 -std=c11 -Wall -Wextra \
+    -I native/include \
+    native/src/pokemon_reader.c \
+    native/src/pokemon_text.c \
+    native/src/gba_memory_map.c \
+    native/tests/memory_fixture.c \
+    native/tests/test_memory_fixture.c \
+    -o native/build/test_memory_fixture
+  ./native/build/test_memory_fixture
 }
 
 native_test() {
@@ -649,12 +672,13 @@ gradle_release() {
 # regen_upstream_headers directly), the command vocabulary must not run.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 case "${1:-all}" in
-  test)         native_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test ;;
+  test)         native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test ;;
   coverage-test) python3 tools/ci/check_hns_coverage_release.py; ./gradlew testDebugUnitTest --tests "com.dualdex.coverage.HnsCoverageTest" --tests "com.dualdex.battle.BattleConsoleTest.battleCoverage*" ;;
+  fixture-test) fixture_test ;;
   source-check) source_check ;;
   build)        gradle_build ;;
-  all)          native_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
+  all)          native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
   release)      gradle_release ;;
-  *)            echo "usage: $0 [test|coverage-test|source-check|build|all|release]" >&2; exit 2 ;;
+  *)            echo "usage: $0 [test|fixture-test|coverage-test|source-check|build|all|release]" >&2; exit 2 ;;
 esac
 fi

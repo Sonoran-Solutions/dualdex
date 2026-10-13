@@ -1,5 +1,6 @@
 package com.dualdex.emulator.backup
 
+import com.dualdex.emulator.storage.RomSaveMetadata
 import java.io.BufferedOutputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -15,7 +16,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 
-/** Deterministic, bounded ZIP snapshot codec. No Android or save-system state is accessed here. */
+/** Deterministic, bounded ZIP codec; validates ownership without consulting live emulator state. */
 object CloudSnapshotArchive {
     const val FORMAT_VERSION = 1
     const val MANIFEST_ENTRY = "manifest.bin"
@@ -39,13 +40,24 @@ object CloudSnapshotArchive {
         val legacyBinding: QuotaBackupSelection.PortableLegacyBinding? = null
     )
     data class Snapshot(val manifestSha256: String, val contentSetSha256: String, val entries: List<ValidatedEntry>)
+    private data class Ownership(
+        val path: String,
+        val identity: String,
+        val category: String,
+        val binding: QuotaBackupSelection.PortableLegacyBinding?
+    )
 
     /** Builds away from backup-visible roots, validates the complete archive, then atomically publishes it. */
-    fun build(entries: List<Entry>, appFilesRoot: File, workingDirectory: File, destination: File): Snapshot? {
+    // The optional callback is an internal fault-injection seam for source-generation tests.
+    internal fun build(
+        entries: List<Entry>, appFilesRoot: File, workingDirectory: File, destination: File,
+        afterSourceRead: ((Int) -> Unit)? = null
+    ): Snapshot? {
         if (entries.isEmpty() || entries.size > QuotaBackupSelection.MAX_ENTRIES) return null
         if (!workingDirectory.isDirectory && !workingDirectory.mkdirs()) return null
         val ordered = entries.sortedBy { it.stamp.relativePath }
         if (ordered.map { it.stamp.relativePath }.distinct().size != ordered.size) return null
+        if (!validOwnershipSet(ordered.map { Ownership(it.stamp.relativePath, it.romSha256.lowercase(), it.category, it.legacyBinding) })) return null
         var total = 0L
         for (entry in ordered) {
             val stamp = entry.stamp
@@ -63,14 +75,17 @@ object CloudSnapshotArchive {
         try {
             // Rebuild with stored entries after reading each bounded source to a stable byte array.
             temp.delete()
-            val content = ordered.map { entry ->
+            val content = ordered.mapIndexed { index, entry ->
                 val data = entry.source.readBytesBounded(entry.stamp.sizeBytes) ?: return null
                 val digest = sha256(data)
                 if (digest != entry.stamp.contentSha256.lowercase()) return null
                 val after = stamp(entry.source, entry.stamp.relativePath) ?: return null
                 if (after != entry.stamp) return null
+                afterSourceRead?.invoke(index)
                 Triple(entry, data, digest)
             }
+            val ownership = ordered.map { Ownership(it.stamp.relativePath, it.romSha256.lowercase(), it.category, it.legacyBinding) }
+            if (!validMetadataBytes(content.associate { it.first.stamp.relativePath to it.second }, ownership)) return null
             val manifestBytes = encodeManifest(content.map { (e, _, digest) ->
                 ValidatedEntry(e.stamp.relativePath, e.stamp.sizeBytes, digest, e.romSha256.lowercase(), e.category, e.legacyBinding)
             }) ?: return null
@@ -91,6 +106,8 @@ object CloudSnapshotArchive {
             }
             if (temp.length() <= 0 || temp.length() > MAX_ARCHIVE_BYTES) return null
             val verified = validate(temp) ?: return null
+            // Ensure no earlier source changed while later sources were copied or the archive was validated.
+            if (ordered.any { stamp(it.source, it.stamp.relativePath) != it.stamp }) return null
             destination.parentFile?.let { if (!it.exists() && !it.mkdirs()) return null }
             Files.move(temp.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
             return verified
@@ -123,6 +140,7 @@ object CloudSnapshotArchive {
                 if (records.size > QuotaBackupSelection.MAX_ENTRIES || records.size != names.count { it.startsWith("data/") }) return null
                 val manifestDigest = sha256(manifest)
                 val actual = ArrayList<ValidatedEntry>(records.size)
+                val contentByPath = linkedMapOf<String, ByteArray>()
                 var dataTotal = 0L
                 for (record in records) {
                     val ze = zip.getEntry("data/${record.path}") ?: return null
@@ -133,7 +151,10 @@ object CloudSnapshotArchive {
                     val digest = sha256(bytes)
                     if (bytes.size.toLong() != record.size || digest != record.sha256) return null
                     actual += record
+                    contentByPath[record.path] = bytes
                 }
+                val ownership = records.map { Ownership(it.path, it.romSha256, it.category, it.legacyBinding) }
+                if (!validOwnershipSet(ownership) || !validMetadataBytes(contentByPath, ownership)) return null
                 val marker = zip.getInputStream(zip.getEntry(COMPLETION_ENTRY)).use { it.readBounded(256) } ?: return null
                 val parsed = decodeMarker(marker) ?: return null
                 val contentDigest = contentSetDigest(actual.map { it.path to it.sha256 })
@@ -159,6 +180,52 @@ object CloudSnapshotArchive {
             binding.archiveEntry == path && binding.contentSha256 == hash &&
             binding.romSha256 == identity && binding.targetFileName == "battery.sav"
     }
+
+    private fun validEntryOwnership(
+        path: String,
+        identity: String,
+        category: String,
+        binding: QuotaBackupSelection.PortableLegacyBinding?
+    ): Boolean {
+        val parts = path.split('/')
+        val canonical = parts.size == 3 && parts[0] == "saves_v2" && parts[1].equals(identity, true)
+        return when (category) {
+            QuotaBackupSelection.Category.CANONICAL_BATTERY.name -> canonical && parts[2] == "battery.sav" && binding == null
+            QuotaBackupSelection.Category.SAVE_METADATA.name -> canonical && parts[2] == "metadata.json" && binding == null
+            QuotaBackupSelection.Category.VERIFIED_RECOVERY_BATTERY.name,
+            QuotaBackupSelection.Category.VERIFIED_LEGACY_BATTERY.name ->
+                (path.startsWith("saves/") || path.startsWith("saves_fallback/")) &&
+                    QuotaBackupSelection.isPortableLegacyPath(path) && parts.last().endsWith(".sav", true) &&
+                    binding != null && validLegacyBinding(path, binding.contentSha256, identity, category, binding)
+            QuotaBackupSelection.Category.STATE.name -> canonical && parts[2].endsWith(".state", true) && binding == null
+            QuotaBackupSelection.Category.THUMBNAIL.name -> canonical &&
+                parts[2].endsWithAny(".png", ".jpg", ".jpeg", ".webp") && binding == null
+            else -> false
+        }
+    }
+
+    private fun validOwnershipSet(entries: List<Ownership>): Boolean {
+        if (entries.isEmpty()) return false
+        if (entries.any { !validIdentity(it.identity) || !validEntryOwnership(it.path, it.identity, it.category, it.binding) }) return false
+        return entries.groupBy { it.identity.lowercase() }.values.all { romEntries ->
+            val categories = romEntries.map { it.category }
+            categories.count { it == QuotaBackupSelection.Category.SAVE_METADATA.name } == 1 &&
+                categories.count { it == QuotaBackupSelection.Category.CANONICAL_BATTERY.name } <= 1 &&
+                categories.any { it in ESSENTIAL_BATTERY_CATEGORIES }
+        }
+    }
+
+    private fun validMetadataBytes(contentByPath: Map<String, ByteArray>, entries: List<Ownership>): Boolean =
+        entries.filter { it.category == QuotaBackupSelection.Category.SAVE_METADATA.name }.all { entry ->
+            val json = contentByPath[entry.path]?.toString(Charsets.UTF_8) ?: return@all false
+            RomSaveMetadata.fromJson(json)?.sha256?.equals(entry.identity, true) == true
+        }
+
+    private val ESSENTIAL_BATTERY_CATEGORIES = setOf(
+        QuotaBackupSelection.Category.CANONICAL_BATTERY.name,
+        QuotaBackupSelection.Category.VERIFIED_RECOVERY_BATTERY.name,
+        QuotaBackupSelection.Category.VERIFIED_LEGACY_BATTERY.name
+    )
 
     private fun encodeManifest(entries: List<ValidatedEntry>): ByteArray? = try {
         val bytes = ByteArrayOutputStream()
@@ -189,10 +256,11 @@ object CloudSnapshotArchive {
                     input.readUTF(), input.readUTF(), input.readUTF(), input.readUTF()
                 ) else null
                 if (!safeArchivePath(path) || !validIdentity(id) || !validSha(hash) || size !in 1..QuotaBackupSelection.MAX_ENTRY_BYTES ||
-                    category.length !in 1..64 || !validLegacyBinding(path, hash, id, category, binding)) return null
+                    !validEntryOwnership(path, id, category, binding) || !validLegacyBinding(path, hash, id, category, binding)) return null
                 ValidatedEntry(path, size, hash, id, category, binding)
             }
-            if (input.available() != 0 || result.map { it.path }.distinct().size != result.size) null else result
+            if (input.available() != 0 || result.map { it.path }.distinct().size != result.size ||
+                !validOwnershipSet(result.map { Ownership(it.path, it.romSha256, it.category, it.legacyBinding) })) null else result
         }
     } catch (_: Exception) { null }
 
@@ -243,6 +311,7 @@ object CloudSnapshotArchive {
         !path.startsWith('/') && '\\' !in path && path.split('/').none { it.isBlank() || it == "." || it == ".." }
     private fun validIdentity(value: String) = value.matches(Regex("[0-9a-f]{64}"))
     private fun validSha(value: String) = value.matches(Regex("[0-9a-f]{64}"))
+    private fun String.endsWithAny(vararg endings: String) = endings.any { endsWith(it, ignoreCase = true) }
     private fun checkedAdd(a: Long, b: Long): Long? = if (a < 0 || b < 0 || a > Long.MAX_VALUE - b) null else a + b
     private fun sha256(bytes: ByteArray) = MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
     private fun ByteArray.toHex() = joinToString("") { "%02x".format(it) }

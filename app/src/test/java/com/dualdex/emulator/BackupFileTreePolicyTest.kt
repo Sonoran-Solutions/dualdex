@@ -1,0 +1,85 @@
+package com.dualdex.emulator
+
+import com.dualdex.emulator.backup.BackupFileTreePolicy
+import org.junit.Assert.*
+import org.junit.Test
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+
+class BackupFileTreePolicyTest {
+    @Test fun emittedInventoryIsEveryRegularFileInTheApprovedTrees() {
+        val base = Files.createTempDirectory("dualdex-d2d-policy").toFile()
+        try {
+            val files = File(base, "files")
+            val id = "a".repeat(64)
+            val expected = listOf(
+                "saves/$id/Pokemon_Emerald.sav.orig.bak",
+                "saves_fallback/old-key.migrated.bak/slot_1.state",
+                "saves_v2/$id/battery.sav",
+                "saves_v2/$id/battery.sav.bak",
+                "saves_v2/$id/metadata.json",
+                "saves_v2/$id/resume_barrier",
+                "saves_v2/$id/slot_1.png",
+                "saves_v2/$id/slot_1.state.bak"
+            )
+            expected.forEach { path ->
+                File(files, path).apply { checkNotNull(parentFile).mkdirs(); writeText(path) }
+            }
+            File(files, "rom_cache/game.gba").apply { parentFile.mkdirs(); writeBytes(byteArrayOf(1)) }
+            val catalog = File(base, "shared_prefs/dualdex_legacy_catalog.xml").apply {
+                parentFile.mkdirs(); writeText("catalog")
+            }
+
+            val emitted = mutableListOf<BackupFileTreePolicy.BackupFile>()
+            BackupFileTreePolicy.emit(files, catalog, emitted::add)
+            assertEquals(expected.toSet() + BackupFileTreePolicy.LEGACY_CATALOG_PATH, emitted.map { it.relativePath }.toSet())
+            assertEquals(emitted.map { it.relativePath }.sorted(), emitted.map { it.relativePath })
+            assertFalse(emitted.any { it.file.isDirectory })
+            emitted.forEach { assertTrue(it.file.isFile) }
+        } finally { base.deleteRecursively() }
+    }
+
+    @Test fun treeTraversalFailsClosedOnSymlinksAndRestoreUsesTheSamePolicy() {
+        val base = Files.createTempDirectory("dualdex-d2d-policy").toFile()
+        try {
+            val files = File(base, "files")
+            val id = "b".repeat(64)
+            File(files, "saves_v2/$id/battery.sav").apply {
+                checkNotNull(parentFile).mkdirs(); writeBytes(byteArrayOf(1))
+            }
+            val outside = File(base, "outside.sav").apply { writeBytes(byteArrayOf(2)) }
+            Files.createSymbolicLink(File(files, "saves_v2/$id/escape.sav").toPath(), outside.toPath())
+            assertThrows(IOException::class.java) {
+                BackupFileTreePolicy.collect(files, File(base, "missing-catalog"))
+            }
+
+            assertTrue(BackupFileTreePolicy.isAllowedPath("saves_v2/$id/battery.sav.bak", directory = false))
+            assertTrue(BackupFileTreePolicy.isAllowedPath("saves_v2/$id/resume_barrier", directory = false))
+            assertTrue(BackupFileTreePolicy.isAllowedPath("saves/Pokemon_Emerald.sav.orig.bak", directory = false))
+            assertTrue(BackupFileTreePolicy.isAllowedPath("saves_fallback/old-key.migrated.bak/slot_1.state", directory = false))
+            assertFalse(BackupFileTreePolicy.isAllowedPath("saves_v2/$id/../rom_cache/game.gba", directory = false))
+            assertFalse(BackupFileTreePolicy.isAllowedPath("rom_cache/game.gba", directory = false))
+        } finally { base.deleteRecursively() }
+    }
+
+    @Test fun D2DRecoveryFilesCanExceedCloudEntryLimitWithinSeparateRestoreBounds() {
+        val base = Files.createTempDirectory("dualdex-d2d-size").toFile()
+        try {
+            val files = File(base, "files")
+            val id = "c".repeat(64)
+            val large = File(files, "saves_v2/$id/battery.sav.bak").apply {
+                checkNotNull(parentFile).mkdirs()
+                java.io.RandomAccessFile(this, "rw").use { it.setLength(QuotaCloudLimit + 1) }
+            }
+            assertTrue(large.length() > QuotaCloudLimit)
+            assertTrue(BackupFileTreePolicy.collect(files, File(base, "missing-catalog"))
+                .any { it.relativePath == "saves_v2/$id/battery.sav.bak" })
+            assertTrue(large.length() <= BackupFileTreePolicy.MAX_D2D_FILE_BYTES)
+        } finally { base.deleteRecursively() }
+    }
+
+    private companion object {
+        const val QuotaCloudLimit = 20L * 1024 * 1024
+    }
+}

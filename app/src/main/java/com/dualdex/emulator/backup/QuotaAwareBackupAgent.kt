@@ -13,7 +13,6 @@ import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
 import java.nio.file.Files
-import java.nio.file.LinkOption
 import java.security.MessageDigest
 
 /**
@@ -47,14 +46,14 @@ class QuotaAwareBackupAgent : BackupAgent() {
     }
 
     private fun backupDeviceTransfer(data: FullBackupDataOutput) {
-        val roots = listOf("saves_v2", "saves", "saves_fallback")
-        for (name in roots) {
-            val root = File(filesDir, name)
-            if (root.exists()) fullBackupFile(root, data)
+        try {
+            BackupFileTreePolicy.emit(filesDir, legacyCatalogFile()) { entry -> fullBackupFile(entry.file, data) }
+            BackupStatusStore.set(this, BackupStatusStore.Status.ESSENTIAL_SELECTED, "Device transfer prepared")
+        } catch (e: Exception) {
+            Log.w(tag, "Device transfer inventory or emission failed", e)
+            BackupStatusStore.set(this, BackupStatusStore.Status.REFUSED_OR_INCOMPLETE, "Device transfer inventory incomplete")
+            throw IOException("Device transfer backup refused because its allowlisted file set was incomplete", e)
         }
-        val catalog = legacyCatalogFile()
-        if (catalog.isFile) fullBackupFile(catalog, data)
-        BackupStatusStore.set(this, BackupStatusStore.Status.ESSENTIAL_SELECTED, "Device transfer prepared")
     }
 
 
@@ -125,14 +124,17 @@ class QuotaAwareBackupAgent : BackupAgent() {
         val staged = File(restoreSession, relative)
         synchronized(restoreLock) {
             if (!restoredPaths.add(relative)) throw IOException("Duplicate restore destination")
-            if (restoredPaths.size > MAX_RESTORE_ENTRIES) throw IOException("Restore entry limit exceeded")
+            if (restoredPaths.size > BackupFileTreePolicy.MAX_D2D_ENTRIES) throw IOException("Restore entry limit exceeded")
             if (type == TYPE_DIRECTORY) {
                 if (size != 0L || !safeStagingPath(staged) || !staged.mkdirs() && !staged.isDirectory)
                     throw IOException("Invalid restore directory")
                 return
             }
-            if (type != TYPE_FILE || size <= 0 || size > QuotaBackupSelection.MAX_ENTRY_BYTES ||
-                restoredBytes > MAX_RESTORE_BYTES - size) throw IOException("Restore size limit exceeded")
+            val maxFileBytes = if (relative == QuotaBackupSelection.CLOUD_SNAPSHOT_PATH) {
+                QuotaBackupSelection.MAX_PAYLOAD_BYTES
+            } else BackupFileTreePolicy.MAX_D2D_FILE_BYTES
+            if (type != TYPE_FILE || size <= 0 || size > maxFileBytes ||
+                restoredBytes > BackupFileTreePolicy.MAX_D2D_STAGING_BYTES - size) throw IOException("Restore size limit exceeded")
             val parent = staged.parentFile ?: throw IOException("Invalid restore path")
             if (!parent.exists() && !parent.mkdirs()) throw IOException("Cannot create restore staging directory")
             if (!safeStagingPath(staged)) throw IOException("Symlink in restore staging")
@@ -217,27 +219,20 @@ class QuotaAwareBackupAgent : BackupAgent() {
     }
 
     private fun allowedRestorePath(path: String, type: Int): Boolean {
-        if (type == TYPE_DIRECTORY) return path == "saves_v2" || path == "saves" || path == "saves_fallback" || path == "cloud_backup" || path == "sharedpref" ||
-            path.startsWith("saves_v2/") || path.startsWith("saves/") || path.startsWith("saves_fallback/")
-        return QuotaBackupSelection.routeRestore(path) != QuotaBackupSelection.RestoreRoute.REJECT
+        if (type == TYPE_DIRECTORY) return path == "cloud_backup" || BackupFileTreePolicy.isAllowedPath(path, directory = true)
+        if (type != TYPE_FILE) return false
+        return path == QuotaBackupSelection.CLOUD_SNAPSHOT_PATH || BackupFileTreePolicy.isAllowedPath(path, directory = false)
     }
 
     private fun validFullTreeEntry(path: String, file: File): Boolean {
         if (path == "cloud_backup/dualdex-snapshot-v1.zip") return CloudSnapshotArchive.validate(file) != null
         if (path == "sharedpref/dualdex_legacy_catalog.xml") return file.length() in 1..MAX_CATALOG_BYTES
-        if (file.length() !in 1..QuotaBackupSelection.MAX_ENTRY_BYTES) return false
+        if (file.length() !in 1..BackupFileTreePolicy.MAX_D2D_FILE_BYTES ||
+            !BackupFileTreePolicy.isAllowedPath(path, directory = false)) return false
         val parts = path.split('/')
-        if (parts.any { it.isBlank() || it == "." || it == ".." }) return false
-        return when (parts.firstOrNull()) {
-            "saves_v2" -> parts.size == 3 && parts[1].matches(Regex("[0-9a-fA-F]{64}")) &&
-                (parts[2] == "battery.sav" || parts[2] == "metadata.json" || parts[2].endsWith(".state") || parts[2].endsWith(".png")) &&
-                (parts[2] != "metadata.json" || runCatching {
-                    RomSaveMetadata.fromJson(file.readText())?.sha256?.equals(parts[1], true) == true
-                }.getOrDefault(false))
-            "saves" -> parts.size >= 2 && parts.size <= 8 && (parts.last().endsWith(".sav") || parts.last().endsWith(".state"))
-            "saves_fallback" -> parts.size in 2..8 && (parts.last().endsWith(".sav") || parts.last().endsWith(".state"))
-            else -> false
-        }
+        return if (parts.firstOrNull() == "saves_v2" && parts.lastOrNull() == "metadata.json") {
+            runCatching { RomSaveMetadata.fromJson(file.readText())?.sha256?.equals(parts[1], true) == true }.getOrDefault(false)
+        } else true
     }
 
     private fun captureStamp(file: File, path: String): QuotaBackupSelection.SourceStamp? {
@@ -257,8 +252,6 @@ class QuotaAwareBackupAgent : BackupAgent() {
     }
 
     companion object {
-        private const val MAX_RESTORE_ENTRIES = 2048
-        private const val MAX_RESTORE_BYTES = 256L * 1024 * 1024
         private const val MAX_CATALOG_BYTES = 1024L * 1024
     }
 }

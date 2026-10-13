@@ -5,7 +5,7 @@
 # One command vocabulary shared by humans, Antigravity, agents, and GitHub
 # Actions. Run from the repo root:
 #
-#   ./ci.sh test     # native reader suite + H&S tracker selftests +
+#   ./ci.sh test     # native reader suite + host-only R.O.W.E. hypothesis selfcheck + H&S tracker selftests +
 #                    # QuickJS calculator suite + H&S differential damage oracle
 #                    # (committed corpus, ROM-free) + data-pack generator tests
 #                    # + H&S census source-reader tests + Kotlin unit tests
@@ -74,6 +74,13 @@ native_test() {
     native/tests/test_pokemon_reader.c \
     -o native/build/test_runner
   ./native/build/test_runner
+
+  # Research-only decoder: synthetic bytes, no ROM or production linkage.
+  "$cc" -std=c11 -O2 -Wall -Wextra -Werror -UNDEBUG \
+    -I native/include \
+    tools/rowe-layout-spike/decoder_selftest.c native/src/pokemon_text.c \
+    -o native/build/rowe_decoder_selftest
+  ./native/build/rowe_decoder_selftest
 }
 
 # The H&S runtime probe is a developer tool that `ci.sh` deliberately does not ship, but its

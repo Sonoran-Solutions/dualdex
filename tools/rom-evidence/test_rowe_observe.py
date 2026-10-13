@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 import unittest
 from unittest.mock import patch
-from rowe_observe import Observer, parse_movie, slot_fields, verify_adapter
+from rowe_observe import Observer, parse_movie, slot_fields, verify_adapter, require_private_directory
 
 
 class ObserveTest(unittest.TestCase):
@@ -130,7 +130,9 @@ class ObserveTest(unittest.TestCase):
         here=Path(__file__).resolve().parent
         evidence=json.loads((here/'evidence/party-observations-v3.json').read_text())
         static=json.loads((here/'evidence/party-accessors-v3.json').read_text())
-        self.assertEqual(static['inspector_sha256'],hashlib.sha256((here/'rowe_static.py').read_bytes()).hexdigest())
+        # Capture provenance stays pinned to #192's reviewed source at 356588a.
+        self.assertEqual(static['inspector_sha256'],
+                         '823179f3c2bfa17d0697c2f7e459bb685983e3b9e120eb633a9aeb42d94f15e2')
         self.assertEqual((static['count']['width'],static['stride']['bytes']),(8,76))
         self.assertEqual(static['fields']['species']['width'],12)
         self.assertEqual(static['fields']['experience']['width'],21)
@@ -138,8 +140,9 @@ class ObserveTest(unittest.TestCase):
         for run in runs.values():
             self.assertEqual(run['status'],'OBSERVED')
             self.assertEqual(run['runtime_layout'],'NOT_VERIFIED')
-            for filename,key in [(run['movie'],'movie_sha256'),('rowe_observe.py','observer_sha256')]:
-                self.assertEqual(run[key],hashlib.sha256((here/filename).read_bytes()).hexdigest())
+            self.assertEqual(run['observer_sha256'],
+                             '3d0903862452628c0fa54b7d4e90dc008296ea3f91cc77a9dadd2515885905b2')
+            self.assertEqual(run['movie_sha256'],hashlib.sha256((here/run['movie']).read_bytes()).hexdigest())
             for o in run['observations']:
                 for party in o['parties'].values():
                     self.assertEqual(party['count'],party['count_after'])
@@ -199,6 +202,31 @@ class ObserveTest(unittest.TestCase):
             command[-1] = str(output)
             self.assertEqual(subprocess.run(command, capture_output=True).returncode, 2)
             self.assertEqual(rom.read_bytes(), b'invented, not a ROM')
+
+    def test_private_capture_guard_checkout_worktree_and_symlinks(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder)
+            require_private_directory(root/'outside'/'new')
+            for marker in ['directory','file']:
+                repo=root/marker;repo.mkdir()
+                if marker == 'directory':(repo/'.git').mkdir()
+                else:(repo/'.git').write_text('gitdir: invented-worktree-metadata')
+                with self.assertRaisesRegex(ValueError,'outside Git checkouts'):
+                    require_private_directory(repo/'new'/'captures')
+                link=root/(marker+'_symlink');link.symlink_to(repo/'captures')
+                with self.assertRaises(ValueError):require_private_directory(link)
+                observer=Observer.__new__(Observer)
+                with self.assertRaises(ValueError):observer.observe('guard',repo/'captures')
+            output=root/'report.json'
+            for option in ['--screens','--cartridge-dir']:
+                target=root/'directory'/'private'
+                result=subprocess.run([sys.executable,str(Path(__file__).with_name('rowe_observe.py')),
+                    '--rom','missing-rom','--core','missing-core','--movie','missing-movie',
+                    '--output',str(output),option,str(target)],capture_output=True,text=True)
+                self.assertEqual(result.returncode,1)
+                self.assertIn('outside Git checkouts',result.stderr)
+                self.assertEqual(json.loads(output.read_text())['status'],'FAIL')
+                self.assertFalse(target.exists())
 
     def test_reads_refuse_before_calling_core(self):
         host = Observer.__new__(Observer)

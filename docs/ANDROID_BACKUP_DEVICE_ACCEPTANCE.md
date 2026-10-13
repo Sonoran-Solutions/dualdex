@@ -66,7 +66,7 @@ account was added to either emulator.
 | Same-size/time source mutation and incomplete inventory refusal | SIMULATED | SIMULATED | Test seam/symlink on Android; previous local snapshot preserved before publication |
 | Framework callback with absent encryption/D2D flags refuses | PASS | — | API 28 local transport reported flags 0, quota 26,214,400; package failed `-1002` |
 | Successful cloud-route callback/emission and staged restore | BLOCKED | SIMULATED | API 28 local transport cannot supply required flag; API 34 local transport used fake encryption flag 1, quota 26,214,400; valid archive restored to staging |
-| Preserve previous successful local-transport dataset after refusal | BLOCKED | **FAIL** | API 34: first restore had 8 entries; after agent refusal, same-token restore had 0; scoped follow-up required |
+| Preserve previous successful local-transport dataset after refusal | BLOCKED | **FAIL** | API 34: first restore had 8 entries; after agent refusal, same-token restore had 0; [issue #194](https://github.com/Sonoran-Solutions/dualdex/issues/194) |
 | Preserve previous successful **remote cloud** dataset after refusal | NOT_RUN | NOT_RUN | No separately authorized disposable cloud account/dataset; local behavior cannot establish GMS remote behavior |
 | GMS D2D single-device test-mode backup/restore | NOT_RUN | SIMULATED | Actual GMS transport callbacks, flags 2, quota `Long.MAX_VALUE`; documented reinstall restored all 14 admitted files by hash, canonical battery absent |
 | Real source-to-target D2D migration | NOT_RUN | NOT_RUN | No real two-device setup-wizard transfer executed |
@@ -116,11 +116,11 @@ flag**. This is Android framework/local-storage evidence, not a remote cloud tes
 package error. The runner therefore checks the **package result and recovered
 hashes**, never the aggregate line. Throwing did abort the app operation, but
 it did not preserve this transport's older dataset. Stop this retention path;
-resolve the scoped follow-up and verify an authorized real cloud transport before
+resolve [issue #194](https://github.com/Sonoran-Solutions/dualdex/issues/194) and verify an authorized real cloud transport before
 making any previous-version-preservation or activation claim.
 
 Diagnostic references (private, outside repo):
-`/tmp/dualdex-188-api34-roundtrip/{commands.json,callbacks.log,backup-valid.txt,backup-refused.txt,baseline.json,after-refusal.json}`.
+`/tmp/dualdex-188-api34-local-a181239/{commands.json,callbacks.log,backup-valid.txt,backup-refused.txt,baseline.json,after-refusal.json,transport-result.json}`.
 The failed assertion is intentional evidence, not a test to weaken.
 
 ## Synthetic hashes and observed callback scope
@@ -143,7 +143,7 @@ in the private reports. D2D's 14-file set includes both batteries, metadata,
 states, thumbnails, `.tmp`, `.bak`, both legacy roots and the exact catalog.
 ROM-cache/log/preference sentinels were absent from the restored set; catalog
 remained reference-only, legacy files unassigned, and canonical saves absent.
-The GMS test-mode stream generated two full-backup callbacks (measurement/emission),
+The GMS test-mode stream generated two full-backup callbacks,
 14 `TYPE_FILE` callbacks and one finish callback, with no `TYPE_DIRECTORY` callback.
 The callback count alone does not assert what any other transport emits.
 
@@ -246,10 +246,49 @@ not imply policy acceptance. The failed retention gate needs resolution first.
 ## Validation and activation recommendation
 
 Canonical host, focused regression, test APK, ordinary-manifest and exact-head
-hosted results are recorded in the final PR handoff. Device environment/report
-provenance will be appended after the committed-harness rerun.
+hosted results are recorded in the final PR handoff. The clean committed-harness rerun used `a181239aa2a13bc7196b68eef075481a28856a7d`
+with `sourceDirty=false` on API 28 and both API 34 transport runs. Each API passed
+29 storage/core-boundary/conflict/UI/restart scenario outcomes (classifications
+above still apply). API 34 GMS D2D test mode restored all 14 admitted paths with
+exact source digests. The local-transport retention command correctly exited
+nonzero with `previousDatasetRetention=FAIL`, 8 baseline entries and 0 after refusal.
+
+Transport APK SHA-256:
+`4c61f02fff4738146f5d05bc88307cbcbf2af582585a7cc637fab9d14a7f53a3`.
+The no-backup physical APK was built and its merged manifest verified
+(`allowBackup=false`, test-only, distinct package), SHA-256
+`45011f3c9332e62cd4cc5e73c76a3a62a03ba19fd3b581ceba5b226b370460dd`;
+it was not installed because Thor connectivity remained blocked.
+
+`./ci.sh all` passed, including 1,451 JVM tests and the debug APK. All 58 focused
+regressions passed: cloud failures 7, file-tree policy 14, save-state safety 16,
+staged restore 21. The actual ordinary debug APK manifest was inspected:
+`package=com.dualdex`, backup agent absent. The runner's negative controls rejected
+the ordinary APK before any ADB command and rejected Python optimization that
+could disable its assertions. The final source-check and exact final-head hosted
+status are in the PR handoff; they do not change failed/device/owner gates.
 
 Keep PR #188 draft, unmerged and without auto-merge; keep the shipping agent
 unregistered. Next: review the two measured timestamp corrections and scoped
 retention failure, verify an authorized real cloud transport, complete Thor and
 real two-device/native compatibility QA, then request explicit owner rulings.
+
+
+### Private evidence integrity references
+
+These are synthetic reports and filtered logs, not game data or full device dumps.
+Their containing directories are permission-restricted. Retain them privately or
+rerun the committed procedure; no APK/raw storage/screenshot is committed.
+
+| Private evidence file | SHA-256 |
+| --- | --- |
+| `/tmp/dualdex-188-api28-a181239/environment.json` | `0d9e58fb2108fed2e24d3aa1a5dcccf736951191e2b390a428a905d42b6a24f4` |
+| `/tmp/dualdex-188-api28-a181239/storage.json` | `3a4f745545525a3420eae28364fca7d5403200d1ad10114e9b17b5e9356b242c` |
+| `/tmp/dualdex-188-api28-a181239/ui.json` | `91464ac7bcf66fa40358cbb432b31dc6378c8554c96baa59d5b79939dab82201` |
+| `/tmp/dualdex-188-api34-local-a181239/environment.json` | `806388c4270d045358d37572a03c0ac41ad939f00b78dc04cdea3d7c43016af6` |
+| `/tmp/dualdex-188-api34-local-a181239/callbacks.log` | `6e3a8d0d9476908511b01c99fb321ac567add04f7800a8f75dddf141b30ca96b` |
+| `/tmp/dualdex-188-api34-local-a181239/baseline.json` | `2b8aaf5b7b3973161315caa3b1d0e5707cdccb171a42d3c4bdc91b1f17efaf25` |
+| `/tmp/dualdex-188-api34-local-a181239/after-refusal.json` | `ad18a0cd3e3a857e7a298890450494e0c7525e284a1f4b92c1dcb006b6fd3d67` |
+| `/tmp/dualdex-188-api34-local-a181239/transport-result.json` | `da3feee0a6c16bd6ca943391ef7e84d3c4328fe9767a238fa008460450af2220` |
+| `/tmp/dualdex-188-api34-d2d-a181239/callbacks.log` | `7e23c6a3c8a53d8e8aa1fb7b551129d6cfcf0f6471808ead0159b44b88957ef6` |
+| `/tmp/dualdex-188-api34-d2d-a181239/transport-result.json` | `685172add5910bb51e50ec8cbef7e531be8a1d22bab7b07218e1c48eba9076a4` |

@@ -121,3 +121,16 @@ Verified cloud legacy bindings map only to their validated ROM hash and canonica
 `StagedRestoreStoreTest` covers session publication/restart, invalid sets, cloud extraction and verified legacy binding, source/local mutations, all local timestamp orderings, explicit retention and recovery, write/retention/move interruption, symlinks, resume barriers, loaded-game refusal, and concurrent stale imports with synthetic bytes. These host checks do not establish Android transport, filesystem durability, dialog behavior, or emulator state compatibility on a device.
 
 The candidate agent remains unregistered. Instrumented API 28–34 UI/lifecycle and storage checks, disposable cloud/D2D transport tests, and owner acceptance of these policies remain activation blockers. Keep PR #188 draft and unmerged, and issues #186 and #12 open.
+
+
+## Disposable Android acceptance checkpoint (2026-10-13)
+
+See [ANDROID_BACKUP_DEVICE_ACCEPTANCE.md](ANDROID_BACKUP_DEVICE_ACCEPTANCE.md) for
+API 28/34 storage, UI and framework callback evidence, two measured timestamp
+corrections, and the GMS single-device D2D test-mode round trip. Previous-dataset
+retention **failed on API 34 AOSP LocalTransport** after deliberate agent refusal
+([issue #194](https://github.com/Sonoran-Solutions/dualdex/issues/194)); actual
+remote cloud preservation remains NOT_RUN. No owner account or real save data
+was used. Keep the candidate unregistered in ordinary builds, PR #188 draft and
+unmerged, and #186/#12 open. Physical durability, real cloud/two-device migration,
+native compatibility and all six owner decisions remain acceptance gates.

@@ -12,6 +12,7 @@
 #                    # (which include the committed issue #84 census artifact check)
 #   ./ci.sh coverage-test # focused H&S debug coverage tests + structural release proof
 #   ./ci.sh build    # assemble the debug APK
+#   ./ci.sh backup-acceptance # build the opt-in synthetic Android device harness
 #   ./ci.sh all      # test then build (default)
 #   ./ci.sh release  # assemble the production-signed release APK (requires
 #                    # external signing credentials; fails closed if missing)
@@ -654,7 +655,8 @@ case "${1:-all}" in
   source-check) source_check ;;
   build)        gradle_build ;;
   all)          native_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
+  backup-acceptance) init_submodules; ./gradlew -Pdualdex.backupAcceptance=true -Pdualdex.acceptanceBackup="${DUALDEX_ACCEPTANCE_BACKUP:-true}" assembleBackupAcceptanceDebug ;;
   release)      gradle_release ;;
-  *)            echo "usage: $0 [test|coverage-test|source-check|build|all|release]" >&2; exit 2 ;;
+  *)            echo "usage: $0 [test|coverage-test|source-check|build|backup-acceptance|all|release]" >&2; exit 2 ;;
 esac
 fi

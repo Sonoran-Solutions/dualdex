@@ -1,6 +1,7 @@
 package com.dualdex.emulator
 
 import com.dualdex.emulator.backup.CloudSnapshotArchive
+import com.dualdex.emulator.backup.SaveBackupInventory
 import com.dualdex.emulator.backup.QuotaAwareBackupAgent
 import com.dualdex.emulator.backup.QuotaBackupSelection
 import org.junit.After
@@ -30,6 +31,17 @@ class CloudBackupFailureTest {
             fail("Refused operation must throw instead of completing normally")
         } catch (_: IOException) { }
         assertEquals(0, emissions)
+    }
+
+    @Test fun inventoryStampsUseTheArchiveFileTimestampView() {
+        val dir = validSources()
+        val battery = File(dir, "battery.sav")
+        assertTrue(battery.setLastModified(1_700_000_000_123L))
+        val inventory = SaveBackupInventory(files).scan()
+        assertTrue(inventory.complete)
+        assertEquals(battery.lastModified(), inventory.sourceStamps["saves_v2/$hash/battery.sav"]?.modifiedAtMillis)
+        assertEquals(QuotaBackupSelection.Verdict.SUCCESS,
+            QuotaAwareBackupAgent.emitCloudSnapshot(files, cache, QuotaBackupSelection.MAX_PAYLOAD_BYTES, emptyMap()) {})
     }
 
     @Test fun zeroQuotaAbortsAndPreservesPreviousLocalSnapshot() {

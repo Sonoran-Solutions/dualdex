@@ -205,11 +205,20 @@ class SaveStates153Test {
     }
 
     @Test
+    fun liveOrderingSurvivesAndroidSecondPrecision() {
+        val romDir = ssm.getCanonicalRomDir(rom)
+        assertEquals(1_700_000_001_000L, SaveStateFiles.nextStateTimestamp(romDir, 1_700_000_000_123L))
+        state(SaveStateFiles.AUTO_RESUME, 1_700_000_001_000L)
+        assertEquals(1_700_000_002_000L, SaveStateFiles.nextStateTimestamp(romDir, 1_700_000_000_123L))
+        assertThrows(java.io.IOException::class.java) { SaveStateFiles.nextStateTimestamp(romDir, Long.MAX_VALUE) }
+    }
+
+    @Test
     fun sameClockTickAndClockRollbackKeepNewLiveStatesOrdered() {
         val romDir = ssm.getCanonicalRomDir(rom)
         state(SaveStateFiles.AUTO_RESUME, 5000)
-        assertEquals(5001L, SaveStateFiles.nextStateTimestamp(romDir, 5000))
-        assertEquals(5001L, SaveStateFiles.nextStateTimestamp(romDir, 1000))
+        assertEquals(6000L, SaveStateFiles.nextStateTimestamp(romDir, 5000))
+        assertEquals(6000L, SaveStateFiles.nextStateTimestamp(romDir, 1000))
         assertEquals(6000L, SaveStateFiles.nextStateTimestamp(romDir, 6000))
     }
 

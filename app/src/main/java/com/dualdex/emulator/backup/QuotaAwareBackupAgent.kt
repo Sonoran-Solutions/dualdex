@@ -18,7 +18,8 @@ import java.security.MessageDigest
  * Candidate file-based agent. It is deliberately not registered in AndroidManifest.xml until
  * disposable transport and restore-import acceptance is complete.
  */
-class QuotaAwareBackupAgent : BackupAgent() {
+// Open for the isolated acceptance variant to record real framework callbacks.
+open class QuotaAwareBackupAgent : BackupAgent() {
     private val tag = "QuotaBackupAgent"
     private val restoreLock = Any()
     private val restoreAdmission = BackupFileTreePolicy.RestoreAdmission()

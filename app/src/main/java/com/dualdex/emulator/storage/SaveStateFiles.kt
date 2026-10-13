@@ -42,7 +42,11 @@ object SaveStateFiles {
             .filter { it.isFile && (it.name.endsWith(".state") || it.name == RESUME_BARRIER || it.name == BATTERY) }
             .maxOfOrNull { it.lastModified() } ?: 0L
         if (latest == Long.MAX_VALUE) throw IOException("State timestamp cannot advance")
-        return maxOf(nowMs, latest + 1)
+        // API 28 File/NIO timestamps round to seconds. Round up so ordering survives publication.
+        val next = maxOf(nowMs, latest + 1)
+        val rounding = (1000 - next % 1000) % 1000
+        if (next > Long.MAX_VALUE - rounding) throw IOException("State timestamp cannot advance")
+        return next + rounding
     }
 
     const val BATTERY = "battery.sav"

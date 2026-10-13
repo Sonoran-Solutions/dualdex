@@ -60,7 +60,8 @@ class SaveBackupInventory(private val filesDir: File) {
                         val name = file.fileName.toString()
                         val identity = if (rootName == "saves_v2") file.parent.fileName.toString().lowercase() else ""
                         val size = attrs.size()
-                        val modified = attrs.lastModifiedTime().toMillis()
+                        // Android NIO may truncate to seconds while File preserves millis; the archive uses File.
+                        val modified = file.toFile().lastModified()
                         val category = when {
                             rootName == "saves_v2" && name == "battery.sav" -> QuotaBackupSelection.Category.CANONICAL_BATTERY
                             rootName == "saves_v2" && name == "metadata.json" -> QuotaBackupSelection.Category.SAVE_METADATA
@@ -139,7 +140,7 @@ class SaveBackupInventory(private val filesDir: File) {
             }
         }
         val after = Files.readAttributes(path, java.nio.file.attribute.BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
-        if (total != expectedSize || after.size() != expectedSize || after.lastModifiedTime().toMillis() != expectedModified ||
+        if (total != expectedSize || after.size() != expectedSize || path.toFile().lastModified() != expectedModified ||
             Files.isSymbolicLink(path)) return null
         QuotaBackupSelection.SourceStamp(relative, total, expectedModified, digest.digest().joinToString("") { "%02x".format(it) })
     }.getOrNull()

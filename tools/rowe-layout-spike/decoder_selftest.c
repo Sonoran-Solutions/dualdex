@@ -29,7 +29,7 @@ static uint32_t bits(const uint8_t *slot, unsigned start, unsigned width) {
 
 /* True means only "plausible under this hypothesis", never verified or trusted.
  * Caller supplies ONE immutable slot, not a live address or an arbitrary RAM scan.
- * ponytail: ordinary non-egg slots only; exact-release egg/level/stat semantics and
+ * Scope: ordinary non-egg slots only; exact-release egg/level/stat semantics and
  * a coherent snapshot protocol must be established before expanding this boundary.
  */
 static bool decode_candidate(const uint8_t *slot, size_t size, CandidateFields *out) {

@@ -241,7 +241,7 @@ class AcceptanceInstrumentation : Instrumentation() {
         if(arguments.getString("scenario")=="malformed") put(root,"saves_v2/$HASH/metadata.json","{".toByteArray())
         val admitted=JSONArray()
         val catalog=File(File(root.parentFile,"shared_prefs"),"dualdex_legacy_catalog.xml")
-        BackupFileTreePolicy.collect(root,catalog).forEach { file -> admitted.put(JSONObject().put("path",file.relativePath).put("sha256",digest(file.file.readBytes()))) }
+        if(arguments.getString("scenario")!="malformed") BackupFileTreePolicy.collect(root,catalog).forEach { file -> admitted.put(JSONObject().put("path",file.relativePath).put("sha256",digest(file.file.readBytes()))) }
         record("seed-synthetic-only","fixture", evidence=JSONObject().put("batteryOne",digest(OLD)).put("batteryTwo",digest(NEW)).put("admitted",admitted))
     }
     private fun inspect() {

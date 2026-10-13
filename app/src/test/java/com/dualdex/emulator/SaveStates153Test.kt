@@ -5,6 +5,7 @@ import com.dualdex.emulator.RomSaveIntegrityTest.Companion.STATE_SIZE_256K
 import com.dualdex.emulator.storage.SaveShareStore
 import com.dualdex.emulator.storage.SaveShareStore.ExportAction
 import com.dualdex.emulator.storage.SaveStateFiles
+import com.dualdex.emulator.storage.AtomicSaveFile
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -29,7 +30,7 @@ class SaveStates153Test {
     }
 
     @After
-    fun tearDown() { dir.deleteRecursively() }
+    fun tearDown() { AtomicSaveFile.syncHook = null; dir.deleteRecursively() }
 
     private fun state(name: String, mtime: Long) = ssm.getCanonicalFile(rom, name).apply {
         writeBytes(ByteArray(STATE_SIZE_256K) { 1 }); setLastModified(mtime)
@@ -88,6 +89,22 @@ class SaveStates153Test {
     }
 
     @Test
+    fun failedBarrierPublicationPreservesFutureMarkerAndAutoResumeBytes() {
+        val future = System.currentTimeMillis() + 7 * 86400000L
+        val resume = state(SaveStateFiles.AUTO_RESUME, future)
+        val original = resume.readBytes()
+        val barrier = ssm.getCanonicalFile(rom, SaveStateFiles.RESUME_BARRIER).apply {
+            writeText(future.toString()); check(setLastModified(future))
+        }
+        AtomicSaveFile.syncHook = { throw java.io.IOException("injected barrier write failure") }
+        assertFalse(ssm.clearAutoResume(rom))
+        assertEquals(future, barrier.lastModified())
+        assertEquals(future.toString(), barrier.readText())
+        assertArrayEquals(original, resume.readBytes())
+        assertNull(ssm.loadNewestResumeState(rom))
+    }
+
+    @Test
     fun sameClockTickAndClockRollbackKeepNewLiveStatesOrdered() {
         val romDir = ssm.getCanonicalRomDir(rom)
         state(SaveStateFiles.AUTO_RESUME, 5000)
@@ -123,10 +140,19 @@ class SaveStates153Test {
     }
 
     @Test
-    fun importClearsAutoResume() {
+    fun importClearsAutoResumeWithoutLoweringFutureBarrier() {
+        val future = System.currentTimeMillis() + 7 * 86400000L
         state(SaveStateFiles.AUTO_RESUME, System.currentTimeMillis() - 60_000)
+        val oldSlot = state(SaveStateFiles.slotState(1), future)
+        val barrier = ssm.getCanonicalFile(rom, SaveStateFiles.RESUME_BARRIER).apply {
+            writeText(future.toString()); check(setLastModified(future))
+        }
         assertTrue(ssm.importBatterySave(rom, ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 9 }.inputStream()))
+        assertTrue(barrier.lastModified() > future)
+        assertEquals(future, oldSlot.lastModified())
         assertNull(ssm.loadNewestResumeState(rom))
+        assertTrue(ssm.saveAutoResume(rom))
+        assertEquals(SaveStateFiles.AUTO_RESUME, ssm.loadNewestResumeState(rom))
     }
 
     @Test

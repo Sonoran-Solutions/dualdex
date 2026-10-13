@@ -395,10 +395,13 @@ open class SaveStateManager(
     fun clearAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (!identity.isValid) return false
         val dir = getCanonicalRomDir(identity)
-        File(dir, SaveStateFiles.AUTO_RESUME).delete()
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER)
         return try {
-            barrier.writeText(System.currentTimeMillis().toString())
+            val timestamp = SaveStateFiles.nextStateTimestamp(dir)
+            val staged = getStagingFile(identity, SaveStateFiles.RESUME_BARRIER)
+            staged.writeText(timestamp.toString())
+            if (!AtomicSaveFile.copyFromStaging(staged, barrier, timestamp)) return false
+            File(dir, SaveStateFiles.AUTO_RESUME).delete()
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to write resume barrier: ${e.message}")

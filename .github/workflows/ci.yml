@@ -4,8 +4,7 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    # Temporary stack targets; remove on reconciliation (docs/ROWE_2_1_9_1_RAW_DECODER.md).
-    branches: [ main, chore/issue-59-rowe-release-evidence, chore/issue-59-rowe-party-abi ]
+    branches: [ main ]
 
 permissions:
   contents: read

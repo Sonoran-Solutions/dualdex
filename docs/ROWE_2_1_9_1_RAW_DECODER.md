@@ -158,15 +158,139 @@ are not claimed as the scripts used to make those historical observations. Their
 regressions now check the immutable captured-source pins; new generic/extraction/guard tests
 exercise current tooling. No captured JSON is regenerated or its statuses strengthened.
 
-CI temporarily allows the #191 parent (`chore/issue-59-rowe-release-evidence`) and #192 parent
-(`chore/issue-59-rowe-party-abi`) as PR bases. Keep these narrowly scoped exceptions while stacked
-exact-head validation depends on them. **Stack reconciliation must remove both exceptions and
-restore the main-only trigger** after dependencies are merged/retargeted and required CI completes.
-Do not merge/enable auto-merge on this task's behalf; #59 and the evidence PRs remain open.
+The temporary stacked PR-base CI exceptions are removed by the reconciliation below.
+The native fixture suite, ROM-evidence suite and raw decoder suite remain mandatory in the
+canonical test path. No test command or shipping target changes in this housekeeping revision.
 
-Next bounded task: independently gated player-party integration and exact-release data/text/
-mode mapping, with fresh captures for counts 3..6/decreases, boxing, faint/PP restoration,
-level/move changes and egg/nonzero-form/override cases. Outer exact-ROM trust and production
-memory permissions require separate review. Enemy authority, battle lifecycle and calculator
-mechanics require separate research. This decoder is ready for isolated correctness review,
-not full ROM support or automatic integration.
+## Research stack reconciliation — 2026-10-13
+
+This is an owner-controlled merge preparation, not production integration or merge approval.
+Current main is `94e21aeeb2f85ae5036f6ce4e79a7514c1c1c431` (merged #190).
+Repository settings allow merge commits, squash merges and rebase merges; auto-merge is disabled.
+The GitHub API reports main unprotected; that does not supersede the human merge gate.
+All four research PRs are open drafts with COMMENT technical-pass reviews, not formal approvals.
+Issue #59 remains open. Do not create a successor feature PR during reconciliation.
+
+### #189 disposition: historical, superseded; owner closure recommended
+
+[PR #189](https://github.com/Sonoran-Solutions/dualdex/pull/189) at
+`f5aa9b0aaf91e685fbcb1f81243604ea3e8a274b` has exactly three changed files:
+`ci.sh`, `docs/ROWE_2_1_9_1_SPIKE.md`, `tools/rowe-layout-spike/decoder_selftest.c`.
+A non-mutating `git merge-tree --write-tree origin/main <189-head>` reports a **content conflict
+only in ci.sh**, in the command-header description: main says “native reader + memory fixture
+replay”; #189 says “native reader suite + host-only R.O.W.E. hypothesis selfcheck”. The
+underlying separate test hooks could coexist, but importing the old decoder is unnecessary.
+
+| Unique material in #189 | Preservation / disposition |
+|---|---|
+| Full v1 source inventory, creator's 1.9.4/closed-2.0 announcement, pinned third-party reports, failed H&S tooling experiments, detailed reuse matrix and original plan | Preserve the immutable [v1 document](https://github.com/Sonoran-Solutions/dualdex/blob/f5aa9b0aaf91e685fbcb1f81243604ea3e8a274b/docs/ROWE_2_1_9_1_SPIKE.md) and PR history. The v2 release document retains the wrong-release boundary, native/H&S reuse audit and remaining gates. These older observations are historical provenance, not a missing build input. |
+| Publisher patch and unresolved CRC/ROM identity hypothesis | Superseded by #191's pinned patch verification, all UPS CRCs and bytewise reproduced ROM identity. Preserve v1 as the earlier state; never relabel it independently verified. |
+| 76-byte synthetic C decoder and CI hook | Superseded by #193's independently written raw extraction and #190 fixture map, with packed-bit, zero/max, length, alignment, overlap, count, mutation, callback and failure-clearing tests. Do not import a duplicate decoder. |
+| Nickname preview / full-width and terminator checks | Tests of the existing Gen III codec under a hypothesis, not exact-release text evidence. #193 preserves all 12 nickname bytes; #59's next task must prove their interpretation. No compatibility coverage is lost by withholding preview. |
+| Plausibility refusals for species zero, level outside 1..100, impossible HP, zero stats and a reported egg flag | Deliberate v1 scope assumptions, not raw-layout invariants. #193 instead preserves these values without declaring a valid Pokémon. Semantic refusals require exact-release evidence in a later task. |
+
+**No essential unique code, test or reproduction dependency needs to be merged.** Recommend the
+owner close #189 as superseded after accepting this finding; leave it open until authorized.
+Keep its reviewed branch/commit reachable, links and historical evidence. Do not rewrite its
+claims or resolve its conflict merely to merge redundant material. The #191 review's earlier
+suggestion to retain both CI hooks predates the replacement #193 raw suite; the audit above
+explains why that suggestion no longer requires the v1 hook.
+
+### Merge sequence and ancestry
+
+| PR | Exact reviewed head | Parent and exclusive scope |
+|---|---|---|
+| [#191](https://github.com/Sonoran-Solutions/dualdex/pull/191) | `37eec9cba83f68115d8bd4d01c96bfaf51c8a682` | Direct child of main `94e21ae`; one commit, 13 files: identity/static/runtime evidence, host tools/tests, canonical CI hook. |
+| [#192](https://github.com/Sonoran-Solutions/dualdex/pull/192) | `356588ab263ddbe200faffebe9415c7d6f582475` | Direct child of #191; one commit, 13 files: v3 two-slot/persistence evidence, accessor tools, adapter pin, input movies/tests, temporary CI target. |
+| [#193](https://github.com/Sonoran-Solutions/dualdex/pull/193) | `3eb5afcccd3b577827c7c953fa1193e43eafee9f` before reconciliation | Direct child of #192; one decoder commit, 10 files. Reconciliation adds only this document and the main-only CI trigger, with no decoder or evidence changes. Current final head and fresh gates are recorded in the PR handoff. |
+
+Recommended owner order: **#191 into main, then #192 into main, then #193 into main**.
+Prefer **merge commits**: they preserve reviewed ancestry, so retarget each child to main after
+its parent merges without rewriting any branch. Verify that the parent's SHA is an ancestor
+of origin/main and check the resulting exclusive diff before the next merge. Preserve branches
+until child retargeting is complete. If main advances beyond the validated baseline, validate
+that actual new merge candidate before proceeding; old green checks are not proof of a new tree.
+
+If the owner chooses **squash or rebase merge**, parents get different SHAs. After #191 is merged,
+with a clean checkout and freshly fetched origin/main, replay ONLY #192's exclusive commit:
+
+```bash
+git fetch origin
+git rebase --onto origin/main 37eec9cba83f68115d8bd4d01c96bfaf51c8a682 chore/issue-59-rowe-party-abi
+git push --force-with-lease=chore/issue-59-rowe-party-abi:356588ab263ddbe200faffebe9415c7d6f582475 origin chore/issue-59-rowe-party-abi
+gh api --method PATCH repos/Sonoran-Solutions/dualdex/pulls/192 -f base=main
+```
+
+After the rewritten #192 is reviewed/validated and owner-merged, fetch main again and replay
+ONLY #193's decoder and reconciliation commits, excluding its ORIGINAL #192 parent:
+
+```bash
+git fetch origin
+git rebase --onto origin/main 356588ab263ddbe200faffebe9415c7d6f582475 feat/issue-59-rowe-raw-decoder
+# EXPECTED_193_HEAD is the exact remote head recorded in the final PR handoff before this rebase.
+git push --force-with-lease=feat/issue-59-rowe-raw-decoder:$EXPECTED_193_HEAD origin feat/issue-59-rowe-raw-decoder
+gh api --method PATCH repos/Sonoran-Solutions/dualdex/pulls/193 -f base=main
+```
+
+Do not use a plain `git rebase origin/main`, merge main into a squashed child, or use the
+rewritten #192 SHA as #193's old cutoff: those can replay inherited research commits.
+Recheck exclusive diffs and all applicable local/hosted gates on each rewritten candidate;
+obtain new review if conflict resolution changes behavior. Existing technical-pass comments
+name the original reviewed SHAs and must not be represented as review of rewritten code.
+No rebase or merge has been performed by this reconciliation task.
+
+Capture digests, original tool revisions, adapter manifest and observation JSON remain
+byte-for-byte unchanged. A rewritten branch SHA is not a new capture/tool provenance SHA.
+
+### CI cleanup and validation boundary
+
+Before removing either exception, exact stacked heads #191/#192/#193 had passed runs
+[38425188430](https://github.com/Sonoran-Solutions/dualdex/actions/runs/38425188430),
+[38462537894](https://github.com/Sonoran-Solutions/dualdex/actions/runs/38462537894) and
+[38475614938](https://github.com/Sonoran-Solutions/dualdex/actions/runs/38475614938).
+These establish the exceptions served their purpose; they do not certify the housekeeping head.
+Fresh #191/#192 reruns and new #193 exact-head CI results belong in the final PR handoff.
+For the main-only housekeeping head, #193 is temporarily retargeted to main to trigger full
+CI on publication of the housekeeping head (the synchronize event), then restored to #192
+after completion. Main is an ancestor of the candidate; the combined
+merge tree equals its head tree. Temporary display of inherited files during validation is
+not a merge, cherry-pick or duplication in history. The final stacked diff remains #193-only.
+Future pushes while #193 is based on #192 will need main retargeting for CI; after the owner
+merges parents, main is its permanent base and ordinary CI applies.
+
+Run `./ci.sh all`, `./ci.sh source-check`, `./ci.sh fixture-test` and `git diff --check`
+on each unchanged candidate. `rowe-test` and `rowe-sanitize` are **not applicable** on #191
+or #192: neither target nor the raw C module exists there. Do not backport the decoder merely
+to manufacture a passing target. Both focused targets, plus all other gates, are mandatory
+on the final #193 combined tree. Hosted CI must use the exact current head, not an old run.
+
+### Combined-tree safety proof
+
+Relative to current main, changes are confined to docs, host tools, native/tests, ci.sh and the
+workflow. `git diff origin/main HEAD -- app/src/main native/src native/include` is empty,
+as is the diff of every other production path. No profile, trusted hash, memory permissions,
+JNI/Android dispatch, enemy decoder, game-data pack or calculator capability is added.
+Existing FireRed/Emerald/H&S production behavior is unchanged and regression gates remain.
+The native CMake explicit shipping list is unchanged and excludes native/tests; freshly built
+arm64-v8a and x86_64 APK libraries must contain the existing reader positive control and no
+`rowe_raw_` symbol. Record that inspection against the final head/APK in the handoff.
+
+All added artifacts are text documentation, independently written code/tests, scripted button
+movies or limited sanitized numeric/hash evidence. No ROM, save/state, screenshot, full memory
+capture, patch binary, generated game table, upstream GPL implementation or copyrighted asset
+is staged. Diagnostic ROM hashes in host evidence are not production trust entries. Research
+merge cannot authorize live R.O.W.E. access; #59 remains open and full integration remains HOLD.
+
+### Proposed next task — do not start here
+
+**R.O.W.E. 2.1.9.1 Experimental: Exact-Release Data and Text Mapping Evidence.**
+Pin legitimate exact-release source/build inputs or a documented independent extraction from
+the identified private ROM. Establish species ID/name and form mapping, move ID/name mapping,
+12-byte nickname encoding/terminators/full-length/control/glyph behavior, stored versus
+mode-dependent effective nature and overrides. Record per-field provenance and contradictory
+or unavailable evidence; test unknown IDs/forms/text/modes with explicit safe refusal and no
+global-table fallback. Keep raw observation separate from semantic authority. Older R.O.W.E.
+1.9.4 source and generic Pokémon tables are leads only, never authoritative 2.1.9.1 mappings.
+Deliver a versioned mapping/refusal matrix and ROM-free synthetic checks in a separately
+authorized task, with no profile/trust/production player/enemy/calculator activation. Do not
+begin mapping implementation or open its issue/PR during this reconciliation.

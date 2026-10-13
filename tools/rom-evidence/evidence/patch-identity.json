@@ -1,0 +1,41 @@
+{
+  "existing_rom_byte_identical": true,
+  "gba_header": {
+    "checksum": 114,
+    "checksum_valid": true,
+    "fixed_byte": 150,
+    "game_code_hex": "42504545",
+    "maker_hex": "3031",
+    "revision": 0,
+    "title_hex": "504f4b454d4f4e20454d4552"
+  },
+  "patch": {
+    "bytes": 30599197,
+    "crc32": "2144df1c",
+    "sha1": "932a36825655c64884d6eeeb3d943c0d6642ef87",
+    "sha256": "41431249ec06033e77950603be22091bd0ea465dbf573a645eec642d397d26f9"
+  },
+  "rom_identity": "PATCH_REPRODUCED",
+  "runtime_layout": "NOT_VERIFIED",
+  "schema_version": 1,
+  "source": {
+    "bytes": 16777216,
+    "crc32": "1f1c08fb",
+    "sha1": "f3ae088181bf583e55daf962a92bb46f4f1d07b7",
+    "sha256": "a9dec84dfe7f62ab2220bafaef7479da0929d066ece16a6885f6226db19085af"
+  },
+  "target": {
+    "bytes": 33554432,
+    "crc32": "ad252fd3",
+    "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+  },
+  "ups": {
+    "patch_crc32": "e31147fe",
+    "source_bytes": 16777216,
+    "source_crc32": "1f1c08fb",
+    "target_bytes": 33554432,
+    "target_crc32": "ad252fd3",
+    "xor_runs": 1624406
+  }
+}

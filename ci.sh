@@ -5,7 +5,8 @@
 # One command vocabulary shared by humans, Antigravity, agents, and GitHub
 # Actions. Run from the repo root:
 #
-#   ./ci.sh test     # native reader + memory fixture replay + H&S tracker selftests +
+#   ./ci.sh test     # native reader + memory fixture replay + ROM-evidence tooling +
+#                    # H&S tracker selftests +
 #                    # QuickJS calculator suite + H&S differential damage oracle
 #                    # (committed corpus, ROM-free) + data-pack generator tests
 #                    # + H&S census source-reader tests + Kotlin unit tests
@@ -97,6 +98,8 @@ native_test() {
     native/tests/test_pokemon_reader.c \
     -o native/build/test_runner
   ./native/build/test_runner
+  echo "== ROM evidence tooling (synthetic, no ROM/core) =="
+  python3 -m unittest discover -s tools/rom-evidence -v
 }
 
 # The H&S runtime probe is a developer tool that `ci.sh` deliberately does not ship, but its

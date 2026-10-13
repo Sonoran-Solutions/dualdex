@@ -221,7 +221,7 @@ object AtomicSaveFile {
     /**
      * Atomically copy a staging file to targetFile with durability and previous-good backup (.bak).
      */
-    fun copyFromStaging(stagingFile: File, targetFile: File): Boolean {
+    fun copyFromStaging(stagingFile: File, targetFile: File, modifiedTime: Long? = null): Boolean {
         if (!stagingFile.exists() || stagingFile.length() == 0L) {
             Log.e(TAG, "Staging file missing or empty: ${stagingFile.absolutePath}")
             return false
@@ -243,6 +243,8 @@ object AtomicSaveFile {
                 FileOutputStream(tmpFile).use { output ->
                     input.copyTo(output)
                     output.flush()
+                    if (modifiedTime != null && (!tmpFile.setLastModified(modifiedTime) || tmpFile.lastModified() != modifiedTime))
+                        throw IOException("Cannot persist state ordering timestamp")
                     val hook = syncHook
                     if (hook != null) {
                         hook(output)

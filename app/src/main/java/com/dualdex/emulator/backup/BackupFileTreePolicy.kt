@@ -14,6 +14,8 @@ import java.nio.file.attribute.BasicFileAttributes
 object BackupFileTreePolicy {
     const val MAX_PATH_CHARS = 4096
     const val MAX_D2D_ENTRIES = 16_384
+    // At most one ancestor header per shortest path segment per file, plus sharedpref/cloud roots.
+    const val MAX_D2D_DIRECTORY_ENTRIES = MAX_D2D_ENTRIES * (MAX_PATH_CHARS / 2L) + 2
     const val MAX_D2D_FILE_BYTES = 4L * 1024 * 1024 * 1024
     const val MAX_D2D_STAGING_BYTES = 16L * 1024 * 1024 * 1024
     const val MAX_CATALOG_BYTES = 1024L * 1024
@@ -37,6 +39,37 @@ object BackupFileTreePolicy {
         if (!isAllowedPath(path, directory = false) || size !in 1..maxBytes ||
             totalBytes < 0 || totalBytes > MAX_D2D_STAGING_BYTES - size ||
             entryCount !in 1..MAX_D2D_ENTRIES) throw IOException("Device transfer admission limit exceeded")
+    }
+
+    /** Directory headers are validated but need no storage; file callbacks create their parents. */
+    class RestoreAdmission {
+        private val filePaths = hashSetOf<String>()
+        private var bytes = 0L
+        private var directories = 0L
+
+        fun admit(path: String, size: Long, directory: Boolean): Boolean {
+            if (directory) {
+                checkDirectoryAdmission(path, size, directories + 1)
+                directories++
+                return false
+            }
+            if (path in filePaths) throw IOException("Duplicate restore destination")
+            val count = filePaths.size + 1
+            if (path == QuotaBackupSelection.CLOUD_SNAPSHOT_PATH) {
+                if (size !in 1..QuotaBackupSelection.MAX_PAYLOAD_BYTES || count > MAX_D2D_ENTRIES ||
+                    bytes > MAX_D2D_STAGING_BYTES - size) throw IOException("Restore admission limit exceeded")
+            } else {
+                checkFileAdmission(path, size, bytes, count)
+            }
+            filePaths.add(path)
+            bytes += size
+            return true
+        }
+    }
+
+    fun checkDirectoryAdmission(path: String, size: Long, entryCount: Long) {
+        if (size != 0L || entryCount !in 1..MAX_D2D_DIRECTORY_ENTRIES ||
+            path != "cloud_backup" && !isAllowedPath(path, true)) throw IOException("Invalid restore directory")
     }
 
     /** Canonical metadata must be parseable and owned by its ROM directory on both sides. */

@@ -60,6 +60,43 @@ class SaveStates153Test {
     }
 
     @Test
+    fun futureRestoreBarrierAllowsNewLiveResumeAndManualStatesAfterRestart() {
+        val future = System.currentTimeMillis() + 7 * 86400000L
+        val old = state(SaveStateFiles.slotState(1), future)
+        val oldBytes = old.readBytes()
+        val oldResume = state(SaveStateFiles.AUTO_RESUME, future)
+        val barrier = ssm.getCanonicalFile(rom, SaveStateFiles.RESUME_BARRIER).apply {
+            writeText(future.toString()); check(setLastModified(future))
+        }
+        assertNull(ssm.loadNewestResumeState(rom))
+        bridge.saveStateResult = false
+        assertFalse(ssm.saveAutoResume(rom))
+        assertEquals(future, oldResume.lastModified())
+        assertNull(ssm.loadNewestResumeState(rom))
+        bridge.saveStateResult = true
+        assertTrue(ssm.saveAutoResume(rom))
+        assertTrue(oldResume.lastModified() > barrier.lastModified())
+        assertEquals(SaveStateFiles.AUTO_RESUME, ssm.loadNewestResumeState(rom))
+        assertTrue(ssm.saveSlot(rom, 2))
+        assertEquals("slot_2.state", ssm.loadNewestResumeState(rom))
+        assertEquals(future, old.lastModified())
+        assertArrayEquals(oldBytes, old.readBytes())
+        assertEquals(future, barrier.lastModified())
+        val restarted = SaveStateManager(customBaseDir = dir, coreBridge = bridge)
+        restarted.setActiveGame(rom)
+        assertEquals("slot_2.state", restarted.loadNewestResumeState(rom))
+    }
+
+    @Test
+    fun sameClockTickAndClockRollbackKeepNewLiveStatesOrdered() {
+        val romDir = ssm.getCanonicalRomDir(rom)
+        state(SaveStateFiles.AUTO_RESUME, 5000)
+        assertEquals(5001L, SaveStateFiles.nextStateTimestamp(romDir, 5000))
+        assertEquals(5001L, SaveStateFiles.nextStateTimestamp(romDir, 1000))
+        assertEquals(6000L, SaveStateFiles.nextStateTimestamp(romDir, 6000))
+    }
+
+    @Test
     fun tenSlots_overwriteKeepsBak_andOutOfRangeRefused() {
         assertEquals(10, ssm.getAllSlotsInfo(rom).size)
         assertTrue(ssm.saveSlot(rom, 10))

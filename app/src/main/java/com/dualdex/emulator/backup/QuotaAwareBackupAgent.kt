@@ -21,8 +21,7 @@ import java.security.MessageDigest
 class QuotaAwareBackupAgent : BackupAgent() {
     private val tag = "QuotaBackupAgent"
     private val restoreLock = Any()
-    private val restoredPaths = linkedSetOf<String>()
-    private var restoredBytes = 0L
+    private val restoreAdmission = BackupFileTreePolicy.RestoreAdmission()
     private var restoreFailed = false
     private val restoreSession by lazy { File(filesDir, "restore_staging/session-${System.nanoTime()}") }
 
@@ -33,15 +32,24 @@ class QuotaAwareBackupAgent : BackupAgent() {
 
     override fun onFullBackup(data: FullBackupDataOutput) {
         BackupStatusStore.set(this, BackupStatusStore.Status.PREPARING)
-        when (QuotaBackupSelection.dispatch(
-            data.transportFlags and FLAG_CLIENT_SIDE_ENCRYPTION_ENABLED != 0,
-            data.transportFlags and FLAG_DEVICE_TO_DEVICE_TRANSFER != 0
-        )) {
-            QuotaBackupSelection.BackupRoute.REFUSAL -> {
-                BackupStatusStore.set(this, BackupStatusStore.Status.REFUSED_OR_INCOMPLETE, "Transport not verified")
+        try {
+            when (QuotaBackupSelection.dispatch(
+                data.transportFlags and FLAG_CLIENT_SIDE_ENCRYPTION_ENABLED != 0,
+                data.transportFlags and FLAG_DEVICE_TO_DEVICE_TRANSFER != 0
+            )) {
+                QuotaBackupSelection.BackupRoute.REFUSAL -> throw IOException("Transport not verified")
+                QuotaBackupSelection.BackupRoute.DEVICE_TRANSFER -> backupDeviceTransfer(data)
+                QuotaBackupSelection.BackupRoute.CLOUD_SNAPSHOT -> {
+                    val verdict = emitCloudSnapshot(filesDir, cacheDir, data.quota, verifiedLegacyBindings()) {
+                        fullBackupFile(it, data)
+                    }
+                    BackupStatusStore.set(this, if (verdict == QuotaBackupSelection.Verdict.PARTIAL)
+                        BackupStatusStore.Status.OPTIONAL_OMITTED else BackupStatusStore.Status.ESSENTIAL_SELECTED)
+                }
             }
-            QuotaBackupSelection.BackupRoute.DEVICE_TRANSFER -> backupDeviceTransfer(data)
-            QuotaBackupSelection.BackupRoute.CLOUD_SNAPSHOT -> backupCloudSnapshot(data)
+        } catch (failure: Exception) {
+            BackupStatusStore.set(this, BackupStatusStore.Status.REFUSED_OR_INCOMPLETE, "Backup did not complete")
+            throw IOException("Backup refused or incomplete", failure)
         }
     }
 
@@ -76,33 +84,29 @@ class QuotaAwareBackupAgent : BackupAgent() {
         return result
     }
 
-    private fun backupCloudSnapshot(data: FullBackupDataOutput) {
-        val bindings = verifiedLegacyBindings()
-        val inventory = SaveBackupInventory(filesDir).scan(bindings)
-        val budget = QuotaBackupSelection.budgetFor(data.quota)
-        val selection = QuotaBackupSelection.select(inventory.identities, inventory.candidates, inventory.complete, budget)
-        if (selection.verdict == QuotaBackupSelection.Verdict.REFUSAL || selection.selected.isEmpty()) {
-            BackupStatusStore.set(this, BackupStatusStore.Status.REFUSED_OR_INCOMPLETE, "Essential save coverage unavailable")
-            return
-        }
-        val entries = selection.selected.map { candidate ->
-            val source = File(filesDir, candidate.relativePath)
-            val stamp = inventory.sourceStamps[candidate.relativePath] ?: run {
-                BackupStatusStore.set(this, BackupStatusStore.Status.REFUSED_OR_INCOMPLETE, "Save inventory changed")
-                return
+    companion object {
+        /** A refused or incomplete cloud operation must never return as a successful empty backup. */
+        internal fun emitCloudSnapshot(
+            filesRoot: File, cacheRoot: File, quota: Long,
+            bindings: Map<String, QuotaBackupSelection.PortableLegacyBinding>, emit: (File) -> Unit
+        ): QuotaBackupSelection.Verdict {
+            val inventory = SaveBackupInventory(filesRoot).scan(bindings)
+            val selection = QuotaBackupSelection.select(inventory.identities, inventory.candidates,
+                inventory.complete, QuotaBackupSelection.budgetFor(quota))
+            if (selection.verdict == QuotaBackupSelection.Verdict.REFUSAL || selection.selected.isEmpty())
+                throw IOException("Essential save coverage unavailable")
+            val entries = selection.selected.map { candidate ->
+                val source = File(filesRoot, candidate.relativePath)
+                val stamp = inventory.sourceStamps[candidate.relativePath] ?: throw IOException("Save inventory changed")
+                CloudSnapshotArchive.Entry(source, stamp, candidate.romSha256.lowercase(), candidate.category.name,
+                    bindings[source.canonicalPath])
             }
-            CloudSnapshotArchive.Entry(source, stamp, candidate.romSha256.lowercase(), candidate.category.name,
-                bindings[source.canonicalPath])
+            val destination = File(filesRoot, QuotaBackupSelection.CLOUD_SNAPSHOT_PATH)
+            CloudSnapshotArchive.build(entries, filesRoot, cacheRoot, destination)
+                ?: throw IOException("Snapshot validation failed")
+            emit(destination)
+            return selection.verdict
         }
-        val destination = File(filesDir, QuotaBackupSelection.CLOUD_SNAPSHOT_PATH)
-        val archive = CloudSnapshotArchive.build(entries, filesDir, cacheDir, destination)
-        if (archive == null) {
-            BackupStatusStore.set(this, BackupStatusStore.Status.REFUSED_OR_INCOMPLETE, "Snapshot validation failed")
-            return
-        }
-        fullBackupFile(destination, data)
-        BackupStatusStore.set(this, if (selection.verdict == QuotaBackupSelection.Verdict.PARTIAL)
-            BackupStatusStore.Status.OPTIONAL_OMITTED else BackupStatusStore.Status.ESSENTIAL_SELECTED)
     }
 
     override fun onQuotaExceeded(backupDataBytes: Long, quotaBytes: Long) {
@@ -132,20 +136,9 @@ class QuotaAwareBackupAgent : BackupAgent() {
         if (!allowedRestorePath(relative, type)) throw IOException("Restore path is not allowlisted")
         val staged = File(restoreSession, relative)
         synchronized(restoreLock) {
-            if (!restoredPaths.add(relative)) throw IOException("Duplicate restore destination")
-            if (restoredPaths.size > BackupFileTreePolicy.MAX_D2D_ENTRIES) throw IOException("Restore entry limit exceeded")
-            if (type == TYPE_DIRECTORY) {
-                if (size != 0L || !safeStagingPath(staged) || !staged.mkdirs() && !staged.isDirectory)
-                    throw IOException("Invalid restore directory")
-                return
-            }
-            if (type != TYPE_FILE) throw IOException("Invalid restore file type")
-            if (relative == QuotaBackupSelection.CLOUD_SNAPSHOT_PATH) {
-                if (size !in 1..QuotaBackupSelection.MAX_PAYLOAD_BYTES ||
-                    restoredBytes > BackupFileTreePolicy.MAX_D2D_STAGING_BYTES - size) throw IOException("Restore size limit exceeded")
-            } else {
-                BackupFileTreePolicy.checkFileAdmission(relative, size, restoredBytes, restoredPaths.size)
-            }
+            if (type != TYPE_DIRECTORY && type != TYPE_FILE) throw IOException("Invalid restore file type")
+            if (!safeStagingPath(staged)) throw IOException("Symlink in restore staging")
+            if (!restoreAdmission.admit(relative, size, type == TYPE_DIRECTORY)) return
             val parent = staged.parentFile ?: throw IOException("Invalid restore path")
             if (!parent.exists() && !parent.mkdirs()) throw IOException("Cannot create restore staging directory")
             if (!safeStagingPath(staged)) throw IOException("Symlink in restore staging")
@@ -166,7 +159,6 @@ class QuotaAwareBackupAgent : BackupAgent() {
                     }
                 }
                 if (temp.length() != size || !temp.renameTo(staged)) throw IOException("Restore staging write failed")
-                restoredBytes += size
             } finally { if (temp.exists()) temp.delete() }
         }
     }

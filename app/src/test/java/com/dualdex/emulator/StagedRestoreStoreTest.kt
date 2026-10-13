@@ -193,6 +193,13 @@ class StagedRestoreStoreTest {
         assertTrue(barrier.lastModified() >= future)
         assertNull(SaveStateFiles.newestResumeState(dir, barrier.lastModified()))
         assertEquals("existing state", state.readText())
+        val manager = SaveStateManager(customBaseDir = root, coreBridge = RomSaveIntegrityTest.TestCoreBridge())
+        val rom = RomIdentity.create(hash, "Synthetic")
+        manager.setActiveGame(rom)
+        assertTrue(manager.saveAutoResume(rom))
+        assertEquals(SaveStateFiles.AUTO_RESUME, manager.loadNewestResumeState(rom))
+        assertTrue(manager.saveSlot(rom, 2))
+        assertEquals("slot_2.state", manager.loadNewestResumeState(rom))
     }
 
     @Test fun stateImportIsManualAndLegacyAssignmentsAreReferenceOnly() {

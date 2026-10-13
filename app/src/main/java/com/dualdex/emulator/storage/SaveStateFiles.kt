@@ -1,6 +1,7 @@
 package com.dualdex.emulator.storage
 
 import java.io.File
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,6 +34,15 @@ object SaveStateFiles {
             .map { File(dir, it) }
             .filter { it.isFile && it.length() > 0L && it.lastModified() > barrierMs && it.lastModified() >= batteryMs }
             .maxByOrNull { it.lastModified() }
+    }
+
+    /** Live writes advance past a restore barrier even when old files were future dated. */
+    fun nextStateTimestamp(dir: File, nowMs: Long = System.currentTimeMillis()): Long {
+        val latest = (dir.listFiles() ?: throw IOException("Cannot inspect state timestamps"))
+            .filter { it.isFile && (it.name.endsWith(".state") || it.name == RESUME_BARRIER || it.name == BATTERY) }
+            .maxOfOrNull { it.lastModified() } ?: 0L
+        if (latest == Long.MAX_VALUE) throw IOException("State timestamp cannot advance")
+        return maxOf(nowMs, latest + 1)
     }
 
     const val BATTERY = "battery.sav"

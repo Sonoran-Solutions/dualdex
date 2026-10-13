@@ -8,6 +8,39 @@ import java.io.IOException
 import java.nio.file.Files
 
 class BackupFileTreePolicyTest {
+    @Test fun restoreDirectoryHeadersDoNotConsumeTheFileOnlyLimit() {
+        val admission = BackupFileTreePolicy.RestoreAdmission()
+        repeat(BackupFileTreePolicy.MAX_D2D_ENTRIES) { index ->
+            assertFalse(admission.admit("saves", 0, true))
+            assertFalse(admission.admit("saves/dir_$index", 0, true))
+            assertTrue(admission.admit("saves/dir_$index/entry.sav", 1, false))
+        }
+        assertFalse(admission.admit("saves/extra_empty_directory", 0, true))
+        assertThrows(java.io.IOException::class.java) { admission.admit("saves/extra.sav", 1, false) }
+        assertThrows(java.io.IOException::class.java) { admission.admit("saves/dir_0/entry.sav", 1, false) }
+    }
+
+    @Test fun directoryHeadersHaveASeparateBoundDerivedFromAdmittedFilePaths() {
+        val limit = BackupFileTreePolicy.MAX_D2D_DIRECTORY_ENTRIES
+        assertTrue(limit >= BackupFileTreePolicy.MAX_D2D_ENTRIES.toLong() * (BackupFileTreePolicy.MAX_PATH_CHARS / 2))
+        BackupFileTreePolicy.checkDirectoryAdmission("saves", 0, limit)
+        assertThrows(java.io.IOException::class.java) { BackupFileTreePolicy.checkDirectoryAdmission("saves", 0, limit + 1) }
+        assertThrows(java.io.IOException::class.java) { BackupFileTreePolicy.checkDirectoryAdmission("saves", 0, 0) }
+    }
+
+    @Test fun restoreHeadersValidatePathsAndSizesWhileFileBytesStayBounded() {
+        val admission = BackupFileTreePolicy.RestoreAdmission()
+        assertThrows(java.io.IOException::class.java) { admission.admit("rom_cache", 0, true) }
+        assertThrows(java.io.IOException::class.java) { admission.admit("saves/../outside", 0, true) }
+        assertThrows(java.io.IOException::class.java) { admission.admit("saves", 1, true) }
+        assertThrows(java.io.IOException::class.java) { admission.admit("saves/empty.sav", 0, false) }
+        repeat(4) { index ->
+            assertFalse(admission.admit("saves/dir_$index", 0, true))
+            assertTrue(admission.admit("saves/dir_$index/recovery.sav", BackupFileTreePolicy.MAX_D2D_FILE_BYTES, false))
+        }
+        assertThrows(java.io.IOException::class.java) { admission.admit("saves/overflow.sav", 1, false) }
+    }
+
     @Test fun emittedInventoryIsEveryRegularFileInTheApprovedTrees() {
         val base = Files.createTempDirectory("dualdex-d2d-policy").toFile()
         try {

@@ -18,6 +18,7 @@ import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
+import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -255,7 +256,9 @@ open class SaveStateManager(
         val ok = nativeSaveState(stagingFile.absolutePath)
         if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) return null
         val canonicalFile = getCanonicalFile(identity, fileName)
-        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it) }
+        val timestamp = try { SaveStateFiles.nextStateTimestamp(checkNotNull(canonicalFile.parentFile)) }
+            catch (failure: IOException) { Log.e(TAG, "Cannot order new state safely", failure); return null }
+        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it, timestamp) }
     }
 
     /**

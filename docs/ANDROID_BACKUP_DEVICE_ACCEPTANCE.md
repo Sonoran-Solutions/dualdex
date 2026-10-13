@@ -36,7 +36,7 @@ No screenshots, APKs, game payloads or private device dumps are committed.
 | --- | --- | --- |
 | API 28 emulator | `system-images;android-28;default;x86_64`; Android 9 `PSR1.180720.012/4923214`; AVD `dualdex188-api28`, port 5580 | Fresh `/tmp` userdata; real Android storage/UI; legacy backup rules; built-in local transport |
 | API 34 emulator | `system-images;android-34;google_apis;x86_64`; Android 14 `UE1A.230829.050/12077443`; AVD `dualdex188-api34`, port 5582 | Fresh `/tmp` userdata; real Android storage/UI; modern extraction rules; AOSP local and GMS D2D test transports |
-| AYN Thor | User supplied wireless endpoint timed out before connection | **BLOCKED**: no installation, storage access, account access or backup experiment performed |
+| AYN Thor, API 33 | Android 13 `TKQ1.231222.001`; build `qti/kalama/kalama:13/TKQ1.231222.001/eng.Thor.20260206.163241:user/release-keys`; USB | Physical app-private storage and production Saves component; isolated no-backup package; no transport/account changes |
 | Connected Samsung devices | API 36 and 37 | Outside requested API range; inventory only; no installation or backup changes |
 
 The SDK initially had platforms/build tools 34, 35 and 36, NDK 27.2 and CMake 3.22.1,
@@ -74,6 +74,29 @@ account was added to either emulator.
 | Actual transport at 16,384 files / 4 GiB file / 16 GiB set boundaries | NOT_RUN | NOT_RUN | Logic remains host-verified; no enormous payload or storage exhaustion attempted |
 | Actual `onQuotaExceeded`, hard low-storage and abrupt power loss | NOT_RUN | NOT_RUN | No controlled transport quota/storage/power-loss fixture; exceptions are not physical durability evidence |
 | Shipping activity, second display, real native state compatibility | NOT_RUN | NOT_RUN | Production Saves component tested in harness; full handheld/session behavior still needs Thor/device QA |
+
+## Physical Thor follow-up — API 33
+
+Wireless connection timed out; the owner then connected the Thor by USB. On clean
+head `bbbd207f55a15b08d6e72c35ec11d74378abb3ee`, the same committed harness ran with
+`--transport none --cleanup` and `sourceDirty=false`. The final APK manifest was
+verified before installation: `com.dualdex.backupacceptance`, test-only,
+`allowBackup=false`. All 29 scoped outcomes passed (12 storage, 4 staged, 3 cloud
+helper, 8 UI, 2 restart). No physical backup callback or transport was invoked.
+
+| Thor scenario | Status | Observed result / limit |
+| --- | --- | --- |
+| Directory `FileChannel` sync; atomic replacement and recovery | PASS | Sync returned normally; target became byte-9 digest, previous-good copy stayed byte-3; invalid recovery refused |
+| Existing/missing/empty/newer/mutated/late-created destinations | PASS | Actual staged store and eight production dialog checks; canceled/conflicting imports preserved local data; explicit replacement retained local copy |
+| Activity recreation/reopen and fresh-process review | PASS | Dialog lifecycle checks passed; three reviewable sessions and their exact identities/digests survived `am force-stop` |
+| Timestamp precision | PASS | Requested `1700000000123` read back as `1700000000000`; whole-second ordering correction also applies on this physical filesystem |
+| Battery/core and four barrier-publication failures | SIMULATED | Real Android storage, fake core and injected sync failures; candidate SRAM loads stayed zero on failed protection, old resume bytes and canonical batteries stayed intact |
+| Atomic rename/fsync failure, cloud selection/mutation/inventory refusal | SIMULATED | Injected failures and direct helpers on device; no native compatibility, actual transport or power-loss claim |
+| Physical cloud/D2D, full shipping dual-display lifecycle, real core compatibility, power loss/low storage | NOT_RUN | Isolated component QA only; automatic backup disabled; no owner save or account accessed |
+
+Private reports: `/tmp/dualdex-188-thor-bbbd207/{environment.json,storage.json,staged.json,cloud.json,ui.json,restart.json,commands.json}`.
+The runner uninstalled only the test package after success; a subsequent package
+query confirmed it absent. No device-wide backup settings were changed.
 
 ## Two reproducible source corrections
 
@@ -168,7 +191,7 @@ direct `bmgr restore` against D2dTransport returned `-1000` before app callbacks
 and is not the working procedure. No local copying or direct restore-callback
 invocation is substituted for these observations.
 
-For optional Thor storage/UI testing, after connectivity is restored:
+To repeat Thor storage/UI testing with an explicitly selected USB serial:
 
 ```bash
 DUALDEX_ACCEPTANCE_BACKUP=false ./ci.sh backup-acceptance
@@ -258,7 +281,7 @@ Transport APK SHA-256:
 The no-backup physical APK was built and its merged manifest verified
 (`allowBackup=false`, test-only, distinct package), SHA-256
 `45011f3c9332e62cd4cc5e73c76a3a62a03ba19fd3b581ceba5b226b370460dd`;
-it was not installed because Thor connectivity remained blocked.
+it was installed for the successful USB Thor run above, then removed by cleanup.
 
 `./ci.sh all` passed, including 1,451 JVM tests and the debug APK. All 58 focused
 regressions passed: cloud failures 7, file-tree policy 14, save-state safety 16,
@@ -270,8 +293,9 @@ status are in the PR handoff; they do not change failed/device/owner gates.
 
 Keep PR #188 draft, unmerged and without auto-merge; keep the shipping agent
 unregistered. Next: review the two measured timestamp corrections and scoped
-retention failure, verify an authorized real cloud transport, complete Thor and
-real two-device/native compatibility QA, then request explicit owner rulings.
+retention failure, verify an authorized real cloud transport, complete shipping
+handheld lifecycle and real two-device/native compatibility QA, then request
+explicit owner rulings.
 
 
 ### Private evidence integrity references
@@ -292,3 +316,7 @@ rerun the committed procedure; no APK/raw storage/screenshot is committed.
 | `/tmp/dualdex-188-api34-local-a181239/transport-result.json` | `da3feee0a6c16bd6ca943391ef7e84d3c4328fe9767a238fa008460450af2220` |
 | `/tmp/dualdex-188-api34-d2d-a181239/callbacks.log` | `7e23c6a3c8a53d8e8aa1fb7b551129d6cfcf0f6471808ead0159b44b88957ef6` |
 | `/tmp/dualdex-188-api34-d2d-a181239/transport-result.json` | `685172add5910bb51e50ec8cbef7e531be8a1d22bab7b07218e1c48eba9076a4` |
+| `/tmp/dualdex-188-thor-bbbd207/environment.json` | `46b78c19a1e5d9cd55a3a803ff4d5a2b66d0cb118c33711ceb6c98f757985a34` |
+| `/tmp/dualdex-188-thor-bbbd207/storage.json` | `2cc9ccdc0090e73ced158f96152d8ca5767974ac52aac1b9736a8cf023430a0d` |
+| `/tmp/dualdex-188-thor-bbbd207/ui.json` | `0e4903478dfba0f18b2444ade09cb86be626219c1da5c0a78ffd2e91ef9e3416` |
+| `/tmp/dualdex-188-thor-bbbd207/restart.json` | `7674700ff00ea846e32e6fae693ab1874a91c943b2d7823773ed60810cf9593d` |

@@ -23,6 +23,7 @@ class QuotaAwareBackupAgent : BackupAgent() {
     private val restoreLock = Any()
     private val restoredPaths = linkedSetOf<String>()
     private var restoredBytes = 0L
+    private var restoreFailed = false
     private val restoreSession by lazy { File(filesDir, "restore_staging/session-${System.nanoTime()}") }
 
     /** Key/value backup is intentionally empty; this agent only emits its explicit file allowlist. */
@@ -118,6 +119,15 @@ class QuotaAwareBackupAgent : BackupAgent() {
         mode: Long,
         mtime: Long
     ) {
+        try {
+            stageRestoreFile(data, size, destination, type, mtime)
+        } catch (failure: Exception) {
+            synchronized(restoreLock) { restoreFailed = true }
+            throw failure
+        }
+    }
+
+    private fun stageRestoreFile(data: ParcelFileDescriptor, size: Long, destination: File, type: Int, mtime: Long) {
         val relative = restoreRelativePath(destination) ?: throw IOException("Restore destination is outside the allowlist")
         if (!allowedRestorePath(relative, type)) throw IOException("Restore path is not allowlisted")
         val staged = File(restoreSession, relative)
@@ -150,6 +160,7 @@ class QuotaAwareBackupAgent : BackupAgent() {
                                 if (read < 0) throw IOException("Truncated restore file")
                                 output.write(buffer, 0, read); remaining -= read
                             }
+                            if (!temp.setLastModified(maxOf(0, mtime))) throw IOException("Cannot preserve restored date")
                             output.fd.sync()
                         }
                     }
@@ -161,37 +172,13 @@ class QuotaAwareBackupAgent : BackupAgent() {
     }
 
     override fun onRestoreFinished() {
-        val files = mutableListOf<Pair<String, File>>()
-        if (restoreSession.exists()) {
-            Files.walkFileTree(restoreSession.toPath(), object : java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
-                override fun visitFile(file: java.nio.file.Path, attrs: java.nio.file.attribute.BasicFileAttributes): java.nio.file.FileVisitResult {
-                    if (Files.isSymbolicLink(file) || !attrs.isRegularFile) throw IOException("Unsafe staged restore entry")
-                    val relative = restoreSession.toPath().relativize(file).toString().replace(File.separatorChar, '/')
-                    files += relative to file.toFile()
-                    return java.nio.file.FileVisitResult.CONTINUE
-                }
-            })
-        }
-        if (files.isEmpty()) {
-            BackupStatusStore.set(this, BackupStatusStore.Status.NOT_VERIFIED)
-            return
-        }
-        val cloud = files.singleOrNull { it.first == "cloud_backup/dualdex-snapshot-v1.zip" }
-        if (cloud != null) {
-            if (files.size != 1 || CloudSnapshotArchive.validate(cloud.second) == null) {
-                BackupStatusStore.set(this, BackupStatusStore.Status.RESTORE_VALIDATION_FAILED)
-                return
-            }
-            BackupStatusStore.set(this, BackupStatusStore.Status.RESTORE_PENDING, "Verified data is staged; import requires a later user review")
-            return
-        }
-        if (files.all { validFullTreeEntry(it.first, it.second) }) {
-            BackupStatusStore.set(this, BackupStatusStore.Status.RESTORE_PENDING, "Files staged for review; no saves changed")
-        } else {
-            BackupStatusStore.set(this, BackupStatusStore.Status.RESTORE_VALIDATION_FAILED)
+        synchronized(restoreLock) {
+            val ready = !restoreFailed && runCatching { StagedRestoreStore(filesDir).complete(restoreSession) }.isSuccess
+            BackupStatusStore.set(this,
+                if (ready) BackupStatusStore.Status.RESTORE_PENDING else BackupStatusStore.Status.RESTORE_VALIDATION_FAILED,
+                if (ready) "Open Saves → Review restored saves to choose individual files" else "Restored data remains isolated")
         }
     }
-
 
     private fun safeStagingPath(target: File): Boolean = runCatching {
         val storageRoot = filesDir.toPath().toAbsolutePath().normalize()
@@ -223,13 +210,6 @@ class QuotaAwareBackupAgent : BackupAgent() {
         if (type == TYPE_DIRECTORY) return path == "cloud_backup" || BackupFileTreePolicy.isAllowedPath(path, directory = true)
         if (type != TYPE_FILE) return false
         return path == QuotaBackupSelection.CLOUD_SNAPSHOT_PATH || BackupFileTreePolicy.isAllowedPath(path, directory = false)
-    }
-
-    private fun validFullTreeEntry(path: String, file: File): Boolean {
-        return runCatching {
-            BackupFileTreePolicy.checkFileAdmission(path, file.length(), 0, 1)
-            BackupFileTreePolicy.checkFileContents(path, file)
-        }.isSuccess
     }
 
     private fun captureStamp(file: File, path: String): QuotaBackupSelection.SourceStamp? {

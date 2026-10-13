@@ -134,19 +134,20 @@ class SaveStateScreenView(
                 BackupStatusStore.Status.ESSENTIAL_SELECTED -> "Essential data was selected for the latest preparation; upload is not confirmed."
                 BackupStatusStore.Status.OPTIONAL_OMITTED -> "Essential data was selected; some optional data was omitted. Upload is not confirmed."
                 BackupStatusStore.Status.REFUSED_OR_INCOMPLETE -> "The latest backup preparation was refused or incomplete."
-                BackupStatusStore.Status.RESTORE_PENDING -> "Restored data is staged and has not changed your saves."
+                BackupStatusStore.Status.RESTORE_PENDING -> "Restored data is available for per-file review."
                 BackupStatusStore.Status.RESTORE_VALIDATION_FAILED -> "Restored data failed validation; existing saves were left untouched."
                 BackupStatusStore.Status.RESTORED_DATA_READY -> "Verified restored data is ready for review."
                 BackupStatusStore.Status.NOT_VERIFIED -> "System backup may transfer the existing save allowlist, but DualDex cannot confirm an upload."
             }
             addView(TextView(context).apply {
                 text = listOf(statusText, statusDetail.takeIf { it.isNotBlank() },
-                    "Quota-aware backup and staged restore are not active in this build. Keep an independent save export.")
+                    "Automatic quota-aware backup is not active in this build. Keep an independent save export.")
                     .filterNotNull().joinToString(" ")
                 setTextColor(DualDexTheme.Color.textSecondary)
                 textSize = DualDexTheme.Type.meta
                 setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
             })
+            addView(DualDexComponents.secondaryButton(context, "Review restored saves") { reviewRestoredSaves() })
         }
         content.addView(backupStatusCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = context.dp(DualDexTheme.Spacing.section)
@@ -447,6 +448,22 @@ class SaveStateScreenView(
 
     private fun endBusyOperation(id: Long) {
         if (activeOperationIds.remove(id)) renderBusyState()
+    }
+
+    private fun reviewRestoredSaves() {
+        if (isBusy) return
+        val scope = viewScope ?: return
+        val operationId = beginBusyOperation()
+        scope.launch(Dispatchers.IO) {
+            val sessions = runCatching { saveStateManager.reviewRestoredSaves() }
+            withContext(NonCancellable + Dispatchers.Main) {
+                endBusyOperation(operationId)
+                if (isAttachedToWindow) {
+                    sessions.onSuccess { RestoreReviewDialog.show(context, this@SaveStateScreenView, scope, saveStateManager, it, ::reviewRestoredSaves) }
+                        .onFailure { Toast.makeText(context, "Could not review restored data. Existing saves were not changed.", Toast.LENGTH_LONG).show() }
+                }
+            }
+        }
     }
 
     private fun performAsyncOperation(

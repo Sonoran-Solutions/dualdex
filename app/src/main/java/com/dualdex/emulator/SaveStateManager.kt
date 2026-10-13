@@ -13,6 +13,7 @@ import com.dualdex.emulator.storage.SafMirrorStore
 import com.dualdex.emulator.storage.SaveShareStore
 import com.dualdex.emulator.storage.SaveStateFiles
 import com.dualdex.emulator.storage.SaveWriteResult
+import com.dualdex.emulator.backup.StagedRestoreStore
 import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.launch
 import java.io.File
@@ -63,6 +64,20 @@ open class SaveStateManager(
     private val safMirrorStore by lazy { customSafStore ?: SafMirrorStore(context) }
     private val legacyCatalog by lazy { customLegacyCatalog ?: LegacySaveCatalog(context) }
     val saveShareStore by lazy { SaveShareStore(context) }
+    private val stagedRestores by lazy { StagedRestoreStore(customBaseDir ?: checkNotNull(context).filesDir) }
+
+    fun reviewRestoredSaves(): List<StagedRestoreStore.Session> = synchronized(globalSaveLock) {
+        stagedRestores.review()
+    }
+
+    fun importRestoredSave(review: StagedRestoreStore.Review, decision: StagedRestoreStore.Decision): StagedRestoreStore.Result =
+        synchronized(globalSaveLock) {
+            if (decision == StagedRestoreStore.Decision.KEEP_LOCAL) return@synchronized StagedRestoreStore.Result.KEPT_LOCAL
+            if (activeIdentity != null || coreCoordinator.emulationRunning) return@synchronized StagedRestoreStore.Result.CLOSE_GAME
+            coreCoordinator.executeExclusive {
+                stagedRestores.import(review, decision)
+            }
+        }
 
     var activeIdentity: RomIdentity? = null
     var activeProfileName: String? = null

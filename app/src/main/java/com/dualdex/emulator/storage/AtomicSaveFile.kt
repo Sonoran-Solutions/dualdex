@@ -5,8 +5,106 @@ import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.nio.file.LinkOption
+import java.nio.file.StandardOpenOption
+import java.nio.channels.FileChannel
+import java.io.IOException
+import java.security.MessageDigest
+import java.util.UUID
 
 object AtomicSaveFile {
+
+    data class Version(val size: Long, val modified: Long, val sha256: String)
+
+    /** Missing is distinct from unreadable, links, directories, and a file changing during hashing. */
+    fun version(file: File, maxBytes: Long): Version? {
+        val path = file.toPath()
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return null
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw IOException("Unsafe save file")
+        val size = Files.size(path)
+        val modified = file.lastModified()
+        if (size > maxBytes) throw IOException("Save is too large to review")
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            var total = 0L
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                if (total > size - count) throw IOException("Save changed while reading")
+                total += count
+                digest.update(buffer, 0, count)
+            }
+            if (total != size || Files.size(path) != size || file.lastModified() != modified)
+                throw IOException("Save changed while reading")
+        }
+        return Version(size, modified, digest.digest().joinToString("") { "%02x".format(it) })
+    }
+
+    internal fun syncDirectory(directory: File) {
+        FileChannel.open(directory.toPath(), StandardOpenOption.READ).use { it.force(true) }
+    }
+
+    /** Copy to a new private file; never replaces an existing recovery copy. */
+    internal fun copyReviewed(source: File, destination: File, expected: Version) {
+        val parent = checkNotNull(destination.parentFile)
+        if (!parent.isDirectory && !parent.mkdirs()) throw IOException("Cannot create restore directory")
+        Files.createFile(destination.toPath())
+        source.inputStream().use { input ->
+            FileOutputStream(destination).use { output ->
+                val buffer = ByteArray(8192)
+                var total = 0L
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    if (total > expected.size - count) throw IOException("Restore source changed")
+                    total += count
+                    output.write(buffer, 0, count)
+                }
+                if (total != expected.size) throw IOException("Truncated restore source")
+                if (!destination.setLastModified(expected.modified)) throw IOException("Cannot preserve restore date")
+                syncHook?.invoke(output) ?: output.fd.sync()
+            }
+        }
+        if (version(source, expected.size) != expected || version(destination, expected.size) != expected)
+            throw IOException("Restore copy failed integrity verification")
+        syncDirectory(parent)
+    }
+
+    /**
+     * Caller holds the save lock. Rechecks the exact reviewed versions at the commit boundary.
+     * An existing local file is durably retained at a unique path; ordinary .bak history is untouched.
+     * No non-atomic fallback. False means committed, but final directory sync could not be confirmed.
+     */
+    internal fun commitRestore(
+        source: File, target: File, sourceVersion: Version, localVersion: Version?, retained: File,
+        beforeCommit: () -> Unit,
+        move: (File, File) -> Unit = { from, to ->
+            Files.move(from.toPath(), to.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        }
+    ): Boolean {
+        val parent = checkNotNull(target.parentFile)
+        if (!parent.isDirectory && !parent.mkdirs()) throw IOException("Cannot create save directory")
+        val temp = File(parent, ".${target.name}.restore-${UUID.randomUUID()}.tmp")
+        fun unchanged() {
+            if (version(source, sourceVersion.size) != sourceVersion ||
+                version(target, maxOf(sourceVersion.size, localVersion?.size ?: 0)) != localVersion)
+                throw IOException("Files changed since review; review again")
+        }
+        try {
+            unchanged()
+            copyReviewed(source, temp, sourceVersion)
+            if (localVersion != null) copyReviewed(target, retained, localVersion)
+            beforeCommit()
+            unchanged()
+            if (version(temp, sourceVersion.size) != sourceVersion) throw IOException("Prepared restore changed")
+            syncDirectory(parent)
+            move(temp, target)
+            return runCatching { syncDirectory(parent) }.isSuccess
+        } finally {
+            temp.delete()
+        }
+    }
 
     private const val TAG = "AtomicSaveFile"
 

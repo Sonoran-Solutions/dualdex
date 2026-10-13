@@ -130,11 +130,13 @@ class QuotaAwareBackupAgent : BackupAgent() {
                     throw IOException("Invalid restore directory")
                 return
             }
-            val maxFileBytes = if (relative == QuotaBackupSelection.CLOUD_SNAPSHOT_PATH) {
-                QuotaBackupSelection.MAX_PAYLOAD_BYTES
-            } else BackupFileTreePolicy.MAX_D2D_FILE_BYTES
-            if (type != TYPE_FILE || size <= 0 || size > maxFileBytes ||
-                restoredBytes > BackupFileTreePolicy.MAX_D2D_STAGING_BYTES - size) throw IOException("Restore size limit exceeded")
+            if (type != TYPE_FILE) throw IOException("Invalid restore file type")
+            if (relative == QuotaBackupSelection.CLOUD_SNAPSHOT_PATH) {
+                if (size !in 1..QuotaBackupSelection.MAX_PAYLOAD_BYTES ||
+                    restoredBytes > BackupFileTreePolicy.MAX_D2D_STAGING_BYTES - size) throw IOException("Restore size limit exceeded")
+            } else {
+                BackupFileTreePolicy.checkFileAdmission(relative, size, restoredBytes, restoredPaths.size)
+            }
             val parent = staged.parentFile ?: throw IOException("Invalid restore path")
             if (!parent.exists() && !parent.mkdirs()) throw IOException("Cannot create restore staging directory")
             if (!safeStagingPath(staged)) throw IOException("Symlink in restore staging")
@@ -226,9 +228,7 @@ class QuotaAwareBackupAgent : BackupAgent() {
 
     private fun validFullTreeEntry(path: String, file: File): Boolean {
         if (path == "cloud_backup/dualdex-snapshot-v1.zip") return CloudSnapshotArchive.validate(file) != null
-        if (path == "sharedpref/dualdex_legacy_catalog.xml") return file.length() in 1..MAX_CATALOG_BYTES
-        if (file.length() !in 1..BackupFileTreePolicy.MAX_D2D_FILE_BYTES ||
-            !BackupFileTreePolicy.isAllowedPath(path, directory = false)) return false
+        if (runCatching { BackupFileTreePolicy.checkFileAdmission(path, file.length(), 0, 1) }.isFailure) return false
         val parts = path.split('/')
         return if (parts.firstOrNull() == "saves_v2" && parts.lastOrNull() == "metadata.json") {
             runCatching { RomSaveMetadata.fromJson(file.readText())?.sha256?.equals(parts[1], true) == true }.getOrDefault(false)
@@ -249,9 +249,5 @@ class QuotaAwareBackupAgent : BackupAgent() {
             md.digest().joinToString("") { "%02x".format(it) }
         }
         return QuotaBackupSelection.SourceStamp(path, size, modified, digest)
-    }
-
-    companion object {
-        private const val MAX_CATALOG_BYTES = 1024L * 1024
     }
 }

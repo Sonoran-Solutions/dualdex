@@ -15,14 +15,34 @@ object BackupFileTreePolicy {
     const val MAX_D2D_ENTRIES = 16_384
     const val MAX_D2D_FILE_BYTES = 4L * 1024 * 1024 * 1024
     const val MAX_D2D_STAGING_BYTES = 16L * 1024 * 1024 * 1024
+    const val MAX_CATALOG_BYTES = 1024L * 1024
 
-    data class BackupFile(val relativePath: String, val file: File)
+    data class BackupFile(val relativePath: String, val file: File, val sizeBytes: Long)
+
+    /**
+     * Shared sender/receiver admission. Temporary .tmp files and recovery .bak / migration
+     * copies are retained for staged review under the same bounds as canonical saves.
+     * Empty or oversized entries refuse the entire transfer; no recovery data is silently omitted.
+     */
+    @Throws(IOException::class)
+    fun checkFileAdmission(path: String, size: Long, totalBytes: Long, entryCount: Int) {
+        val maxBytes = if (path == LEGACY_CATALOG_PATH) MAX_CATALOG_BYTES else MAX_D2D_FILE_BYTES
+        if (!isAllowedPath(path, directory = false) || size !in 1..maxBytes ||
+            totalBytes < 0 || totalBytes > MAX_D2D_STAGING_BYTES - size ||
+            entryCount !in 1..MAX_D2D_ENTRIES) throw IOException("Device transfer admission limit exceeded")
+    }
 
     /** Walk only PR #185's three file roots plus the exact legacy catalog file. */
     @Throws(IOException::class)
     fun collect(filesRoot: File, legacyCatalog: File): List<BackupFile> {
         val root = filesRoot.toPath().toAbsolutePath().normalize()
         val result = mutableListOf<BackupFile>()
+        var totalBytes = 0L
+        fun add(path: String, file: File, size: Long) {
+            checkFileAdmission(path, size, totalBytes, result.size + 1)
+            result += BackupFile(path, file, size)
+            totalBytes += size
+        }
         for (name in SAVE_ROOTS) {
             val tree = root.resolve(name)
             if (!Files.exists(tree, LinkOption.NOFOLLOW_LINKS)) continue
@@ -43,8 +63,7 @@ object BackupFileTreePolicy {
                     if (Files.isSymbolicLink(file) || !attrs.isRegularFile || !Files.isReadable(file) || !isAllowedPath(relative, directory = false)) {
                         throw IOException("Unexpected save-tree entry")
                     }
-                    result += BackupFile(relative, file.toFile())
-                    if (result.size > MAX_D2D_ENTRIES) throw IOException("Save-tree entry limit exceeded")
+                    add(relative, file.toFile(), attrs.size())
                     return FileVisitResult.CONTINUE
                 }
 
@@ -62,9 +81,8 @@ object BackupFileTreePolicy {
             if (Files.isSymbolicLink(catalogPath) || !Files.isRegularFile(catalogPath, LinkOption.NOFOLLOW_LINKS) || !Files.isReadable(catalogPath)) {
                 throw IOException("Invalid legacy catalog")
             }
-            result += BackupFile(LEGACY_CATALOG_PATH, legacyCatalog)
+            add(LEGACY_CATALOG_PATH, legacyCatalog, Files.size(catalogPath))
         }
-        if (result.size > MAX_D2D_ENTRIES) throw IOException("Save-tree entry limit exceeded")
         return result.sortedBy { it.relativePath }
     }
 
@@ -72,7 +90,8 @@ object BackupFileTreePolicy {
     fun emit(filesRoot: File, legacyCatalog: File, emitFile: (BackupFile) -> Unit) {
         collect(filesRoot, legacyCatalog).forEach { entry ->
             val path = entry.file.toPath()
-            if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || !Files.isReadable(path)) {
+            if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) ||
+                !Files.isReadable(path) || Files.size(path) != entry.sizeBytes) {
                 throw IOException("Save-tree entry changed before emission")
             }
             emitFile(entry)
@@ -85,6 +104,9 @@ object BackupFileTreePolicy {
         if (path == LEGACY_CATALOG_PATH) return !directory
         if (path == "sharedpref") return directory
         val parts = path.split('/')
+        // Also reject ROMs disguised as temporary or recovery copies (e.g. game.gba.bak).
+        // Directory names can be legacy ROM names; only the payload file name is checked.
+        if (!directory && ROM_FILE.containsMatchIn(parts.last())) return false
         return when (parts.firstOrNull()) {
             "saves_v2" -> parts.size == 1 && directory ||
                 parts.size >= 2 && parts[1].matches(ROM_HASH) &&
@@ -101,5 +123,6 @@ object BackupFileTreePolicy {
 
     private val SAVE_ROOTS = listOf("saves_v2", "saves", "saves_fallback")
     private val ROM_HASH = Regex("[0-9a-fA-F]{64}")
+    private val ROM_FILE = Regex("\\.(gba|agb|gb|gbc|nds)(?:\\.(?:tmp|bak|orig|migrated))*$", RegexOption.IGNORE_CASE)
     const val LEGACY_CATALOG_PATH = "sharedpref/dualdex_legacy_catalog.xml"
 }

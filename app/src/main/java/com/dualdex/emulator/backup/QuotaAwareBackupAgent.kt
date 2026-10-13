@@ -6,7 +6,6 @@ import android.app.backup.BackupDataOutput
 import android.app.backup.FullBackupDataOutput
 import android.os.ParcelFileDescriptor
 import android.util.Log
-import com.dualdex.emulator.storage.RomSaveMetadata
 import com.dualdex.emulator.storage.LegacySaveCatalog
 import java.io.File
 import java.io.FileInputStream
@@ -227,12 +226,10 @@ class QuotaAwareBackupAgent : BackupAgent() {
     }
 
     private fun validFullTreeEntry(path: String, file: File): Boolean {
-        if (path == "cloud_backup/dualdex-snapshot-v1.zip") return CloudSnapshotArchive.validate(file) != null
-        if (runCatching { BackupFileTreePolicy.checkFileAdmission(path, file.length(), 0, 1) }.isFailure) return false
-        val parts = path.split('/')
-        return if (parts.firstOrNull() == "saves_v2" && parts.lastOrNull() == "metadata.json") {
-            runCatching { RomSaveMetadata.fromJson(file.readText())?.sha256?.equals(parts[1], true) == true }.getOrDefault(false)
-        } else true
+        return runCatching {
+            BackupFileTreePolicy.checkFileAdmission(path, file.length(), 0, 1)
+            BackupFileTreePolicy.checkFileContents(path, file)
+        }.isSuccess
     }
 
     private fun captureStamp(file: File, path: String): QuotaBackupSelection.SourceStamp? {

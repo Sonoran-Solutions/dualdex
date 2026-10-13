@@ -21,6 +21,8 @@ class BackupFileTreePolicyTest {
                 "saves_v2/$id/battery.sav.bak",
                 "saves_v2/$id/battery.sav.tmp",
                 "saves_v2/$id/metadata.json",
+                "saves_v2/$id/metadata.json.bak",
+                "saves_v2/$id/metadata.json.tmp",
                 "saves_v2/$id/resume_barrier",
                 "saves_v2/$id/slot_1.png",
                 "saves_v2/$id/slot_1.state.bak"
@@ -28,6 +30,7 @@ class BackupFileTreePolicyTest {
             expected.forEach { path ->
                 File(files, path).apply { checkNotNull(parentFile).mkdirs(); writeText(path) }
             }
+            File(files, "saves_v2/$id/metadata.json").writeText("""{"sha256":"${id.uppercase()}"}""")
             File(files, "rom_cache/game.gba").apply { checkNotNull(parentFile).mkdirs(); writeBytes(byteArrayOf(1)) }
             val catalog = File(base, "shared_prefs/dualdex_legacy_catalog.xml").apply {
                 checkNotNull(parentFile).mkdirs(); writeText("catalog")
@@ -42,6 +45,7 @@ class BackupFileTreePolicyTest {
             emitted.forEachIndexed { index, entry ->
                 assertTrue(entry.file.isFile)
                 BackupFileTreePolicy.checkFileAdmission(entry.relativePath, entry.sizeBytes, receivedBytes, index + 1)
+                BackupFileTreePolicy.checkFileContents(entry.relativePath, entry.file)
                 receivedBytes += entry.sizeBytes
             }
         } finally { base.deleteRecursively() }
@@ -203,6 +207,81 @@ class BackupFileTreePolicyTest {
     private fun sparseFile(root: File, path: String, size: Long): File = File(root, path).apply {
         checkNotNull(parentFile).mkdirs()
         java.io.RandomAccessFile(this, "rw").use { it.setLength(size) }
+    }
+
+    @Test fun malformedOrWrongOwnerMetadataRefusesBeforeAnyEmissionAndPreservesSaves() {
+        val base = Files.createTempDirectory("dualdex-d2d-metadata").toFile()
+        try {
+            val files = File(base, "files")
+            val id = "a".repeat(64)
+            val battery = sparseFile(files, "saves_v2/$id/battery.sav", 1)
+            val recovery = sparseFile(files, "saves_v2/$id/battery.sav.bak", 1)
+            val beforeBattery = battery.readBytes()
+            val beforeRecovery = recovery.readBytes()
+            // Nested metadata follows the same rule as restore's original validator.
+            for (path in listOf("saves_v2/$id/metadata.json", "saves_v2/$id/nested/metadata.json")) {
+                val metadata = File(files, path).apply { checkNotNull(parentFile).mkdirs() }
+                for (json in listOf("{broken", "{}", """{"sha256":"${"b".repeat(64)}"}""")) {
+                    metadata.writeText(json)
+                    BackupFileTreePolicy.checkFileAdmission(path, metadata.length(), 0, 1)
+                    assertThrows(IOException::class.java) { BackupFileTreePolicy.checkFileContents(path, metadata) }
+                    var emitted = 0
+                    assertThrows(IOException::class.java) {
+                        BackupFileTreePolicy.emit(files, File(base, "missing-catalog")) { emitted++ }
+                    }
+                    assertEquals(0, emitted)
+                    assertEquals(json, metadata.readText())
+                    assertArrayEquals(beforeBattery, battery.readBytes())
+                    assertArrayEquals(beforeRecovery, recovery.readBytes())
+                }
+                assertTrue(metadata.delete())
+            }
+        } finally { base.deleteRecursively() }
+    }
+
+    @Test fun metadataOwnerIsRecheckedBeforeEmissionEvenWhenSizeIsUnchanged() {
+        val base = Files.createTempDirectory("dualdex-d2d-metadata-changing").toFile()
+        try {
+            val files = File(base, "files")
+            val id = "a".repeat(64)
+            sparseFile(files, "saves_v2/$id/battery.sav", 1)
+            val metadata = File(files, "saves_v2/$id/metadata.json").apply { writeText("""{"sha256":"$id"}""") }
+            val size = metadata.length()
+            var emitted = 0
+            assertThrows(IOException::class.java) {
+                BackupFileTreePolicy.emit(files, File(base, "missing-catalog")) { entry ->
+                    assertEquals("battery.sav", entry.file.name)
+                    emitted++
+                    metadata.writeText("""{"sha256":"${"b".repeat(64)}"}""")
+                    assertEquals(size, metadata.length())
+                }
+            }
+            assertEquals(1, emitted)
+        } finally { base.deleteRecursively() }
+    }
+
+    @Test fun metadataReadIsBoundedOnSenderAndReceiver() {
+        val base = Files.createTempDirectory("dualdex-d2d-metadata-limit").toFile()
+        try {
+            val files = File(base, "files")
+            val id = "a".repeat(64)
+            val path = "saves_v2/$id/metadata.json"
+            val metadata = File(files, path).apply {
+                checkNotNull(parentFile).mkdirs()
+                writeText("""{"sha256":"$id"}""".padEnd(BackupFileTreePolicy.MAX_METADATA_BYTES.toInt(), ' '))
+            }
+            BackupFileTreePolicy.checkFileAdmission(path, metadata.length(), 0, 1)
+            BackupFileTreePolicy.checkFileContents(path, metadata)
+            assertEquals(1, BackupFileTreePolicy.collect(files, File(base, "missing-catalog")).size)
+            metadata.appendText(" ")
+            assertThrows(IOException::class.java) { BackupFileTreePolicy.checkFileAdmission(path, metadata.length(), 0, 1) }
+            assertThrows(IOException::class.java) { BackupFileTreePolicy.checkFileContents(path, metadata) }
+            var emitted = 0
+            assertThrows(IOException::class.java) {
+                BackupFileTreePolicy.emit(files, File(base, "missing-catalog")) { emitted++ }
+            }
+            assertEquals(0, emitted)
+        } finally { base.deleteRecursively() }
     }
 
     private companion object {

@@ -1,5 +1,6 @@
 package com.dualdex.emulator.backup
 
+import com.dualdex.emulator.storage.RomSaveMetadata
 import java.io.File
 import java.io.IOException
 import java.nio.file.FileVisitResult
@@ -16,6 +17,8 @@ object BackupFileTreePolicy {
     const val MAX_D2D_FILE_BYTES = 4L * 1024 * 1024 * 1024
     const val MAX_D2D_STAGING_BYTES = 16L * 1024 * 1024 * 1024
     const val MAX_CATALOG_BYTES = 1024L * 1024
+    // ponytail: metadata is capped at 1 MiB; larger schemas need bounded streaming parsing on both sides.
+    const val MAX_METADATA_BYTES = 1024L * 1024
 
     data class BackupFile(val relativePath: String, val file: File, val sizeBytes: Long)
 
@@ -26,10 +29,36 @@ object BackupFileTreePolicy {
      */
     @Throws(IOException::class)
     fun checkFileAdmission(path: String, size: Long, totalBytes: Long, entryCount: Int) {
-        val maxBytes = if (path == LEGACY_CATALOG_PATH) MAX_CATALOG_BYTES else MAX_D2D_FILE_BYTES
+        val maxBytes = when {
+            path == LEGACY_CATALOG_PATH -> MAX_CATALOG_BYTES
+            isMetadata(path) -> MAX_METADATA_BYTES
+            else -> MAX_D2D_FILE_BYTES
+        }
         if (!isAllowedPath(path, directory = false) || size !in 1..maxBytes ||
             totalBytes < 0 || totalBytes > MAX_D2D_STAGING_BYTES - size ||
             entryCount !in 1..MAX_D2D_ENTRIES) throw IOException("Device transfer admission limit exceeded")
+    }
+
+    /** Canonical metadata must be parseable and owned by its ROM directory on both sides. */
+    @Throws(IOException::class)
+    fun checkFileContents(path: String, file: File) {
+        if (!isMetadata(path)) return
+        val valid = runCatching {
+            // Bound the read itself as well as admission, in case the source grows during preflight.
+            val bytes = ByteArray(MAX_METADATA_BYTES.toInt() + 1)
+            val count = file.inputStream().use { input ->
+                var total = 0
+                while (total < bytes.size) {
+                    val read = input.read(bytes, total, bytes.size - total)
+                    if (read < 0) break
+                    total += read
+                }
+                total
+            }
+            count <= MAX_METADATA_BYTES && RomSaveMetadata.fromJson(String(bytes, 0, count, Charsets.UTF_8))
+                ?.sha256?.equals(path.split('/')[1], ignoreCase = true) == true
+        }.getOrDefault(false)
+        if (!valid) throw IOException("Invalid device transfer metadata or ROM ownership")
     }
 
     /** Walk only PR #185's three file roots plus the exact legacy catalog file. */
@@ -40,6 +69,7 @@ object BackupFileTreePolicy {
         var totalBytes = 0L
         fun add(path: String, file: File, size: Long) {
             checkFileAdmission(path, size, totalBytes, result.size + 1)
+            checkFileContents(path, file)
             result += BackupFile(path, file, size)
             totalBytes += size
         }
@@ -94,6 +124,7 @@ object BackupFileTreePolicy {
                 !Files.isReadable(path) || Files.size(path) != entry.sizeBytes) {
                 throw IOException("Save-tree entry changed before emission")
             }
+            checkFileContents(entry.relativePath, entry.file)
             emitFile(entry)
         }
     }
@@ -122,6 +153,7 @@ object BackupFileTreePolicy {
     }
 
     private val SAVE_ROOTS = listOf("saves_v2", "saves", "saves_fallback")
+    private fun isMetadata(path: String) = path.startsWith("saves_v2/") && path.endsWith("/metadata.json")
     private val ROM_HASH = Regex("[0-9a-fA-F]{64}")
     private val ROM_FILE = Regex("\\.(gba|agb|gb|gbc|nds)(?:\\.(?:tmp|bak|orig|migrated))*$", RegexOption.IGNORE_CASE)
     const val LEGACY_CATALOG_PATH = "sharedpref/dualdex_legacy_catalog.xml"

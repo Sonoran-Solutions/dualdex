@@ -42,6 +42,7 @@ object AtomicSaveFile {
     }
 
     internal fun syncDirectory(directory: File) {
+        directorySyncHook?.invoke(directory)
         FileChannel.open(directory.toPath(), StandardOpenOption.READ).use { it.force(true) }
     }
 
@@ -110,6 +111,9 @@ object AtomicSaveFile {
 
     @Volatile
     var syncHook: ((FileOutputStream) -> Unit)? = null
+
+    @Volatile
+    internal var directorySyncHook: ((File) -> Unit)? = null
 
     @Volatile
     var backupHook: ((File, File) -> Boolean)? = null
@@ -219,7 +223,8 @@ object AtomicSaveFile {
     }
 
     /**
-     * Atomically copy a staging file to targetFile with durability and previous-good backup (.bak).
+     * Copy and fsync staging, replace target, then sync its parent before reporting success.
+     * A failed final directory sync can leave target replaced; callers must treat failure conservatively.
      */
     fun copyFromStaging(stagingFile: File, targetFile: File, modifiedTime: Long? = null): Boolean {
         if (!stagingFile.exists() || stagingFile.length() == 0L) {
@@ -309,6 +314,7 @@ object AtomicSaveFile {
 
             // 5. Verify final file
             if (moved && targetFile.exists() && targetFile.length() == expectedSize) {
+                syncDirectory(parent)
                 return true
             }
 

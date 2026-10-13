@@ -30,7 +30,7 @@ class SaveStates153Test {
     }
 
     @After
-    fun tearDown() { AtomicSaveFile.syncHook = null; dir.deleteRecursively() }
+    fun tearDown() { AtomicSaveFile.syncHook = null; AtomicSaveFile.directorySyncHook = null; dir.deleteRecursively() }
 
     private fun state(name: String, mtime: Long) = ssm.getCanonicalFile(rom, name).apply {
         writeBytes(ByteArray(STATE_SIZE_256K) { 1 }); setLastModified(mtime)
@@ -102,6 +102,106 @@ class SaveStates153Test {
         assertEquals(future.toString(), barrier.readText())
         assertArrayEquals(original, resume.readBytes())
         assertNull(ssm.loadNewestResumeState(rom))
+    }
+
+    @Test
+    fun manualImportWithoutPriorBarrierAbortsBeforeBatteryCommitOnMarkerWriteFailure() {
+        val original = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 3 }
+        val candidate = ByteArray(original.size) { 9 }
+        val canonical = ssm.getCanonicalFile(rom, SaveStateFiles.BATTERY)
+        val barrier = ssm.getCanonicalFile(rom, SaveStateFiles.RESUME_BARRIER)
+        val future = System.currentTimeMillis() + 7 * 86400000L
+        val resume = state(SaveStateFiles.AUTO_RESUME, future)
+        val resumeBytes = resume.readBytes()
+        val romDir = ssm.getCanonicalRomDir(rom)
+        for (hadBattery in listOf(false, true)) {
+            if (hadBattery) canonical.writeBytes(original) else canonical.delete()
+            bridge.currentSramBytes = original.copyOf()
+            bridge.events.clear()
+            assertFalse(barrier.exists())
+            assertEquals(SaveStateFiles.AUTO_RESUME, SaveStateFiles.newestResumeState(romDir)?.name)
+            var barrierWriteFailed = false
+            AtomicSaveFile.syncHook = {
+                if (File(romDir, "${SaveStateFiles.RESUME_BARRIER}.tmp").exists()) {
+                    barrierWriteFailed = true
+                    throw java.io.IOException("injected marker fsync failure")
+                }
+                it.fd.sync()
+            }
+            assertFalse(ssm.importBatterySave(rom, candidate.inputStream()))
+            assertTrue(barrierWriteFailed)
+            assertEquals(hadBattery, canonical.exists())
+            if (hadBattery) assertArrayEquals(original, canonical.readBytes())
+            assertArrayEquals(original, bridge.currentSramBytes)
+            assertArrayEquals(resumeBytes, resume.readBytes())
+            assertFalse(barrier.exists())
+            assertFalse(bridge.events.contains("resetCore"))
+            assertTrue("Guard failure must precede live SRAM mutation", bridge.events.none { it.startsWith("loadSaveRam:") })
+        }
+    }
+
+    @Test
+    fun manualImportAbortsWhenMarkerRenameCannotBeDirectorySynced() {
+        val original = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 3 }
+        val canonical = ssm.getCanonicalFile(rom, SaveStateFiles.BATTERY).apply { writeBytes(original) }
+        val romDir = ssm.getCanonicalRomDir(rom)
+        val barrier = File(romDir, SaveStateFiles.RESUME_BARRIER)
+        val resume = state(SaveStateFiles.AUTO_RESUME, System.currentTimeMillis() + 7 * 86400000L)
+        val resumeBytes = resume.readBytes()
+        bridge.currentSramBytes = original.copyOf()
+        bridge.events.clear()
+        var syncs = 0
+        assertFalse(barrier.exists())
+        AtomicSaveFile.directorySyncHook = { parent ->
+            syncs++
+            assertEquals(romDir, parent)
+            assertTrue("Marker was renamed before the parent sync", barrier.exists())
+            assertFalse(File(romDir, "${SaveStateFiles.RESUME_BARRIER}.tmp").exists())
+            throw java.io.IOException("injected directory sync failure")
+        }
+        assertFalse(ssm.importBatterySave(rom, ByteArray(original.size) { 9 }.inputStream()))
+        assertEquals(1, syncs)
+        assertArrayEquals(original, canonical.readBytes())
+        assertArrayEquals(original, bridge.currentSramBytes)
+        assertArrayEquals(resumeBytes, resume.readBytes())
+        assertFalse(bridge.events.contains("resetCore"))
+        assertTrue("Failed directory sync must precede live SRAM mutation", bridge.events.none { it.startsWith("loadSaveRam:") })
+    }
+
+    @Test
+    fun manualImportPublishesAndSyncsGuardBeforeReplacingBattery() {
+        val original = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 3 }
+        val candidate = ByteArray(original.size) { 9 }
+        val canonical = ssm.getCanonicalFile(rom, SaveStateFiles.BATTERY).apply { writeBytes(original) }
+        val romDir = ssm.getCanonicalRomDir(rom)
+        val barrier = File(romDir, SaveStateFiles.RESUME_BARRIER)
+        val future = System.currentTimeMillis() + 7 * 86400000L
+        state(SaveStateFiles.AUTO_RESUME, future)
+        val oldSlot = state(SaveStateFiles.slotState(1), future)
+        bridge.currentSramBytes = original.copyOf()
+        bridge.events.clear()
+        var syncs = 0
+        AtomicSaveFile.directorySyncHook = { parent ->
+            syncs++
+            assertEquals(romDir, parent)
+            assertTrue(barrier.lastModified() > future)
+            assertArrayEquals("Battery has not been replaced before guard sync", original, canonical.readBytes())
+            assertArrayEquals("Live SRAM has not changed before guard sync", original, bridge.currentSramBytes)
+            assertTrue(ssm.coreCoordinator.isExclusiveLocked)
+            bridge.events.add("barrierSync")
+        }
+        assertTrue(ssm.importBatterySave(rom, candidate.inputStream()))
+        AtomicSaveFile.directorySyncHook = null
+        assertEquals(1, syncs)
+        assertArrayEquals(candidate, canonical.readBytes())
+        assertArrayEquals(candidate, bridge.currentSramBytes)
+        assertTrue(bridge.events.indexOfFirst { it.startsWith("loadSaveRam:") && it.contains("__import_candidate") } > bridge.events.indexOf("barrierSync"))
+        assertTrue(bridge.events.indexOf("resetCore") > bridge.events.indexOf("barrierSync"))
+        assertFalse(File(romDir, SaveStateFiles.AUTO_RESUME).exists())
+        assertEquals(future, oldSlot.lastModified())
+        assertNull(ssm.loadNewestResumeState(rom))
+        assertTrue(ssm.saveAutoResume(rom))
+        assertEquals(SaveStateFiles.AUTO_RESUME, ssm.loadNewestResumeState(rom))
     }
 
     @Test

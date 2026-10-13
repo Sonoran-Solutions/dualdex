@@ -393,6 +393,13 @@ open class SaveStateManager(
      * Manual slots stay on disk and remain loadable by hand.
      */
     fun clearAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (!publishResumeBarrier(identity)) return false
+        File(getCanonicalRomDir(identity), SaveStateFiles.AUTO_RESUME).delete()
+        true
+    }
+
+    /** Caller holds globalSaveLock. Publish protection without deleting any state on a failed import. */
+    private fun publishResumeBarrier(identity: RomIdentity): Boolean {
         if (!identity.isValid) return false
         val dir = getCanonicalRomDir(identity)
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER)
@@ -400,9 +407,7 @@ open class SaveStateManager(
             val timestamp = SaveStateFiles.nextStateTimestamp(dir)
             val staged = getStagingFile(identity, SaveStateFiles.RESUME_BARRIER)
             staged.writeText(timestamp.toString())
-            if (!AtomicSaveFile.copyFromStaging(staged, barrier, timestamp)) return false
-            File(dir, SaveStateFiles.AUTO_RESUME).delete()
-            true
+            AtomicSaveFile.copyFromStaging(staged, barrier, timestamp)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to write resume barrier: ${e.message}")
             false
@@ -647,6 +652,12 @@ open class SaveStateManager(
                         return@executeExclusive false
                     }
 
+                    // Publish protection before either live SRAM or the canonical battery can change.
+                    if (!publishResumeBarrier(identity)) {
+                        Log.e(TAG, "Import aborted: resume barrier could not be durably published")
+                        return@executeExclusive false
+                    }
+
                     // 5. Test load candidate into live core from temp file
                     tempCandidate.writeBytes(cleanBytes)
 
@@ -665,6 +676,8 @@ open class SaveStateManager(
                         return@executeExclusive false
                     }
 
+                    // The durable barrier protects the new battery even if removing the old resume fails.
+                    File(checkNotNull(canonicalFile.parentFile), SaveStateFiles.AUTO_RESUME).delete()
                     // 8. Reset core only after entire transaction succeeds
                     nativeResetCore()
                     true
@@ -681,8 +694,6 @@ open class SaveStateManager(
             // 7. Mirror to SAF and record metadata
             safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
             recordMetadata(identity, activeProfileId)
-            // A resume state carries its own SRAM; booting into an older one would roll back this import.
-            clearAutoResume(identity)
 
             Log.i(TAG, "Import battery save succeeded for ${identity.storageKey} ($expectedRamSize bytes)")
             return true

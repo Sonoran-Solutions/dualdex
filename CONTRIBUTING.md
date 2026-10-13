@@ -29,6 +29,11 @@ cd dualdex
 ./ci.sh build
 ```
 
+For ROM-free native memory snapshot replay, run `./ci.sh fixture-test`. It uses the
+production memory map and readers with synthetic FireRed, Emerald and H&S regions
+and is also required by `test`/`all`. See [the fixture guide](docs/NATIVE_MEMORY_FIXTURES.md)
+for local capture replay, sanitization and adding evidence for R.O.W.E./Unbound.
+
 Ad-hoc equivalents, when you only want one suite:
 
 ```bash

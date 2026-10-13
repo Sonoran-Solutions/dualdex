@@ -37,3 +37,7 @@ __pycache__/
 *.sav
 *.srm
 *.ss[0-9]
+
+# Raw memory captures stay private; see docs/NATIVE_MEMORY_FIXTURES.md.
+ewram.bin
+iwram.bin

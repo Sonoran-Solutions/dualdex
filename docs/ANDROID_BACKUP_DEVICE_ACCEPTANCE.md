@@ -8,6 +8,37 @@ The final PR head and exact-head CI are recorded in the PR handoff. Device APK
 provenance is recorded separately below; documentation-only commits do not change
 an already tested APK. Issues #186 and #12 remain open.
 
+## Real-GMS checkpoint — issue #194, 2026-10-13
+
+**BLOCKED: ACCOUNT AUTHORIZATION.** Pre-emission and post-emission real-GMS
+retention are both BLOCKED; no baseline, Android version, selected cloud transport,
+cloud callback, dataset token or recovered cloud path/hash has been verified in
+this task. No Google account or backup setting was touched. The existing local
+retention FAIL and scoped API 28/33/34 evidence are unchanged.
+
+See the [preparation, integration and authorized execution handoff](ANDROID_BACKUP_RETENTION_INVESTIGATION.md#real-gms-preparation-checkpoint--2026-10-13-issue-194)
+for the complete separate-account authorization scope, installed SDK/environment
+limitations, per-experiment identity/status/hash requirements and stop conditions.
+Fresh supported Google Play source/targets and a dedicated authorized account are
+still needed. Test-only package rejection must be recorded as BLOCKED; it cannot
+be bypassed. The existing API-34 call-2 emission seam requires observation on GMS,
+with absent injection classified INVALID_TEST.
+
+Main `7b9fd6f` is integrated via merge `ff902bd`; the sole conflict was the `ci.sh`
+usage line. R.O.W.E. fixture/test/sanitizer gates and `backup-acceptance` are
+preserved. The local archive probe now refuses an observed token other than `1`;
+the original token-1 evidence remains valid. This focused harness correction and
+mechanical integration do not change production behavior or grant merge/activation.
+Exact-head local/hosted validation and APK/certificate identities are recorded in
+the new PR #188 / issue #194 handoff, separately from earlier device runs below.
+
+Dormant merge **Held** (owner policy; ordinary save ordering/fsync/UI changes
+remain active and have scoped native/lifecycle/durability limits). BackupAgent
+activation **Held** (retention and other acceptance gates unresolved). All six
+owner decisions remain pending. Keep PR draft/unmerged, auto-merge disabled,
+ordinary agent unregistered and #194/#186/#12 open. Next: authorize/provision
+one disposable GMS source/target pair and independently recover baseline A.
+
 ## Status meanings and safety
 
 - **PASS**: executed on the identified Android environment, with the stated scope.

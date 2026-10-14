@@ -15,7 +15,7 @@ Issues #194, #186 and #12 stay open. All six owner policy decisions stay pending
   admission and restore validation must remain strict.
 - **LOCAL RETENTION: FAIL.** Original failed evidence is preserved; new controls
   exclude restore consumption, explicit package clearing and token changes as causes.
-- **REAL CLOUD RETENTION: NOT_RUN.** No disposable Google account/configuration or
+- **REAL CLOUD RETENTION: BLOCKED — ACCOUNT AUTHORIZATION.** No disposable Google account/configuration or
   cloud execution has been separately authorized. LocalTransport and D2D test mode
   do not answer this question.
 - **DORMANT MERGE: HELD under the existing owner policy.** No new merge-blocking
@@ -30,6 +30,135 @@ Issues #194, #186 and #12 stay open. All six owner policy decisions stay pending
 - **NEXT TASK:** Run the narrowly scoped real-GMS protocol below with that authorization.
   If retention cannot be established, return for a backup-strategy decision before
   implementing an alternative.
+
+## Real-GMS preparation checkpoint — 2026-10-13 (issue #194)
+
+**BLOCKED: ACCOUNT AUTHORIZATION.** No separate owner authorization or dedicated
+Google account was supplied. No account was connected, backup setting changed,
+synthetic cloud upload attempted, or cloud dataset cleaned up in this task.
+The attached task explicitly excludes interpreting its own text as authorization.
+
+| Scenario | Environment / active transport / callbacks | Package / aggregate / recovered hashes | Status |
+| --- | --- | --- | --- |
+| A: independently recoverable GMS baseline | No authorized source/target; transport, flags, GMS version and token unobserved | NOT_RUN / NOT_RUN / no recovered files | BLOCKED |
+| B: GMS pre-emission retention | A not established; no cloud callbacks | NOT_RUN / NOT_RUN / no comparison possible | BLOCKED |
+| C: GMS post-emission retention | New A not established; injection not executed on GMS | NOT_RUN / NOT_RUN / no comparison possible | BLOCKED |
+| Android 9–11 comparison | Installed API 28 image is `default;x86_64`, not a verified GMS environment | No cloud evidence | BLOCKED |
+| Android 12–14 comparison | Installed API 34 image is `google_apis;x86_64`; no authorized account or verified remote baseline | No cloud evidence | BLOCKED |
+
+Read-only preparation found JDK 17, Platform 34, NDK 27.2.12479018,
+CMake 3.22.1, host compiler and Android command-line tools available. No saved
+AVD was listed, no emulator was connected, and no Google Play Store system image
+was installed. The attached physical device was not selected or inspected.
+Installed `google_apis` alone does not establish supported cloud recovery.
+Provision fresh Google Play source and target AVDs using Device Manager (prefer
+API 29/30 and API 34 where available); give each an explicit disposable name,
+separate new userdata, and disable snapshot reuse. Record unsupported generations
+as BLOCKED. Do not create accounts or enter credentials through automation.
+
+The current official [AVD guide](https://developer.android.com/studio/run/managing-avds)
+and [backup testing guide](https://developer.android.com/identity/data/testingbackup)
+were consulted. The latter's sample selects LocalTransport and fake encryption;
+it must not be run as evidence of actual GMS retention. The separate-source/target
+requirement here is stronger than a same-device reinstall check.
+
+### Integration and narrow harness correction
+
+Starting PR head: `88d6f34597727b67e3f511c38679c90e78cf7cfe`.
+Fetched main: `7b9fd6f` (merged R.O.W.E. research stack). Merge commit `ff902bd`
+preserves both histories without squash/rebase. **Only conflict:** `ci.sh` usage
+text. Resolution lists `rowe-test`, `rowe-sanitize` and `backup-acceptance` together;
+all existing dispatch gates remain. `fixture-test`, hence `test`/`all`, invokes
+the new R.O.W.E. raw suite; acceptance still runs the three host boundary tests
+before its opt-in APK build. No additional conflict or unrelated refactor occurred.
+
+Latest senior review: [5511874704](https://github.com/Sonoran-Solutions/dualdex/pull/188#pullrequestreview-5511874704).
+Its P3 archive concern is addressed by checking the **observed** restore token
+before every local archive probe and refusing anything other than the measured
+`1` layout. The existing token boundary test includes unsupported/layout-injection
+cases. This is a focused tooling change for review, not a new retention experiment.
+No LocalTransport simulation was rerun in place of the blocked cloud phase.
+
+Production application source/manifests are unchanged from the reviewed PR head;
+the merged R.O.W.E. changes remain exactly as main supplied them. The observer
+remains opt-in, `testOnly`, package `com.dualdex.backupacceptance`, debug-only,
+with no release variant. Ordinary `com.dualdex` does not register the candidate.
+Previous API 28/33/34 and LocalTransport evidence below retains its original scope
+and hashes. New exact-head validation and build identities are reported separately
+in the issue/PR handoff; old green runs are not validation of this combined head.
+
+### Authorized execution handoff
+
+Before experimental execution, obtain an explicit owner statement covering **all**
+of: dedicated disposable account use; connecting it to each fresh source/target;
+enabling account backup; uploading synthetic data; restoring that data; deliberately
+failed attempts (including risk of destroying the last synthetic backup); and
+cleanup of those synthetic datasets. Account identifiers, credentials and private
+logs stay outside Git. No existing owner account, normal DualDex installation or
+production saves may be used. This gate does not authorize `bmgr init`, account-wide
+wipe or unrelated dataset removal; any such operation needs its own explicit scope.
+
+Use the manual protocol below, never the runner's `local` or `d2d-test` mode.
+No new cloud mutation automation is needed before a supported environment exists.
+For **each** source/target and each experiment:
+
+- Verify exact serial, QEMU property and disposable AVD name before install or
+  mutation. Verify final APK package, `testOnly`, observer/instrumentation and
+  `allowBackup`; capture SHA-256 and public signing certificate digest with
+  `apksigner verify --print-certs`. Use the identical APK on source and targets.
+- Privately record API/fingerprint, GMS version (`dumpsys package
+  com.google.android.gms`), selected transport (`bmgr list transports`), backup
+  configuration and callback flags/quota. Expected selected transport is
+  `com.google.android.gms/.backup.BackupTransportService`; a listed class is not
+  remote proof. Read `backup_local_transport_parameters` and
+  `backup_enable_d2d_test_mode`; refuse fake encryption or enabled D2D mode.
+  Check selection again immediately before every backup and restore. Do not
+  enable other transport test flags or inspect GMS private storage with root.
+- Capture timestamped callbacks and framework output for each isolated attempt,
+  package and aggregate status separately, and source/target `bmgr list sets`.
+  Preserve the original baseline token. Multiple tokens require explicit mapping
+  to the source dataset, never guessing or substituting a current target token.
+- Establish A on a separate fresh target with **all eight selected path/SHA-256
+  pairs**, validated sessions, excluded sentinels absent, and no automatic
+  canonical batteries for either synthetic ROM identity. Do not seed a target or
+  copy application data to it. Installation-time automatic restore must also be
+  captured; it cannot be mistaken for a later failure recovery on reused userdata.
+  Package rejection for test-only/sideloaded apps is an environment BLOCKED result;
+  do not remove safeguards to obtain eligibility.
+- For B, require malformed-metadata refusal and callback evidence of no file
+  emission. No framework attempt or no intended refusal means NOT_RUN or
+  INVALID_TEST. Restore baseline A on another fresh target, compare the complete
+  map, and stop after a conclusive FAIL. Missing, changed or invalid entries are
+  FAIL even when framework text reports Success.
+- For C, establish a new independently recovered A before changed valid data and
+  `emission-failure`. The existing observer assumes measurement call 1 and streaming
+  call 2 **on the same instance**. This is not yet proven for GMS. Require both
+  actual partial emission and `injected failure after archive prefix emission`
+  diagnostics. An absent injection or a different callback sequence is
+  INVALID_TEST, never PASS. Adapt only the test observer if observed behavior
+  requires it, review/rebuild that delta and re-establish A before retrying.
+- Restore C's original baseline on a new cache-free target. Save a complete
+  per-path expected/recovered digest comparison, including missing/unexpected
+  paths; distinguish retention outcome from the simulated fault trigger. Keep
+  raw reports in a private mode-0700 directory. A hash mismatch exits nonzero.
+  Stop after a conclusive failure; do not repeatedly overwrite a dataset.
+- Remove only the test package and agreed disposable environments/datasets after
+  preserving private evidence. Do not use a broad transport reset for cleanup.
+  Repeat on another supported Android generation only after establishing its
+  independent A; report differences in flags, quota, measurement/callback order,
+  eligibility, tokens and retention without extrapolation.
+
+**Independent rulings:** Application defect: None demonstrated. LocalTransport
+findings: unchanged (both retention FAIL). Dormant PR merge: Held under owner
+policy; active save ordering, directory fsync and Saves review UI retain their
+prior scoped evidence and unverified native/lifecycle/power-loss limits described
+below. Agent activation: Held; real GMS retention is unknown. If GMS cannot meet
+last-usable-backup preservation, obtain a separate versioned-recovery design
+decision without weakening the requirement. Keep #188 draft/unmerged, auto-merge
+disabled and #194/#186/#12 open. Outstanding decisions: disposable-account scope,
+supported environments, dormant-merge policy and the six existing activation
+choices. **Next bounded step:** after separate account authorization/provisioning,
+prove A's complete remote recovery on one fresh GMS target before B or C.
 
 ## Audit of the original result
 

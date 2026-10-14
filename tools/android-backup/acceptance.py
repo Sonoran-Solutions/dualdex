@@ -40,6 +40,13 @@ def restore_tokens(text):
     return tokens[0]
 
 
+def local_archive_path(token):
+    # ponytail: only the measured token-1 layout is supported; verify other layouts before probing.
+    if token != "1":
+        raise RuntimeError("LocalTransport archive diagnostics require observed token 1; got " + token)
+    return "/data/user/0/com.android.localtransport/files/1/_full/" + PACKAGE
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--serial', required=True)
@@ -142,7 +149,7 @@ def main():
                 (out/(label+'-transport.json')).write_text(json.dumps({'selected':transport,'list':current,'sets':sets},indent=2))
                 return restore_tokens(sets)
             def archive_probe(label):
-                archive='/data/user/0/com.android.localtransport/files/1/_full/'+PACKAGE
+                archive=local_archive_path(capture_transport(label+'-archive'))
                 size=run('shell','stat','-c','%s',archive,allow_failure=True)
                 if 'No such file' in size:
                     state={'exists':False}

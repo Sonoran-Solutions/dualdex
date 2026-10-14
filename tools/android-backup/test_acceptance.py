@@ -1,6 +1,6 @@
 """Small host checks for the acceptance runner's destructive-operation boundaries."""
 import unittest
-from acceptance import PACKAGE, backup_result, require_disposable, restore_tokens
+from acceptance import PACKAGE, backup_result, require_disposable, restore_tokens, local_archive_path
 
 
 class AcceptanceBoundaryTest(unittest.TestCase):
@@ -20,6 +20,9 @@ class AcceptanceBoundaryTest(unittest.TestCase):
 
     def test_restore_token_must_be_unambiguous(self):
         self.assertEqual(restore_tokens('  1 : Local disk image\n'), '1')
+        self.assertEqual(local_archive_path('1'), '/data/user/0/com.android.localtransport/files/1/_full/' + PACKAGE)
+        for token in ['2', 'a123', '../1', '01', '']:
+            with self.subTest(token=token), self.assertRaises(RuntimeError): local_archive_path(token)
         for invalid in ['', 'No restore sets', '  1 : current\n  2 : old\n']:
             with self.subTest(text=invalid), self.assertRaises(RuntimeError): restore_tokens(invalid)
 

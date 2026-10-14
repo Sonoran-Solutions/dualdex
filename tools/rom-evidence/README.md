@@ -35,6 +35,27 @@ Refuses other ROM hashes. Bounds-checks all 150 pointer/address records and ASCI
 duplicates/unterminated names, and emits only six relevant symbols. It does not dereference
 symbol target addresses, extract game tables, or claim field widths/runtime authority.
 
+## Inspect R.O.W.E. data and text structures
+
+```bash
+python3 tools/rom-evidence/rowe_data.py --rom /private/rowe-2.1.9.1.gba \
+  > /tmp/rowe-data-contract.json
+```
+
+`rowe_data.py` reuses the pinned identity and embedded-symbol readers, then checks exact-ROM
+accessor instructions and bounded species, move, form, base-stat, battle-move, item, type-chart,
+and region-map spans. It emits only sanitized metadata, counts, refusals, selected evidence
+correlations, and hashes; it does not emit a full mapping table. The exact target hash is required.
+Species holes, reserved IDs, moves outside the safe 1–942 name prefix, invalid forms, unsupported
+glyphs/controls, and unresolved targets have no fallback. Static nonzero-form mappings remain
+runtime-unverified. No production support or battle/map behavior is enabled by this inspector.
+
+`rowe_text.py` is a bounded decoder for the evidence domains only. It preserves raw bytes and
+refuses unknown glyphs, malformed controls, bad termination, and unsupported domains. Its glyph
+set is intentionally partial; passing synthetic tests does not prove full game text behavior.
+See [the exact-release data/text matrix](../../docs/ROWE_2_1_9_1_DATA_TEXT_EVIDENCE.md) for source
+revision, status classifications, hashes, and remaining gates.
+
 ## Read-only runtime observations
 
 Use the existing native developer adapter and a legally built local mGBA core:

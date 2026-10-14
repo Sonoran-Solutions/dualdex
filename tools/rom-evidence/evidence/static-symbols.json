@@ -1,0 +1,21 @@
+{
+  "entry_count": 150,
+  "rom": {
+    "bytes": 33554432,
+    "crc32": "ad252fd3",
+    "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+  },
+  "runtime_layout": "NOT_VERIFIED",
+  "schema_version": 1,
+  "status": "STATIC_SYMBOLS",
+  "symbols": {
+    "gEnemyParty": "0x020252f0",
+    "gEnemyPartyCount": "0x02025126",
+    "gPlayerParty": "0x02025128",
+    "gPlayerPartyCount": "0x02025125",
+    "gSaveBlock1Ptr": "0x03004afc",
+    "gSaveBlock2Ptr": "0x03004b00"
+  },
+  "table_address": "0x08fb0670"
+}

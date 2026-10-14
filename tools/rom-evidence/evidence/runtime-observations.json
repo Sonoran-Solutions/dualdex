@@ -1,0 +1,642 @@
+{
+  "date_utc": "2026-10-13",
+  "full_layout": "NOT_VERIFIED",
+  "runs": [
+    {
+      "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+      "checkpoints": [
+        {
+          "enemy_count": 0,
+          "frame": 180,
+          "label": "boot",
+          "player_count": 0,
+          "player_party_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "reported_save_copy_sha256": null,
+          "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5",
+          "save_blocks": {
+            "1": "0x00000000",
+            "2": "0x020256ec"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 7641,
+          "label": "received",
+          "moves": [
+            20,
+            43,
+            561,
+            117
+          ],
+          "player_count": 1,
+          "player_party_sha256": "f9366e711a4864b49880263a8752d95a0789ba118d689bd22329a636653e2559",
+          "pp": [
+            20,
+            30,
+            15,
+            10
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "efe41a3ff9a6461629e99c751ef449e0d62386141ceaabf9e1f2b136dbc3f5a8",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9006,
+          "label": "party",
+          "moves": [
+            20,
+            43,
+            561,
+            117
+          ],
+          "player_count": 1,
+          "player_party_sha256": "f9366e711a4864b49880263a8752d95a0789ba118d689bd22329a636653e2559",
+          "pp": [
+            20,
+            30,
+            15,
+            10
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "c7ab70d8e6aa95fe2f6572cb03d2edbabfd2f5aa3c77d4a032a146842bbb2f42",
+          "save_blocks": {
+            "1": "0x0202644c",
+            "2": "0x0202570c"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9188,
+          "label": "info",
+          "moves": [
+            20,
+            43,
+            561,
+            117
+          ],
+          "player_count": 1,
+          "player_party_sha256": "f9366e711a4864b49880263a8752d95a0789ba118d689bd22329a636653e2559",
+          "pp": [
+            20,
+            30,
+            15,
+            10
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "b7a861c1dd3e50a0ba0fc502ac26e8e2329143465d6119e144829ff0f1f6d65d",
+          "save_blocks": {
+            "1": "0x0202644c",
+            "2": "0x0202570c"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9279,
+          "label": "stats",
+          "moves": [
+            20,
+            43,
+            561,
+            117
+          ],
+          "player_count": 1,
+          "player_party_sha256": "f9366e711a4864b49880263a8752d95a0789ba118d689bd22329a636653e2559",
+          "pp": [
+            20,
+            30,
+            15,
+            10
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "07446477f894e70bfd325b124cdb7459a4ff1f9bd87277d30b5166fb8538a98e",
+          "save_blocks": {
+            "1": "0x0202644c",
+            "2": "0x0202570c"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9370,
+          "label": "moves",
+          "moves": [
+            20,
+            43,
+            561,
+            117
+          ],
+          "player_count": 1,
+          "player_party_sha256": "f9366e711a4864b49880263a8752d95a0789ba118d689bd22329a636653e2559",
+          "pp": [
+            20,
+            30,
+            15,
+            10
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "84afee9dde29bc21b0fd7fee2149b9926e03f07cc13d5f910f9086288377eea3",
+          "save_blocks": {
+            "1": "0x0202644c",
+            "2": "0x0202570c"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9734,
+          "label": "after_move12_input",
+          "moves": [
+            43,
+            20,
+            561,
+            117
+          ],
+          "player_count": 1,
+          "player_party_sha256": "5fca3ee18b35a3af801f0874be04401526427281b1b5b19cc530ffbb9d560135",
+          "pp": [
+            30,
+            20,
+            15,
+            10
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "e86b17b3f9fa86480859dcf9ed31943d44f0418a7512c7799fb33a87a3909e7a",
+          "save_blocks": {
+            "1": "0x0202644c",
+            "2": "0x0202570c"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 10098,
+          "label": "after_move24_input",
+          "moves": [
+            43,
+            117,
+            561,
+            20
+          ],
+          "player_count": 1,
+          "player_party_sha256": "d227c8735d16afab6241b507ea8e29f97a50156eac319412da2726ac09891150",
+          "pp": [
+            30,
+            10,
+            15,
+            20
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "d73b8814364541838c4df8be7665785f3ee94bc97cb2efc3d5a0d0fe067c4319",
+          "save_blocks": {
+            "1": "0x0202644c",
+            "2": "0x0202570c"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 10371,
+          "label": "after_move43_input",
+          "moves": [
+            43,
+            117,
+            20,
+            561
+          ],
+          "player_count": 1,
+          "player_party_sha256": "325e04ba252099c4138042c3dc55777305ba67893b5b68658e776c9e4997ad97",
+          "pp": [
+            30,
+            10,
+            20,
+            15
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "beffa0dd9afca0cb9ebae26446816f9426fe613fb343c78f02c7c55413353fe6",
+          "save_blocks": {
+            "1": "0x0202644c",
+            "2": "0x0202570c"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9371,
+          "label": "restored_moves",
+          "moves": [
+            20,
+            43,
+            561,
+            117
+          ],
+          "player_count": 1,
+          "player_party_sha256": "f9366e711a4864b49880263a8752d95a0789ba118d689bd22329a636653e2559",
+          "pp": [
+            20,
+            30,
+            15,
+            10
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "39784e5c615445563067688087a9c9701a92a72005ec107040c6e45c401cdf49",
+          "save_blocks": {
+            "1": "0x0202644c",
+            "2": "0x0202570c"
+          }
+        }
+      ],
+      "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+      "first_run_frames": 180,
+      "movie_sha256": "e62bd7694868ff3400ff6c9c86998f8fd0947dd4955275c39f505a523873c30a",
+      "observer_sha256": "056a9143a54bd5dde6946a70aabb04870cb6f75573ada0ac5deb59cd22f9cec3",
+      "raw_report_sha256": "d6105ea2726cddeb927aab13fce9c6cac0022815e64cf0b8870669b601f20246",
+      "restored_parties_identical": true,
+      "rom": {
+        "bytes": 33554432,
+        "crc32": "ad252fd3",
+        "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+        "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+      },
+      "slot_zero_at_info": {
+        "form": 0,
+        "hp": 44,
+        "level": 10,
+        "moves": [
+          20,
+          43,
+          561,
+          117
+        ],
+        "nature": 9,
+        "nickname_hex": "cedce6e3dcffffffffff0000",
+        "otid": 1634136280,
+        "pid": 3069885109,
+        "pp": [
+          20,
+          30,
+          15,
+          10
+        ],
+        "species": 538,
+        "stats": {
+          "attack": 25,
+          "defense": 24,
+          "max_hp": 44,
+          "sp_attack": 11,
+          "sp_defense": 19,
+          "speed": 14
+        }
+      },
+      "symbols_tool_sha256": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c",
+      "ui_transcription": {
+        "dex": 538,
+        "hp": [
+          44,
+          44
+        ],
+        "level": 10,
+        "moves": [
+          "Bind",
+          "Leer",
+          "Mat Block",
+          "Bide"
+        ],
+        "nature": "Lax",
+        "nickname": "Throh",
+        "pp": [
+          20,
+          30,
+          15,
+          10
+        ],
+        "species": "Throh",
+        "stats_attack_defense_speed_spattack_spdefense": [
+          25,
+          24,
+          14,
+          11,
+          19
+        ],
+        "trainer_id": 61656
+      }
+    },
+    {
+      "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+      "checkpoints": [
+        {
+          "enemy_count": 0,
+          "frame": 240,
+          "label": "boot",
+          "player_count": 0,
+          "player_party_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "b34a17099b0ac34c5193c6c126317a296520dfb0391c275e695504be58eb66a5",
+          "save_blocks": {
+            "1": "0x0202642c",
+            "2": "0x020256ec"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 7701,
+          "label": "received",
+          "moves": [
+            150,
+            33,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "43fe0fe73fd712f6bffe081cd1132b5e9535eb90ee5b35e114c1f8cc8c4c8880",
+          "pp": [
+            40,
+            35,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "62d2d8da438e5c0b6489adebddb4f974137b7b605232d96b335f964d29384362",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9066,
+          "label": "party",
+          "moves": [
+            150,
+            33,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "43fe0fe73fd712f6bffe081cd1132b5e9535eb90ee5b35e114c1f8cc8c4c8880",
+          "pp": [
+            40,
+            35,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "795a35a621c73c65a6ef96026b34f0fcec1f55ed5c821c927dc500e3efff3264",
+          "save_blocks": {
+            "1": "0x02026480",
+            "2": "0x02025740"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9248,
+          "label": "info",
+          "moves": [
+            150,
+            33,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "43fe0fe73fd712f6bffe081cd1132b5e9535eb90ee5b35e114c1f8cc8c4c8880",
+          "pp": [
+            40,
+            35,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "135dab3f11047b19576f4b4a94ad94ae2db96551e6a76ebde02d86ffefb50b6b",
+          "save_blocks": {
+            "1": "0x02026480",
+            "2": "0x02025740"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9339,
+          "label": "stats",
+          "moves": [
+            150,
+            33,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "43fe0fe73fd712f6bffe081cd1132b5e9535eb90ee5b35e114c1f8cc8c4c8880",
+          "pp": [
+            40,
+            35,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "554b73340a175092c9af8c8c4d499e2313c912ca03bc9dfe700371d8a6d5221f",
+          "save_blocks": {
+            "1": "0x02026480",
+            "2": "0x02025740"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9430,
+          "label": "moves",
+          "moves": [
+            150,
+            33,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "43fe0fe73fd712f6bffe081cd1132b5e9535eb90ee5b35e114c1f8cc8c4c8880",
+          "pp": [
+            40,
+            35,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "fccbf32f7a95a4cd0ae4f0a5f536c6d17088befb316ab3623b0a37184b57aec1",
+          "save_blocks": {
+            "1": "0x02026480",
+            "2": "0x02025740"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9794,
+          "label": "after_move12_input",
+          "moves": [
+            33,
+            150,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "19d9aa9d30c1ac399b367fdda71660a0126d169c657ee4f36d0bd8a460500580",
+          "pp": [
+            35,
+            40,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "7ebfe34a10268990d9aa45a520a7d31cf1bf4a588b4bfbe4b372dcca0aeacad9",
+          "save_blocks": {
+            "1": "0x02026480",
+            "2": "0x02025740"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 10158,
+          "label": "after_move24_input",
+          "moves": [
+            33,
+            150,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "19d9aa9d30c1ac399b367fdda71660a0126d169c657ee4f36d0bd8a460500580",
+          "pp": [
+            35,
+            40,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "6e6e046ba22eb15062ada56d6117d704ed2b65343a8ff37e7b784c527815ee04",
+          "save_blocks": {
+            "1": "0x02026480",
+            "2": "0x02025740"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 10431,
+          "label": "after_move43_input",
+          "moves": [
+            150,
+            33,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "43fe0fe73fd712f6bffe081cd1132b5e9535eb90ee5b35e114c1f8cc8c4c8880",
+          "pp": [
+            40,
+            35,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "5530d9e1883adb4beb5046be5a4bdeaf8b69f20c79f5230dea1a72091b33cbed",
+          "save_blocks": {
+            "1": "0x02026480",
+            "2": "0x02025740"
+          }
+        },
+        {
+          "enemy_count": 0,
+          "frame": 9431,
+          "label": "restored_moves",
+          "moves": [
+            150,
+            33,
+            0,
+            0
+          ],
+          "player_count": 1,
+          "player_party_sha256": "43fe0fe73fd712f6bffe081cd1132b5e9535eb90ee5b35e114c1f8cc8c4c8880",
+          "pp": [
+            40,
+            35,
+            0,
+            0
+          ],
+          "reported_save_copy_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+          "rgb565_sha256": "ef7a152bf9702ac061cf34a0468e0112a62488e9f90b9bf3ad73db9eba1905ee",
+          "save_blocks": {
+            "1": "0x02026480",
+            "2": "0x02025740"
+          }
+        }
+      ],
+      "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+      "first_run_frames": 240,
+      "movie_sha256": "0bf3097b53c639bd3f658c15b875b91fb5973a78bb5607d8f2edfecc5587104b",
+      "observer_sha256": "056a9143a54bd5dde6946a70aabb04870cb6f75573ada0ac5deb59cd22f9cec3",
+      "raw_report_sha256": "f7f0ffddac6308f251ed5664e4f779bae4a95071ce9f55dfb8b7dd824f24ea20",
+      "restored_parties_identical": true,
+      "rom": {
+        "bytes": 33554432,
+        "crc32": "ad252fd3",
+        "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+        "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+      },
+      "slot_zero_at_info": {
+        "form": 0,
+        "hp": 24,
+        "level": 10,
+        "moves": [
+          150,
+          33,
+          0,
+          0
+        ],
+        "nature": 22,
+        "nickname_hex": "c7d5dbdddfd5e6e4ffff0000",
+        "otid": 1294987471,
+        "pid": 2135015472,
+        "pp": [
+          40,
+          35,
+          0,
+          0
+        ],
+        "species": 129,
+        "stats": {
+          "attack": 7,
+          "defense": 16,
+          "max_hp": 24,
+          "sp_attack": 8,
+          "sp_defense": 9,
+          "speed": 18
+        }
+      },
+      "symbols_tool_sha256": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c",
+      "ui_transcription": {
+        "dex": 129,
+        "hp": [
+          24,
+          24
+        ],
+        "level": 10,
+        "moves": [
+          "Splash",
+          "Tackle",
+          null,
+          null
+        ],
+        "nature": "Sassy",
+        "nickname": "Magikarp",
+        "pp": [
+          40,
+          35,
+          0,
+          0
+        ],
+        "species": "Magikarp",
+        "stats_attack_defense_speed_spattack_spdefense": [
+          7,
+          16,
+          18,
+          8,
+          9
+        ],
+        "trainer_id": 61647
+      }
+    }
+  ],
+  "schema_version": 1,
+  "status": "BOUNDED_RUNTIME_OBSERVATIONS"
+}

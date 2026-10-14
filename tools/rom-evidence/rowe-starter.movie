@@ -1,0 +1,52 @@
+# Fresh boot, default setup and first starter; no external save or RAM writes.
+run 180
+observe boot
+run 600
+mash 3 8
+run 600
+mash 10
+mash 4
+mash 1
+mash 1 8
+mash 5
+mash 8
+run 24 32
+mash 8
+mash 1
+mash 2 32
+mash 1
+mash 6
+mash 8
+run 20 256
+run 120
+mash 1 16
+mash 8
+observe received
+mash 12
+mash 1 8
+mash 1 32
+mash 1
+observe party
+mash 2
+observe info
+mash 1 128
+observe stats
+mash 1 128
+observe moves
+save
+mash 1
+mash 1
+mash 1 32
+mash 1
+observe after_move12_input
+mash 1
+mash 2 32
+mash 1
+observe after_move24_input
+mash 1
+mash 1 16
+mash 1
+observe after_move43_input
+restore
+run 1
+observe restored_moves

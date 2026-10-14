@@ -99,6 +99,18 @@ Private reports: `/tmp/dualdex-188-thor-bbbd207/{environment.json,storage.json,s
 The runner uninstalled only the test package after success; a subsequent package
 query confirmed it absent. No device-wide backup settings were changed.
 
+## Issue #194 controlled follow-up
+
+The [retention investigation](ANDROID_BACKUP_RETENTION_INVESTIGATION.md) preserves
+the original FAIL and adds bounded controls on a new, explicitly disposable API 34
+AVD. Repeated restore/process/clear controls passed; successful B replaced A under
+the same token. Pre-emission refusal deleted A before recovery. A test-only
+post-emission IOException was instead reported as package Success and committed a
+truncated archive that restore validation rejected. Both retention outcomes are
+**FAIL**; real GMS cloud retention remains **NOT_RUN**. No production code changed.
+The linked analysis separates dormant-merge policy from activation readiness and
+provides the separately authorized real-cloud protocol. #194 remains open.
+
 ## Two reproducible source corrections
 
 1. **API 28 timestamp precision.** A requested file time `1700000000123` read

@@ -4,7 +4,8 @@ on:
   push:
     branches: [ main ]
   pull_request:
-    branches: [ main ]
+    # Validate the R.O.W.E. evidence stack while #191 remains unmerged.
+    branches: [ main, chore/issue-59-rowe-release-evidence ]
 
 permissions:
   contents: read

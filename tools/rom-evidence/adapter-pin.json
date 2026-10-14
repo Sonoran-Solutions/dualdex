@@ -1,0 +1,19 @@
+{
+  "binary_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+  "build_command": "./tools/vanilla-runtime-probe/build.sh",
+  "inputs": {
+    "native/include/gba_memory_map.h": "2e7fd650ff0c391ff5c961b3e40702ff056f85dcf4a871d2db2abe297606ac6a",
+    "native/include/libretro_host.h": "92fb2c236e268ecadc6af33587694454bec0010317baedfe6ed508d621bf6f36",
+    "native/include/pokemon_reader.h": "cdeb0b37ce12940fd7507524aa18aafbb21734188d79abfb68aab63d8b70447a",
+    "native/include/pokemon_structs.h": "6267385a3270be71388e132b7d7934623649c394636961dfe9c7c455b03aaffd",
+    "native/include/pokemon_text.h": "e14121bf33e967d5a565af1e0f4a87d787b9eff636e40ff81248f13da6ec8972",
+    "native/src/gba_memory_map.c": "0ad396b2aca8591d4884895b5ceb6f3095d1d63be7598f6279655d12a65f4ec5",
+    "native/src/libretro_host.c": "1414c9bd8a7fa9318fc6ba37f21e2f142639d43222790f338002560f53c79037",
+    "native/src/pokemon_reader.c": "a63394cd49a9bae1be7118955e8a5fa68ba95dddb41a088af0d074570eecb73f",
+    "native/src/pokemon_text.c": "b65304a6210505ac909d7943ce9920fe78c8a89fcb88fe113b4f48da19466eed",
+    "tools/vanilla-runtime-probe/build.sh": "ee265e83a9baa8a00eddf2c9dca94ab5c6153f3f74fbdeeba788126d03999667",
+    "tools/vanilla-runtime-probe/probe_host.c": "402b75d6e5d027e5114fd049cbc6c6180a2d6091aa996f90c8a1197a864bf87e"
+  },
+  "schema_version": 1,
+  "source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682"
+}

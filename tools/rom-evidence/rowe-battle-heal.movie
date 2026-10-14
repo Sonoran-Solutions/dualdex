@@ -1,0 +1,14 @@
+# Start only at the private ordinary-gameplay battle checkpoint.
+run 1
+observe before_turn
+mash 3
+run 600
+observe after_turn
+mash 1 128
+mash 1
+mash 1 64
+mash 2
+observe healing_target
+run 20 256
+run 120
+observe healed

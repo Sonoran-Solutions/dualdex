@@ -1,0 +1,26 @@
+# Replay only from our private state, created by ordinary gameplay after the catch.
+run 1
+observe before_menu
+run 20 8
+run 120
+mash 10 16
+mash 1 32
+run 20 256
+run 120
+observe roster_before
+run 20 256
+run 120
+mash 1 32
+run 20 256
+run 120
+mash 1 128
+run 20 256
+run 120
+observe roster_after
+run 20 1
+run 120
+observe pre_game_save
+run 20 8
+run 720
+observe post_game_save
+cartridge_save

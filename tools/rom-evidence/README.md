@@ -100,3 +100,56 @@ HNS_UPSTREAM_DIR=/path/to/pinned/pokehns-expansion ./ci.sh source-check
 Canonical CI runs only invented UPS/symbol/slot bytes, input/read failure cases and evidence
 metadata checks. It never loads a ROM/core or runs the observation movie. No third-party code,
 fixtures, source headers, generated game tables or copyrighted game assets are bundled.
+
+## Revision 3: party indexing, battle and cartridge experiments
+
+[Revision-3 matrix/contract](../../docs/ROWE_2_1_9_1_PARTY_LAYOUT_EVIDENCE.md) supersedes
+revision 2's unknown stride/width findings without changing production support.
+
+```bash
+python3 tools/rom-evidence/rowe_static.py --rom /private/rowe.gba > /tmp/accessors.json
+python3 tools/rom-evidence/rowe_observe.py \
+  --rom /private/rowe.gba --core /private/mgba_libretro.so \
+  --initial-state /private/own-two-slot.state \
+  --movie tools/rom-evidence/rowe-party-save.movie \
+  --cartridge-dir /tmp/own-new-cartridge --output /tmp/save-observed.json \
+  --screens /tmp/own-private-save-captures
+# After that process exits: a new process; no initial state.
+python3 tools/rom-evidence/rowe_observe.py \
+  --rom /private/rowe.gba --core /private/mgba_libretro.so \
+  --load-cartridge --cartridge-dir /tmp/own-new-cartridge \
+  --movie tools/rom-evidence/rowe-party-reload.movie \
+  --output /tmp/reload-observed.json --screens /tmp/own-private-reload-captures
+# Battle/HP/PP/Potion capture starts at the own-gameplay battle checkpoint.
+python3 tools/rom-evidence/rowe_observe.py \
+  --rom /private/rowe.gba --core /private/mgba_libretro.so \
+  --initial-state /private/own-battle.state \
+  --movie tools/rom-evidence/rowe-battle-heal.movie \
+  --output /tmp/battle-observed.json --screens /tmp/own-private-battle-captures
+```
+
+These movies reproduce from privately retained compatible experiment checkpoints, made only
+by ordinary gameplay. They do not manufacture Pokémon or guarantee a fresh catch route. Make
+and validate your own two-slot party first; bootstrap hashes and UI values can differ. This
+tool's `save`/`restore` remain temporary emulator states. `--initial-state` reports
+`PRIVATE_EXPERIMENT_STATE` explicitly; it cannot be combined with `--load-cartridge`.
+`cartridge_save` only flushes cartridge RAM; the movie must first perform the actual UI save.
+The native host does not automatically flush on cleanup. A new exclusive cartridge file and
+experiment marker bind ROM/save digests; existing files fail rather than being overwritten.
+A cartridge load requires both the matching marker and save, and reports `CARTRIDGE_RELOAD`.
+It never loads a Downloads or personal save by default.
+
+[adapter-pin.json](adapter-pin.json) checks the existing adapter's source/build inputs and
+expected binary before CDLL/core initialization. It intentionally refuses another compiler's
+output until separately reviewed; the pin is diagnostic only. Count/data/count plus repeated
+456-byte reads fail on any mismatch while stepping is paused. All six slot digests and excluded
+species are recorded as diagnostics; only counted slots are parsed as occupied. Counts >6 fail;
+a zero enemy count with nonzero excluded species does not authorize enemy scanning.
+
+`--screens` now retains **private** 456-byte party snapshots beside exclusive PPMs for whole-record
+comparison. Never commit either, compatible states or cartridge data. The committed sanitized
+revision-3 JSON preserves hashes/numerical fields and manual UI transcriptions. The static
+accessor JSON's inspector digest binds the source used; spans bind the independently inspected
+ROM regions without distributing bytes or GPL implementation. Historical revision-2 captures
+retain their original observer hash at the reviewed parent. Failed routes, unrun cases and
+limited scope are explicit in revision 3; OBSERVED is still not a correctness/support verdict.

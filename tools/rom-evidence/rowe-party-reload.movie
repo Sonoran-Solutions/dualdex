@@ -1,0 +1,35 @@
+run 180
+observe boot
+run 600
+mash 3 8
+run 600
+observe continue_screen
+run 20 256
+run 600
+observe reloaded_field
+observe reloaded_party_memory
+run 20 8
+run 120
+run 20 256
+run 120
+observe reloaded_roster
+run 20 256
+run 120
+run 20 256
+run 120
+observe fletchling_info
+run 20 128
+run 120
+observe fletchling_stats
+run 20 128
+run 120
+observe fletchling_moves
+run 20 32
+run 120
+observe sentret_moves
+run 20 64
+run 120
+observe sentret_stats
+run 20 64
+run 120
+observe sentret_info

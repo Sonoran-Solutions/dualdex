@@ -1,0 +1,3469 @@
+{
+  "base_sha": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+  "battle_ui_transcription": {
+    "after_turn_enemy_hp": [
+      13,
+      17
+    ],
+    "after_turn_player_hp": [
+      9,
+      19
+    ],
+    "before_hp_from_summary": [
+      12,
+      19
+    ],
+    "healed_hp": [
+      19,
+      19
+    ],
+    "independent_pp_before_from_summary": 33,
+    "potion_message_restored_points": 10,
+    "pp_consumed_memory": 32,
+    "pp_consumption_ui": "Peck selected and used; remaining PP observed in memory, not separately re-opened on move screen after turn"
+  },
+  "distinct_occupied_slots": 2,
+  "failed_scenarios": [
+    {
+      "id": "fresh-attempt",
+      "movie_sha256": "884da27f8248ed7b1d885dd8c169bac859f760fb4d118c118d0db1c653d7b642",
+      "movie_text": "# Fresh boot, default setup and first starter; no external save or RAM writes.\nrun 180\nobserve boot\nrun 600\nmash 3 8\nrun 600\nmash 10\nmash 4\nmash 1\nmash 1 8\nmash 5\nmash 8\nrun 24 32\nmash 8\nmash 1\nmash 2 32\nmash 1\nmash 6\nmash 8\nrun 20 256\nrun 120\nmash 1 16\nmash 8\nobserve received\nmash 12\nmash 1 8\nmash 1 32\nmash 1\nobserve party\nrun 20 1\nrun 120\nrun 20 1\nrun 120\nobserve field\nrun 44 128\nrun 125 16\nrun 70 64\nrun 60 128\nrun 60 64\nrun 60 128\nrun 100 64\nrun 100 128\nrun 100 64\nrun 80 16\nrun 80 128\nrun 700\nobserve encounter_attempt\n",
+      "observer_sha256": "355e036bedaa8cb547df98f0ad7b522ddf14387f1994f2f7e6e1b19c5a4086ca",
+      "reason": "Fresh starter/town/setup differed; input route did not reach another encounter",
+      "screens": [
+        {
+          "label": "boot",
+          "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5"
+        },
+        {
+          "label": "received",
+          "rgb565_sha256": "783ceceae2ddc57a5cab03bfa1cda85bd571e7c76d905c266b22a2ce7e9ccce9"
+        },
+        {
+          "label": "party",
+          "rgb565_sha256": "124ab1baab813d1844675079b6792a6d249f7cf3b32d5d0c798706500dd98461"
+        },
+        {
+          "label": "field",
+          "rgb565_sha256": "0c3635997042b967a19dad4dc5b46175a857a8fae2749972c90c8a0389e4920d"
+        },
+        {
+          "label": "encounter_attempt",
+          "rgb565_sha256": "cce85469a5d6c63ecc663e33091f40c604e4fc683101c76152ceb1e9de75eba2"
+        }
+      ],
+      "status": "NOT_REACHED"
+    },
+    {
+      "id": "route-start",
+      "movie_sha256": "445c74de4dd0ef4aac468cc9d734874b6cd330d682ca29bd65c606c0190cf890",
+      "movie_text": "# Fresh boot, default setup and first starter; no external save or RAM writes.\nrun 180\nobserve boot\nrun 600\nmash 3 8\nrun 600\nmash 10\nmash 4\nmash 1\nmash 1 8\nmash 5\nmash 8\nrun 24 32\nmash 8\nmash 1\nmash 2 32\nmash 1\nmash 6\nmash 8\nrun 20 256\nrun 120\nmash 1 16\nmash 8\nobserve received\nmash 12\nmash 1 8\nmash 1 32\nmash 1\nobserve party\nrun 20 1\nrun 120\nrun 20 1\nrun 120\nobserve field\nrun 44 128\nrun 125 16\nobserve first_route\n",
+      "observer_sha256": "355e036bedaa8cb547df98f0ad7b522ddf14387f1994f2f7e6e1b19c5a4086ca",
+      "reason": "Fresh starter/town/setup differed; input route did not reach another encounter",
+      "screens": [
+        {
+          "label": "boot",
+          "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5"
+        },
+        {
+          "label": "received",
+          "rgb565_sha256": "e40e20829c9c16e5f93b184da0fb4225f56988c3a9171aa8059bee289a474cc3"
+        },
+        {
+          "label": "party",
+          "rgb565_sha256": "8952435d2be1bbe1eb604345cd06351e54398dd363551d6831c989ee513177d6"
+        },
+        {
+          "label": "field",
+          "rgb565_sha256": "7523113c5ea9326c8c428ae28f81848209e6d0278d816592d85e7afe1da7c558"
+        },
+        {
+          "label": "first_route",
+          "rgb565_sha256": "7b467e419c087a399470ddf4f81a79c5fd3bf82e52c80fa0666a0344cdbc1624"
+        }
+      ],
+      "status": "NOT_REACHED"
+    },
+    {
+      "id": "fresh-route2",
+      "movie_sha256": "27b39942189963877831cf71a0cbcc825ca6dd284f3d3291ba221fa5cc8b6b0f",
+      "movie_text": "# Fresh boot, default setup and first starter; no external save or RAM writes.\nrun 180\nobserve boot\nrun 600\nmash 3 8\nrun 600\nmash 10\nmash 4\nmash 1\nmash 1 8\nmash 5\nmash 8\nrun 24 32\nmash 8\nmash 1\nmash 2 32\nmash 1\nmash 6\nmash 8\nrun 20 256\nrun 120\nmash 1 16\nmash 8\nobserve received\nmash 12\nmash 1 8\nmash 1 32\nmash 1\nobserve party\nrun 20 1\nrun 120\nrun 20 1\nrun 120\nobserve field\nrun 64 128\nrun 220 16\nobserve route\nrun 100 64\nrun 80 16\nrun 100 128\nrun 80 64\nrun 80 128\nrun 700\nobserve encounter\n",
+      "observer_sha256": "355e036bedaa8cb547df98f0ad7b522ddf14387f1994f2f7e6e1b19c5a4086ca",
+      "reason": "Fresh starter/town/setup differed; input route did not reach another encounter",
+      "screens": [
+        {
+          "label": "boot",
+          "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5"
+        },
+        {
+          "label": "received",
+          "rgb565_sha256": "d38853f97138bd60ddbd04fb579eb75b98df02be034e2ce68a0bfefb13371fb0"
+        },
+        {
+          "label": "party",
+          "rgb565_sha256": "ddd290a6053d7b45879f31ea7d73a08081796348b18339d46abb8e264922e736"
+        },
+        {
+          "label": "field",
+          "rgb565_sha256": "ad717a953f34dd94aa5ce51f53f33ae43d71850aa849e37bf3d1c3bc8ee423db"
+        },
+        {
+          "label": "route",
+          "rgb565_sha256": "d341de480ef4ab06eac773e3f9c734431a4fb0aece0711e325a468c10f50e393"
+        },
+        {
+          "label": "encounter",
+          "rgb565_sha256": "d0dafc29b7fdf167111b6259ac98bc501527a359fdf4d7ae2f77f7fc6ebacf91"
+        }
+      ],
+      "status": "NOT_REACHED"
+    },
+    {
+      "id": "cartridge-reload",
+      "movie_sha256": "16799f6429e204e337f01064b0ef9de82de61b0febe248f0ebcbbe8c9889cc30",
+      "movie_text": "run 180\nobserve boot\nrun 600\nmash 3 8\nrun 600\nobserve continue_screen\nrun 20 256\nrun 600\nobserve reloaded_field\nrun 20 8\nrun 120\nmash 10 16\nmash 1 32\nrun 20 256\nrun 120\nobserve reloaded_roster\n",
+      "observer_sha256": "64b69203217e17450ba24661cafe0a8652a18c5beefe4f235ecbe5078f6f556f",
+      "reason": "Cartridge data loaded correctly, but redundant menu navigation opened Trainer Skills rather than roster; corrected in rowe-party-reload.movie",
+      "screens": [
+        {
+          "label": "boot",
+          "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5"
+        },
+        {
+          "label": "continue_screen",
+          "rgb565_sha256": "58c2916d2f5b4af0f90df3d357a2ceacbdc567db919f7ca93eb0d4590a2e14ea"
+        },
+        {
+          "label": "reloaded_field",
+          "rgb565_sha256": "5b7510e2f5289b3a519d5fb31b09aec51ed4af51f7be1798e894ba8aecfcb747"
+        },
+        {
+          "label": "reloaded_roster",
+          "rgb565_sha256": "60809d8d5c49235fdf2316f7fb59858c71ce6e929420d12026e2447736ed9b94"
+        }
+      ],
+      "status": "UI_ROUTE_MISMATCH"
+    }
+  ],
+  "not_run": [
+    "count 3..6/full party",
+    "count decrease/deposit/withdraw",
+    "faint",
+    "PP restoration/PP Ups",
+    "move learning/deletion",
+    "level gain",
+    "nonzero form/egg/alternate modes",
+    "trainer/doubles enemy authority",
+    "runtime nonzero status or nature mutation",
+    "complete fresh-boot-to-catch deterministic replay"
+  ],
+  "production_support": "NOT_VERIFIED",
+  "release": "2.1.9.1 Experimental",
+  "runs": [
+    {
+      "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+      "adapter_source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+      "bootstrap": "PRIVATE_EXPERIMENT_STATE",
+      "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+      "id": "cartridge-save-final",
+      "initial_state_sha256": "bfd0a0f354e776e03c022cefa73944a4fed06d5f6b9f6e4e9cecb886c92f6aaa",
+      "movie": "rowe-party-save.movie",
+      "movie_sha256": "b6f838a432e0e95ceb15c20baf6553b1f7240ed3f1ee3a912a336514ab9fe641",
+      "observations": [
+        {
+          "frame": 1,
+          "label": "before_menu",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "af993d77de513673f19ae4eaa3af298debbc70479222dd3620e42ab1a1cf3eae",
+              "slot_sha256": [
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "a3c6f51ba42a809a9aa9769a240c1296082d1295a3dfee5c851306a595f928b2",
+          "reported_save_party_count": 1,
+          "reported_save_party_slot_sha256": [
+            "67ffb1ab1e297d73b98344c77bdb3a1b53d9a5c1f06e3eb9a7f4c95acbef123f",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+          ],
+          "rgb565_sha256": "5b7510e2f5289b3a519d5fb31b09aec51ed4af51f7be1798e894ba8aecfcb747",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "frame": 1282,
+          "label": "roster_before",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "af993d77de513673f19ae4eaa3af298debbc70479222dd3620e42ab1a1cf3eae",
+              "slot_sha256": [
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "a3c6f51ba42a809a9aa9769a240c1296082d1295a3dfee5c851306a595f928b2",
+          "reported_save_party_count": 1,
+          "reported_save_party_slot_sha256": [
+            "67ffb1ab1e297d73b98344c77bdb3a1b53d9a5c1f06e3eb9a7f4c95acbef123f",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+          ],
+          "rgb565_sha256": "4a0f94ada7a26057cebe720a98c4e6fa94711c585dbfa4757c25c6268d022384",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "frame": 1884,
+          "label": "roster_after",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "a3c6f51ba42a809a9aa9769a240c1296082d1295a3dfee5c851306a595f928b2",
+          "reported_save_party_count": 1,
+          "reported_save_party_slot_sha256": [
+            "67ffb1ab1e297d73b98344c77bdb3a1b53d9a5c1f06e3eb9a7f4c95acbef123f",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+          ],
+          "rgb565_sha256": "e2746360b07cfbb83291c3f6ee8f90505b3994d8417cec81f6d239869120aa3a",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "frame": 2024,
+          "label": "pre_game_save",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "a3c6f51ba42a809a9aa9769a240c1296082d1295a3dfee5c851306a595f928b2",
+          "reported_save_party_count": 1,
+          "reported_save_party_slot_sha256": [
+            "67ffb1ab1e297d73b98344c77bdb3a1b53d9a5c1f06e3eb9a7f4c95acbef123f",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+          ],
+          "rgb565_sha256": "4494e1526bc948704eefef6efbea7ad0e6a34167f02fb9005506e292369ce050",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "frame": 2764,
+          "label": "post_game_save",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "5b7510e2f5289b3a519d5fb31b09aec51ed4af51f7be1798e894ba8aecfcb747",
+          "save_blocks": {
+            "1": "0x02026478",
+            "2": "0x02025738"
+          }
+        }
+      ],
+      "observer_sha256": "3d0903862452628c0fa54b7d4e90dc008296ea3f91cc77a9dadd2515885905b2",
+      "private_capture_reference": "local experiment cartridge-save-final; PPM/456-byte snapshots retained outside Git",
+      "rom": {
+        "bytes": 33554432,
+        "crc32": "ad252fd3",
+        "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+        "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+      },
+      "runtime_layout": "NOT_VERIFIED",
+      "saved_cartridge_sha256": "a446a2176e9cc58e06fb4622da317058df9613b1a081b6017e80848adc088df0",
+      "schema_version": 1,
+      "status": "OBSERVED",
+      "symbols_tool_sha256": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c"
+    },
+    {
+      "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+      "adapter_source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+      "bootstrap": "PRIVATE_EXPERIMENT_STATE",
+      "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+      "id": "cartridge-save-final2",
+      "initial_state_sha256": "bfd0a0f354e776e03c022cefa73944a4fed06d5f6b9f6e4e9cecb886c92f6aaa",
+      "movie": "rowe-party-save.movie",
+      "movie_sha256": "b6f838a432e0e95ceb15c20baf6553b1f7240ed3f1ee3a912a336514ab9fe641",
+      "observations": [
+        {
+          "frame": 1,
+          "label": "before_menu",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "af993d77de513673f19ae4eaa3af298debbc70479222dd3620e42ab1a1cf3eae",
+              "slot_sha256": [
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "a3c6f51ba42a809a9aa9769a240c1296082d1295a3dfee5c851306a595f928b2",
+          "reported_save_party_count": 1,
+          "reported_save_party_slot_sha256": [
+            "67ffb1ab1e297d73b98344c77bdb3a1b53d9a5c1f06e3eb9a7f4c95acbef123f",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+          ],
+          "rgb565_sha256": "5b7510e2f5289b3a519d5fb31b09aec51ed4af51f7be1798e894ba8aecfcb747",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "frame": 1282,
+          "label": "roster_before",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "af993d77de513673f19ae4eaa3af298debbc70479222dd3620e42ab1a1cf3eae",
+              "slot_sha256": [
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "a3c6f51ba42a809a9aa9769a240c1296082d1295a3dfee5c851306a595f928b2",
+          "reported_save_party_count": 1,
+          "reported_save_party_slot_sha256": [
+            "67ffb1ab1e297d73b98344c77bdb3a1b53d9a5c1f06e3eb9a7f4c95acbef123f",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+          ],
+          "rgb565_sha256": "4a0f94ada7a26057cebe720a98c4e6fa94711c585dbfa4757c25c6268d022384",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "frame": 1884,
+          "label": "roster_after",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "a3c6f51ba42a809a9aa9769a240c1296082d1295a3dfee5c851306a595f928b2",
+          "reported_save_party_count": 1,
+          "reported_save_party_slot_sha256": [
+            "67ffb1ab1e297d73b98344c77bdb3a1b53d9a5c1f06e3eb9a7f4c95acbef123f",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+          ],
+          "rgb565_sha256": "e2746360b07cfbb83291c3f6ee8f90505b3994d8417cec81f6d239869120aa3a",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "frame": 2024,
+          "label": "pre_game_save",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "a3c6f51ba42a809a9aa9769a240c1296082d1295a3dfee5c851306a595f928b2",
+          "reported_save_party_count": 1,
+          "reported_save_party_slot_sha256": [
+            "67ffb1ab1e297d73b98344c77bdb3a1b53d9a5c1f06e3eb9a7f4c95acbef123f",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+            "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+          ],
+          "rgb565_sha256": "4494e1526bc948704eefef6efbea7ad0e6a34167f02fb9005506e292369ce050",
+          "save_blocks": {
+            "1": "0x02026460",
+            "2": "0x02025720"
+          }
+        },
+        {
+          "frame": 2764,
+          "label": "post_game_save",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b414eba2fcfe66705cf714729dc2296c9fcc64c244f84d9419c5bcf867561f9b",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "5b7510e2f5289b3a519d5fb31b09aec51ed4af51f7be1798e894ba8aecfcb747",
+          "save_blocks": {
+            "1": "0x02026478",
+            "2": "0x02025738"
+          }
+        }
+      ],
+      "observer_sha256": "3d0903862452628c0fa54b7d4e90dc008296ea3f91cc77a9dadd2515885905b2",
+      "private_capture_reference": "local experiment cartridge-save-final2; PPM/456-byte snapshots retained outside Git",
+      "rom": {
+        "bytes": 33554432,
+        "crc32": "ad252fd3",
+        "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+        "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+      },
+      "runtime_layout": "NOT_VERIFIED",
+      "saved_cartridge_sha256": "f93849c1c0dcc392959d1180e7e3ab8b5c60c5fb0e089b29147d017a0bd460a3",
+      "schema_version": 1,
+      "status": "OBSERVED",
+      "symbols_tool_sha256": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c"
+    },
+    {
+      "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+      "adapter_source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+      "bootstrap": "CARTRIDGE_RELOAD",
+      "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+      "id": "cartridge-reload-ui",
+      "loaded_cartridge_sha256": "a446a2176e9cc58e06fb4622da317058df9613b1a081b6017e80848adc088df0",
+      "movie": "rowe-party-reload.movie",
+      "movie_sha256": "e7f0d9b5e6b1f8a0b8bdc12f3e1a9b2760ff19422a49ff2bcf161632ee4dbf72",
+      "observations": [
+        {
+          "frame": 180,
+          "label": "boot",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+              "slot_sha256": [
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+              "slot_sha256": [
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601",
+                "f2c0d5456a983ecd12e314fcfa19879179fc8424343baeb1325457472ae85601"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5",
+          "save_blocks": {
+            "1": "0x00000000",
+            "2": "0x020256ec"
+          }
+        },
+        {
+          "frame": 1653,
+          "label": "continue_screen",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "58c2916d2f5b4af0f90df3d357a2ceacbdc567db919f7ca93eb0d4590a2e14ea",
+          "save_blocks": {
+            "1": "0x02026494",
+            "2": "0x02025754"
+          }
+        },
+        {
+          "frame": 2273,
+          "label": "reloaded_field",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "5b7510e2f5289b3a519d5fb31b09aec51ed4af51f7be1798e894ba8aecfcb747",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "frame": 2273,
+          "label": "reloaded_party_memory",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "5b7510e2f5289b3a519d5fb31b09aec51ed4af51f7be1798e894ba8aecfcb747",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "frame": 2553,
+          "label": "reloaded_roster",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "c0ed2c8ef98d072c642439690dbce67614bcc9c744da9dff4c088d7de0df8c8a",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "frame": 2833,
+          "label": "fletchling_info",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "663da307136b1f6323b0267934d2cf78fbfffde17637797f4540b8416acd909d",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "frame": 2973,
+          "label": "fletchling_stats",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "a5601daed3fb4fcead3d0e10f160387bce5a5c2cccc98001f3da4307f58b4163",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "frame": 3113,
+          "label": "fletchling_moves",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "7eefb5839331de057277f6082e5c01962fb65a3e73f9a809a535e9a509c69d6d",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "frame": 3253,
+          "label": "sentret_moves",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "98894eb0a990fd934dc7de6de912827b77bc7dad9bf0136e19ccc42e5cc6f7d5",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "frame": 3393,
+          "label": "sentret_stats",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "19ce3d3bd8e9896b062627d1ac26f61e197791da715dcce76a46500123f56aee",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        },
+        {
+          "frame": 3533,
+          "label": "sentret_info",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+              "slot_sha256": [
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "4df9a12e53ce03c90e593744e44ef20735b3b7df90e973b5f5519f9e77e93cf6",
+          "save_blocks": {
+            "1": "0x0202648c",
+            "2": "0x0202574c"
+          }
+        }
+      ],
+      "observer_sha256": "3d0903862452628c0fa54b7d4e90dc008296ea3f91cc77a9dadd2515885905b2",
+      "private_capture_reference": "local experiment cartridge-reload-ui; PPM/456-byte snapshots retained outside Git",
+      "rom": {
+        "bytes": 33554432,
+        "crc32": "ad252fd3",
+        "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+        "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+      },
+      "runtime_layout": "NOT_VERIFIED",
+      "schema_version": 1,
+      "status": "OBSERVED",
+      "symbols_tool_sha256": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c"
+    },
+    {
+      "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+      "adapter_source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+      "bootstrap": "PRIVATE_EXPERIMENT_STATE",
+      "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+      "id": "battle-heal",
+      "initial_state_sha256": "e271793fda35649fb539017195dd46db3af3eca10d00e09c1043deae97f866e8",
+      "movie": "rowe-battle-heal.movie",
+      "movie_sha256": "d9b08270acf065acfc523efc26395ae7fa9a19605f07421db581b40fc8b4d9e4",
+      "observations": [
+        {
+          "frame": 1,
+          "label": "before_turn",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "48299ad85e955b6a3673feccf6f167ddd1d0d2ad9a016ca433bf2e52d7003b68",
+              "slot_sha256": [
+                "2098bbd7eaf35bcf1f9390792dd9457ae5e6069100f492f3f048c61ac6994304",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "49cbb20388b9f6c50eb751680beaeaef63e3823ebbf2227facd764b50e7e2a37",
+              "slot_sha256": [
+                "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+                "46acb0cd61d51f1bc0e95dd8303f3944064ae5086bff9b7bf3d2dd714fadcfda",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 12,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    33,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "14f6ee0160afe435383df4c2f7525249d57c855e87d3c64b5ca25e0b2924cd4d",
+          "save_blocks": {
+            "1": "0x0202649c",
+            "2": "0x0202575c"
+          }
+        },
+        {
+          "frame": 874,
+          "label": "after_turn",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "9be4b0a8c5578877f6a624cf30ddc6fa7dd9ceb153394acf43dabdfc85efc2b4",
+              "slot_sha256": [
+                "c47c9865c241123349bbe9a3708535f3e1cc158ff628f2bae0f1ed0812f6d688",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "ecf4459d60e898224ff0940382559eb9ca425a8bef0d1796e9c27cef818a42ba",
+              "slot_sha256": [
+                "4a034149f8b202a7c5c72203fa6866cea1c8d81a6e3550672d0c9cd27e0ccdc1",
+                "46acb0cd61d51f1bc0e95dd8303f3944064ae5086bff9b7bf3d2dd714fadcfda",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 9,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    32,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "60e40139bc0e056f32f3bf54209e5f791e31ec6e761de24cd4a8e7520cbf7cf8",
+          "save_blocks": {
+            "1": "0x0202649c",
+            "2": "0x0202575c"
+          }
+        },
+        {
+          "frame": 1329,
+          "label": "healing_target",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "9be4b0a8c5578877f6a624cf30ddc6fa7dd9ceb153394acf43dabdfc85efc2b4",
+              "slot_sha256": [
+                "c47c9865c241123349bbe9a3708535f3e1cc158ff628f2bae0f1ed0812f6d688",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "ecf4459d60e898224ff0940382559eb9ca425a8bef0d1796e9c27cef818a42ba",
+              "slot_sha256": [
+                "4a034149f8b202a7c5c72203fa6866cea1c8d81a6e3550672d0c9cd27e0ccdc1",
+                "46acb0cd61d51f1bc0e95dd8303f3944064ae5086bff9b7bf3d2dd714fadcfda",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 9,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    32,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "055e131121fc1df7e5d1784adb79ed6dfc45b142b93f37f0292dac4fe231e2ab",
+          "save_blocks": {
+            "1": "0x0202649c",
+            "2": "0x0202575c"
+          }
+        },
+        {
+          "frame": 1469,
+          "label": "healed",
+          "parties": {
+            "enemy": {
+              "count": 0,
+              "count_after": 0,
+              "sha256": "9be4b0a8c5578877f6a624cf30ddc6fa7dd9ceb153394acf43dabdfc85efc2b4",
+              "slot_sha256": [
+                "c47c9865c241123349bbe9a3708535f3e1cc158ff628f2bae0f1ed0812f6d688",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+                "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+              ],
+              "slots": [],
+              "unused_species": [
+                661,
+                0,
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "player": {
+              "count": 2,
+              "count_after": 2,
+              "sha256": "7e942b5dfa7a84b6b795eef8c5abc3801924097fc1977e7c5f07bdf4b2b85799",
+              "slot_sha256": [
+                "ab17d0274c38314a9295ec696a60de202c8445fb52f46112862ef834d6128051",
+                "46acb0cd61d51f1bc0e95dd8303f3944064ae5086bff9b7bf3d2dd714fadcfda",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+                "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+              ],
+              "slots": [
+                {
+                  "experience": 125,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 5,
+                  "moves": [
+                    64,
+                    45,
+                    33,
+                    98
+                  ],
+                  "nature": 12,
+                  "nickname_hex": "c0e0d9e8d7dce0dde2dbff00",
+                  "otid": 1973285089,
+                  "pid": 3333724587,
+                  "pp": [
+                    32,
+                    40,
+                    35,
+                    30
+                  ],
+                  "species": 661,
+                  "stats": {
+                    "attack": 10,
+                    "defense": 9,
+                    "max_hp": 19,
+                    "sp_attack": 9,
+                    "sp_defense": 8,
+                    "speed": 11
+                  },
+                  "status": 0
+                },
+                {
+                  "experience": 1084,
+                  "form": 0,
+                  "hp": 19,
+                  "level": 10,
+                  "moves": [
+                    193,
+                    33,
+                    111,
+                    98
+                  ],
+                  "nature": 6,
+                  "nickname_hex": "cdd9e2e8e6d9e8ffffff0000",
+                  "otid": 1973285089,
+                  "pid": 1482603531,
+                  "pp": [
+                    40,
+                    34,
+                    40,
+                    30
+                  ],
+                  "species": 161,
+                  "stats": {
+                    "attack": 14,
+                    "defense": 11,
+                    "max_hp": 27,
+                    "sp_attack": 12,
+                    "sp_defense": 14,
+                    "speed": 9
+                  },
+                  "status": 0
+                }
+              ],
+              "unused_species": [
+                0,
+                0,
+                0,
+                0
+              ]
+            }
+          },
+          "reported_save_party_copy_sha256": "5b7a95c5728a42107d11c4a1dec6d8478d8dfa6e58665dfd0a98a6a35658cea2",
+          "reported_save_party_count": 2,
+          "reported_save_party_slot_sha256": [
+            "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+            "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+            "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+          ],
+          "rgb565_sha256": "fa1fcaf308d11084c915c30f7dbb367debd0fe013cd1babc0667b9d095b2515f",
+          "save_blocks": {
+            "1": "0x0202649c",
+            "2": "0x0202575c"
+          }
+        }
+      ],
+      "observer_sha256": "3d0903862452628c0fa54b7d4e90dc008296ea3f91cc77a9dadd2515885905b2",
+      "private_capture_reference": "local experiment battle-heal; PPM/456-byte snapshots retained outside Git",
+      "rom": {
+        "bytes": 33554432,
+        "crc32": "ad252fd3",
+        "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+        "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+      },
+      "runtime_layout": "NOT_VERIFIED",
+      "schema_version": 1,
+      "status": "OBSERVED",
+      "symbols_tool_sha256": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c"
+    }
+  ],
+  "schema_version": 3,
+  "stride_verdict": "VERIFIED_PLAYER_2_SLOT_PLUS_STATIC_INDEXING",
+  "ui_transcription": [
+    {
+      "dex": 661,
+      "gender": "male",
+      "hp": [
+        12,
+        19
+      ],
+      "level": 5,
+      "move_ids": [
+        64,
+        45,
+        33,
+        98
+      ],
+      "moves": [
+        "Peck",
+        "Growl",
+        "Tackle",
+        "Quick Attack"
+      ],
+      "nature": "Serious",
+      "nature_raw": 12,
+      "pp": [
+        33,
+        40,
+        35,
+        30
+      ],
+      "species": "Fletchling",
+      "stats_attack_defense_speed_spattack_spdefense": [
+        10,
+        9,
+        11,
+        9,
+        8
+      ],
+      "trainer_id": 61665
+    },
+    {
+      "dex": 161,
+      "gender": "female",
+      "hp": [
+        19,
+        27
+      ],
+      "level": 10,
+      "move_ids": [
+        193,
+        33,
+        111,
+        98
+      ],
+      "moves": [
+        "Foresight",
+        "Tackle",
+        "Defense Curl",
+        "Quick Attack"
+      ],
+      "nature": "Docile",
+      "nature_raw": 6,
+      "pp": [
+        40,
+        34,
+        40,
+        30
+      ],
+      "species": "Sentret",
+      "stats_attack_defense_speed_spattack_spdefense": [
+        14,
+        11,
+        9,
+        12,
+        14
+      ],
+      "trainer_id": 61665
+    }
+  ]
+}

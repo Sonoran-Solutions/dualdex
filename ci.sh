@@ -5,12 +5,15 @@
 # One command vocabulary shared by humans, Antigravity, agents, and GitHub
 # Actions. Run from the repo root:
 #
-#   ./ci.sh test     # native reader + memory fixture replay + H&S tracker selftests +
+#   ./ci.sh test     # native reader + memory fixture replay + ROM-evidence tooling +
+#                    # H&S tracker selftests +
 #                    # QuickJS calculator suite + H&S differential damage oracle
 #                    # (committed corpus, ROM-free) + data-pack generator tests
 #                    # + H&S census source-reader tests + Kotlin unit tests
 #                    # (which include the committed issue #84 census artifact check)
-#   ./ci.sh fixture-test # ROM-free EWRAM/IWRAM production-reader replay suite
+#   ./ci.sh fixture-test # ROM-free production replay + isolated ROWE raw decoder
+#   ./ci.sh rowe-test # focused host-only raw decoder / full-memory synthetic fixtures
+#   ./ci.sh rowe-sanitize # same focused suite with ASan + UBSan (compiler required)
 #   ./ci.sh coverage-test # focused H&S debug coverage tests + structural release proof
 #   ./ci.sh build    # assemble the debug APK
 #   ./ci.sh backup-acceptance # build the opt-in synthetic Android device harness
@@ -78,6 +81,24 @@ fixture_test() {
     native/tests/test_memory_fixture.c \
     -o native/build/test_memory_fixture
   ./native/build/test_memory_fixture
+  rowe_raw_test
+}
+
+# Test-only module, deliberately absent from app/src/main/cpp/CMakeLists.txt.
+rowe_raw_test() {
+  local cc
+  cc="$(find_cc)"
+  if [ -z "$cc" ]; then
+    echo "error: no host C compiler; ROWE raw fixture tests are required" >&2
+    return 1
+  fi
+  mkdir -p native/build
+  "$cc" -O2 -std=c11 -Wall -Wextra "$@" \
+    -I native/include -I native/tests \
+    native/src/pokemon_reader.c native/src/pokemon_text.c native/src/gba_memory_map.c \
+    native/tests/memory_fixture.c native/tests/rowe_raw_decoder.c \
+    native/tests/test_rowe_raw_decoder.c -o native/build/test_rowe_raw_decoder
+  ./native/build/test_rowe_raw_decoder
 }
 
 native_test() {
@@ -98,6 +119,8 @@ native_test() {
     native/tests/test_pokemon_reader.c \
     -o native/build/test_runner
   ./native/build/test_runner
+  echo "== ROM evidence tooling (synthetic, no ROM/core) =="
+  python3 -m unittest discover -s tools/rom-evidence -v
 }
 
 # The H&S runtime probe is a developer tool that `ci.sh` deliberately does not ship, but its
@@ -676,11 +699,13 @@ case "${1:-all}" in
   test)         native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test ;;
   coverage-test) python3 tools/ci/check_hns_coverage_release.py; ./gradlew testDebugUnitTest --tests "com.dualdex.coverage.HnsCoverageTest" --tests "com.dualdex.battle.BattleConsoleTest.battleCoverage*" ;;
   fixture-test) fixture_test ;;
+  rowe-test)    rowe_raw_test ;;
+  rowe-sanitize) rowe_raw_test -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all ;;
   source-check) source_check ;;
   build)        gradle_build ;;
   all)          native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
   backup-acceptance) python3 tools/android-backup/test_acceptance.py; init_submodules; ./gradlew -Pdualdex.backupAcceptance=true -Pdualdex.acceptanceBackup="${DUALDEX_ACCEPTANCE_BACKUP:-true}" assembleBackupAcceptanceDebug ;;
   release)      gradle_release ;;
-  *)            echo "usage: $0 [test|fixture-test|coverage-test|source-check|build|backup-acceptance|all|release]" >&2; exit 2 ;;
+  *)            echo "usage: $0 [test|fixture-test|rowe-test|rowe-sanitize|coverage-test|source-check|build|backup-acceptance|all|release]" >&2; exit 2 ;;
 esac
 fi

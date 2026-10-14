@@ -1,0 +1,167 @@
+{
+  "count": {
+    "address": "0x02025125",
+    "load": "0x0809be52",
+    "store": "0x0809be3e",
+    "width": 8
+  },
+  "fields": {
+    "attack": {
+      "instruction_address": "0x0809b0de",
+      "offset": 66,
+      "width": 16
+    },
+    "defense": {
+      "instruction_address": "0x0809b0e6",
+      "offset": 68,
+      "width": 16
+    },
+    "experience": {
+      "bit": 10,
+      "instruction_address": "0x0809b350",
+      "offset": 20,
+      "storage_bytes": 4,
+      "width": 21
+    },
+    "form": {
+      "bit": 12,
+      "instruction_address": "0x0809b344",
+      "offset": 28,
+      "storage_bytes": 4,
+      "width": 5
+    },
+    "hp": {
+      "instruction_address": "0x0809b0ce",
+      "offset": 62,
+      "width": 16
+    },
+    "level": {
+      "instruction_address": "0x0809b0bc",
+      "offset": 60,
+      "width": 8
+    },
+    "max_hp": {
+      "instruction_address": "0x0809b0d6",
+      "offset": 64,
+      "width": 16
+    },
+    "move1": {
+      "bit": 0,
+      "instruction_address": "0x0809b376",
+      "offset": 20,
+      "storage_bytes": 2,
+      "width": 10
+    },
+    "move2": {
+      "bit": 0,
+      "instruction_address": "0x0809b394",
+      "offset": 24,
+      "storage_bytes": 2,
+      "width": 10
+    },
+    "move3": {
+      "bit": 10,
+      "instruction_address": "0x0809b3b2",
+      "offset": 24,
+      "storage_bytes": 4,
+      "width": 10
+    },
+    "move4": {
+      "bit": 1,
+      "instruction_address": "0x0809b3d4",
+      "offset": 30,
+      "storage_bytes": 2,
+      "width": 10
+    },
+    "nature": {
+      "bit": 2,
+      "instruction_address": "0x0809b544",
+      "offset": 39,
+      "storage_bytes": 1,
+      "width": 5
+    },
+    "nickname": {
+      "bytes": 12,
+      "loop_address": "0x0809b2fe",
+      "offset": 8
+    },
+    "otid": {
+      "instruction_address": "0x0809b2c4",
+      "offset": 4,
+      "width": 32
+    },
+    "pid": {
+      "instruction_address": "0x0809b2c0",
+      "offset": 0,
+      "width": 32
+    },
+    "pp": {
+      "instruction_address": "0x0809b10e",
+      "offsets": [
+        52,
+        53,
+        54,
+        55
+      ],
+      "width": 8
+    },
+    "sp_attack": {
+      "instruction_address": "0x0809b0f6",
+      "offset": 72,
+      "width": 16
+    },
+    "sp_defense": {
+      "instruction_address": "0x0809b0fe",
+      "offset": 74,
+      "width": 16
+    },
+    "species": {
+      "bit": 0,
+      "instruction_address": "0x0809b4d0",
+      "offset": 28,
+      "storage_bytes": 2,
+      "width": 12
+    },
+    "speed": {
+      "instruction_address": "0x0809b0ee",
+      "offset": 70,
+      "width": 16
+    },
+    "status": {
+      "instruction_address": "0x0809b09c",
+      "offset": 56,
+      "width": 32
+    }
+  },
+  "inspector_sha256": "823179f3c2bfa17d0697c2f7e459bb685983e3b9e120eb633a9aeb42d94f15e2",
+  "rom_sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3",
+  "schema_version": 3,
+  "spans": [
+    {
+      "address": "0x0801823c",
+      "bytes": 152,
+      "sha256": "4c3eac8534f4786d098863695b89988705edda81fd9a7669d74e1106ff980aba"
+    },
+    {
+      "address": "0x0809af5c",
+      "bytes": 1572,
+      "sha256": "4a74b52bc31c52257b7bfc32b80b8fcdfa7f064f173d28f86b2724c4683bf2c3"
+    },
+    {
+      "address": "0x0809bd40",
+      "bytes": 60,
+      "sha256": "104c3558605405f3d954dc6fc0f83a081afcb0cdf94ab9a37d7926ab045b2fbf"
+    },
+    {
+      "address": "0x0809be38",
+      "bytes": 68,
+      "sha256": "e15041f9792276d87ac7a386cc888ce9765355ae45af1d8a9efb209512fec57a"
+    }
+  ],
+  "status": "STATIC",
+  "stride": {
+    "bytes": 76,
+    "indexed_base": "0x02025128",
+    "multiply": "0x0809be5c"
+  }
+}

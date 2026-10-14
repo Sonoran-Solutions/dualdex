@@ -1283,7 +1283,7 @@
     "unsupported_mode": "REFUSE_EFFECTIVE_VALUE"
   },
   "tools_sha256": {
-    "rowe_data.py": "6e378d485b992582309dab0d49e510aabc2c2a517809206869010df4bbe5209d",
+    "rowe_data.py": "7ad543f6dedeb84ba6cc6a9281eb500472c4adda06accd9f3d6454b94a5c2468",
     "rowe_symbols.py": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c",
     "rowe_text.py": "58375f2c59206b2c59c202f921159f89ad7d3706ad9c7b38ed01e0f4091aa832"
   }

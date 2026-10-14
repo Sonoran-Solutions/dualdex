@@ -1,12 +1,15 @@
 import struct
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import rowe_data
 from rowe_data import (
     ROM_BASE,
     ROM_SIZE,
+    _form_tables,
     _lookup_name,
+    _map_section_evidence,
     _move_records,
     _record_count,
     _resolve_form_entry,
@@ -110,6 +113,48 @@ class RoweDataTest(unittest.TestCase):
                          "UNSUPPORTED_FORM_ID")
         self.assertEqual(_resolve_form_entry(1, 0, 4, valid_names, [2])["status"],
                          "UNSUPPORTED_RESOLVED_SPECIES")
+
+    def test_form_pointer_reader_reads_tables_and_reports_missing_sentinel(self):
+        raw = bytearray(96)
+        pointer_table = ROM_BASE + 16
+        struct.pack_into("<5I", raw, 16, 0, ROM_BASE + 64, 0,
+                         ROM_BASE + 72, ROM_BASE + 80)
+        struct.pack_into("<3H", raw, 64, 1, 3, rowe_data.FORM_SENTINEL)
+        struct.pack_into("<2H", raw, 72, 2, rowe_data.FORM_SENTINEL)
+        struct.pack_into("<4H", raw, 80, 1, 2, 3, 4)
+        records = [SimpleNamespace(status=EMPTY_OR_UNSET)] + [
+            SimpleNamespace(status=VALID_TEXT) for _ in range(4)
+        ]
+        with patch.object(rowe_data, "FORM_POINTER_TABLE", pointer_table), \
+                patch.object(rowe_data, "FORM_LIMIT", 4):
+            tables, summary = _form_tables(bytes(raw), records)
+
+        self.assertEqual(tables, {1: [1, 3], 3: [2]})
+        self.assertEqual(summary["pointer_slots"], 5)
+        self.assertEqual(summary["species_with_form_table"], 2)
+        self.assertEqual(summary["form_choices_including_form_zero"], 3)
+        self.assertEqual(summary["nonzero_form_choices"], 1)
+        self.assertEqual(summary["nonzero_form_species_id_ranges"], [[3, 3]])
+        self.assertEqual(summary["malformed_species_ids"], [4])
+
+    def test_map_section_scanner_records_unterminated_name_as_unsupported(self):
+        raw = bytearray(180)
+        map_start = ROM_BASE + 16
+        for index, pointer in enumerate((ROM_BASE + 80, ROM_BASE + 100,
+                                         ROM_BASE + ROM_SIZE + 1)):
+            struct.pack_into("<I", raw, 20 + index * rowe_data.MAP_ENTRY_STRIDE, pointer)
+        raw[80:82] = bytes((0xBB, 0xFF))
+        raw[100:164] = bytes([0xBB]) * 64
+        with patch.object(rowe_data, "MAP_ENTRY_LEAD_COUNT", 3):
+            evidence = _map_section_evidence(bytes(raw), map_start)
+
+        self.assertEqual(evidence["nonzero_name_pointers_in_rom"], 2)
+        self.assertEqual(evidence["invalid_name_pointers"], 1)
+        self.assertEqual(evidence["bounded_name_status_counts"], {
+            "INVALID_TERMINATION": 1,
+            VALID_TEXT: 1,
+        })
+        self.assertEqual(evidence["unsupported_name_entry_ids"], [1])
 
     def test_lookup_contracts_refuse_without_exact_rom_provenance(self):
         for lookup, args in ((lookup_species, (1,)), (lookup_move, (1,)),

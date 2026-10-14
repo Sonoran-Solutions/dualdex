@@ -253,6 +253,47 @@ def _form_tables(rom: bytes, species_records: list) -> tuple[dict, dict]:
     }
 
 
+def _map_section_evidence(rom: bytes, map_start: int) -> dict:
+    map_bytes = read_span(rom, map_start, MAP_ENTRY_LEAD_COUNT * MAP_ENTRY_STRIDE)
+    map_pointer_count = 0
+    map_pointer_invalid = 0
+    map_name_status = Counter()
+    map_unsupported_ids = []
+    map_name_payload = bytearray()
+    for index in range(MAP_ENTRY_LEAD_COUNT):
+        pointer = struct.unpack_from("<I", map_bytes, index * MAP_ENTRY_STRIDE + 4)[0]
+        if not pointer:
+            continue
+        if not ROM_BASE <= pointer < ROM_BASE + ROM_SIZE:
+            map_pointer_invalid += 1
+            continue
+
+        map_pointer_count += 1
+        offset = pointer - ROM_BASE
+        end = rom.find(b"\xff", offset, min(len(rom), offset + 64))
+        if end < 0:
+            map_name_status["INVALID_TERMINATION"] += 1
+            map_unsupported_ids.append(index)
+            continue
+
+        encoded = rom[offset:end + 1]
+        decoded = decode_text(encoded, "map_section_name")
+        map_name_status[decoded.status] += 1
+        if decoded.status != VALID_TEXT:
+            map_unsupported_ids.append(index)
+        map_name_payload.extend(struct.pack("<H", index))
+        map_name_payload.extend(encoded)
+
+    return {
+        "nonzero_name_pointers_in_rom": map_pointer_count,
+        "invalid_name_pointers": map_pointer_invalid,
+        "bounded_name_status_counts": dict(sorted(map_name_status.items())),
+        "unsupported_name_entry_ids": map_unsupported_ids,
+        "bounded_name_payload_sha256": _sha(bytes(map_name_payload)),
+        "region_sha256": _sha(map_bytes),
+    }
+
+
 def resolve_form(rom: bytes, species_id: int, form_id: int,
                  species_records: list | None = None) -> dict:
     """Return a static form-table result; never claim runtime identity authority."""
@@ -428,33 +469,6 @@ def _inspect_secondary(rom: bytes, symbols: dict, species_records: list,
     # Region-map record count is retained as the pinned third-party lead. The
     # extractor validates pointers in that window without publishing names.
     map_start = symbols["gRegionMapEntries"]
-    map_bytes = read_span(rom, map_start, MAP_ENTRY_LEAD_COUNT * MAP_ENTRY_STRIDE)
-    map_pointer_count = 0
-    map_pointer_invalid = 0
-    map_name_status = Counter()
-    map_unsupported_ids = []
-    map_name_payload = bytearray()
-    for index in range(MAP_ENTRY_LEAD_COUNT):
-        pointer = struct.unpack_from("<I", map_bytes, index * MAP_ENTRY_STRIDE + 4)[0]
-        if pointer:
-            if ROM_BASE <= pointer < ROM_BASE + ROM_SIZE:
-                map_pointer_count += 1
-                offset = pointer - ROM_BASE
-                end = rom.find(b"\xff", offset, min(len(rom), offset + 64))
-                if end < 0:
-                    map_name_status["INVALID_TERMINATION"] += 1
-                    map_name_ids["INVALID_TERMINATION"].append(index)
-                else:
-                    encoded = rom[offset:end + 1]
-                    decoded = decode_text(encoded, "map_section_name")
-                    map_name_status[decoded.status] += 1
-                    if decoded.status != VALID_TEXT:
-                        map_unsupported_ids.append(index)
-                    map_name_payload.extend(struct.pack("<H", index))
-                    map_name_payload.extend(encoded)
-            else:
-                map_pointer_invalid += 1
-
     return {
         "base_stats": {
             "status": "STATIC_VERIFIED",
@@ -513,12 +527,7 @@ def _inspect_secondary(rom: bytes, symbols: dict, species_records: list,
             "start": f"0x{map_start:08x}",
             "candidate_record_count": MAP_ENTRY_LEAD_COUNT,
             "record_stride": MAP_ENTRY_STRIDE,
-            "nonzero_name_pointers_in_rom": map_pointer_count,
-            "invalid_name_pointers": map_pointer_invalid,
-            "bounded_name_status_counts": dict(sorted(map_name_status.items())),
-            "unsupported_name_entry_ids": map_unsupported_ids,
-            "bounded_name_payload_sha256": _sha(bytes(map_name_payload)),
-            "region_sha256": _sha(map_bytes),
+            **_map_section_evidence(rom, map_start),
             "region_mode_and_runtime_selection": "NOT_VERIFIED",
         },
     }

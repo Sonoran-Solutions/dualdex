@@ -44,7 +44,7 @@ def extraction(rom,address,bias=0):
 
 
 def inspect(rom):
-    # ponytail: selected stored-field paths only; add exact override/egg control-flow
+    # Scope: selected stored-field paths only; add exact override/egg control-flow
     # checks before widening this evidence into effective gameplay semantics.
     require(identity(rom)['sha256']==ROM_SHA256,'exact diagnostic ROM identity mismatch')
     fields={}

@@ -36,6 +36,13 @@ def verify_adapter(library):
     return pin
 
 
+def require_private_directory(path):
+    # Resolve symlinks and reject any checkout (including another linked worktree).
+    resolved = path.resolve()
+    require(not any((parent / '.git').exists() for parent in (resolved, *resolved.parents)),
+            'private captures/cartridges must be outside Git checkouts')
+
+
 def slot_fields(data):
     require(len(data) == 76, 'slot must be exactly 76 bytes')
     word = lambda offset: struct.unpack_from('<I', data, offset)[0]
@@ -129,6 +136,8 @@ class Observer:
             slots=[slot_fields(data[i*76:(i+1)*76]) for i in range(count)])
 
     def observe(self, label, screens):
+        if screens:
+            require_private_directory(screens)
         # No retro_run occurs between reads: the single-threaded core is paused.
         row = dict(label=label, frame=self.frames, parties={}, save_blocks={})
         for side in ('Player', 'Enemy'):
@@ -185,6 +194,9 @@ def main():
     # Invalidate an older success before opening any input.
     args.output.write_text(json.dumps(report) + '\n')
     try:
+        for private in (args.screens, args.cartridge_dir):
+            if private:
+                require_private_directory(private)
         rom = read_local(args.rom, MAX_ROM)
         static = inspect_rom(rom)  # Exact diagnostic pin, not the production trusted registry.
         core = args.core.resolve()

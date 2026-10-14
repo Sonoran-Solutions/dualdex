@@ -153,3 +153,10 @@ accessor JSON's inspector digest binds the source used; spans bind the independe
 ROM regions without distributing bytes or GPL implementation. Historical revision-2 captures
 retain their original observer hash at the reviewed parent. Failed routes, unrun cases and
 limited scope are explicit in revision 3; OBSERVED is still not a correctness/support verdict.
+
+
+Private capture/cartridge output directories must now be outside **any Git checkout**, including
+linked worktrees and symlinks resolving into one. The guard runs before ROM/core loading and
+again at observation. Historical v3 source pins remain those at reviewed #192, rather than
+being rewritten after hygiene changes. See [the isolated raw decoder contract](../../docs/ROWE_2_1_9_1_RAW_DECODER.md)
+for the host-only C implementation and stack-reconciliation CI cleanup requirement.

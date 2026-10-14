@@ -41,9 +41,20 @@ private fun battery(hash: String = HASH) = "saves_v2/$hash/battery.sav"
 
 /** Test-only logs; no production paths or personal game data are inspected. */
 class ObservedBackupAgent : QuotaAwareBackupAgent() {
+    private var fullBackupCalls = 0
     override fun onCreate() { super.onCreate(); Log.i("DualDexAcceptance", "callback onCreate") }
     override fun onFullBackup(data: FullBackupDataOutput) {
-        Log.i("DualDexAcceptance", "callback onFullBackup flags=${data.transportFlags} quota=${data.quota}")
+        Log.i("DualDexAcceptance", "callback onFullBackup flags=${data.transportFlags} quota=${data.quota} call=${++fullBackupCalls}")
+        // API 34 invokes measurement first, streaming second on the same agent.
+        // Test-only: emit a truncated measured archive, then throw; never in an ordinary APK.
+        if (File(filesDir, "acceptance/fail-emission").isFile && fullBackupCalls == 2) {
+            val archive = File(filesDir, QuotaBackupSelection.CLOUD_SNAPSHOT_PATH)
+            check(archive.length() > 1)
+            java.io.RandomAccessFile(archive, "rw").use { it.setLength(archive.length() / 2) }
+            fullBackupFile(archive, data)
+            Log.i("DualDexAcceptance", "injected failure after archive prefix emission bytes=${archive.length()}")
+            throw IOException("Injected acceptance emission failure")
+        }
         try { super.onFullBackup(data); Log.i("DualDexAcceptance", "callback onFullBackup returned") }
         catch (e: Exception) { Log.i("DualDexAcceptance", "callback onFullBackup aborted ${e.javaClass.simpleName}: ${e.cause?.message}"); throw e }
     }
@@ -226,9 +237,13 @@ class AcceptanceInstrumentation : Instrumentation() {
     private fun seed() {
         check(targetContext.packageName==PACKAGE)
         val root=targetContext.filesDir
+        val scenario=arguments.getString("scenario")
+        val emissionMarker=File(root,"acceptance/fail-emission")
+        emissionMarker.delete()
+        if(scenario=="emission-failure") put(root,"acceptance/fail-emission",byteArrayOf(1))
         for(name in listOf("saves_v2","saves","saves_fallback","cloud_backup","restore_staging")) File(root,name).deleteRecursively()
         for(hash in listOf(HASH,HASH2)) {
-            put(root,battery(hash), if(hash==HASH) OLD else NEW)
+            put(root,battery(hash), if(hash==HASH && scenario !in listOf("new-valid","emission-failure")) OLD else NEW)
             put(root,"saves_v2/$hash/metadata.json",RomSaveMetadata(hash,"Synthetic ${if(hash==HASH) "One" else "Two"}").toJson().toByteArray())
             put(root,"saves_v2/$hash/slot_1.state",STATE)
             put(root,"saves_v2/$hash/slot_1.png",byteArrayOf(1,2,3))
@@ -242,7 +257,7 @@ class AcceptanceInstrumentation : Instrumentation() {
         val admitted=JSONArray()
         val catalog=File(File(root.parentFile,"shared_prefs"),"dualdex_legacy_catalog.xml")
         if(arguments.getString("scenario")!="malformed") BackupFileTreePolicy.collect(root,catalog).forEach { file -> admitted.put(JSONObject().put("path",file.relativePath).put("sha256",digest(file.file.readBytes()))) }
-        record("seed-synthetic-only","fixture", evidence=JSONObject().put("batteryOne",digest(OLD)).put("batteryTwo",digest(NEW)).put("admitted",admitted))
+        record("seed-synthetic-only","fixture", evidence=JSONObject().put("batteryOne",digest(File(root,battery()).readBytes())).put("batteryTwo",digest(NEW)).put("admitted",admitted))
     }
     private fun inspect() {
         val root=targetContext.filesDir; val store=StagedRestoreStore(root); val sessions=store.review()

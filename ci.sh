@@ -679,7 +679,7 @@ case "${1:-all}" in
   source-check) source_check ;;
   build)        gradle_build ;;
   all)          native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
-  backup-acceptance) init_submodules; ./gradlew -Pdualdex.backupAcceptance=true -Pdualdex.acceptanceBackup="${DUALDEX_ACCEPTANCE_BACKUP:-true}" assembleBackupAcceptanceDebug ;;
+  backup-acceptance) python3 tools/android-backup/test_acceptance.py; init_submodules; ./gradlew -Pdualdex.backupAcceptance=true -Pdualdex.acceptanceBackup="${DUALDEX_ACCEPTANCE_BACKUP:-true}" assembleBackupAcceptanceDebug ;;
   release)      gradle_release ;;
   *)            echo "usage: $0 [test|fixture-test|coverage-test|source-check|build|backup-acceptance|all|release]" >&2; exit 2 ;;
 esac

@@ -27,7 +27,8 @@ backup account or owner `com.dualdex` storage is used.
 
 On a personal physical device, the runner additionally requires a test APK built
 with `DUALDEX_ACCEPTANCE_BACKUP=false`. Transport experiments are refused unless
-both an emulator serial and `ro.kernel.qemu=1` identify a disposable emulator.
+an emulator serial, `ro.kernel.qemu=1` and explicit `--disposable-avd` match the
+actual AVD name. D2D initialization also requires `--allow-transport-reset`.
 No screenshots, APKs, game payloads or private device dumps are committed.
 
 ## Environments actually established
@@ -179,9 +180,10 @@ Use the canonical build target, not an ad hoc Gradle command:
 python3 tools/android-backup/acceptance.py --serial emulator-5580 \
   --output /tmp/dualdex-188-api28 --transport none
 python3 tools/android-backup/acceptance.py --serial emulator-5582 \
-  --output /tmp/dualdex-188-api34 --transport local
+  --output /tmp/dualdex-188-api34 --transport local --disposable-avd dualdex188-api34
 python3 tools/android-backup/acceptance.py --serial emulator-5582 \
-  --output /tmp/dualdex-188-d2d --transport d2d-test --baseline-only
+  --output /tmp/dualdex-188-d2d --transport d2d-test --baseline-only \
+  --disposable-avd dualdex188-api34 --allow-transport-reset
 ```
 
 The API 34 `--transport local` retention run is expected to exit nonzero on the

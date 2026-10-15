@@ -1,0 +1,1560 @@
+{
+  "schema_version": 1,
+  "evidence_revision": 3,
+  "phase": "6D",
+  "starting_main": "02cdd92a87af741f30180758c2ce9e2d140091f3",
+  "rom": {
+    "bytes": 33554432,
+    "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3",
+    "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "crc32": "ad252fd3"
+  },
+  "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "core_attributed_source": "e31759b24e7a4e3899285ff720d7b573ac328ae7",
+  "adapter": {
+    "binary_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+    "build_command": "./tools/vanilla-runtime-probe/build.sh",
+    "inputs": {
+      "native/include/gba_memory_map.h": "2e7fd650ff0c391ff5c961b3e40702ff056f85dcf4a871d2db2abe297606ac6a",
+      "native/include/libretro_host.h": "92fb2c236e268ecadc6af33587694454bec0010317baedfe6ed508d621bf6f36",
+      "native/include/pokemon_reader.h": "cdeb0b37ce12940fd7507524aa18aafbb21734188d79abfb68aab63d8b70447a",
+      "native/include/pokemon_structs.h": "6267385a3270be71388e132b7d7934623649c394636961dfe9c7c455b03aaffd",
+      "native/include/pokemon_text.h": "e14121bf33e967d5a565af1e0f4a87d787b9eff636e40ff81248f13da6ec8972",
+      "native/src/gba_memory_map.c": "0ad396b2aca8591d4884895b5ceb6f3095d1d63be7598f6279655d12a65f4ec5",
+      "native/src/libretro_host.c": "1414c9bd8a7fa9318fc6ba37f21e2f142639d43222790f338002560f53c79037",
+      "native/src/pokemon_reader.c": "a63394cd49a9bae1be7118955e8a5fa68ba95dddb41a088af0d074570eecb73f",
+      "native/src/pokemon_text.c": "b65304a6210505ac909d7943ce9920fe78c8a89fcb88fe113b4f48da19466eed",
+      "tools/vanilla-runtime-probe/build.sh": "ee265e83a9baa8a00eddf2c9dca94ab5c6153f3f74fbdeeba788126d03999667",
+      "tools/vanilla-runtime-probe/probe_host.c": "402b75d6e5d027e5114fd049cbc6c6180a2d6091aa996f90c8a1197a864bf87e"
+    },
+    "schema_version": 1,
+    "source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682"
+  },
+  "tools": {
+    "rowe_observe.py": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+    "rowe_form_observe.py": "328644e4ac2d0b1f1e3c5ecc6b581f16efde297ad2f24db55d8b728ebd653070",
+    "rowe_data.py": "7ad543f6dedeb84ba6cc6a9281eb500472c4adda06accd9f3d6454b94a5c2468",
+    "rowe_symbols.py": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c"
+  },
+  "raw_decoder": {
+    "rowe_raw_decoder.c": "8d4fc7cdfc723cd4b728143d19443d41bd4b3227051906d3388f1db9b2458d45",
+    "rowe_raw_decoder.h": "f67b030b17f4ab2f81f132e8b9ad4f8286e4e156e5de867cb8365ea4b7451976"
+  },
+  "private_scripts": {
+    "rowe6d-play.py": "a9dd677330504dd4cda9699ffb4f37a4f7c260e354edd77a9b296a2774966ffe",
+    "rowe6d-compare.py": "6dfe8011184baf7a303e9c2dc53597bc1d5049771c96dc37a8bbb2761b0fd735",
+    "rowe6d-package.py": "8b53d5f167386a8644c26ff2dae0651003b66497fc1c9d387799de3edacd860a"
+  },
+  "private_c_driver_sha256": "e19e19f35d50d1945d715f2aad320e2a0ae752c73ddf1b097519847aae2054b6",
+  "authorization": "Disposable fresh game and cartridge saves; normal controls; no prior save/state bootstrapped; all reads player-only.",
+  "configuration": {
+    "difficulty": "Normal",
+    "season": "Spring",
+    "initial_clock": "10:00 AM",
+    "starter": "Chinchou",
+    "starter_identity": [
+      170,
+      0
+    ],
+    "optional_modes_enabled": [],
+    "configuration_verification": "Observed complete normal setup; saved unchanged optional-mode configuration; no optional-mode entry selected.",
+    "generation_flags": {
+      "0x28": false,
+      "0x30": false,
+      "0x3c": false,
+      "0x2b": false
+    },
+    "flag_0x470": false,
+    "mode_semantics": "PARTIAL",
+    "scope": "Selected normal configuration verified; general effective-form/level and generation-transform semantics NOT_VERIFIED."
+  },
+  "starting_location": {
+    "two_island": "OFFERED_AND_SELECTED",
+    "pallet_kanto": "NOT_OFFERED_IN_OBSERVED_NORMAL_SETUP",
+    "unlock_required": "NONE_OBSERVED",
+    "other_mode_dependency": "NOT_TESTED",
+    "choices": [
+      "Littleroot Town",
+      "Oldale Town",
+      "Petalburg City",
+      "Rustboro City",
+      "Dewford Town",
+      "Slateport City",
+      "Mauville City",
+      "Verdanturf Town",
+      "Fallarbor Town",
+      "Lavaridge Town",
+      "Fortree City",
+      "Lilycove City",
+      "Mossdeep City",
+      "Sootopolis City",
+      "Pacifidlog Town",
+      "Ever Grande City",
+      "One Island",
+      "Two Island",
+      "Three Island",
+      "Four Island",
+      "Five Island",
+      "Six Island",
+      "Seven Island",
+      "Eight Island",
+      "Surprise Me"
+    ]
+  },
+  "active_roster": {
+    "status": "VERIFIED",
+    "basis": "Exact-ROM dispatch evaluated from observed player map, time byte and flag; not an executed-PC trace.",
+    "map": [
+      1,
+      6
+    ],
+    "header_index": 154,
+    "header": "0x08f28cb0",
+    "time_byte": 10,
+    "flag_0x470": false,
+    "selector_result": 1,
+    "selected_header_field": 4,
+    "both_land_info": "0x08f26b5c",
+    "roster": "0x08f26b2c",
+    "target_entries": [
+      {
+        "index": 2,
+        "address": "0x8f26b34",
+        "species": 1560
+      },
+      {
+        "index": 6,
+        "address": "0x8f26b44",
+        "species": 1551
+      },
+      {
+        "index": 9,
+        "address": "0x8f26b50",
+        "species": 1582
+      },
+      {
+        "index": 11,
+        "address": "0x8f26b58",
+        "species": 1582
+      }
+    ],
+    "generation_transform": "NOT_VERIFIED"
+  },
+  "spans": [
+    {
+      "purpose": "encounter_header_search",
+      "address": "0x80fbf44",
+      "bytes": 80,
+      "sha256": "09cb96e6ffbdc7e643b2a10c673e52b557b6df9df1ff555490720776f227b9c3"
+    },
+    {
+      "purpose": "land_dispatch",
+      "address": "0x80fca64",
+      "bytes": 128,
+      "sha256": "567f28360f6ffcdc82b048bcd68f96358f3f31b8f2ab4a3ffbbec5c59fa53ca2"
+    },
+    {
+      "purpose": "time_selector",
+      "address": "0x8244fbc",
+      "bytes": 68,
+      "sha256": "15ca546fc10b1253e9006adeaf0830f39ff71eca893f657623b81ed352d1b006"
+    },
+    {
+      "purpose": "generation_transform_not_verified",
+      "address": "0x8037e14",
+      "bytes": 64,
+      "sha256": "524b7c4bdeab15fe0fc2316069c405304b455fee623e7ed8487031c225ae4587"
+    },
+    {
+      "purpose": "cape_header",
+      "address": "0x8f28cb0",
+      "bytes": 32,
+      "sha256": "318ea2dbe5ad374e4e2be1a02f15bc240a3815c61ed1c574b131d530c8ae0780"
+    },
+    {
+      "purpose": "cape_land_info",
+      "address": "0x8f26b5c",
+      "bytes": 8,
+      "sha256": "e5e72f61c81d493de392eaee7e073e098bfc88a086cadda7fe9c52304cf678c5"
+    },
+    {
+      "purpose": "cape_roster",
+      "address": "0x8f26b2c",
+      "bytes": 48,
+      "sha256": "0fa809644fe833c5626587606f85a5c435d3d7938757dbe07c64d0abc5e55ba1"
+    },
+    {
+      "purpose": "captured_candidate_entry",
+      "address": "0x8f26b34",
+      "bytes": 4,
+      "sha256": "7973a958c89dc93f574572ffd3fc96be9d649c8ea6de8d4154e78cae022d1698"
+    }
+  ],
+  "encounters": {
+    "limit": 20,
+    "actual_visible": 2,
+    "results": [
+      "Bellsprout Lv5: fled",
+      "Meowth Lv5: caught on first ordinary Poke Ball"
+    ],
+    "stop_reason": "First coherent nonzero-form subject acquired; no further sample needed."
+  },
+  "observations": [
+    {
+      "process": "fresh",
+      "label": "newgame",
+      "frame": 1653,
+      "map": [
+        0,
+        0
+      ],
+      "xy": [
+        0,
+        0
+      ],
+      "screen_sha256": "9e8a82ab94222cbec0202da9983cfcd508985cd55b6be97347442deba006dff5",
+      "party_count": 0,
+      "party_region_sha256": "b960fb5cb94682dfc4a873035d65f8befdcb9bed0e7db0feb905f0dcf437b38c",
+      "record_sha256": [],
+      "stored_identity": [],
+      "ui_transcription": "New Game and Option; no Continue entry."
+    },
+    {
+      "process": "fresh",
+      "label": "difficulty_normal",
+      "frame": 6839,
+      "map": [
+        25,
+        40
+      ],
+      "xy": [
+        5,
+        5
+      ],
+      "screen_sha256": "1508332bb1873479b1251c745e770c65d339b42a0c35897d2cfe3a087b450130",
+      "party_count": 0,
+      "party_region_sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+      "record_sha256": [],
+      "stored_identity": [],
+      "ui_transcription": "Do you want to play on Normal mode? Yes selected."
+    },
+    {
+      "process": "fresh",
+      "label": "mode_saved_result",
+      "frame": 11935,
+      "map": [
+        25,
+        40
+      ],
+      "xy": [
+        5,
+        5
+      ],
+      "screen_sha256": "ea504eb0806a8536362e999eb75e2dd7352ec2e5a59cdc990f9f121d940827a4",
+      "party_count": 0,
+      "party_region_sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+      "record_sha256": [],
+      "stored_identity": [],
+      "ui_transcription": "Mode configuration saved without selecting any optional mode."
+    },
+    {
+      "process": "fresh",
+      "label": "spring_selected",
+      "frame": 12934,
+      "map": [
+        25,
+        40
+      ],
+      "xy": [
+        5,
+        5
+      ],
+      "screen_sha256": "57c45abe182cabfc6061b41868fa6501aca72bf6b60a5cd3d99197727f9a80d0",
+      "party_count": 0,
+      "party_region_sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+      "record_sha256": [],
+      "stored_identity": [],
+      "ui_transcription": "You will play in Spring!"
+    },
+    {
+      "process": "fresh",
+      "label": "clock_confirm",
+      "frame": 13207,
+      "map": [
+        25,
+        40
+      ],
+      "xy": [
+        5,
+        5
+      ],
+      "screen_sha256": "692f880d7da546fa7d02483407aa5f0d62786a4dbc6c70092622bd898e3bf4f6",
+      "party_count": 0,
+      "party_region_sha256": "03fc5c4fed057d23ed386c90c04399fe9c242c5d1e32a34d1195879c00d25e88",
+      "record_sha256": [],
+      "stored_identity": [],
+      "ui_transcription": "Clock 10:00 AM, subsequently accepted through Up, A."
+    },
+    {
+      "process": "fresh",
+      "label": "two_island_confirm",
+      "frame": 17813,
+      "map": [
+        25,
+        40
+      ],
+      "xy": [
+        5,
+        5
+      ],
+      "screen_sha256": "a69446074fbf889599e2a4f20499686f998cfc62c4acea52c17309df0ece8aa4",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Do you want to start in Two Island? Yes selected."
+    },
+    {
+      "process": "fresh",
+      "label": "two_island_spawn",
+      "frame": 18204,
+      "map": [
+        0,
+        76
+      ],
+      "xy": [
+        21,
+        8
+      ],
+      "screen_sha256": "dd1a9c5722d431ce0f3944ae43caf5cfad9435bfead014abbe71394183430791",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Player outside Pokemon Center after ordinary new-game selection."
+    },
+    {
+      "process": "fresh",
+      "label": "save_complete",
+      "frame": 18686,
+      "map": [
+        0,
+        76
+      ],
+      "xy": [
+        21,
+        8
+      ],
+      "screen_sha256": "95cdc302ca3f9de1afcf7cac9d37847eafec54d54c58c824ef7dd57bfe2716e1",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Two Island; Player A; 0 badges; Pokedex 1; version 2.1.9.1; A saved the game."
+    },
+    {
+      "process": "reload",
+      "label": "continue_menu",
+      "frame": 1653,
+      "map": [
+        0,
+        76
+      ],
+      "xy": [
+        21,
+        8
+      ],
+      "screen_sha256": "45b47fbb4d7aefe53f8172c07f9913bde6251cf6740e98dead73a7ee715ba89a",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Continue: Player A; Pokedex 1; badges 00."
+    },
+    {
+      "process": "reload",
+      "label": "reloaded_overworld",
+      "frame": 2044,
+      "map": [
+        0,
+        76
+      ],
+      "xy": [
+        21,
+        8
+      ],
+      "screen_sha256": "2be8f692aa9493f1fa8e505d2efdc517302026be6b901d9e925e2b7f63fefbb7",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Same Two Island spawn, Chinchou level 10; full party region matches fresh save observation."
+    },
+    {
+      "process": "reload",
+      "label": "north_stairs",
+      "frame": 2436,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        12,
+        38
+      ],
+      "screen_sha256": "3b39983b70481f03d469bbd8d8b163f5f926bf5ff18bf134fa4b2973a375445d",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Ordinary northward walking reached Cape Brink."
+    },
+    {
+      "process": "reload",
+      "label": "cape_save_actual",
+      "frame": 3309,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        12,
+        38
+      ],
+      "screen_sha256": "5abaa2483dcb0c18355d1fa57895bc6e6576bb909f55d2c2577976a45b1facfa",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Cape Brink; Player A; A saved the game."
+    },
+    {
+      "process": "reload",
+      "label": "battle01",
+      "frame": 4168,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        26
+      ],
+      "screen_sha256": "8188f4c674e01ea0a24ead5a2329fcccb20a61036ce85a8f04cdfbd999e363e6",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Wild Bellsprout male Lv5; fled successfully."
+    },
+    {
+      "process": "reload",
+      "label": "sample02a",
+      "frame": 7222,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "f341393400dda252fb5ae0a23291873cccb0a3db855aeb96207a9c659eaab453",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Wild gray regional Meowth male Lv5, 19/19 HP."
+    },
+    {
+      "process": "reload",
+      "label": "pokeballs",
+      "frame": 8068,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "afd0d039c7e01be8eb6faddef7a45b20c820185736f0325c23c2ebb533f8ea89",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Poke Ball x10; displayed catch chance 33.3%."
+    },
+    {
+      "process": "reload",
+      "label": "ball_result",
+      "frame": 8850,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "ffe7da155cff0e394e1e7a03cc2a143d8164b87ca0fbe2f513530b630dbef16a",
+      "party_count": 1,
+      "party_region_sha256": "89db38e790dfdf675ae814b764591a57447438c63c53e9423c4fd489fab22b43",
+      "record_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        }
+      ],
+      "ui_transcription": "Gotcha! Meowth was caught! First ball."
+    },
+    {
+      "process": "reload",
+      "label": "captured_party",
+      "frame": 10176,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "2a0147156bcb43d440b0e8954541bacfa82a4d92b8f2488a95b147973e985bff",
+      "party_count": 2,
+      "party_region_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+      "record_sha256": [
+        "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        },
+        {
+          "species": 1560,
+          "form": 1,
+          "level": 5,
+          "hp": 19,
+          "moves": [
+            252,
+            45,
+            10,
+            44
+          ]
+        }
+      ],
+      "ui_transcription": "Capture completed after declining nickname; second occupied player record."
+    },
+    {
+      "process": "reload",
+      "label": "meowth_summary",
+      "frame": 11262,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "15a5625baef42b7133c43c12df91b1f590514d6cee15e1d2fc45c6c2d17d874e",
+      "party_count": 2,
+      "party_region_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+      "record_sha256": [
+        "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        },
+        {
+          "species": 1560,
+          "form": 1,
+          "level": 5,
+          "hp": 19,
+          "moves": [
+            252,
+            45,
+            10,
+            44
+          ]
+        }
+      ],
+      "ui_transcription": "Meowth No052, male, Lv5; gray regional portrait; DARK; Pickup; Balanced Style; Docile; Quick Claw."
+    },
+    {
+      "process": "reload",
+      "label": "meowth_reopen",
+      "frame": 11895,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "12021e56919ed53131f40c34f4a6780196fdfc9007df0f6608542bf13f6f39a6",
+      "party_count": 2,
+      "party_region_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+      "record_sha256": [
+        "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        },
+        {
+          "species": 1560,
+          "form": 1,
+          "level": 5,
+          "hp": 19,
+          "moves": [
+            252,
+            45,
+            10,
+            44
+          ]
+        }
+      ],
+      "ui_transcription": "Same Meowth summary after closing and reopening; same complete record."
+    },
+    {
+      "process": "reload",
+      "label": "captured_save_complete",
+      "frame": 13099,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "30927f9ad2995e74d3ab2b38965c8da5f4d1de404dceb49dd4ec44282427beb3",
+      "party_count": 2,
+      "party_region_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+      "record_sha256": [
+        "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        },
+        {
+          "species": 1560,
+          "form": 1,
+          "level": 5,
+          "hp": 19,
+          "moves": [
+            252,
+            45,
+            10,
+            44
+          ]
+        }
+      ],
+      "ui_transcription": "Cape Brink; Player A; Pokedex 2; A saved the game."
+    },
+    {
+      "process": "persistence",
+      "label": "persisted_field",
+      "frame": 2044,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "db2bb073844b569ccca846f53210698d8e4a5e9e78d2a4f27e94b67a761bb716",
+      "party_count": 2,
+      "party_region_sha256": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+      "record_sha256": [
+        "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        },
+        {
+          "species": 52,
+          "form": 1,
+          "level": 5,
+          "hp": 19,
+          "moves": [
+            252,
+            45,
+            10,
+            44
+          ]
+        }
+      ],
+      "ui_transcription": "Fresh process loaded cartridge only; Cape Brink same coordinates; two occupied slots."
+    },
+    {
+      "process": "persistence",
+      "label": "persisted_party",
+      "frame": 2677,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "f137f1f80d3463bf3b6a0b5df007c87201dc03da6a6d957dda5fac7b8d6dbc01",
+      "party_count": 2,
+      "party_region_sha256": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+      "record_sha256": [
+        "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        },
+        {
+          "species": 52,
+          "form": 1,
+          "level": 5,
+          "hp": 19,
+          "moves": [
+            252,
+            45,
+            10,
+            44
+          ]
+        }
+      ],
+      "ui_transcription": "Trainer card: A, Pokedex 2, no badges; label is historical command label, not party UI."
+    },
+    {
+      "process": "persistence",
+      "label": "meowth_persisted",
+      "frame": 3763,
+      "map": [
+        1,
+        6
+      ],
+      "xy": [
+        8,
+        27
+      ],
+      "screen_sha256": "15a5625baef42b7133c43c12df91b1f590514d6cee15e1d2fc45c6c2d17d874e",
+      "party_count": 2,
+      "party_region_sha256": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+      "record_sha256": [
+        "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+      ],
+      "stored_identity": [
+        {
+          "species": 170,
+          "form": 0,
+          "level": 10,
+          "hp": 35,
+          "moves": [
+            55,
+            48,
+            145,
+            86
+          ]
+        },
+        {
+          "species": 52,
+          "form": 1,
+          "level": 5,
+          "hp": 19,
+          "moves": [
+            252,
+            45,
+            10,
+            44
+          ]
+        }
+      ],
+      "ui_transcription": "Meowth No052, male, Lv5; same gray regional portrait; DARK; Pickup; Balanced Style; Docile; Quick Claw."
+    }
+  ],
+  "comparisons": [
+    {
+      "label": "meowth_summary",
+      "status": "RUNTIME_CONFIRMED",
+      "slot_index": 1,
+      "player_count": 2,
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "pid_sha256": "392e70ccb667bf1fb66a0c8c46525ee476dd72bcc88c876f81ea67b7cc5579a4",
+      "otid_sha256": "c1dd6dcb74584729620eb393912bfd9eb68be64bdf76bb8be32858cf1424ef7e",
+      "nickname_sha256": "7b9cca73bb42ad434c5855a37c4cf1ff7d6f65d0c8311d3137f05ebf2fc3c394",
+      "stored_level": 5,
+      "stored_moves": [
+        252,
+        45,
+        10,
+        44
+      ],
+      "hp": 19,
+      "max_hp": 19,
+      "static": {
+        "raw_stored_species_id": 1560,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      },
+      "raw_type_ids": [
+        17,
+        17
+      ],
+      "ui": {
+        "source": "MANUAL_GAME_UI",
+        "label": "meowth_summary",
+        "slot_index": 1,
+        "rgb565_sha256": "15a5625baef42b7133c43c12df91b1f590514d6cee15e1d2fc45c6c2d17d874e",
+        "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "species_name": "Meowth",
+        "level": 5,
+        "type_labels": "DARK (one displayed type badge)",
+        "form_cue": "Gray-blue coat, dark ear tufts, half-lidded eyes and curled tail in the summary portrait; DARK type badge, matching the regional form rather than the cream-colored Normal form.",
+        "form_cue_matches_static": true,
+        "party_summary_context": "Second occupied player slot, opened through Pokemon > Meowth > Summary; species Meowth No052; Lv5.",
+        "mode": "Fresh new game: explicitly selected Normal difficulty, saved unchanged optional modes (none enabled), Spring, 10:00 AM. No randomization/type/form mode enabled. Relevant generation flags 0x28/0x30/0x3c/0x2b and selector flag 0x470 remain clear. This verifies selected configuration, not general effective-form/level accessor semantics.",
+        "mode_verified": true,
+        "process": "reload",
+        "checkpoint": "Fresh-game Two Island cartridge 187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e; Cape Brink ordinary capture; see process report for reload source.",
+        "observer": "Independent visual inspection of private summary screenshot by Codex; player-only pinned rowe_observe.Observer through private controls driver."
+      },
+      "level_comparison": "MATCH",
+      "effective_form_status": "NOT_VERIFIED",
+      "comparison_tool_sha256": "328644e4ac2d0b1f1e3c5ecc6b581f16efde297ad2f24db55d8b728ebd653070",
+      "source_sha256": {
+        "report": "a80b616f3374535b0b07beb3102136b2f87781cb6c36bdbbea8f543c085be442",
+        "party": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+        "ui": "fe6050aea0adf8a66d6dd213e7e7c2ed43a1abe3365f8336ebf9c4f5f70479ee"
+      }
+    },
+    {
+      "label": "meowth_reopen",
+      "status": "RUNTIME_CONFIRMED",
+      "slot_index": 1,
+      "player_count": 2,
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "pid_sha256": "392e70ccb667bf1fb66a0c8c46525ee476dd72bcc88c876f81ea67b7cc5579a4",
+      "otid_sha256": "c1dd6dcb74584729620eb393912bfd9eb68be64bdf76bb8be32858cf1424ef7e",
+      "nickname_sha256": "7b9cca73bb42ad434c5855a37c4cf1ff7d6f65d0c8311d3137f05ebf2fc3c394",
+      "stored_level": 5,
+      "stored_moves": [
+        252,
+        45,
+        10,
+        44
+      ],
+      "hp": 19,
+      "max_hp": 19,
+      "static": {
+        "raw_stored_species_id": 1560,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      },
+      "raw_type_ids": [
+        17,
+        17
+      ],
+      "ui": {
+        "source": "MANUAL_GAME_UI",
+        "label": "meowth_reopen",
+        "slot_index": 1,
+        "rgb565_sha256": "12021e56919ed53131f40c34f4a6780196fdfc9007df0f6608542bf13f6f39a6",
+        "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "species_name": "Meowth",
+        "level": 5,
+        "type_labels": "DARK (one displayed type badge)",
+        "form_cue": "Gray-blue coat, dark ear tufts, half-lidded eyes and curled tail in the summary portrait; DARK type badge, matching the regional form rather than the cream-colored Normal form.",
+        "form_cue_matches_static": true,
+        "party_summary_context": "Second occupied player slot, opened through Pokemon > Meowth > Summary; species Meowth No052; Lv5.",
+        "mode": "Fresh new game: explicitly selected Normal difficulty, saved unchanged optional modes (none enabled), Spring, 10:00 AM. No randomization/type/form mode enabled. Relevant generation flags 0x28/0x30/0x3c/0x2b and selector flag 0x470 remain clear. This verifies selected configuration, not general effective-form/level accessor semantics.",
+        "mode_verified": true,
+        "process": "reload",
+        "checkpoint": "Fresh-game Two Island cartridge 187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e; Cape Brink ordinary capture; see process report for reload source.",
+        "observer": "Independent visual inspection of private summary screenshot by Codex; player-only pinned rowe_observe.Observer through private controls driver."
+      },
+      "level_comparison": "MATCH",
+      "effective_form_status": "NOT_VERIFIED",
+      "comparison_tool_sha256": "328644e4ac2d0b1f1e3c5ecc6b581f16efde297ad2f24db55d8b728ebd653070",
+      "source_sha256": {
+        "report": "009bcbb741bc22f47ae978661e6959a7a9e2a4b404aa52c4bb6177bfae29fde7",
+        "party": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+        "ui": "4b57fc7621a06cff4ae1cecb654a45447e02cca51b8e548f3436db847d23778c"
+      }
+    },
+    {
+      "label": "meowth_persisted",
+      "status": "RUNTIME_CONFIRMED",
+      "slot_index": 1,
+      "player_count": 2,
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "pid_sha256": "392e70ccb667bf1fb66a0c8c46525ee476dd72bcc88c876f81ea67b7cc5579a4",
+      "otid_sha256": "c1dd6dcb74584729620eb393912bfd9eb68be64bdf76bb8be32858cf1424ef7e",
+      "nickname_sha256": "7b9cca73bb42ad434c5855a37c4cf1ff7d6f65d0c8311d3137f05ebf2fc3c394",
+      "stored_level": 5,
+      "stored_moves": [
+        252,
+        45,
+        10,
+        44
+      ],
+      "hp": 19,
+      "max_hp": 19,
+      "static": {
+        "raw_stored_species_id": 52,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      },
+      "raw_type_ids": [
+        17,
+        17
+      ],
+      "ui": {
+        "source": "MANUAL_GAME_UI",
+        "label": "meowth_persisted",
+        "slot_index": 1,
+        "rgb565_sha256": "15a5625baef42b7133c43c12df91b1f590514d6cee15e1d2fc45c6c2d17d874e",
+        "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+        "species_name": "Meowth",
+        "level": 5,
+        "type_labels": "DARK (one displayed type badge)",
+        "form_cue": "Gray-blue coat, dark ear tufts, half-lidded eyes and curled tail in the summary portrait; DARK type badge, matching the regional form rather than the cream-colored Normal form.",
+        "form_cue_matches_static": true,
+        "party_summary_context": "Second occupied player slot, opened through Pokemon > Meowth > Summary; species Meowth No052; Lv5.",
+        "mode": "Fresh new game: explicitly selected Normal difficulty, saved unchanged optional modes (none enabled), Spring, 10:00 AM. No randomization/type/form mode enabled. Relevant generation flags 0x28/0x30/0x3c/0x2b and selector flag 0x470 remain clear. This verifies selected configuration, not general effective-form/level accessor semantics.",
+        "mode_verified": true,
+        "process": "persistence",
+        "checkpoint": "Fresh-game Two Island cartridge 187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e; Cape Brink ordinary capture; see process report for reload source.",
+        "observer": "Independent visual inspection of private summary screenshot by Codex; player-only pinned rowe_observe.Observer through private controls driver."
+      },
+      "level_comparison": "MATCH",
+      "effective_form_status": "NOT_VERIFIED",
+      "comparison_tool_sha256": "328644e4ac2d0b1f1e3c5ecc6b581f16efde297ad2f24db55d8b728ebd653070",
+      "source_sha256": {
+        "report": "57e8704541e66a062a61546b20a887bc31532391ba0bd6e21041409bd5da09ec",
+        "party": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+        "ui": "8c08d1a088d7ffd92b436dcdac31bcb8249e999c462df796011dee11323e605d"
+      }
+    }
+  ],
+  "persistence": {
+    "summary_reopen": "PASS",
+    "cartridge_fresh_process": "PASS",
+    "identity": "Both stored representations resolve to species/metadata key 1560 and match independently observed summary; form remains 1.",
+    "raw_record_identical_across_reload": false,
+    "changed_record_offsets": [
+      28,
+      29
+    ],
+    "stored_pair_before": [
+      1560,
+      1
+    ],
+    "stored_pair_after": [
+      52,
+      1
+    ],
+    "other_74_record_bytes_identical": true,
+    "transformation_timing": "Only bounded to the actual save / fresh-process cartridge-load interval; no save parser or exact normalization function claimed.",
+    "party_reorder": "NOT_RUN",
+    "boxing": "NOT_RUN"
+  },
+  "inputs": {
+    "fresh": {
+      "sha256": "cc7cd25f76f35b22f595403470b15563b5c07bfbf5aaeb5251085b856babb92f",
+      "commands": [
+        "run 780",
+        "mash 3 8",
+        "run 600",
+        "observe newgame",
+        "mash 1",
+        "run 300",
+        "observe setup1",
+        "run 300",
+        "mash 4",
+        "observe intro",
+        "run 180",
+        "mash 1",
+        "observe gender",
+        "mash 1",
+        "run 180",
+        "observe naming",
+        "mash 1",
+        "mash 1 8",
+        "mash 1",
+        "run 180",
+        "observe named",
+        "mash 1",
+        "run 240",
+        "observe config_intro",
+        "mash 2",
+        "run 180",
+        "observe config_intro2",
+        "mash 3",
+        "run 360",
+        "observe first_room",
+        "mash 2",
+        "run 360",
+        "observe configuration",
+        "mash 2",
+        "run 360",
+        "observe settings_start",
+        "mash 1",
+        "run 180",
+        "observe room_talk1",
+        "mash 1",
+        "observe questions",
+        "mash 1",
+        "observe difficulty",
+        "mash 1",
+        "observe difficulty_options",
+        "mash 1 32",
+        "mash 1",
+        "observe difficulty_normal",
+        "mash 2",
+        "observe difficulty_set",
+        "mash 1",
+        "mash 1 32",
+        "mash 1",
+        "observe modes",
+        "mash 1 32",
+        "mash 1",
+        "observe modes_actual",
+        "mash 2",
+        "observe mode_list",
+        "mash 6 32",
+        "observe mode_list_next",
+        "mash 4 32",
+        "observe mode_list_end",
+        "mash 1 16",
+        "mash 1",
+        "observe other_modes",
+        "mash 2",
+        "observe other_modes_list",
+        "mash 6 32",
+        "observe other_modes_end",
+        "mash 5 32",
+        "observe other_modes_final",
+        "mash 5 32",
+        "observe other_modes_save",
+        "mash 3",
+        "observe main_modes_return",
+        "mash 10 32",
+        "mash 1",
+        "observe modes_saved",
+        "mash 1",
+        "observe modes_confirm",
+        "mash 1 32",
+        "mash 1",
+        "observe mode_saved_result",
+        "run 180",
+        "mash 2",
+        "observe start_menu",
+        "mash 2 32",
+        "mash 1",
+        "observe start_game",
+        "mash 2",
+        "observe start_confirm",
+        "mash 1",
+        "observe seasons",
+        "mash 1",
+        "observe spring_selected",
+        "mash 2",
+        "observe location_prompt",
+        "mash 1",
+        "observe clock_confirm",
+        "mash 1 16",
+        "mash 1",
+        "run 180",
+        "observe clock_set",
+        "mash 1",
+        "observe starter_menu",
+        "mash 1",
+        "observe starter_choice",
+        "mash 2",
+        "observe starter_confirm",
+        "run 240",
+        "mash 1",
+        "observe starter_received",
+        "mash 2",
+        "observe items_received",
+        "mash 2",
+        "observe start_location_text",
+        "mash 2",
+        "observe location_menu_pre",
+        "mash 6 32",
+        "observe location_page2",
+        "mash 6 32",
+        "observe location_page3",
+        "mash 6 32",
+        "observe location_page4",
+        "mash 6 32",
+        "observe location_page5",
+        "mash 1 32",
+        "observe location_end",
+        "mash 7 16",
+        "observe two_island_selected",
+        "mash 1",
+        "observe two_island_confirm",
+        "mash 1",
+        "run 300",
+        "observe two_island_spawn",
+        "mash 1 8",
+        "observe overworld_menu",
+        "mash 1 8",
+        "observe save_prompt",
+        "run 300",
+        "observe save_complete",
+        "state two_island_saved",
+        "cartridge_save"
+      ]
+    },
+    "reload": {
+      "sha256": "661a9c9bff6dab579b28463cd92966eb22e9a36e8d7762455283e20104b9f5e8",
+      "commands": [
+        "run 780",
+        "mash 3 8",
+        "run 600",
+        "observe continue_menu",
+        "mash 1",
+        "run 300",
+        "observe reloaded_overworld",
+        "run 56 128",
+        "run 64 16",
+        "observe north_path",
+        "run 16 128",
+        "run 64 16",
+        "observe north_path2",
+        "run 32 32",
+        "run 64 128",
+        "run 96 16",
+        "observe north_stairs",
+        "mash 1 8",
+        "mash 1 8",
+        "run 300",
+        "observe cape_saved",
+        "state cape_checkpoint",
+        "cartridge_save",
+        "mash 1 8",
+        "run 300",
+        "observe cape_save_actual",
+        "state cape_actually_saved",
+        "cartridge_save",
+        "mash 1",
+        "run 40 16",
+        "observe cape_north",
+        "run 32 32",
+        "run 40 64",
+        "run 64 16",
+        "observe grass_approach",
+        "run 24 64",
+        "run 40 16",
+        "run 180",
+        "observe encounter_01",
+        "run 48 16",
+        "run 300",
+        "observe battle01",
+        "mash 2",
+        "observe battle01_menu",
+        "run 300",
+        "mash 1 128",
+        "mash 1 32",
+        "mash 1",
+        "run 240",
+        "observe flee01",
+        "mash 1",
+        "run 48 32",
+        "run 420",
+        "observe battle02",
+        "run 48 16",
+        "run 420",
+        "observe battle02_actual",
+        "run 48 32",
+        "run 420",
+        "observe encounter02",
+        "run 48 16",
+        "run 48 32",
+        "run 48 16",
+        "run 420",
+        "observe sample02a",
+        "mash 2",
+        "run 300",
+        "mash 1 128",
+        "mash 1",
+        "observe capture_bag",
+        "mash 2 128",
+        "observe pokeballs",
+        "mash 1",
+        "observe ball_use",
+        "mash 1",
+        "run 600",
+        "observe ball_result",
+        "mash 2",
+        "run 180",
+        "observe caught_dex",
+        "mash 1",
+        "run 180",
+        "observe caught_dex2",
+        "mash 1 1",
+        "run 180",
+        "observe nickname_prompt",
+        "mash 1 32",
+        "mash 1",
+        "run 240",
+        "observe captured_party",
+        "mash 1 8",
+        "run 180",
+        "observe party_menu",
+        "mash 1 32",
+        "mash 1",
+        "run 180",
+        "observe party_list",
+        "mash 1 128",
+        "mash 1",
+        "observe summary_choice",
+        "mash 1",
+        "run 180",
+        "observe meowth_summary",
+        "mash 1 1",
+        "run 180",
+        "mash 1",
+        "mash 1",
+        "run 180",
+        "observe meowth_reopen",
+        "mash 1 1",
+        "run 180",
+        "mash 1 1",
+        "run 180",
+        "observe exit_summary",
+        "mash 1 1",
+        "run 180",
+        "observe menu_after_party",
+        "mash 1 8",
+        "run 300",
+        "observe captured_save_complete",
+        "state captured_saved",
+        "cartridge_save"
+      ]
+    },
+    "persistence": {
+      "sha256": "6c226eebee5bd1c1cfb5552768ba49a0f9f9521152e51bdd8fab21ef59af9115",
+      "commands": [
+        "run 780",
+        "mash 3 8",
+        "run 600",
+        "mash 1",
+        "run 300",
+        "observe persisted_field",
+        "mash 1 8",
+        "run 180",
+        "observe persisted_menu",
+        "mash 1 32",
+        "mash 1",
+        "run 180",
+        "observe persisted_party",
+        "mash 1 1",
+        "run 180",
+        "mash 1 16",
+        "mash 1",
+        "run 180",
+        "mash 1 128",
+        "mash 1",
+        "mash 1",
+        "run 180",
+        "observe meowth_persisted",
+        "state persisted_summary"
+      ]
+    }
+  },
+  "private_artifact_sha256": {
+    "fresh/two_island_saved.state": "a7b0fcaf5a61ae9524b0a5d5da04aa85d86fc533805cd26eb2336e81120a13ac",
+    "fresh/experiment.json": "05bfeec8a4c99e5e8493cf2a052461b77b7c20491cadc5ea38ab99671e0369a0",
+    "fresh/inputs.movie": "cc7cd25f76f35b22f595403470b15563b5c07bfbf5aaeb5251085b856babb92f",
+    "fresh/cartridge.sav": "187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e",
+    "fresh/report.json": "2fc6db5d9a8105328046687417435868e88f5f0cacd6e08fb6df33898dd51db5",
+    "reload/meowth_reopen-report.json": "009bcbb741bc22f47ae978661e6959a7a9e2a4b404aa52c4bb6177bfae29fde7",
+    "reload/cape_actually_saved.state": "5f54fd36f379e8ac0421bc056ed5ee08d68540989ee0c6f00fa18c00c8654364",
+    "reload/loaded.sav": "187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e",
+    "reload/experiment.json": "d348d78849c0d2999b5419f0195eff1e5452409654ce88bdf6c0c1ff06be2a63",
+    "reload/inputs.movie": "661a9c9bff6dab579b28463cd92966eb22e9a36e8d7762455283e20104b9f5e8",
+    "reload/meowth_reopen-comparison.json": "b86274233992ee20e70d5cc98d9ce9cee20a59a377b6629d844a4fdf8d456128",
+    "reload/meowth_summary-ui.json": "fe6050aea0adf8a66d6dd213e7e7c2ed43a1abe3365f8336ebf9c4f5f70479ee",
+    "reload/cartridge.sav": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "reload/before_cape_save_cartridge.sav": "187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e",
+    "reload/meowth_summary-report.json": "a80b616f3374535b0b07beb3102136b2f87781cb6c36bdbbea8f543c085be442",
+    "reload/captured_saved.state": "6876613f49014d851f2b10da224dc52c94df22a47aaa07f73e66876a21501413",
+    "reload/cape_before_capture_cartridge.sav": "7ec171e34648b983c7b293eabddc9a572ed7a253b22ef906c2b74785c43860bc",
+    "reload/cape_checkpoint.state": "84c7b4debab5cfd127390520c07daa3295cb3614195e9cec77190639ee33c113",
+    "reload/meowth_reopen-ui.json": "4b57fc7621a06cff4ae1cecb654a45447e02cca51b8e548f3436db847d23778c",
+    "reload/meowth_summary-comparison.json": "640ce225b1b97c732ecf49c97dc43e124265b05d217e4b1c5ffc4bfa3f45f562",
+    "reload/report.json": "204635b979436500438037f8b8bcf074434b717e0182fc470e65d0500a286bcb",
+    "persistence/persisted_summary.state": "5c42586d96a4fca6b38ec5d8732a9ab330136ea4a47b8f022717172c0248d72f",
+    "persistence/loaded.sav": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "persistence/inputs.movie": "6c226eebee5bd1c1cfb5552768ba49a0f9f9521152e51bdd8fab21ef59af9115",
+    "persistence/meowth_persisted-report.json": "57e8704541e66a062a61546b20a887bc31532391ba0bd6e21041409bd5da09ec",
+    "persistence/meowth_persisted-ui.json": "8c08d1a088d7ffd92b436dcdac31bcb8249e999c462df796011dee11323e605d",
+    "persistence/meowth_persisted-comparison.json": "6f050142c65fa7e82909d9a12fa129a0a601075da297580a8c53297f0078b76d",
+    "persistence/report.json": "ea3435fadd8e0f6407dab4852901d719a0ebe07242a661809a44e0b114d1f7be"
+  },
+  "statuses": {
+    "NEW-GAME TARGET START": "VERIFIED",
+    "FRESH CHECKPOINT": "CREATED",
+    "FRESH-PROCESS RELOAD": "PASS",
+    "TARGET MAP ACCESS": "VERIFIED",
+    "ACTIVE ENCOUNTER ROSTER": "VERIFIED",
+    "NONZERO FORM ACQUIRED": "YES",
+    "RUNTIME FORM IDENTITY": "RUNTIME_CONFIRMED",
+    "MODE SEMANTICS": "PARTIAL",
+    "PERSISTENCE": "PASS",
+    "PRODUCTION COMPATIBILITY": "HOLD",
+    "ISSUE #59": "OPEN"
+  },
+  "limitations": [
+    "One captured player Pokemon and selected normal configuration only.",
+    "Generation transform, effective-form accessor, alternate modes and generalized persistence NOT_VERIFIED.",
+    "No production ROM trust/profile/JNI/native-reader/calculator/enemy integration.",
+    "Runtime comparator uses explicit independent visual assessment; no automatic type or sprite classifier."
+  ],
+  "export_note": "The first reload/cartridge export preceded completed Cape save and equalled the Two Island source; retained separately as before_cape_save_* and not used as Cape checkpoint. Later in-game saves were visually confirmed before export."
+}

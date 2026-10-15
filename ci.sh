@@ -11,8 +11,8 @@
 #                    # (committed corpus, ROM-free) + data-pack generator tests
 #                    # + H&S census source-reader tests + Kotlin unit tests
 #                    # (which include the committed issue #84 census artifact check)
-#   ./ci.sh fixture-test # ROM-free production replay + isolated ROWE raw decoder
-#   ./ci.sh rowe-test # focused host-only raw decoder / full-memory synthetic fixtures
+#   ./ci.sh fixture-test # ROM-free production replay + isolated ROWE raw decoder + identity adapter
+#   ./ci.sh rowe-test # host-only raw decoder + identity adapter synthetic tests
 #   ./ci.sh rowe-sanitize # same focused suite with ASan + UBSan (compiler required)
 #   ./ci.sh coverage-test # focused H&S debug coverage tests + structural release proof
 #   ./ci.sh build    # assemble the debug APK
@@ -98,6 +98,11 @@ rowe_raw_test() {
     native/tests/memory_fixture.c native/tests/rowe_raw_decoder.c \
     native/tests/test_rowe_raw_decoder.c -o native/build/test_rowe_raw_decoder
   ./native/build/test_rowe_raw_decoder
+  "$cc" -O2 -std=c11 -Wall -Wextra -Werror "$@" \
+    -I native/tests native/tests/rowe_raw_decoder.c \
+    native/tests/rowe_identity_adapter.c native/tests/test_rowe_identity_adapter.c \
+    -o native/build/test_rowe_identity_adapter
+  ./native/build/test_rowe_identity_adapter
 }
 
 native_test() {

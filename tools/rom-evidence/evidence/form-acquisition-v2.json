@@ -1,0 +1,502 @@
+{
+  "acquisition_route_status": "BLOCKED",
+  "adapter_source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+  "android_shipping_decoder_absence": {
+    "arm64-v8a": {
+      "packaged_equals_checked_build_output": true,
+      "packaged_sha256": "0f8b2d91ff4d798944e0ff605c023bbca23a547bc7351d1deba474d45c6d22df",
+      "unstripped_no_rowe_raw_symbols": true
+    },
+    "x86_64": {
+      "packaged_equals_checked_build_output": true,
+      "packaged_sha256": "bf5a5de3518586b6b723cf18b56bc199c34c4f45c32931e8e3a796b713334866",
+      "unstripped_no_rowe_raw_symbols": true
+    }
+  },
+  "blocker": "No authorized checkpoint at either selected target map; no verified travel path from Route 101; generation mode flags and effective clock configuration unverified. No gameplay acquisition attempted.",
+  "candidate_entries": [
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f26394",
+      "entry_index": 2,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28ab0",
+      "header_field_offset": 8,
+      "header_index": 138,
+      "info_address": "0x8f263bc",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 0,
+      "map_header_address": "0x8834120",
+      "map_name": "Route 1",
+      "map_name_address": "0x8fd2226",
+      "map_number": 87,
+      "map_section_id": 101,
+      "roster_sha256": "bf6802744466d191ed0e7a9ec60fb01fee372f9d33a343a65abcb2f273b6ba5e",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f26438",
+      "entry_index": 8,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28ad0",
+      "header_field_offset": 8,
+      "header_index": 139,
+      "info_address": "0x8f26448",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 0,
+      "map_header_address": "0x8834200",
+      "map_name": "Route 22",
+      "map_name_address": "0x8fd22c9",
+      "map_number": 95,
+      "map_section_id": 122,
+      "roster_sha256": "ea7281746f86e4d0cd35c08089acd3f28f1380bb418d337a30886a06daa24bbe",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f26440",
+      "entry_index": 10,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28ad0",
+      "header_field_offset": 8,
+      "header_index": 139,
+      "info_address": "0x8f26448",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 0,
+      "map_header_address": "0x8834200",
+      "map_name": "Route 22",
+      "map_name_address": "0x8fd22c9",
+      "map_number": 95,
+      "map_section_id": 122,
+      "roster_sha256": "ea7281746f86e4d0cd35c08089acd3f28f1380bb418d337a30886a06daa24bbe",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1551,
+      "entry_address": "0x8f26b44",
+      "entry_index": 6,
+      "entry_sha256": "b732a87ac5f137b7046428e5ee9063b0d91da2faf5a60839e3477ba436699e81",
+      "header_address": "0x8f28cb0",
+      "header_field_offset": 4,
+      "header_index": 154,
+      "info_address": "0x8f26b5c",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 1,
+      "map_header_address": "0x8834644",
+      "map_name": "Cape Brink",
+      "map_name_address": "0x8fd241a",
+      "map_number": 6,
+      "map_section_id": 152,
+      "roster_sha256": "0fa809644fe833c5626587606f85a5c435d3d7938757dbe07c64d0abc5e55ba1",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f26b50",
+      "entry_index": 9,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28cb0",
+      "header_field_offset": 4,
+      "header_index": 154,
+      "info_address": "0x8f26b5c",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 1,
+      "map_header_address": "0x8834644",
+      "map_name": "Cape Brink",
+      "map_name_address": "0x8fd241a",
+      "map_number": 6,
+      "map_section_id": 152,
+      "roster_sha256": "0fa809644fe833c5626587606f85a5c435d3d7938757dbe07c64d0abc5e55ba1",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f26b58",
+      "entry_index": 11,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28cb0",
+      "header_field_offset": 4,
+      "header_index": 154,
+      "info_address": "0x8f26b5c",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 1,
+      "map_header_address": "0x8834644",
+      "map_name": "Cape Brink",
+      "map_name_address": "0x8fd241a",
+      "map_number": 6,
+      "map_section_id": 152,
+      "roster_sha256": "0fa809644fe833c5626587606f85a5c435d3d7938757dbe07c64d0abc5e55ba1",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1551,
+      "entry_address": "0x8f26b44",
+      "entry_index": 6,
+      "entry_sha256": "b732a87ac5f137b7046428e5ee9063b0d91da2faf5a60839e3477ba436699e81",
+      "header_address": "0x8f28cb0",
+      "header_field_offset": 8,
+      "header_index": 154,
+      "info_address": "0x8f26b5c",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 1,
+      "map_header_address": "0x8834644",
+      "map_name": "Cape Brink",
+      "map_name_address": "0x8fd241a",
+      "map_number": 6,
+      "map_section_id": 152,
+      "roster_sha256": "0fa809644fe833c5626587606f85a5c435d3d7938757dbe07c64d0abc5e55ba1",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f26b50",
+      "entry_index": 9,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28cb0",
+      "header_field_offset": 8,
+      "header_index": 154,
+      "info_address": "0x8f26b5c",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 1,
+      "map_header_address": "0x8834644",
+      "map_name": "Cape Brink",
+      "map_name_address": "0x8fd241a",
+      "map_number": 6,
+      "map_section_id": 152,
+      "roster_sha256": "0fa809644fe833c5626587606f85a5c435d3d7938757dbe07c64d0abc5e55ba1",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f26b58",
+      "entry_index": 11,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28cb0",
+      "header_field_offset": 8,
+      "header_index": 154,
+      "info_address": "0x8f26b5c",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 1,
+      "map_header_address": "0x8834644",
+      "map_name": "Cape Brink",
+      "map_name_address": "0x8fd241a",
+      "map_number": 6,
+      "map_section_id": 152,
+      "roster_sha256": "0fa809644fe833c5626587606f85a5c435d3d7938757dbe07c64d0abc5e55ba1",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f27370",
+      "entry_index": 6,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28f10",
+      "header_field_offset": 4,
+      "header_index": 173,
+      "info_address": "0x8f27388",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 1,
+      "map_header_address": "0x8834d98",
+      "map_name": "Canyon Entrance",
+      "map_name_address": "0x8fd24f5",
+      "map_number": 73,
+      "map_section_id": 168,
+      "roster_sha256": "76e4422507ce3374316f943a48807cfc4f19ff976f10795dab8150dc02e8be19",
+      "status": "CANDIDATE"
+    },
+    {
+      "candidate_form_species_id": 1582,
+      "entry_address": "0x8f27370",
+      "entry_index": 6,
+      "entry_sha256": "f1650ae5345d7138c3c15cf144c32c2c9f91f8e6c139ca8e8d65ebb613d1a295",
+      "header_address": "0x8f28f10",
+      "header_field_offset": 8,
+      "header_index": 173,
+      "info_address": "0x8f27388",
+      "level_bytes": [
+        5,
+        5
+      ],
+      "map_group": 1,
+      "map_header_address": "0x8834d98",
+      "map_name": "Canyon Entrance",
+      "map_name_address": "0x8fd24f5",
+      "map_number": 73,
+      "map_section_id": 168,
+      "roster_sha256": "76e4422507ce3374316f943a48807cfc4f19ff976f10795dab8150dc02e8be19",
+      "status": "CANDIDATE"
+    }
+  ],
+  "checkpoint": {
+    "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+    "checkpoint_sha256": "bfd0a0f354e776e03c022cefa73944a4fed06d5f6b9f6e4e9cecb886c92f6aaa",
+    "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+    "count": 2,
+    "forms": [
+      0,
+      0
+    ],
+    "map_group": 0,
+    "map_header_sha256": "8974f3ffa52834c8826909acf5ab5f3df5bab4a651913e950d386508983e3ac3",
+    "map_number": 16,
+    "matching_rom_headers": [
+      "0x883395c"
+    ],
+    "party_sha256": "af993d77de513673f19ae4eaa3af298debbc70479222dd3620e42ab1a1cf3eae",
+    "record_sha256": [
+      "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+      "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+      "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+      "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+      "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+      "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+    ]
+  },
+  "core_source_revision": "e31759b24e7a4e3899285ff720d7b573ac328ae7",
+  "fallback": "Rattata form-species 1551; map 1/6 Cape Brink; fields +4 and +8",
+  "inverse_candidate_facts": [
+    {
+      "base_species": 19,
+      "constructor_pair_runtime_status": "NOT_VERIFIED",
+      "form_species": 1551,
+      "index": 1,
+      "list_address": "0x85e6984",
+      "list_prefix_sha256": "ebc1251836b67129b778b972d3788869db63936a7b3f49c790294e8168f05e36",
+      "possible_constructor_pair": {
+        "form": 1,
+        "species": 1551
+      },
+      "possible_constructor_pair_static": {
+        "metadata_lookup_key": 1551,
+        "raw_form_id": 1,
+        "raw_stored_species_id": 1551,
+        "runtime_display_name": null,
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "static_name_candidate": "Rattata",
+        "static_resolved_species_id": 1551,
+        "static_status": "STATIC_VERIFIED"
+      }
+    },
+    {
+      "base_species": 263,
+      "constructor_pair_runtime_status": "NOT_VERIFIED",
+      "form_species": 1582,
+      "index": 1,
+      "list_address": "0x85e6d9a",
+      "list_prefix_sha256": "8ab737b69c02c3784940df165ad2fa8cd3202d8d111dd3782e0961c10d9664bf",
+      "possible_constructor_pair": {
+        "form": 1,
+        "species": 1582
+      },
+      "possible_constructor_pair_static": {
+        "metadata_lookup_key": 1582,
+        "raw_form_id": 1,
+        "raw_stored_species_id": 1582,
+        "runtime_display_name": null,
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "static_name_candidate": "Zigzagoon",
+        "static_resolved_species_id": 1582,
+        "static_status": "STATIC_VERIFIED"
+      }
+    }
+  ],
+  "issue_59": "OPEN",
+  "mode_semantics": "NOT_VERIFIED",
+  "nonzero_form_acquired": false,
+  "nonzero_runtime_identity": "NOT_VERIFIED",
+  "persistence": {
+    "boxing": "NOT_RUN",
+    "cartridge_save_fresh_process": "NOT_RUN",
+    "party_reorder": "NOT_RUN",
+    "summary_reopen": "NOT_RUN"
+  },
+  "primary": "Zigzagoon form-species 1582; map 0/87 Route 1; header field +8; time selector returns 0",
+  "private_analysis": {
+    "capstone_version": "5.0.7",
+    "packaging_script_sha256": "b3649519949037d580a938ccf474d5fd5377df7fe7d432515c373e559b5e9a1f",
+    "scripts": {
+      "checkpoint.py": "ecf3940fda2124300828c4eaec8057236c3cb2383a2f2d079475a4b69b5e714e",
+      "trace_rom.py": "0447797444f7bbbf7e6bb2519a8fbfd2c20ef32f1844b97cf8ccd67b2b271b90"
+    }
+  },
+  "production_compatibility": "HOLD",
+  "rom": {
+    "bytes": 33554432,
+    "crc32": "ad252fd3",
+    "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+  },
+  "route101": [
+    {
+      "entries_address": "0x8f23464",
+      "field_offset": 4,
+      "header_address": "0x8f27970",
+      "header_index": 0,
+      "info_address": "0x8f23494",
+      "roster_sha256": "9e7a03d3aac2c871b2dd5c4e758ac33167db5ceb1dc630245c8b5e976bdb7079",
+      "selected_candidate_ids_present": false
+    },
+    {
+      "entries_address": "0x8f2349c",
+      "field_offset": 8,
+      "header_address": "0x8f27970",
+      "header_index": 0,
+      "info_address": "0x8f234cc",
+      "roster_sha256": "02130d31ed180285a98325bcf09cd81116710fdb3814e8871b5fc8d0fc3b8052",
+      "selected_candidate_ids_present": false
+    }
+  ],
+  "schema_version": 2,
+  "spans": [
+    {
+      "address": "0x80c28dc",
+      "bytes": 24,
+      "purpose": "map_header_lookup",
+      "sha256": "b75422fd84c9f8def560904ea674f784ab3976b399af7e4701eb068bd12a2f46"
+    },
+    {
+      "address": "0x80fbf44",
+      "bytes": 120,
+      "purpose": "encounter_header_lookup",
+      "sha256": "6eddec3cf0816245606171c3c0678ea7a1493f4eaf1152ad2d0e3d35738c0894"
+    },
+    {
+      "address": "0x80fc1f4",
+      "bytes": 708,
+      "purpose": "land_selection",
+      "sha256": "9bad1e2785d7b91aad25b030791b0f709ca01422aec581e0cd6cf8f9b5245d71"
+    },
+    {
+      "address": "0x80fc9d4",
+      "bytes": 364,
+      "purpose": "land_dispatch",
+      "sha256": "41e1f020754f594fa2afb38b38a1eef735d3ea9721a56ce9c98ca962c44503dd"
+    },
+    {
+      "address": "0x8244fbc",
+      "bytes": 68,
+      "purpose": "time_selector",
+      "sha256": "15ca546fc10b1253e9006adeaf0830f39ff71eca893f657623b81ed352d1b006"
+    },
+    {
+      "address": "0x80fc09c",
+      "bytes": 272,
+      "purpose": "wild_generation",
+      "sha256": "e1f9f75170f8811f0eb4479060d96d900f44c1c5cb7395103fe44f20efbccf22"
+    },
+    {
+      "address": "0x8037e14",
+      "bytes": 632,
+      "purpose": "generation_transform",
+      "sha256": "c2e6ecd13747892c696ac3c0c4defaabba95cdbcf723a20aef4803c793816928"
+    },
+    {
+      "address": "0x80a18a0",
+      "bytes": 72,
+      "purpose": "form_index",
+      "sha256": "be2014363c5b37fe8a95aeaa6b5d48967559a57d816ee9480dea20f499847931"
+    },
+    {
+      "address": "0x80a18e8",
+      "bytes": 36,
+      "purpose": "base_species",
+      "sha256": "3015a3abbb24b7420cc41b591a84b16a7da43696e98987aae180cec5ba8976ba"
+    },
+    {
+      "address": "0x80984b4",
+      "bytes": 116,
+      "purpose": "nature_constructor",
+      "sha256": "2ea6947046139c9e9c3acb6325a36b960f14d76cfc8fd5415d4c1061954de199"
+    },
+    {
+      "address": "0x8098060",
+      "bytes": 144,
+      "purpose": "constructor",
+      "sha256": "76df1ac57800f65dd3a704c2ad0975057ed3dfbc8eebcd906d60a50739d489f4"
+    },
+    {
+      "address": "0x80980f8",
+      "bytes": 956,
+      "purpose": "box_constructor",
+      "sha256": "32ccdf08a2e334f2e74e5559fb95b318a01efee5f8c0b674687c73a348e7c178"
+    },
+    {
+      "address": "0x809b95e",
+      "bytes": 46,
+      "purpose": "species_setter",
+      "sha256": "639f6488a8c19b7d1bd574b1f9fa82e2cf8f46f460530ad36abf81191465b7c4"
+    },
+    {
+      "address": "0x809b98c",
+      "bytes": 44,
+      "purpose": "form_setter",
+      "sha256": "1d7a6dca3ed2a498f833e8c61edfa912ffb0fc5e492ca902c7a3e423106ad879"
+    }
+  ],
+  "starting_main": "959a418e4ada65e5e70ac51c7bcaf384b7a71c5c",
+  "static_candidates": [
+    {
+      "metadata_lookup_key": 1551,
+      "raw_form_id": 1,
+      "raw_stored_species_id": 19,
+      "runtime_display_name": null,
+      "runtime_effective_identity_status": "NOT_VERIFIED",
+      "static_name_candidate": "Rattata",
+      "static_resolved_species_id": 1551,
+      "static_status": "STATIC_VERIFIED"
+    },
+    {
+      "metadata_lookup_key": 1582,
+      "raw_form_id": 1,
+      "raw_stored_species_id": 263,
+      "runtime_display_name": null,
+      "runtime_effective_identity_status": "NOT_VERIFIED",
+      "static_name_candidate": "Zigzagoon",
+      "static_resolved_species_id": 1582,
+      "static_status": "STATIC_VERIFIED"
+    }
+  ],
+  "table": {
+    "address": "0x8f27970",
+    "count": 193,
+    "sha256": "808772d86c274014e142681293e4861d986471214367c0ab72e2f087ab1368b3",
+    "stride": 32
+  },
+  "tools": {
+    "rowe_data.py": "7ad543f6dedeb84ba6cc6a9281eb500472c4adda06accd9f3d6454b94a5c2468",
+    "rowe_form_observe.py": "328644e4ac2d0b1f1e3c5ecc6b581f16efde297ad2f24db55d8b728ebd653070",
+    "rowe_observe.py": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+    "rowe_symbols.py": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c"
+  }
+}

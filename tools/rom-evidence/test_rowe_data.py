@@ -163,6 +163,42 @@ class RoweDataTest(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "size"):
                     lookup(b"synthetic", *args)
 
+    def test_party_identity_aliases_preserve_raw_pair_and_static_authority(self):
+        # Artificial names/table: tests the public composition, not runtime evidence.
+        records = [SimpleNamespace(status=EMPTY_OR_UNSET, text="")] + [
+            SimpleNamespace(status=VALID_TEXT, text=name)
+            for name in ("Base", "Unused", "Variant")
+        ]
+        raw = bytearray(64)
+        table = ROM_BASE + 16
+        struct.pack_into("<I", raw, 20, ROM_BASE + 40)
+        struct.pack_into("<I", raw, 28, ROM_BASE + 40)
+        struct.pack_into("<3H", raw, 40, 1, 3, rowe_data.FORM_SENTINEL)
+        with patch.object(rowe_data, "rom_identity"), \
+                patch.object(rowe_data, "_require_symbols", return_value={}), \
+                patch.object(rowe_data, "_species_records", return_value=(records, {}, [])), \
+                patch.object(rowe_data, "FORM_POINTER_TABLE", table):
+            for species in (1, 3):
+                result = rowe_data.lookup_party_identity(bytes(raw), species, 1)
+                self.assertEqual((result["raw_stored_species_id"], result["raw_form_id"]),
+                                 (species, 1))
+                self.assertEqual(result["static_resolved_species_id"], 3)
+                self.assertEqual(result["metadata_lookup_key"], 3)
+                self.assertEqual(result["static_name_candidate"], "Variant")
+                self.assertEqual(result["static_status"], "STATIC_VERIFIED")
+                self.assertIsNone(result["runtime_display_name"])
+                self.assertEqual(result["runtime_effective_identity_status"], "NOT_VERIFIED")
+            for species, form in ((4, 0), (1, 2)):
+                result = rowe_data.lookup_party_identity(bytes(raw), species, form)
+                self.assertIsNone(result["metadata_lookup_key"])
+                self.assertIsNone(result["static_name_candidate"])
+
+    def test_party_identity_requires_exact_rom_before_metadata_access(self):
+        with patch.object(rowe_data, "_require_symbols") as symbols:
+            with self.assertRaisesRegex(ValueError, "size"):
+                rowe_data.lookup_party_identity(b"invented", 1, 1)
+            symbols.assert_not_called()
+
     def test_unknown_provenance_and_digests_are_deterministic(self):
         with self.assertRaisesRegex(ValueError, "outside ROM"):
             _species_records(b"synthetic", {"gSpeciesNames": 0x08500000,

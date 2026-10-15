@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import sys
 
-from rowe_data import (BASE_STATS_STRIDE, load_exact_rom, lookup_party_identity,
+from rowe_data import (BASE_STATS_STRIDE, FORM_LIMIT, load_exact_rom, lookup_party_identity,
                        read_span, rom_identity, _require_symbols)
 from rowe_observe import (ADAPTER_PIN, CORE_SHA256, HERE, digest,
                           require_private_directory, slot_fields)
@@ -28,6 +28,9 @@ def compare(rom, report, label, party, slot_index, ui):
     rows = [row for row in report['observations'] if row['label'] == label]
     require(len(rows) == 1, 'missing or ambiguous observation')
     row = rows[0]
+    screen_hash = row['rgb565_sha256']
+    require(isinstance(screen_hash, str) and len(screen_hash) == 64 and
+            all(c in '0123456789abcdef' for c in screen_hash), 'missing screen digest')
     player = row['parties']['player']
     count = player['count']
     require(type(count) is int and 0 <= count <= 6 and
@@ -42,6 +45,7 @@ def compare(rom, report, label, party, slot_index, ui):
     require(slots == player['slots'], 'raw decoder/report mismatch')
     raw = party[slot_index*76:(slot_index+1)*76]
     slot = slots[slot_index]
+    require(0 <= slot['form'] < FORM_LIMIT, 'unsupported stored form domain')
     static = lookup_party_identity(rom, slot['species'], slot['form'])
     require(static['static_status'] == 'STATIC_VERIFIED', 'unsupported static mapping')
     key = static['metadata_lookup_key']
@@ -64,19 +68,24 @@ def compare(rom, report, label, party, slot_index, ui):
         require(isinstance(ui.get('form_cue'), str) and bool(ui['form_cue'].strip()),
                 'missing distinctive UI form cue')
     status = 'RUNTIME_OBSERVED'
-    if ui['species_name'] != static['static_name_candidate'] or ui['level'] != slot['level'] or cue_match is False:
+    level_comparison = ('MATCH' if ui['level'] == slot['level'] else
+                        'LEVEL_DIFFERENCE_VERIFIED_MODE' if ui['mode_verified'] else
+                        'LEVEL_DIFFERENCE_UNVERIFIED_MODE')
+    if ui['species_name'] != static['static_name_candidate'] or cue_match is False:
         status = 'CONTRADICTED'
-    elif cue_match is True and ui['mode_verified']:
+    elif slot['form'] > 0 and cue_match is True and ui['mode_verified'] and level_comparison == 'MATCH':
         status = 'RUNTIME_CONFIRMED'
+    # A verified configuration alone does not establish its effective-level accessor.
+    # Any level difference blocks confirmation without attributing a form contradiction.
     # A shared name alone never confirms a nonzero-form mapping.
     return dict(schema_version=1, status=status, rom=identity, label=label,
                 slot_index=slot_index, player_count=count, record_sha256=hashes[slot_index],
                 pid_sha256=digest(raw[:4]), otid_sha256=digest(raw[4:8]),
                 nickname_sha256=digest(raw[8:20]), stored_level=slot['level'],
                 stored_moves=slot['moves'], hp=slot['hp'], max_hp=slot['stats']['max_hp'],
-                static=static, raw_type_ids=types, ui=ui,
+                static=static, raw_type_ids=types, ui=ui, level_comparison=level_comparison,
                 effective_form_status='NOT_VERIFIED',
-                comparison_basis='exact-ROM names/level plus explicit human UI form-cue assessment',
+                comparison_basis='exact-ROM name and explicit human UI form-cue assessment; level compared separately',
                 scope='this player record and transcribed mode only; no production support')
 
 

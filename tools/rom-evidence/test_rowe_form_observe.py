@@ -70,13 +70,44 @@ class FormObservationTest(unittest.TestCase):
         self.assertEqual(self.compare()['status'], 'CONTRADICTED')
         self.ui['species_name'] = 'Invented'
         self.ui['level'] = 6
-        self.assertEqual(self.compare()['status'], 'CONTRADICTED')
+        self.assertEqual(self.compare()['status'], 'RUNTIME_OBSERVED')
+
+    def test_form_zero_with_positive_human_evidence_never_confirms(self):
+        struct.pack_into('<I', self.raw, 28, 1)
+        self.party = bytes(self.raw)
+        self.player.update(sha256=digest(self.party),
+            slot_sha256=[digest(self.party[i*76:(i+1)*76]) for i in range(6)],
+            slots=[slot_fields(self.party[:76])])
+        self.ui['record_sha256'] = self.player['slot_sha256'][0]
+        self.static.update(raw_form_id=0, static_resolved_species_id=1, metadata_lookup_key=1)
+        self.assertEqual(self.compare()['status'], 'RUNTIME_OBSERVED')
+
+    def test_level_difference_does_not_attribute_identity_contradiction(self):
+        self.ui['level'] = 6
+        for verified in (False, True):
+            self.ui['mode_verified'] = verified
+            result = self.compare()
+            self.assertEqual(result['status'], 'RUNTIME_OBSERVED')
+            self.assertEqual(result['level_comparison'], 'LEVEL_DIFFERENCE_' +
+                             ('VERIFIED_MODE' if verified else 'UNVERIFIED_MODE'))
+            self.assertEqual((result['stored_level'], result['ui']['level']), (5, 6))
+            for field, value in [('species_name', 'Wrong'), ('form_cue_matches_static', False)]:
+                ui = dict(self.ui, **{field: value})
+                self.assertEqual(self.compare(ui)['status'], 'CONTRADICTED')
 
     def test_missing_or_unbound_ui_and_invalid_snapshot_refuse(self):
         for field in self.ui:
             if field == 'form_cue_matches_static': continue
             ui = copy.deepcopy(self.ui);ui.pop(field)
             with self.subTest(field=field), self.assertRaises(ValueError): self.compare(ui)
+        for field in ('rgb565_sha256', 'record_sha256'):
+            with self.subTest(field=field), self.assertRaisesRegex(ValueError, 'unbound'):
+                self.compare(dict(self.ui, **{field: 'b'*64}))
+        for value in ('', None, 'not-a-hash'):
+            self.report['observations'][0]['rgb565_sha256'] = value
+            with self.assertRaisesRegex(ValueError, 'screen digest'):
+                self.compare(dict(self.ui, rgb565_sha256=value))
+        self.report['observations'][0]['rgb565_sha256'] = 'a'*64
         for field in ('count_after', 'count_final'):
             self.player[field] = 2
             with self.assertRaisesRegex(ValueError, 'incoherent'): self.compare()
@@ -84,8 +115,9 @@ class FormObservationTest(unittest.TestCase):
         self.player['slots'][0]['form'] = 0
         with self.assertRaisesRegex(ValueError, 'decoder/report'): self.compare()
         self.player['slots'][0]['form'] = 1
-        self.static['static_status'] = 'UNSUPPORTED_FORM_ID'
-        with self.assertRaisesRegex(ValueError, 'static mapping'): self.compare()
+        for status in ('UNSUPPORTED_FORM_ID', 'UNSUPPORTED_FORM_TABLE', 'UNSUPPORTED_RESOLVED_SPECIES'):
+            self.static['static_status'] = status
+            with self.subTest(status=status), self.assertRaisesRegex(ValueError, 'static mapping'): self.compare()
         self.static['static_status'] = 'STATIC_VERIFIED'
         self.report['player_only'] = False
         with self.assertRaisesRegex(ValueError, 'player authority'): self.compare()
@@ -123,7 +155,11 @@ class FormObservationTest(unittest.TestCase):
         self.assertTrue(all(v == 'NOT_RUN' for v in evidence['nonzero_persistence'].values()))
         self.assertEqual(evidence['observer_sha256'], digest((HERE/'rowe_observe.py').read_bytes()))
         for name, sha in evidence['tools'].items():
-            self.assertEqual(sha, digest((HERE/name).read_bytes()))
+            if name == 'rowe_form_observe.py':
+                # Historical Phase 6 comparator pin; do not rewrite the old evidence.
+                self.assertEqual(sha, 'c2e516a115a4ef4aad694a89a6de8cb11f88b87162f0846b67db13b94d9e72e6')
+            else:
+                self.assertEqual(sha, digest((HERE/name).read_bytes()))
         for row in evidence['baseline_comparisons']:
             self.assertEqual(row['status'], 'RUNTIME_OBSERVED')
             self.assertEqual(row['static']['raw_form_id'], 0)

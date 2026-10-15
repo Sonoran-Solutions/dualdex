@@ -1,0 +1,291 @@
+{
+  "acquisition": {
+    "attempts": [
+      {
+        "frame": 945,
+        "label": "encounter3",
+        "player_count": 2,
+        "player_forms": [
+          0,
+          0
+        ],
+        "private_observation_sha256": "e00c0e2311de3275a47927cfdedcf1c1c2f3949ad3ce7b8d84567eec701351e3",
+        "rgb565_sha256": "f718a0abd6722f3c10e6ea463de4a5d464436ab2c342cf451cc201c6c396f056",
+        "screenshot_sha256": "a34c631572f1d2c899b5a31f1e4c52f555721d2c8fd35b48f68783d61976330f",
+        "status": "RUNTIME_OBSERVED",
+        "ui_identity": "Oddish, male, level 5, 19/19 HP"
+      },
+      {
+        "frame": 4170,
+        "label": "encounter5",
+        "player_count": 2,
+        "player_forms": [
+          0,
+          0
+        ],
+        "private_observation_sha256": "4c34cec72e410029aa02a1098d72674e9b27840fc40f27d38373ae75d284ccdd",
+        "rgb565_sha256": "c4053725337e019b250f0e33995683c7f4930b4d7673447c6b58c5a315ddfe3a",
+        "screenshot_sha256": "f7b6936eb55e48ff9216150b839da1ea24f509a149b68891d5d3b48815cc081f",
+        "status": "RUNTIME_OBSERVED",
+        "ui_identity": "Skwovet, male, level 4, 19/19 HP"
+      },
+      {
+        "frame": 6315,
+        "label": "encounter7",
+        "player_count": 2,
+        "player_forms": [
+          0,
+          0
+        ],
+        "private_observation_sha256": "3cfcb32a07b7fd99600fc8f117f0ed16c6039e72200942e12e56af337b78c401",
+        "rgb565_sha256": "b228974079249b52514a00b0cd01135979503c56b1292c77fd7ae7386ecdb8c9",
+        "screenshot_sha256": "fbf04f207691afe28e795ce68877541d57feb868d339d5ba64a2c5787b0e99f5",
+        "status": "RUNTIME_OBSERVED",
+        "ui_identity": "Patrat, male, level 4, 17/17 HP"
+      }
+    ],
+    "exploration_script_sha256": "7ae6a338d1f983949b2d5560ea256e58028ac7aaef4dc4340fd65fd8fcf8a97f",
+    "initial_state_sha256": "bfd0a0f354e776e03c022cefa73944a4fed06d5f6b9f6e4e9cecb886c92f6aaa",
+    "input_log_sha256": "55eabe27e41187699a347e184476b8ef5a11d90c6497ac81a94d0048bd5fab76",
+    "mode": "Inherited checkpoint; full mode configuration NOT_VERIFIED",
+    "replay": {
+      "bootstrap": "PRIVATE_EXPERIMENT_STATE",
+      "initial_state_sha256": "bfd0a0f354e776e03c022cefa73944a4fed06d5f6b9f6e4e9cecb886c92f6aaa",
+      "movie": "rowe-form-route101.movie",
+      "movie_sha256": "fe6935ce3dec3f34bb8eb0ae8e0529716318418c8b51bfb58a30064d767c91cb",
+      "observer_sha256": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+      "private_report_sha256": "3f82908240b91f4bc42aecd28b0ebdf396f6682b49dd734ae66c87fe0c25d305",
+      "result": "All 12 observation rows equal exploration byte-for-byte, including screen and player-region digests",
+      "status": "RUNTIME_OBSERVED"
+    },
+    "result": "No target acquired. Oddish defeated; Skwovet escaped; Patrat left at encounter text. Enemy RAM never read.",
+    "route": "Night-appearing Route 101 private ordinary-gameplay checkpoint; ordinary directional movement and battle controls only"
+  },
+  "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+  "adapter_source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+  "audit_date_local": "2026-10-14",
+  "baseline_cartridge_sha256": "a446a2176e9cc58e06fb4622da317058df9613b1a081b6017e80848adc088df0",
+  "baseline_comparisons": [
+    {
+      "comparison_basis": "exact-ROM names/level plus explicit human UI form-cue assessment",
+      "effective_form_status": "NOT_VERIFIED",
+      "hp": 12,
+      "label": "fletchling_info",
+      "max_hp": 19,
+      "nickname_sha256": "9e504b4f672bbf42f9314bda27a84d1f1489447ca4b9c9ec78c0db29f220b68c",
+      "otid_sha256": "4885b74e8ce7c99399c5083516c47ecc97f34a14b8ba30a597bed04b275b49f9",
+      "pid_sha256": "2659e10a2090acb31f04c71e64d718e0f1223db64edaef6e7d436176e2a605cd",
+      "player_count": 2,
+      "raw_type_ids": [
+        0,
+        2
+      ],
+      "record_sha256": "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+      "rom": {
+        "bytes": 33554432,
+        "crc32": "ad252fd3",
+        "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+        "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+      },
+      "schema_version": 1,
+      "scope": "this player record and transcribed mode only; no production support",
+      "slot_index": 0,
+      "static": {
+        "metadata_lookup_key": 661,
+        "raw_form_id": 0,
+        "raw_stored_species_id": 661,
+        "runtime_display_name": null,
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "static_name_candidate": "Fletchling",
+        "static_resolved_species_id": 661,
+        "static_status": "STATIC_VERIFIED"
+      },
+      "status": "RUNTIME_OBSERVED",
+      "stored_level": 5,
+      "stored_moves": [
+        64,
+        45,
+        33,
+        98
+      ],
+      "ui": {
+        "checkpoint": "a446a2176e9cc58e06fb4622da317058df9613b1a081b6017e80848adc088df0",
+        "form_cue_matches_static": null,
+        "label": "fletchling_info",
+        "level": 5,
+        "mode": "Inherited disposable A checkpoint; full mode configuration NOT_VERIFIED",
+        "mode_verified": false,
+        "observer": "Codex independent screenshot inspection",
+        "party_summary_context": "Two-member party after Continue; summary info page",
+        "process": "phase6-baseline-fresh-cartridge-process",
+        "record_sha256": "4457cadca2069e0db66f924865ac4a09391984128fdd151ba94c2a38f6895630",
+        "rgb565_sha256": "663da307136b1f6323b0267934d2cf78fbfffde17637797f4540b8416acd909d",
+        "slot_index": 0,
+        "source": "MANUAL_GAME_UI",
+        "species_name": "Fletchling",
+        "type_labels": "NORMAL / FLYING"
+      }
+    },
+    {
+      "comparison_basis": "exact-ROM names/level plus explicit human UI form-cue assessment",
+      "effective_form_status": "NOT_VERIFIED",
+      "hp": 19,
+      "label": "sentret_info",
+      "max_hp": 27,
+      "nickname_sha256": "216c380e88f274b7a7a8e1220dc1eb8f78efa75ee6c9b15e1e3536f86a3f28c7",
+      "otid_sha256": "4885b74e8ce7c99399c5083516c47ecc97f34a14b8ba30a597bed04b275b49f9",
+      "pid_sha256": "e1fee928832c805c50e54237139a3fabc16f7474bdf5ce306cbb9d0f35a6281c",
+      "player_count": 2,
+      "raw_type_ids": [
+        0,
+        0
+      ],
+      "record_sha256": "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+      "rom": {
+        "bytes": 33554432,
+        "crc32": "ad252fd3",
+        "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+        "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+      },
+      "schema_version": 1,
+      "scope": "this player record and transcribed mode only; no production support",
+      "slot_index": 1,
+      "static": {
+        "metadata_lookup_key": 161,
+        "raw_form_id": 0,
+        "raw_stored_species_id": 161,
+        "runtime_display_name": null,
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "static_name_candidate": "Sentret",
+        "static_resolved_species_id": 161,
+        "static_status": "STATIC_VERIFIED"
+      },
+      "status": "RUNTIME_OBSERVED",
+      "stored_level": 10,
+      "stored_moves": [
+        193,
+        33,
+        111,
+        98
+      ],
+      "ui": {
+        "checkpoint": "a446a2176e9cc58e06fb4622da317058df9613b1a081b6017e80848adc088df0",
+        "form_cue_matches_static": null,
+        "label": "sentret_info",
+        "level": 10,
+        "mode": "Inherited disposable A checkpoint; full mode configuration NOT_VERIFIED",
+        "mode_verified": false,
+        "observer": "Codex independent screenshot inspection",
+        "party_summary_context": "Two-member party after Continue; summary info page",
+        "process": "phase6-baseline-fresh-cartridge-process",
+        "record_sha256": "d69a6c30253f1c377a70c8b7ab14ea1581816c692eb36f49da40b4e9465538d2",
+        "rgb565_sha256": "4df9a12e53ce03c90e593744e44ef20735b3b7df90e973b5f5519f9e77e93cf6",
+        "slot_index": 1,
+        "source": "MANUAL_GAME_UI",
+        "species_name": "Sentret",
+        "type_labels": "NORMAL"
+      }
+    }
+  ],
+  "baseline_movie_sha256": "e7f0d9b5e6b1f8a0b8bdc12f3e1a9b2760ff19422a49ff2bcf161632ee4dbf72",
+  "baseline_private_report_sha256": "6107c9a85045aa44974ec24ff61fcb252bde94e62cbe920e7aec49aca7c4b69f",
+  "blocker": "No eligible nonzero-form player Pokemon acquired in three Route 101 encounters; no proven exact-release target encounter route. Stop random search at this bound.",
+  "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "core_source_revision": "e31759b24e7a4e3899285ff720d7b573ac328ae7",
+  "native_baseline_check": {
+    "decoder_sha256": "8d4fc7cdfc723cd4b728143d19443d41bd4b3227051906d3388f1db9b2458d45",
+    "driver_output_sha256": "8b97fb62b2d7a3514a6d5187501775630b44c2f1aa06b91e381c6e9257d9f27f",
+    "driver_sha256": "e19e19f35d50d1945d715f2aad320e2a0ae752c73ddf1b097519847aae2054b6",
+    "result": "Existing C raw decoder agrees on both occupied baseline records: full PID/OTID, stored species/form/level, HP/maxHP, four moves",
+    "status": "RUNTIME_OBSERVED"
+  },
+  "nonzero_form_runtime_status": "NOT_VERIFIED",
+  "nonzero_persistence": {
+    "boxing": "NOT_RUN",
+    "cartridge_save_fresh_reload": "NOT_RUN",
+    "party_reorder": "NOT_RUN",
+    "summary_reopen": "NOT_RUN"
+  },
+  "observer_sha256": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+  "overall_status": "BLOCKED",
+  "prerequisite_pr": 195,
+  "private_packaging_script_sha256": "f9068d836c469032cc31627076aa80788d5dc5d1d9252936ffd33ec9229b3734",
+  "rom": {
+    "bytes": 33554432,
+    "crc32": "ad252fd3",
+    "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+  },
+  "schema_version": 1,
+  "starting_main": "e7d028595f951ae3a1eb6adc3197d7bba68e93b7",
+  "static_accessor_spans": {
+    "player_caller": {
+      "end_exclusive": "0x81ba890",
+      "sha256": "75a1afedfb71d1b0ee255303920f19c29d645d1852cbd71a9c44491769d0d12c",
+      "start": "0x81ba81c",
+      "status": "STATIC_VERIFIED"
+    },
+    "stored_form": {
+      "end_exclusive": "0x809b34c",
+      "sha256": "59e12ebe2d6e424580320188fea52bf6830d8cf31f2a5e173bb9e8b0ae988890",
+      "start": "0x809b344",
+      "status": "STATIC_VERIFIED"
+    },
+    "table_resolver": {
+      "end_exclusive": "0x80a189e",
+      "sha256": "e5036e842937518efa7ad8238429c761db6d12ba412251689896323e30d60f12",
+      "start": "0x80a1874",
+      "status": "STATIC_VERIFIED"
+    }
+  },
+  "static_candidates": [
+    {
+      "metadata_lookup_key": 19,
+      "raw_form_id": 0,
+      "raw_stored_species_id": 19,
+      "raw_type_ids": [
+        0,
+        0
+      ],
+      "runtime_display_name": null,
+      "runtime_effective_identity_status": "NOT_VERIFIED",
+      "static_name_candidate": "Rattata",
+      "static_resolved_species_id": 19,
+      "static_status": "STATIC_VERIFIED"
+    },
+    {
+      "metadata_lookup_key": 1551,
+      "raw_form_id": 1,
+      "raw_stored_species_id": 19,
+      "raw_type_ids": [
+        17,
+        0
+      ],
+      "runtime_display_name": null,
+      "runtime_effective_identity_status": "NOT_VERIFIED",
+      "static_name_candidate": "Rattata",
+      "static_resolved_species_id": 1551,
+      "static_status": "STATIC_VERIFIED"
+    },
+    {
+      "metadata_lookup_key": 1582,
+      "raw_form_id": 1,
+      "raw_stored_species_id": 263,
+      "raw_type_ids": [
+        17,
+        0
+      ],
+      "runtime_display_name": null,
+      "runtime_effective_identity_status": "NOT_VERIFIED",
+      "static_name_candidate": "Zigzagoon",
+      "static_resolved_species_id": 1582,
+      "static_status": "STATIC_VERIFIED"
+    }
+  ],
+  "symbols_tool_sha256": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c",
+  "tools": {
+    "rowe_data.py": "7ad543f6dedeb84ba6cc6a9281eb500472c4adda06accd9f3d6454b94a5c2468",
+    "rowe_form_observe.py": "c2e516a115a4ef4aad694a89a6de8cb11f88b87162f0846b67db13b94d9e72e6",
+    "rowe_text.py": "58375f2c59206b2c59c202f921159f89ad7d3706ad9c7b38ed01e0f4091aa832"
+  }
+}

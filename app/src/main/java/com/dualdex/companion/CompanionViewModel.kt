@@ -147,24 +147,45 @@ class CompanionViewModel(
         stateReader = { readBattleUiSnapshot() }
     )
 
-    private fun readBattleUiSnapshot(): com.dualdex.battle.BattleUiSnapshot? {
-        val trust = _runtimeRomTrust.value
-        if (!trust.exactRuntimeVerified) return com.dualdex.battle.BattleUiSnapshot()
-        val raw = com.dualdex.battle.BattleUiSnapshot.fromNativePacked(
-            coreCoordinator.readBattleUiState(_activeProfile.value.gameId) ?: return null
-        )
-        if (trust != _runtimeRomTrust.value) return com.dualdex.battle.BattleUiSnapshot()
-        return com.dualdex.battle.BattleInteractionPolicy.evaluate(
-            profile = _activeProfile.value,
-            runtimeTrust = trust,
-            userEnabled = _isInteractiveBattleControlsEnabled.value,
-            inBattle = _isInBattle.value,
-            uiState = raw.state,
-            selectedActionIndex = raw.selectedActionIndex,
-            selectedMoveIndex = raw.selectedMoveIndex,
-            battlerIndex = raw.battlerIndex,
-            playerBattlerCount = raw.playerBattlerCount
-        )
+    internal fun readBattleUiSnapshot(): com.dualdex.battle.BattleUiSnapshot? = try {
+        coreCoordinator.executeExclusive(50L) {
+            synchronized(observationSessionLock) {
+                val identity = _activeRomIdentity.value
+                val trust = _runtimeRomTrust.value
+                val loaded = coreCoordinator.loadedRomSnapshotLocked()
+                if (loaded.coreGeneration != lastObservedCoreGeneration) {
+                    observationSessionRevision++
+                    clearLiveMemoryObservationsLocked()
+                    lastObservedCoreGeneration = loaded.coreGeneration
+                }
+                if (identity == null || !trust.mayReadLiveMemory ||
+                    loaded.status != LoadedRomStatus.BOUND ||
+                    !loaded.sha256.equals(identity.sha256, ignoreCase = true) ||
+                    !loaded.sha256.equals(trust.activeRomSha256, ignoreCase = true)
+                ) {
+                    invalidateMismatchedLoadedSessionLocked(loaded.coreGeneration)
+                    return@synchronized com.dualdex.battle.BattleUiSnapshot()
+                }
+
+                val profile = _activeProfile.value
+                val raw = com.dualdex.battle.BattleUiSnapshot.fromNativePacked(
+                    coreCoordinator.readBattleUiState(profile.gameId) ?: return@synchronized null
+                )
+                com.dualdex.battle.BattleInteractionPolicy.evaluate(
+                    profile = profile,
+                    runtimeTrust = trust,
+                    userEnabled = _isInteractiveBattleControlsEnabled.value,
+                    inBattle = _isInBattle.value,
+                    uiState = raw.state,
+                    selectedActionIndex = raw.selectedActionIndex,
+                    selectedMoveIndex = raw.selectedMoveIndex,
+                    battlerIndex = raw.battlerIndex,
+                    playerBattlerCount = raw.playerBattlerCount
+                )
+            }
+        }
+    } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
+        null
     }
 
     val activeGameDataPack: com.dualdex.pokemon.GameDataPack
@@ -398,8 +419,8 @@ class CompanionViewModel(
         }
 
         try {
-            // One bounded core transaction makes every native observation belong to one runtime
-            // generation. Readers below are reentrant and retain their existing timeout policy.
+            // One core transaction makes every native observation belong to one runtime
+            // generation. The timeout bounds lock acquisition only, not transaction duration.
             coreCoordinator.executeExclusive(50L) {
                 synchronized(observationSessionLock) {
                     if (revision != observationSessionRevision ||
@@ -410,7 +431,10 @@ class CompanionViewModel(
                     if (loaded.status != LoadedRomStatus.BOUND ||
                         !loaded.sha256.equals(identity.sha256, ignoreCase = true) ||
                         !loaded.sha256.equals(trust.activeRomSha256, ignoreCase = true)
-                    ) return@executeExclusive
+                    ) {
+                        invalidateMismatchedLoadedSessionLocked(loaded.coreGeneration)
+                        return@executeExclusive
+                    }
 
                     if (lastObservedCoreGeneration != loaded.coreGeneration) {
                         observationSessionRevision++
@@ -432,6 +456,15 @@ class CompanionViewModel(
             }
         } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
             // No observation was admitted; retain only the stabilizer's same-session behavior.
+        }
+    }
+
+    /** Caller holds the core lock, then [observationSessionLock]. */
+    private fun invalidateMismatchedLoadedSessionLocked(generation: Long) {
+        if (lastObservedCoreGeneration != generation) {
+            observationSessionRevision++
+            clearLiveMemoryObservationsLocked()
+            lastObservedCoreGeneration = generation
         }
     }
 

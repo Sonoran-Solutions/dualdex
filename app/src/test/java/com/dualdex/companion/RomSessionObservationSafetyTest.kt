@@ -125,6 +125,42 @@ class RomSessionObservationSafetyTest {
         assertEquals(3, vm.playerParty.value.single().species)
     }
 
+    @Test fun pollWithoutGenerationWatcherClearsObservationsWhenLoadedHashChanges() {
+        val core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
+            override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = arrayOf(mon(25))
+        }
+        val vm = CompanionViewModel(coreCoordinator = core)
+        val identityA = RomIdentity(shaA, "Synthetic A")
+        vm.setRomSession(RomCompatibility.verified(profileA, shaA), identityA)
+        bindSyntheticRom(core, identityA)
+        vm.pollTick()
+        assertEquals(25, vm.playerParty.value.single().species)
+
+        // The generation watcher is deliberately never started in this test.
+        assertTrue(core.loadVerifiedRom("synthetic-b.gba", RomIdentity(shaB, "Synthetic B")))
+        vm.pollTick()
+
+        assertTrue(vm.playerParty.value.isEmpty())
+        assertTrue(vm.battleUiSnapshot.value == com.dualdex.battle.BattleUiSnapshot())
+    }
+
+    @Test fun interactiveBattleReadRejectsDifferentLoadedRomBeforeNativeReader() {
+        val battleReads = AtomicInteger()
+        val core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
+            override fun readBattleUiState(gameId: Int): Int? {
+                battleReads.incrementAndGet()
+                return 0
+            }
+        }
+        val vm = CompanionViewModel(coreCoordinator = core)
+        val identityA = RomIdentity(shaA, "Synthetic A")
+        vm.setRomSession(RomCompatibility.verified(profileA, shaA), identityA)
+        assertTrue(core.loadVerifiedRom("synthetic-b.gba", RomIdentity(shaB, "Synthetic B")))
+
+        assertEquals(com.dualdex.battle.BattleUiSnapshot(), vm.readBattleUiSnapshot())
+        assertEquals(0, battleReads.get())
+    }
+
     @Test fun readerLockTimeoutDoesNotPublishOrInvokeReaders() {
         val reads = AtomicInteger()
         val core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {

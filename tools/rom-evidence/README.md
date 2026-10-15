@@ -181,3 +181,18 @@ linked worktrees and symlinks resolving into one. The guard runs before ROM/core
 again at observation. Historical v3 source pins remain those at reviewed #192, rather than
 being rewritten after hygiene changes. See [the isolated raw decoder contract](../../docs/ROWE_2_1_9_1_RAW_DECODER.md)
 for the host-only C implementation and stack-reconciliation CI cleanup requirement.
+
+## Nonzero-form runtime comparison (Phase 6)
+
+Use `rowe_observe.py --player-only` for this investigation. New snapshots add a final count
+recheck after the repeated 456-byte read; any failed run clears all report observations.
+`rowe_form_observe.py` compares a selected occupied record from that capture with the existing
+exact-ROM resolver and an independently transcribed, hash-bound game UI observation. It keeps
+stored species/form, resolved ID, metadata key, numeric types and UI evidence separate; missing
+UI/invalid mapping refuses, and contradictory UI remains `CONTRADICTED`. Name equality alone
+does not confirm a form; distinctive-cue comparison requires an explicit human assessment.
+All comparison inputs/outputs containing private capture details must remain outside Git.
+
+See [the revision-1 form runtime report](../../docs/ROWE_2_1_9_1_FORM_RUNTIME_EVIDENCE.md) for
+commands, the UI JSON schema, source identities, the bounded failed Route 101 acquisition movie,
+and the `BLOCKED`/`NOT_VERIFIED` finding. No nonzero-form runtime confirmation is claimed.

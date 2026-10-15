@@ -1,0 +1,554 @@
+{
+  "schema_version": 1,
+  "phase": "6F",
+  "starting_main": "87ccaf6300c22ee84cc276a0d2d509e91be08297",
+  "rom": {
+    "bytes": 33554432,
+    "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3",
+    "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "crc32": "ad252fd3"
+  },
+  "reference_core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+  "cartridge_sha256": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+  "diagnostic": {
+    "core_sha256": "ca73e52df7d4c699c43c0f1d58dc757b9f40455f02bcc4db6f15f5566748eceb",
+    "source_revision": "e31759b24e7a4e3899285ff720d7b573ac328ae7",
+    "source_archive_sha256": "4119d626fc26d9a3abaf192413c8eb15433e8afc84569419e0e9b9284c7daf5e",
+    "modified_sources": {
+      "CMakeLists.txt": "6f40241f6e5e270b26e18b4d88160c3ba8e32e00547879ee8044681f002dd94b",
+      "src/platform/libretro/libretro.c": "19eb848a7ef11d7b48b5d03939b451b76aa788b9ff19e5c9c483c0f84043398f"
+    },
+    "patch_sha256": "586a45758cd487bbd1d18a89ac88120453528e3bc8ae7dea53c8814a6b494a33",
+    "build_configuration": "Release; BUILD_LIBRETRO=ON; BUILD_LTO=ON; ENABLE_SCRIPTING=OFF; ENABLE_GDB_STUB=OFF; USE_EDITLINE=OFF; frontend/GL/FFmpeg/SQLite/Discord/ELF OFF; target-only ENABLE_DEBUGGERS and DEBUGGER_SRC added",
+    "compiler": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "cmake_cache_sha256": "f7f3fd689a70d413f3540f725a70b1d455dd399ce3941b99543077aa5f5acf3e",
+    "flags": " -Wall -Wextra -Wno-missing-field-initializers -Werror=implicit-function-declaration -Werror=implicit-int -fwrapv -Werror=incompatible-pointer-types -pthread -O3 -DNDEBUG -flto -std=gnu11 -fPIC -O3",
+    "debugger_api": "mDebuggerAttach + BREAKPOINT_HARDWARE + WATCHPOINT_WRITE + mDebuggerRunFrame; no software breakpoints",
+    "breakpoint_pc": "gprs[15]-2, next Thumb instruction reached; instructions still pre-execution",
+    "watchpoint_pc": "gprs[15]-4 inside Thumb store, callback before original memory write",
+    "tracing_enabled": "After ROM reset and copied SRAM import, before first retro_run; reset HLE executes no guest instructions",
+    "limitations": [
+      "Instruction stepping replaces runFrame/ARMRunLoop while tracing; wall-clock performance differs.",
+      "Debugger entry sets nextEvent=cycles. SaveBlock relocation differs; its cause was not investigated.",
+      "Single process/one enable; no debugger reset/reuse lifecycle supported.",
+      "Capture batch frame counters are lower bounds, omitted from sanitized instruction events.",
+      "Watchpoint storeMultiple reports zero values; restoration callback is not used for value attribution.",
+      "Stats entry callback was filtered by private driver; no separate entry-hit claim."
+    ]
+  },
+  "prior_manifests": {
+    "form-runtime-v3.json": "a7cce37d265364431ea505ad8b8e515aec4c75d724522e0aa614328eda6fe131",
+    "save-load-identity-v1.json": "82421310d97da3c4474043817841981e19dad4cc1ddeda428c07dccf0a2cf768"
+  },
+  "tools": {
+    "rowe_startup_trace.py": "122056b84cc84a4442396e98b39363361f8ad8e796513d0b743d93ecac2996a5",
+    "rowe_startup_debugger.patch": "586a45758cd487bbd1d18a89ac88120453528e3bc8ae7dea53c8814a6b494a33",
+    "test_rowe_startup_trace.py": "75fc269a1b6730940ede162f8ee83fcb129a00ae2c0b45b83121948cb7b46fbc",
+    "rowe_save_identity.py": "31c3b3982ea5597883c0ab98b2f824030769923da87c442c349de39990c18f43",
+    "rowe_observe.py": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+    "rowe_data.py": "7ad543f6dedeb84ba6cc6a9281eb500472c4adda06accd9f3d6454b94a5c2468",
+    "rowe_symbols.py": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c"
+  },
+  "serialized": {
+    "status": "SERIALIZED_REPRESENTATION_VERIFIED",
+    "sector_offset": 73728,
+    "section": 1,
+    "counter": 3,
+    "checksum": 42479,
+    "party_offset": 74296,
+    "cartridge_sha256": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "party_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+    "occupied": [
+      {
+        "slot": 0,
+        "record_sha256": "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "species": 170,
+        "form": 0
+      },
+      {
+        "slot": 1,
+        "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "species": 1560,
+        "form": 1
+      }
+    ],
+    "loader_selection_status": "NOT_VERIFIED"
+  },
+  "identity": {
+    "status": "STATIC_VERIFIED",
+    "raw_identities": [
+      {
+        "raw_stored_species_id": 1560,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      },
+      {
+        "raw_stored_species_id": 52,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      }
+    ],
+    "record_sha256": [
+      "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+    ],
+    "changed_offsets": [
+      28,
+      29
+    ],
+    "stable_decoded_fields_except_species": true,
+    "same_static_identity": true,
+    "raw_type_ids": [
+      [
+        17,
+        17
+      ],
+      [
+        17,
+        17
+      ]
+    ],
+    "runtime_confirmation": "NOT_VERIFIED"
+  },
+  "trace_result": {
+    "status": "EXECUTED_PATH_VERIFIED",
+    "callsite": "VERIFIED",
+    "function": "VERIFIED",
+    "selected_branch": "VERIFIED",
+    "write": "VERIFIED",
+    "identity": "PASS",
+    "writing_pc": "0x0809b980",
+    "destination": "0x02025190",
+    "packed_words": [
+      "0x38581618",
+      "0x38581034"
+    ],
+    "record_sha256": [
+      "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+    ],
+    "normalization_scope": "VERIFIED_NARROW",
+    "return_record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+  },
+  "identity_fields": {
+    "pid_sha256": "392e70ccb667bf1fb66a0c8c46525ee476dd72bcc88c876f81ea67b7cc5579a4",
+    "otid_sha256": "c1dd6dcb74584729620eb393912bfd9eb68be64bdf76bb8be32858cf1424ef7e",
+    "nickname_sha256": "7b9cca73bb42ad434c5855a37c4cf1ff7d6f65d0c8311d3137f05ebf2fc3c394",
+    "stable_other_74_bytes": true,
+    "form": [
+      1,
+      1
+    ],
+    "level": [
+      5,
+      5
+    ],
+    "hp": [
+      19,
+      19
+    ],
+    "max_hp": [
+      19,
+      19
+    ],
+    "moves": [
+      252,
+      45,
+      10,
+      44
+    ],
+    "static_name": "Meowth",
+    "static_types": [
+      17,
+      17
+    ],
+    "metadata_key": 1560
+  },
+  "private_scripts": {
+    "capture": "2a17f1dcb7d96926285be03e59d78f5721253730e20c5c04b2271f66e1fc42e4",
+    "packager": "8a297a6f0162087c1f22ac0a72ff04acdfe0eac217a986fe0dbacd0b304bca6e"
+  },
+  "summary": {
+    "source": "Reused Phase 6D/6E independent screenshot; visually re-inspected",
+    "status": "RUNTIME_CONFIRMED",
+    "name": "Meowth",
+    "dex": 52,
+    "level": 5,
+    "type": "DARK",
+    "cue": "Gray-blue regional portrait",
+    "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+  },
+  "executed_events": [
+    {
+      "order": 5,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x0803014a",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+    },
+    {
+      "order": 6,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4044",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+    },
+    {
+      "order": 7,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4062",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "slot": 0,
+      "record_address": "0x02025128"
+    },
+    {
+      "order": 8,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a407c",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "r0": 170
+    },
+    {
+      "order": 9,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4062",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "slot": 1,
+      "record_address": "0x02025174"
+    },
+    {
+      "order": 10,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a407c",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "r0": 1560
+    },
+    {
+      "order": 11,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4092",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "slot": 1,
+      "record_address": "0x02025174"
+    },
+    {
+      "order": 12,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a18e8",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "r0": 1560
+    },
+    {
+      "order": 13,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4098",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "r0": 52
+    },
+    {
+      "order": 14,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a18a0",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "r0": 1560
+    },
+    {
+      "order": 15,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a40a2",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "r0": 1
+    },
+    {
+      "order": 16,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a40aa",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "destination_record": "0x02025174",
+      "selector": 11
+    },
+    {
+      "order": 17,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x0809b57c",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "destination_record": "0x02025174",
+      "selector": 11
+    },
+    {
+      "order": 18,
+      "event": "THUMB_WRITE_WATCHPOINT",
+      "address": "0x02025190",
+      "selected_word": "0x38581618",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "writing_pc": "0x0809b980",
+      "width": 2,
+      "old_value": 5656,
+      "new_value": 4148
+    },
+    {
+      "order": 19,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a40ae",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+    },
+    {
+      "order": 20,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a40b4",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "destination_record": "0x02025174",
+      "selector": 89
+    },
+    {
+      "order": 21,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x0809b57c",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "destination_record": "0x02025174",
+      "selector": 89
+    },
+    {
+      "order": 22,
+      "event": "THUMB_WRITE_WATCHPOINT",
+      "address": "0x02025190",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "writing_pc": "0x0809b9ae",
+      "width": 4,
+      "old_value": 945295412,
+      "new_value": 945295412
+    },
+    {
+      "order": 23,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a40b8",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+    },
+    {
+      "order": 24,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4062",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "slot": 2,
+      "record_address": "0x020251c0"
+    },
+    {
+      "order": 25,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4062",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "slot": 3,
+      "record_address": "0x0202520c"
+    },
+    {
+      "order": 26,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4062",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "slot": 4,
+      "record_address": "0x02025258"
+    },
+    {
+      "order": 27,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x080a4062",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "slot": 5,
+      "record_address": "0x020252a4"
+    },
+    {
+      "order": 28,
+      "event": "THUMB_HARDWARE_BREAKPOINT",
+      "address": "0x0803014e",
+      "selected_word": "0x38581034",
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+    }
+  ],
+  "parity": {
+    "status": "PASS",
+    "bootstrap": "CARTRIDGE_ONLY",
+    "inputs": [
+      [
+        780,
+        0
+      ],
+      [
+        1,
+        8
+      ],
+      [
+        90,
+        0
+      ],
+      [
+        1,
+        8
+      ],
+      [
+        90,
+        0
+      ],
+      [
+        1,
+        8
+      ],
+      [
+        90,
+        0
+      ],
+      [
+        600,
+        0
+      ],
+      [
+        1,
+        256
+      ],
+      [
+        90,
+        0
+      ],
+      [
+        300,
+        0
+      ]
+    ],
+    "selected_count": 2,
+    "map": [
+      1,
+      6
+    ],
+    "checks": [
+      {
+        "label": "before_continue_startup_only",
+        "frame": 1653,
+        "map": [
+          1,
+          6
+        ],
+        "xy": [
+          8,
+          27
+        ],
+        "party_sha256": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+        "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+        "saved_record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "saved_party_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+        "screen_sha256": "53c94dc83f67f24b3e9944c33a7607201993096f6aea1a8556411a641a18c95a",
+        "diagnostic_pointers": {
+          "1": "0x02026484",
+          "2": "0x02025744"
+        },
+        "reference_pointers": {
+          "1": "0x02026454",
+          "2": "0x02025714"
+        },
+        "authority": "STARTUP_ONLY_NOT_LOADED_PARTY"
+      },
+      {
+        "label": "after_continue",
+        "frame": 2044,
+        "map": [
+          1,
+          6
+        ],
+        "xy": [
+          8,
+          27
+        ],
+        "party_sha256": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+        "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+        "saved_record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "saved_party_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+        "screen_sha256": "db2bb073844b569ccca846f53210698d8e4a5e9e78d2a4f27e94b67a761bb716",
+        "diagnostic_pointers": {
+          "1": "0x0202648c",
+          "2": "0x0202574c"
+        },
+        "reference_pointers": {
+          "1": "0x02026434",
+          "2": "0x020256f4"
+        },
+        "authority": "COHERENT_LOADED_PLAYER_PARTY"
+      }
+    ],
+    "differences": "SaveBlock pointers differ; maps, coordinates, counts, whole party, selected record, SaveBlock copy digests and video digests match at both checkpoints."
+  },
+  "private_artifacts": {
+    "trace-reviewed/loaded.sav": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "trace-reviewed/source.gba": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3",
+    "trace-reviewed/report.json": "57888ddc2257f144c6d022ce2410c7b54cac0061f718ace24fc34363da534e6f",
+    "trace-reviewed/events.json": "336a25c6009009b68daf242f51beed206a0d37c2d35b9ef20633140c3aa98721",
+    "trace-reviewed/before_continue_startup_only_player.party": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+    "trace-reviewed/after_continue_player.party": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+    "trace-reviewed/before_continue_startup_only.ppm": "a9f0b852de9e8819c4c7496f05440e1864c4c7d1425f49e150474c64ab1361d0",
+    "trace-reviewed/after_continue.ppm": "dc2780f705dc3e1a001d9c3b26438510545d15a0b73234b5811163ab9a808ee3",
+    "control-final/loaded.sav": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "control-final/source.gba": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3",
+    "control-final/report.json": "5031f0e43c244ee827a8f8585351d9505b07168f6f909d704c79f2cd1edf8bb6",
+    "control-final/events.json": "037e7574d8c71f53ed42453905bc961b5bd0392a381e8621915fd681143b10f8",
+    "control-final/before_continue_startup_only_player.party": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+    "control-final/after_continue_player.party": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+    "control-final/before_continue_startup_only.ppm": "a9f0b852de9e8819c4c7496f05440e1864c4c7d1425f49e150474c64ab1361d0",
+    "control-final/after_continue.ppm": "dc2780f705dc3e1a001d9c3b26438510545d15a0b73234b5811163ab9a808ee3",
+    "capture.py": "2a17f1dcb7d96926285be03e59d78f5721253730e20c5c04b2271f66e1fc42e4",
+    "trace-reviewed/capture.json": "8dc0b10b50dbc89719880e534ccda9dcce5dc2080235b1c645bbe6f0406891ee",
+    "trace-reviewed/validated.json": "68bdb6a1b500ad1c42039cf5874e2e2a7829b409c0192569ec9a1dcaa447f153"
+  },
+  "writing_spans": [
+    {
+      "address": "0x0809b974",
+      "end_exclusive": "0x0809b984",
+      "sha256": "14a6f8681a8184533f417d5a7eb88294becff66627e97a49726fdd79ab104896"
+    },
+    {
+      "address": "0x0809b98c",
+      "end_exclusive": "0x0809b9b0",
+      "sha256": "9858d2696cb6caf64d130432399e30407bb21aec908784cc4fe941269d232b10"
+    }
+  ],
+  "statuses": {
+    "GUEST-PC TRACE CAPABILITY": "VERIFIED",
+    "STARTUP CALLSITE EXECUTION": "VERIFIED",
+    "NORMALIZATION FUNCTION EXECUTION": "VERIFIED",
+    "SELECTED MEOWTH BRANCH": "VERIFIED",
+    "SPECIES/FORM WRITE ATTRIBUTION": "VERIFIED",
+    "CONVERSION BOUNDARY": "EXECUTED_PATH_VERIFIED",
+    "UNMODIFIED-CORE PARITY": "PASS",
+    "STORED IDENTITY STABILITY": "PASS",
+    "NORMALIZATION SCOPE": "VERIFIED_NARROW",
+    "PRODUCTION COMPATIBILITY": "HOLD",
+    "ISSUE #59": "OPEN"
+  }
+}

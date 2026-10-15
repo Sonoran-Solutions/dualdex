@@ -6,10 +6,20 @@ import com.dualdex.battle.ActiveEnemyResolution
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
+
+enum class LoadedRomStatus { UNLOADED, UNBOUND, BOUND }
+
+/** Immutable, lock-consistent statement about the image currently owned by the core. */
+data class LoadedRomSnapshot(
+    val status: LoadedRomStatus,
+    val sha256: String?,
+    val coreGeneration: Long
+)
 
 /**
  * Single-owner execution and synchronization coordinator for the native Libretro core.
@@ -44,8 +54,9 @@ open class LibretroCoreCoordinator(
     // Only RomSessionManager binds a successfully loaded image, inside its switch transaction.
     private var cheatRomSha256: String? = null
 
-    /** Set by [unloadRom] until the next successful [loadRom]; [stepFrame] never runs an unloaded core. */
-    private var romUnloaded = false
+    /** A direct load is playable but remains unbound until RomSessionManager authorizes it. */
+    private var romUnloaded = true
+    private var loadedRomSha256: String? = null
 
     @Volatile var emulationRunning = false
         internal set
@@ -56,11 +67,36 @@ open class LibretroCoreCoordinator(
     /** Invalidates in-flight input before replacing core state, even when the mutation fails. */
     @Volatile var stateGeneration = 0L
         private set
+    private val _stateGenerationFlow = MutableStateFlow(0L)
+    val stateGenerationFlow: StateFlow<Long> = _stateGenerationFlow
 
     internal fun bindCheatRom(identity: RomIdentity) {
         check(lock.isHeldByCurrentThread)
         cheatRomSha256 = identity.sha256.takeIf { identity.isValid }?.lowercase()
     }
+
+    private fun advanceGeneration() {
+        stateGeneration++
+        _stateGenerationFlow.value = stateGeneration
+    }
+
+    /** Must be called under [lock]; arbitrary display/profile code cannot assert provenance. */
+    internal fun loadedRomSnapshotLocked(): LoadedRomSnapshot {
+        check(lock.isHeldByCurrentThread)
+        val hash = loadedRomSha256
+        return LoadedRomSnapshot(
+            status = when {
+                romUnloaded -> LoadedRomStatus.UNLOADED
+                hash != null -> LoadedRomStatus.BOUND
+                else -> LoadedRomStatus.UNBOUND
+            },
+            sha256 = hash,
+            coreGeneration = stateGeneration
+        )
+    }
+
+    /** Inspects the current core-owned image under the same lock as frame execution/mutations. */
+    fun loadedRomSnapshot(): LoadedRomSnapshot = executeExclusive { loadedRomSnapshotLocked() }
 
     internal fun isCheatRom(identity: RomIdentity): Boolean {
         check(lock.isHeldByCurrentThread)
@@ -141,8 +177,10 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadCore(coreLibPath: String): Boolean = executeExclusive {
-        stateGeneration++
+        advanceGeneration()
         cheatRomSha256 = null
+        loadedRomSha256 = null
+        romUnloaded = true
         try {
             LibretroHost.nativeLoadCore(coreLibPath)
         } catch (_: UnsatisfiedLinkError) {
@@ -151,21 +189,36 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadRom(romPath: String): Boolean = executeExclusive {
-        stateGeneration++
+        loadRomLocked(romPath, null)
+    }
+
+    /** The session manager calls this only after hashing the exact cached file passed below. */
+    internal fun loadVerifiedRom(romPath: String, identity: RomIdentity): Boolean = executeExclusive {
+        require(identity.isValid && identity.sha256.matches(Regex("[0-9a-fA-F]{64}")))
+        loadRomLocked(romPath, identity.sha256.lowercase())
+    }
+
+    private fun loadRomLocked(romPath: String, authorizedSha256: String?): Boolean {
+        check(lock.isHeldByCurrentThread)
+        advanceGeneration()
         cheatRomSha256 = null
+        loadedRomSha256 = null
+        romUnloaded = true
         val ok = bridge?.loadRom(romPath) ?: try {
             LibretroHost.nativeLoadRom(romPath)
         } catch (_: UnsatisfiedLinkError) {
             false
         }
         romUnloaded = !ok
-        ok
+        if (ok) loadedRomSha256 = authorizedSha256
+        return ok
     }
 
     fun unloadRom(): Boolean = executeExclusive {
-        stateGeneration++
+        advanceGeneration()
         cheatRomSha256 = null
         romUnloaded = true
+        loadedRomSha256 = null
         bridge?.unloadRom() ?: try {
             LibretroHost.nativeUnloadRom()
         } catch (_: UnsatisfiedLinkError) {
@@ -198,7 +251,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadState(statePath: String): Boolean = executeExclusive {
-        stateGeneration++
+        advanceGeneration()
         bridge?.loadState(statePath) ?: try {
             LibretroHost.nativeLoadState(statePath)
         } catch (_: UnsatisfiedLinkError) {
@@ -207,7 +260,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadSaveRam(savePath: String): Boolean = executeExclusive {
-        stateGeneration++
+        advanceGeneration()
         bridge?.loadSaveRam(savePath) ?: try {
             LibretroHost.nativeLoadSaveRam(savePath)
         } catch (_: UnsatisfiedLinkError) {
@@ -224,7 +277,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun resetCore(): Unit = executeExclusive {
-        stateGeneration++
+        advanceGeneration()
         if (bridge != null) {
             bridge?.resetCore()
         } else {
@@ -243,8 +296,10 @@ open class LibretroCoreCoordinator(
     }
 
     fun cleanup(): Unit = executeExclusive {
-        stateGeneration++
+        advanceGeneration()
         cheatRomSha256 = null
+        loadedRomSha256 = null
+        romUnloaded = true
         if (bridge == null) {
             try {
                 LibretroHost.nativeCleanup()

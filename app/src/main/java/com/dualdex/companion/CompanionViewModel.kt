@@ -2,6 +2,7 @@ package com.dualdex.companion
 
 import android.net.Uri
 import com.dualdex.emulator.LibretroCoreCoordinator
+import com.dualdex.emulator.LoadedRomStatus
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.LocationResolution
@@ -32,6 +33,13 @@ data class RomItem(
     val profileName: String = ""
 )
 
+internal data class SessionObservationToken(
+    val romSha256: String,
+    val coreGeneration: Long,
+    val sessionRevision: Long,
+    val compatibility: RuntimeRomTrust
+)
+
 enum class CompanionTab(val title: String) {
     // Existing screen identities remain stable for direct navigation callers.
     HOME("Library"),
@@ -51,6 +59,15 @@ class CompanionViewModel(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
     var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance
 ) {
+    /**
+     * Session setters and observation publication share this monitor. Polling takes the core
+     * lock first, then this monitor; setters never acquire the core lock. This makes publication
+     * atomic against session invalidation without a reverse lock edge.
+     */
+    private val observationSessionLock = Any()
+    private var observationSessionRevision = 0L
+    private var lastObservedCoreGeneration: Long? = null
+
     private val _selectedTab = MutableStateFlow(CompanionTab.HOME)
     val selectedTab: StateFlow<CompanionTab> = _selectedTab.asStateFlow()
 
@@ -212,6 +229,7 @@ class CompanionViewModel(
     val enemyBattlerState: StateFlow<BattlerRuntimeObservation?> = _enemyBattlerState.asStateFlow()
 
     private var pollingJob: Job? = null
+    private var generationWatcherJob: Job? = null
     private val battlePresenceStabilizer = com.dualdex.battle.BattlePresenceStabilizer()
 
     private val playerPartyStabilizer = LiveObservationStabilizer()
@@ -248,28 +266,34 @@ class CompanionViewModel(
     }
 
     fun setRomInfo(gameId: Int, romTitle: String, profile: RomHackProfile? = null) {
-        _activeGameId.value = gameId
-        _activeRomTitle.value = romTitle
-        if (profile != null) {
-            _activeProfile.value = profile
-            _activeGameId.value = profile.gameId
+        synchronized(observationSessionLock) {
+            observationSessionRevision++
+            _activeGameId.value = gameId
+            _activeRomTitle.value = romTitle
+            if (profile != null) {
+                _activeProfile.value = profile
+                _activeGameId.value = profile.gameId
+            }
+            // No compatibility evidence was supplied, so live memory stays disabled.
+            _runtimeRomTrust.value = RuntimeRomTrust()
+            publishLocationStrategy()
+            clearLiveMemoryObservationsLocked()
         }
-        // No compatibility evidence was supplied, so live memory stays disabled.
-        _runtimeRomTrust.value = RuntimeRomTrust()
-        publishLocationStrategy()
-        clearLiveMemoryObservations()
     }
 
     fun setRomIdentity(identity: RomIdentity?) {
-        _activeRomIdentity.value = identity
-        _activeRomTitle.value = identity?.displayName.orEmpty()
-        _runtimeRomTrust.value = RuntimeRomTrust()
-        if (identity == null) {
-            _activeProfile.value = RomHackProfile.UNSUPPORTED
-            _activeGameId.value = 0
+        synchronized(observationSessionLock) {
+            observationSessionRevision++
+            _activeRomIdentity.value = identity
+            _activeRomTitle.value = identity?.displayName.orEmpty()
+            _runtimeRomTrust.value = RuntimeRomTrust()
+            if (identity == null) {
+                _activeProfile.value = RomHackProfile.UNSUPPORTED
+                _activeGameId.value = 0
+            }
+            publishLocationStrategy()
+            clearLiveMemoryObservationsLocked()
         }
-        publishLocationStrategy()
-        clearLiveMemoryObservations()
     }
 
     /**
@@ -277,22 +301,24 @@ class CompanionViewModel(
      * published so a consumer can never see the new ROM paired with data read from the previous one.
      */
     fun setRomSession(compatibility: RomCompatibility, identity: RomIdentity) {
-        clearLiveMemoryObservations()
+        synchronized(observationSessionLock) {
+            observationSessionRevision++
+            clearLiveMemoryObservationsLocked()
 
-        _activeProfile.value = compatibility.profile
-        _activeGameId.value = compatibility.profile.gameId
-        _activeRomIdentity.value = identity
-        _activeRomTitle.value = identity.displayName
-        _runtimeRomTrust.value = RuntimeRomTrust.from(compatibility, identity.sha256)
+            _activeProfile.value = compatibility.profile
+            _activeGameId.value = compatibility.profile.gameId
+            _activeRomIdentity.value = identity
+            _activeRomTitle.value = identity.displayName
+            _runtimeRomTrust.value = RuntimeRomTrust.from(compatibility, identity.sha256)
 
-        // The strategy follows the newly published profile, and publishing it
-        // drops observations taken under the previous one.
-        publishLocationStrategy()
+            // The strategy follows the newly published profile, and publishing it
+            // drops observations taken under the previous one.
+            publishLocationStrategy()
 
-        // A ROM that is not exactly verified never authorizes memory parsing, even if a poller was
-        // already running. Re-assert the cleared state after publishing the new trust value.
-        if (!_runtimeRomTrust.value.mayReadLiveMemory) {
-            clearLiveMemoryObservations()
+            // A ROM that is not exactly verified never authorizes memory parsing.
+            if (!_runtimeRomTrust.value.mayReadLiveMemory) {
+                clearLiveMemoryObservationsLocked()
+            }
         }
     }
 
@@ -301,27 +327,45 @@ class CompanionViewModel(
      * Used after a failed load that already tore the previous session down.
      */
     fun clearRomSession() {
-        clearLiveMemoryObservations()
-        battlePresenceStabilizer.reset()
-        _runtimeRomTrust.value = RuntimeRomTrust()
-        _activeRomIdentity.value = null
-        _activeRomTitle.value = ""
-        _activeProfile.value = RomHackProfile.UNSUPPORTED
-        _activeGameId.value = 0
-        publishLocationStrategy()
+        synchronized(observationSessionLock) {
+            observationSessionRevision++
+            clearLiveMemoryObservationsLocked()
+            battlePresenceStabilizer.reset()
+            _runtimeRomTrust.value = RuntimeRomTrust()
+            _activeRomIdentity.value = null
+            _activeRomTitle.value = ""
+            _activeProfile.value = RomHackProfile.UNSUPPORTED
+            _activeGameId.value = 0
+            publishLocationStrategy()
+        }
     }
 
     fun setProfile(profile: RomHackProfile) {
-        _activeProfile.value = profile
-        _activeGameId.value = profile.gameId
-        _activeRomTitle.value = profile.name
-        _runtimeRomTrust.value = RuntimeRomTrust()
-        publishLocationStrategy()
-        clearLiveMemoryObservations()
+        synchronized(observationSessionLock) {
+            observationSessionRevision++
+            _activeProfile.value = profile
+            _activeGameId.value = profile.gameId
+            _activeRomTitle.value = profile.name
+            _runtimeRomTrust.value = RuntimeRomTrust()
+            publishLocationStrategy()
+            clearLiveMemoryObservationsLocked()
+        }
     }
 
     fun startPolling(intervalMs: Long = 200L) {
         if (pollingJob?.isActive == true) return
+
+        generationWatcherJob = scope.launch {
+            coreCoordinator.stateGenerationFlow.collect { generation ->
+                synchronized(observationSessionLock) {
+                    if (lastObservedCoreGeneration != generation) {
+                        observationSessionRevision++
+                        clearLiveMemoryObservationsLocked()
+                        lastObservedCoreGeneration = generation
+                    }
+                }
+            }
+        }
 
         pollingJob = scope.launch(Dispatchers.IO) {
             while (isActive) {
@@ -343,10 +387,51 @@ class CompanionViewModel(
      * Useful for deterministic testing of the compatibility gate and stabilizers.
      */
     internal fun pollTick() {
-        if (_runtimeRomTrust.value.mayReadLiveMemory) {
-            pollVerifiedRomMemory()
-        } else {
-            clearLiveMemoryObservations()
+        val (revision, identity, trust) = synchronized(observationSessionLock) {
+            Triple(observationSessionRevision, _activeRomIdentity.value, _runtimeRomTrust.value)
+        }
+        if (!trust.mayReadLiveMemory || identity == null) {
+            synchronized(observationSessionLock) {
+                if (revision == observationSessionRevision) clearLiveMemoryObservationsLocked()
+            }
+            return
+        }
+
+        try {
+            // One bounded core transaction makes every native observation belong to one runtime
+            // generation. Readers below are reentrant and retain their existing timeout policy.
+            coreCoordinator.executeExclusive(50L) {
+                synchronized(observationSessionLock) {
+                    if (revision != observationSessionRevision ||
+                        trust != _runtimeRomTrust.value || identity != _activeRomIdentity.value
+                    ) return@executeExclusive
+
+                    val loaded = coreCoordinator.loadedRomSnapshotLocked()
+                    if (loaded.status != LoadedRomStatus.BOUND ||
+                        !loaded.sha256.equals(identity.sha256, ignoreCase = true) ||
+                        !loaded.sha256.equals(trust.activeRomSha256, ignoreCase = true)
+                    ) return@executeExclusive
+
+                    if (lastObservedCoreGeneration != loaded.coreGeneration) {
+                        observationSessionRevision++
+                        clearLiveMemoryObservationsLocked()
+                        lastObservedCoreGeneration = loaded.coreGeneration
+                    }
+                    val token = SessionObservationToken(
+                        romSha256 = loaded.sha256!!,
+                        coreGeneration = loaded.coreGeneration,
+                        sessionRevision = observationSessionRevision,
+                        compatibility = trust
+                    )
+                    // The token remains valid through the complete reader/transformation/
+                    // publication batch because both core and session owners stay locked.
+                    check(token.coreGeneration == coreCoordinator.stateGeneration)
+
+                    pollVerifiedRomMemory()
+                }
+            }
+        } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
+            // No observation was admitted; retain only the stabilizer's same-session behavior.
         }
     }
 
@@ -579,6 +664,13 @@ class CompanionViewModel(
      * this on every poll tick while the compatibility gate is closed.
      */
     fun clearLiveMemoryObservations() {
+        synchronized(observationSessionLock) {
+            observationSessionRevision++
+            clearLiveMemoryObservationsLocked()
+        }
+    }
+
+    private fun clearLiveMemoryObservationsLocked() {
         _hnsBattlers.value = emptyList()
         _selectedHnsEnemyBattler.value = null
         if (_playerParty.value.isNotEmpty()) _playerParty.value = emptyList()
@@ -617,6 +709,8 @@ class CompanionViewModel(
     fun stopPolling() {
         pollingJob?.cancel()
         pollingJob = null
+        generationWatcherJob?.cancel()
+        generationWatcherJob = null
     }
 
     fun setBattleAutoOpenEnabled(enabled: Boolean) {

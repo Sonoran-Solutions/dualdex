@@ -152,24 +152,108 @@ class StartupTraceTest(unittest.TestCase):
             self.assertEqual(code,1)
             self.assertEqual(json.loads(output.read_text())['status'],'NOT_VERIFIED')
 
+    def test_cli_partial_status_requires_explicit_allowance(self):
+        partial = copy.deepcopy(self.capture)
+        partial['events'] = [e for e in partial['events'] if e['address'] != 0x0803014a]
+        for i, event in enumerate(partial['events']): event['order'] = i
+        for allowed, expected in ((False, 1), (True, 0)):
+            with self.subTest(allow_partial=allowed), tempfile.TemporaryDirectory() as folder:
+                root=Path(folder);rom=root/'rom';core=root/'core';events=root/'events.json';output=root/'result.json'
+                rom.write_bytes(b'rom');core.write_bytes(b'core');events.write_text(json.dumps(partial))
+                args=['--rom',str(rom),'--core',str(core),'--events',str(events),'--output',str(output)]
+                if allowed: args.append('--allow-partial')
+                real_digest=trace.digest
+                def fake_digest(data): return trace.DIAGNOSTIC if data == b'core' else real_digest(data)
+                with patch.object(trace,'read_local',side_effect=lambda path, limit: Path(path).read_bytes()), \
+                     patch.object(trace,'load_exact_rom',return_value=self.rom), \
+                     patch.object(trace,'digest',side_effect=fake_digest), \
+                     patch.object(trace,'require_private_directory'):
+                    self.assertEqual(trace.main(args),expected)
+                self.assertEqual(json.loads(output.read_text())['status'],'BOUNDARY_PARTIAL')
+
+    def test_output_aliases_and_symlinks_are_refused_before_invalidation(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);source=root/'input';source.write_text('input')
+            alias=root/'alias';alias.hardlink_to(source)
+            with patch.object(trace,'require_private_directory'), \
+                 self.assertRaises(ValueError): trace._prepare_output(alias,(source,))
+            self.assertEqual(source.read_text(),'input')
+            target=root/'target';target.write_text('keep')
+            symlink=root/'output-link';symlink.symlink_to(target)
+            with patch.object(trace,'require_private_directory'), \
+                 self.assertRaises(ValueError): trace._prepare_output(symlink,())
+            self.assertEqual(target.read_text(),'keep')
+
+    def test_invalid_private_paths_do_not_write_and_failed_admission_clears_stale_output(self):
+        protected=Path(__file__).resolve()
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);unsafe=protected.parent/'.must-not-touch-rowe-trace.json'
+            with self.assertRaises(ValueError): trace._prepare_output(unsafe,(root/'input',))
+            self.assertFalse(unsafe.exists())
+            output=root/'result.json';output.write_text('{"status":"EXECUTED_PATH_VERIFIED"}')
+            private_events=protected
+            def require_private(path):
+                if Path(path).resolve() == private_events:
+                    raise ValueError('private path rejected')
+            with patch.object(trace,'require_private_directory',side_effect=require_private), \
+                 patch.object(trace,'read_local',side_effect=OSError('unused')):
+                code=trace.main(['--rom',str(root/'rom'),'--core',str(root/'core'),
+                    '--events',str(private_events),'--output',str(output)])
+            self.assertEqual(code,1)
+            self.assertEqual(json.loads(output.read_text())['status'],'NOT_VERIFIED')
+
 
 class CrossPhaseContractTest(unittest.TestCase):
     def test_committed_contract_and_current_sources(self):
         root=Path(__file__).resolve().parent
         load=lambda name:json.loads((root/'evidence'/name).read_text())
         new=load('startup-normalization-v1.json')
+        guards=load('startup-guards-v1.json')
         old=load('form-runtime-v3.json');prior=load('save-load-identity-v1.json')
+        self.assertEqual(guards['schema_version'],1)
+        self.assertEqual(guards['phase'],'6G')
+        self.assertEqual(guards['starting_main_sha'],'e535a4777338dc7c3b6e95f2316c3f7eef788d1b')
+        self.assertEqual(guards['phase_6f_head'],'23e2ad66efa15fdc31d93980174e10133dc48dbe')
+        self.assertEqual(guards['phase_6f_tree_sha'],guards['starting_main_tree_sha'])
+        self.assertEqual(guards['phase_6f_pull_request']['state'],'MERGED')
+        self.assertEqual(guards['source_identity']['rom_sha256'],new['rom']['sha256'])
+        self.assertEqual(guards['source_identity']['reference_core_sha256'],new['reference_core_sha256'])
+        self.assertEqual(guards['source_identity']['diagnostic_core_sha256'],new['diagnostic']['core_sha256'])
+        self.assertEqual(guards['source_identity']['adapter_sha256'],new['adapter_sha256'])
+        self.assertEqual(guards['source_identity']['cartridge_sha256'],new['cartridge_sha256'])
+        self.assertEqual(guards['prior_evidence']['manifest_sha256'],trace.digest(
+            (root/'evidence/startup-normalization-v1.json').read_bytes()))
+        self.assertEqual(guards['new_trace_source_sha256'],trace.digest((root/'rowe_startup_trace.py').read_bytes()))
+        self.assertEqual(guards['validator_p3_fixes']['status'],'PASS')
+        self.assertEqual(guards['phase_6f_normalization']['record_sha256'],new['trace_result']['record_sha256'])
+        investigation=guards['guard_investigation']
+        self.assertEqual(investigation['caller_control_flow'],'NOT_VERIFIED')
+        self.assertEqual(investigation['guard_operand_sources'],'NOT_VERIFIED')
+        self.assertEqual(investigation['normal_mode_guard_execution'],'NOT_VERIFIED')
+        self.assertEqual(investigation['false_branch_conditions'],'NOT_VERIFIED')
+        self.assertEqual(investigation['static_guard_instructions'],[])
+        self.assertEqual(investigation['runtime_guard_events'],[])
+        self.assertEqual(guards['integration_contract']['status'],'PARTIAL')
+        self.assertEqual(guards['integration_contract']['production_compatibility'],'HOLD')
         for name,sha in new['prior_manifests'].items():
             self.assertEqual(trace.digest((root/'evidence'/name).read_bytes()),sha,name)
+        # These historical pins remain the exact Phase 6F source identities; the
+        # current validator and its tests continue evolving on top of that evidence.
+        self.assertEqual(new['tools']['rowe_startup_trace.py'],
+                         '122056b84cc84a4442396e98b39363361f8ad8e796513d0b743d93ecac2996a5')
+        self.assertEqual(new['tools']['test_rowe_startup_trace.py'],
+                         '75fc269a1b6730940ede162f8ee83fcb129a00ae2c0b45b83121948cb7b46fbc')
         for name,sha in new['tools'].items():
-            self.assertEqual(trace.digest((root/name).read_bytes()),sha,name)
+            if name not in ('rowe_startup_trace.py','test_rowe_startup_trace.py'):
+                self.assertEqual(trace.digest((root/name).read_bytes()),sha,name)
         self.assertEqual(new['rom'],prior['rom']);self.assertEqual(new['rom'],old['rom'])
         self.assertEqual(new['reference_core_sha256'],old['core_sha256'])
         self.assertEqual(new['adapter_sha256'],old['adapter']['binary_sha256'])
         for name,sha in old['adapter']['inputs'].items():
             self.assertEqual(trace.digest((root.parents[1]/name).read_bytes()),sha,name)
         for name,sha in old['tools'].items():
-            self.assertEqual(trace.digest((root/name).read_bytes()),sha,name)
+            if name != 'rowe_startup_trace.py':
+                self.assertEqual(trace.digest((root/name).read_bytes()),sha,name)
         self.assertEqual(new['cartridge_sha256'],trace.CARTRIDGE)
         self.assertEqual(old['private_artifact_sha256']['reload/cartridge.sav'],trace.CARTRIDGE)
         self.assertEqual(new['serialized'],prior['serialized'])

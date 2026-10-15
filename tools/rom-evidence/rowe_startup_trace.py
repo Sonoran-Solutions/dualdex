@@ -6,8 +6,11 @@ identity and reference-core parity evidence. No emulator or guest writes occur h
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import struct
+import sys
+import tempfile
 
 from rowe_data import load_exact_rom
 from rowe_observe import CORE_SHA256, digest, require_private_directory, slot_fields
@@ -19,6 +22,7 @@ SOURCE = 'e31759b24e7a4e3899285ff720d7b573ac328ae7'
 DIAGNOSTIC = 'ca73e52df7d4c699c43c0f1d58dc757b9f40455f02bcc4db6f15f5566748eceb'
 CARTRIDGE = 'e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2'
 SLOT, DEST = 0x02025174, 0x02025190
+PARTIAL_STATUSES = {'BOUNDARY_PARTIAL', 'CALLSITE_EXECUTED', 'FUNCTION_EXECUTED', 'WRITE_ATTRIBUTED'}
 
 
 def admit(core_sha256, source_revision, cartridge_sha256):
@@ -159,25 +163,60 @@ def validate(rom, capture):
     return result
 
 
+def _prepare_output(output, inputs):
+    # Validate before invalidation: an unsafe destination must never be touched.
+    require_private_directory(output)
+    require(output.parent.is_dir(), 'output parent is not a directory')
+    require(not output.is_symlink(), 'output must not be a symlink')
+    if output.exists():
+        require(output.is_file(), 'output must be a regular file')
+    output_path = output.resolve()
+    for source in inputs:
+        require(output_path != source.resolve(), 'output would overwrite input')
+        if output.exists() and source.exists():
+            try:
+                same_file = os.path.samefile(output, source)
+            except OSError:
+                same_file = False
+            require(not same_file, 'output aliases input')
+    # Remove stale results before any evidence admission (including input privacy checks).
+    output.unlink(missing_ok=True)
+
+
+def _publish(output, result):
+    payload = json.dumps(result, indent=2) + '\n'
+    fd, temporary = tempfile.mkstemp(prefix='.' + output.name + '.', dir=output.parent)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(payload)
+        os.replace(temporary, output)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('rom', 'core', 'events', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
+    parser.add_argument('--allow-partial', action='store_true',
+                        help='return success for a valid partial trace while retaining its status')
     args = parser.parse_args(argv)
-    require_private_directory(args.events)
-    require_private_directory(args.output)
-    require(args.output.resolve() not in [p.resolve() for p in (args.rom, args.core, args.events)],
-            'output would overwrite input')
-    # Clear stale success before reading/admitting any new evidence.
-    args.output.write_text(json.dumps(dict(status='NOT_VERIFIED')) + '\n')
     try:
+        _prepare_output(args.output, (args.rom, args.core, args.events))
+    except (ValueError, OSError) as error:
+        print(f'unsafe output destination: {error}', file=sys.stderr)
+        return 1
+    try:
+        require_private_directory(args.events)
         require(digest(read_local(args.core, 64*1024*1024)) == DIAGNOSTIC, 'wrong diagnostic binary')
         result = validate(load_exact_rom(args.rom), json.loads(read_local(args.events, 16*1024*1024)))
     except (ValueError, KeyError, TypeError, OSError) as error:
-        args.output.write_text(json.dumps(dict(status='NOT_VERIFIED', error=str(error))) + '\n')
+        _publish(args.output, dict(status='NOT_VERIFIED', error=str(error)))
         return 1
-    args.output.write_text(json.dumps(result, indent=2) + '\n')
-    return 0
+    _publish(args.output, result)
+    status = result['status']
+    return 0 if status == 'EXECUTED_PATH_VERIFIED' or (args.allow_partial and status in PARTIAL_STATUSES) else 1
 
 
 if __name__ == '__main__':

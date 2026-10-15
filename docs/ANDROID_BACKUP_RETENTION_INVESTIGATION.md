@@ -1,6 +1,6 @@
 # Issue #194 — Android backup retention investigation
 
-Date: 2026-10-13. PR #188 stays **draft, unmerged, candidate unregistered**.
+Updated: 2026-10-14 (original LocalTransport investigation: 2026-10-13). PR #188 stays **draft, unmerged, candidate unregistered**.
 Issues #194, #186 and #12 stay open. All six owner policy decisions stay pending.
 
 ## Engineering ruling
@@ -15,23 +15,162 @@ Issues #194, #186 and #12 stay open. All six owner policy decisions stay pending
   admission and restore validation must remain strict.
 - **LOCAL RETENTION: FAIL.** Original failed evidence is preserved; new controls
   exclude restore consumption, explicit package clearing and token changes as causes.
-- **REAL CLOUD RETENTION: BLOCKED — ACCOUNT AUTHORIZATION.** No disposable Google account/configuration or
-  cloud execution has been separately authorized. LocalTransport and D2D test mode
-  do not answer this question.
+- **REAL CLOUD RETENTION: BLOCKED — FRESH-TARGET KEY RECOVERY.** Separately
+  authorized GMS backup succeeded with real encryption flag 1; independent TARGET
+  restore failed in GMS metadata decryption before the application ran. No usable
+  baseline exists; pre-/post-emission retention experiments remain NOT_RUN.
 - **DORMANT MERGE: HELD under the existing owner policy.** No new merge-blocking
   production defect was demonstrated here. A technical decision to merge dormant
   code can be made independently of transport activation, but requires explicit
   owner authorization to change the current draft/acceptance gate.
 - **ACTIVATION: HELD.** Prior usable remote data must survive refused and interrupted
   attempts; actual cloud/D2D, native compatibility and owner policy gates remain.
-- **REQUIRED OWNER ACTION:** Explicitly authorize and provision a separate disposable
-  Google account and fresh test environments, including account connection, backup
-  configuration and synthetic cloud operations. No personal account/device is needed.
-- **NEXT TASK:** Run the narrowly scoped real-GMS protocol below with that authorization.
-  If retention cannot be established, return for a backup-strategy decision before
-  implementing an alternative.
+- **AUTHORIZATION:** Dedicated disposable-account scope was separately authorized
+  on 2026-10-14; credentials and PINs were entered directly by the owner.
+- **NEXT TASK:** Establish a supported fresh-target GMS decryption-key recovery
+  flow and independently recover baseline A before testing either failure path.
+  A different device class or broader resets require a separate owner decision.
+
+## Authorized real-GMS execution — 2026-10-14
+
+**BASELINE BLOCKED: fresh-target decryption-key recovery.** Account authorization
+was separately received from the owner on 2026-10-14, covering a dedicated
+disposable account, connection/backup enablement, synthetic uploads/restores,
+intentional refused/partial-emission attempts including possible prior synthetic
+backup loss, and scoped cleanup. Existing accounts, physical devices, ordinary
+DualDex/production saves, account-wide wipes and broad transport resets remained
+excluded. The owner entered account credentials and PINs directly; identifiers and
+secrets are not included here. Account authorization is no longer the blocker.
+
+### Exact environment and provenance
+
+- Tested code/head: `dfd912667dbefd28f264c0955acfb5555a275c12`, clean worktree.
+  This follow-up changes documentation only; production and harness code are
+  unchanged. The earlier main integration/token-probe correction remains intact.
+- Official image: `system-images;android-34;google_apis_playstore;x86_64`, revision
+  14; API 34 / Android 14. Both fingerprints:
+  `google/sdk_gphone64_x86_64/emu64xa:14/UE1A.230829.036.A4/12096271:user/release-keys`.
+- Fresh separate SOURCE `dualdex194-gms34-source`, `emulator-5580`; TARGET
+  `dualdex194-gms34-target`, `emulator-5582`. Exact AVD/QEMU checks preceded mutations.
+  TARGET had no seeded/cached synthetic data; initial inspection and file checks
+  confirmed zero staged entries and both canonical batteries absent.
+- Active Google Play services: versionCode `263933032`, versionName
+  `26.39.33 (190800-995470952)` (updated from the image's 23.18.18).
+- Selected transport on both, verified before backup/restore:
+  `com.google.android.gms/.backup.BackupTransportService`. Backup Manager enabled;
+  `backup_enable_d2d_test_mode` and `backup_local_transport_parameters` unset.
+  No fake flags, D2D mode, LocalTransport selection, root/private GMS storage reads,
+  local-copy recovery substitute, `bmgr init`, or requested broad transport reset.
+- Identical installed test-only package `com.dualdex.backupacceptance`, version 1,
+  observer/instrumentation, `fullBackupOnly=true`, `allowBackup=true`. Both installed
+  APK hashes verified: `1e5cebbf46664a71141cfae93c5b70bad8d44aa78e9448231736287aa457a843`.
+  Public signing-certificate SHA-256:
+  `1503d5f647425370597bb78194528f49b3a34c0cbc421b0e9617071cce2587a9`.
+- A Google Play API 29 image (revision 9) and separate source/target AVDs were also
+  prepared. No account or cloud experiment ran there. Android 9–11 comparison is
+  **NOT_RUN**; do not extrapolate API 34 upload or restore results to it.
+
+### Bounded baseline preparation and attempt A
+
+| Step / expected result | Actual callback / framework / transport evidence | Package / aggregate result | Classification |
+| --- | --- | --- | --- |
+| Valid synthetic seed before secure-lock setup; expect encrypted baseline | `onCreate` → `onFullBackup flags=0 quota=26214400 call=1` → IOException `Transport not verified`; no emitted app files, no restore sets | Package rejected / aggregate Success | BLOCKED: client-side encryption prerequisite; not a retention test |
+| After owner set PINs; expect encrypted baseline | Both `secure=true`; GMS reports secondary key not synced; framework stops during `@pm@` metadata backup; no app callbacks | Acceptance package NOT_RUN; `@pm@` Transport error / aggregate Transport error | BLOCKED: key synchronization; missing package result correctly rejected by parser |
+| After verified owner unlock; expect key sync / usable backup | GMS moves past missing-key error, then logs `Crypto conflict, requesting re-init`, `Found non-Folsom (unwrapped) keys in DB`, `Removing all backup records`, `Starting new backup session` | Acceptance package NOT_RUN; `@pm@` Transport error / aggregate Transport error | BLOCKED: GMS metadata transition; its internal behavior observed, no initialization/reset command issued |
+| One valid retry after GMS's new-session event; expect cloud acceptance | SOURCE `onCreate` → measurement `onFullBackup flags=1 quota=26214400 call=1` returned → streaming `call=2`, same flags/quota, returned; 794,112 bytes reported transferred | Package Success / aggregate Success; command exit 0 | PASS for scoped GMS backup acceptance only; usable remote baseline still requires TARGET recovery |
+| Separate untouched TARGET restores observed SOURCE token; expect all eight staged path/hashes and no canonical writes | `restoreStarting: 1 packages`; monitor `PM_AGENT_HAS_NO_METADATA` for `@pm@`; `restoreFinished: -1000`; zero app restore callbacks | No application package result; aggregate restore -1000; shell exit 0 | BLOCKED baseline: no application data recovered; **not a retention FAIL** |
+
+The actual SOURCE dataset token `386db8add52d6f95` was the sole listed token on
+both environments after accepted backup. It was selected explicitly on TARGET:
+
+```bash
+adb -s emulator-5582 shell bmgr restore 386db8add52d6f95   com.dualdex.backupacceptance --monitor
+```
+
+TARGET GMS attempted encrypted `@pm@` recovery but logged `Could not retrieve key`
+and `java.security.UnrecoverableKeyException: Key not found` for the source's
+Folsom recovery key. Framework then refused restore without package metadata.
+No `onRestoreFile`/`onRestoreFinished` from the application occurred. Both API 34
+installations lack `com.google.android.setupwizard` (including uninstalled
+package listing), and GMS additionally logged unknown authority
+`com.google.android.setupwizard.partner`. These observations establish the
+missing-key restore blocker; they do **not** prove that the absent setup wizard is
+its sole cause or that every GMS emulator fails. No supported source-key recovery
+flow was established on this image. No private recovery API, key copying,
+setup-wizard sideload, provisioning-flag change or integrity bypass was attempted.
+
+### Complete baseline path/hash comparison
+
+These are selected SOURCE hashes for the accepted attempt. TARGET inspection after
+the failed restore returned **zero** staged entries; both synthetic identities'
+canonical batteries remained absent. Every expected entry is missing:
+
+| Exact selected relative path | Expected SHA-256 | TARGET recovered |
+| --- | --- | --- |
+| `saves_v2/1111111111111111111111111111111111111111111111111111111111111111/battery.sav` | `aaf6a8ab7f17b35353821ff0e7bf75abc68f963b2db36c3a1ddb27e382037c89` | missing |
+| `saves_v2/1111111111111111111111111111111111111111111111111111111111111111/metadata.json` | `efe24b762dfe647c93d50150ac5a1535aa454ee01f5350ada1cd39d9a924b5b7` | missing |
+| `saves_v2/1111111111111111111111111111111111111111111111111111111111111111/slot_1.png` | `039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81` | missing |
+| `saves_v2/1111111111111111111111111111111111111111111111111111111111111111/slot_1.state` | `89cc4aac7a40201f83493c2e208705c1c049f9041c5815a8c2a270b0b7d642e2` | missing |
+| `saves_v2/2222222222222222222222222222222222222222222222222222222222222222/battery.sav` | `d693d44d8478475adfae30336c111ec5bc69f61ea934b46d66857c1b3ea81607` | missing |
+| `saves_v2/2222222222222222222222222222222222222222222222222222222222222222/metadata.json` | `317bf9b0aec6e5b7a4edbc4b9efb229a27283c4f66055513fd689d0b55e7f859` | missing |
+| `saves_v2/2222222222222222222222222222222222222222222222222222222222222222/slot_1.png` | `039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81` | missing |
+| `saves_v2/2222222222222222222222222222222222222222222222222222222222222222/slot_1.state` | `89cc4aac7a40201f83493c2e208705c1c049f9041c5815a8c2a270b0b7d642e2` | missing |
+
+This empty recovery is baseline failure/blockage, not evidence about preservation
+after a newer failed backup. It occurred **before** either failure experiment.
+**Experiment B (pre-emission retention): NOT_RUN, baseline prerequisite BLOCKED.**
+**Experiment C (partial-emission retention): NOT_RUN, baseline prerequisite BLOCKED.**
+The two-call sequence is now observed on GMS, but the existing test-only emission
+injection did not run and has no GMS retention result. No malformed-metadata or
+partial-emission fixture was seeded in this real-cloud phase. No retries after a
+conclusive retention failure occurred; no such retention experiment was admissible.
+
+### Cleanup, decisions and evidence
+
+After preserving reports, authorized cleanup issued **only**
+`bmgr wipe com.google.android.gms/.backup.BackupTransportService com.dualdex.backupacceptance`.
+Framework recorded `clearBackupData()` for that exact package/transport. Server-side
+physical erasure was not independently verified. No account-wide wipe or transport
+initialization/reset was requested. Only the test package was uninstalled from
+both AVDs, absence verified, both test emulators stopped, and the four task-owned
+`/tmp` AVD userdata directories removed. SDK images and private evidence remain;
+no account identifier, credential, PIN, raw backup or binary fixture is committed.
+
+**Application defect:** None demonstrated; encrypted target restore stopped before
+DualDex ran. **LocalTransport findings:** unchanged, both original retention FAIL.
+**Dormant merge:** Held under owner policy, independently of this blocker; ordinary
+save ordering, parent-directory fsync and Saves review UI retain their earlier
+scoped evidence and native/lifecycle/abrupt-power-loss limits below.
+**Activation:** Held; successful upload is not recoverable-baseline or retention
+proof. Issues #194/#186/#12 remain open; #188 draft/unmerged, auto-merge disabled,
+ordinary candidate unregistered. Existing owner policy choices remain pending.
+
+**Next bounded task:** Establish a supported fresh-target Google cloud key-recovery
+flow that can recover this package's complete baseline before any failure test.
+Use environments inside the authorized disposable-emulator scope; another device
+class, account-wide reset or broad transport reinitialization requires a separate
+owner decision. If supported GMS cannot meet prior-usable-backup preservation,
+return for a separately approved versioned-recovery design; do not weaken it.
+
+Private evidence: `/tmp/dualdex-gms-194-authorized/api34-A-new-session` (accepted
+backup / failed recovery), with separately preserved no-lock, key-sync and
+metadata-transition attempts in `api34-A`, `api34-A-encrypted`, `api34-A-post-unlock`.
+These device results belong to tested code `dfd9126`; subsequent documentation-head
+local/hosted validation is recorded separately in the final issue/PR handoff.
+
+| Private evidence file | SHA-256 |
+| --- | --- |
+| `baseline-recovery-comparison.json` | `682829df16354e67aac3b8f5ed1f7ee71ae861ededbc89151d9737cd163323ac` |
+| `baseline-backup.txt` | `dd448f6dadd4b3da5caa5c1418765383495e155de5eb005d6d28490c26dfc247` |
+| `baseline-restore.txt` | `ddfe7b55ee3816ffd77983cfdcee79b63d251916b46ceda22c0dea9be501ac26` |
+| `source-callbacks.log` | `49dc9da222ff6977b6777919bae636ad91104800cec46f7aa22eb07a1ce1a990` |
+| `target-callbacks.log` | `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855` |
+| `target-restore-diagnostics.log` | `f4cb10a6c7bc10ec50471f0a45e72cd42bc2584a3221a4c39d2f327ef9bd8f82` |
+| `expected-path-hashes.json` | `2a89f24a5acc1e35108ade0375881ad9da84da13751d98786cb2c22c9b070283` |
 
 ## Real-GMS preparation checkpoint — 2026-10-13 (issue #194)
+
+Historical checkpoint; superseded by the authorized execution above.
 
 **BLOCKED: ACCOUNT AUTHORIZATION.** No separate owner authorization or dedicated
 Google account was supplied. No account was connected, backup setting changed,

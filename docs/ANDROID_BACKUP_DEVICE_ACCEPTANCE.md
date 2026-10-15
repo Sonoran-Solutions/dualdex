@@ -1,6 +1,6 @@
 # Android backup device acceptance — PR #188
 
-Date: 2026-10-13. **HOLD: draft, unmerged, candidate inactive.**
+Updated: 2026-10-14. **HOLD: draft, unmerged, candidate inactive.**
 
 Reviewed starting head: `b8a6ca9c73ed6b8e36918b4d8407f0dd5008e7ee`.
 PR base at task start: `5148bf28dc08cdd0f093a9741f420f6f24ca313a`.
@@ -8,7 +8,51 @@ The final PR head and exact-head CI are recorded in the PR handoff. Device APK
 provenance is recorded separately below; documentation-only commits do not change
 an already tested APK. Issues #186 and #12 remain open.
 
+## Authorized real-GMS result — 2026-10-14
+
+**BLOCKED: fresh-target decryption-key recovery.** The owner separately authorized
+and performed disposable-account sign-in, backup configuration and secure-lock
+setup. On clean tested head `dfd9126`, fresh API 34 Google Play SOURCE/TARGET
+selected `com.google.android.gms/.backup.BackupTransportService`; active GMS was
+26.39.33 (190800-995470952). Fake LocalTransport settings and D2D mode were unset.
+
+SOURCE backup was accepted with real flags **1**, quota **26,214,400**, observed
+measurement + streaming callbacks on the same agent and package/aggregate
+**Success**. Observed source dataset token: `386db8add52d6f95`, listed on both AVDs.
+The separate untouched TARGET's package-scoped restore returned **-1000** after
+GMS could not retrieve the source Folsom decryption key for `@pm@`. No DualDex
+restore callback ran; all eight expected path/hashes were missing, zero entries
+were staged and both canonical batteries remained absent. The image also lacks
+Google Setup Wizard; no supported key-recovery flow was established. Neither
+agent rejection of the test package nor a DualDex restore defect was demonstrated.
+
+**Usable baseline A: BLOCKED. Pre-emission retention B: NOT_RUN. Post-emission
+retention C: NOT_RUN.** No deliberate malformed metadata or emission fault was
+seeded in the real-GMS phase. Successful upload is not remote recoverability or
+retention proof. Android 9–11 cloud comparison remains NOT_RUN (API 29 image/AVDs
+prepared, no account/cloud test there). Existing LocalTransport FAIL is unchanged.
+
+[Exact environment, bounded setup attempts, callbacks, package/aggregate statuses,
+all eight path/digests, restore diagnostics, cleanup and private evidence hashes](ANDROID_BACKUP_RETENTION_INVESTIGATION.md#authorized-real-gms-execution--2026-10-14)
+are recorded in the investigation. APK/signing identity remains the previously
+built/validated candidate; this follow-up changes documentation only. New final
+head validation is distinguished in the PR/issue handoff from tested `dfd9126`.
+
+Authorized cleanup requested a package-only GMS wipe (framework `clearBackupData`
+observed; remote physical erasure not independently verified), uninstalled only
+`com.dualdex.backupacceptance`, verified absence, stopped the two AVDs and removed
+only the four task-owned temporary userdata directories. No broad reset, account
+identifier, credential, private transport-storage access or production change.
+
+Dormant merge and activation stay **Held** for their independent owner/safety
+gates; active save ordering, directory fsync and Saves UI retain prior scoped
+native/lifecycle/durability limits. PR stays draft/unmerged, auto-merge disabled,
+ordinary agent unregistered; #194/#186/#12 stay open. Next: establish supported
+fresh-target GMS key recovery and complete baseline A inside authorized scope.
+
 ## Real-GMS checkpoint — issue #194, 2026-10-13
+
+Historical checkpoint; account authorization was subsequently granted as above.
 
 **BLOCKED: ACCOUNT AUTHORIZATION.** Pre-emission and post-emission real-GMS
 retention are both BLOCKED; no baseline, Android version, selected cloud transport,

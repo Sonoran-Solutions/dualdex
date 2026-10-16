@@ -14,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
@@ -34,11 +35,54 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Core mutation, stepFrame and the protected memory readers must still be mutually exclusive.
  */
 class LibretroCoreCoordinatorLockTest {
+    @Test fun loadedRomBindingRequiresAuthorizedSuccessfulLoadAndTracksGeneration() {
+        val bridge = object : LibretroCoreBridge {
+            var succeeds = true
+            override fun loadRom(romPath: String) = succeeds
+            override fun loadState(statePath: String) = true
+            override fun loadSaveRam(savePath: String) = true
+        }
+        val core = LibretroCoreCoordinator(bridge)
+        val identityA = RomIdentity("a".repeat(64), "Synthetic A")
+
+        assertEquals(LoadedRomStatus.UNLOADED, core.loadedRomSnapshot().status)
+        assertTrue(core.loadRom("unbound.gba"))
+        assertEquals(LoadedRomStatus.UNBOUND, core.loadedRomSnapshot().status)
+        assertNull(core.loadedRomSnapshot().sha256)
+
+        assertTrue(core.loadVerifiedRom("verified-a.gba", identityA))
+        val loaded = core.loadedRomSnapshot()
+        assertEquals(LoadedRomStatus.BOUND, loaded.status)
+        assertEquals(identityA.sha256, loaded.sha256)
+
+        core.loadState("synthetic.state")
+        val afterState = core.loadedRomSnapshot()
+        assertEquals(identityA.sha256, afterState.sha256)
+        assertTrue(afterState.coreGeneration > loaded.coreGeneration)
+        core.loadSaveRam("synthetic.sav")
+        core.resetCore()
+        assertEquals(identityA.sha256, core.loadedRomSnapshot().sha256)
+
+        bridge.succeeds = false
+        assertFalse(core.loadVerifiedRom("failed-b.gba", RomIdentity("b".repeat(64), "Synthetic B")))
+        assertEquals(LoadedRomStatus.UNLOADED, core.loadedRomSnapshot().status)
+        assertNull(core.loadedRomSnapshot().sha256)
+
+        bridge.succeeds = true
+        assertTrue(core.loadVerifiedRom("verified-a.gba", identityA))
+        core.unloadRom()
+        assertEquals(LoadedRomStatus.UNLOADED, core.loadedRomSnapshot().status)
+        assertTrue(core.loadVerifiedRom("verified-a.gba", identityA))
+        core.cleanup()
+        assertEquals(LoadedRomStatus.UNLOADED, core.loadedRomSnapshot().status)
+    }
+
     @Test fun `only successfully completed core frames advance the input clock`() {
         var advances = false
         val coordinator = LibretroCoreCoordinator(bridge = object : LibretroCoreBridge {
             override fun stepFrame() = advances
         })
+        assertTrue(coordinator.loadRom("synthetic.gba"))
         assertFalse(coordinator.stepFrame())
         assertEquals(0L, coordinator.completedFrames)
         advances = true
@@ -51,6 +95,7 @@ class LibretroCoreCoordinatorLockTest {
 
     @Test fun completedFrameFlowWakesWaitersWithoutPollingAndChecksPauseAndCoreSwap() = runBlocking {
         val core = LibretroCoreCoordinator(object : LibretroCoreBridge { override fun stepFrame() = true })
+        assertTrue(core.loadRom("synthetic.gba"))
         core.emulationRunning = true
         var current = core
         val dispatcher = DefaultBattleInputDispatcher { current }
@@ -118,6 +163,7 @@ class LibretroCoreCoordinatorLockTest {
                     held = buttonMask
                 }
             }
+            assertTrue(core.loadRom("synthetic.gba"))
             core.emulationRunning = true
             val saves = SaveStateManager(customBaseDir = dir, customCoordinator = core)
             val identity = RomIdentity("a".repeat(64), "Synthetic")
@@ -237,6 +283,8 @@ class LibretroCoreCoordinatorLockTest {
         ControllerInputRouter.reset()
         try {
             val core = EdgeWriteCore()
+            assertTrue(core.loadRom("synthetic.gba"))
+            core.attempts.clear()
             core.advanceOnTimeout = true
             core.failure = { mask, attempt ->
                 if (mask == InputManager.BTN_A && attempt <= 2)
@@ -290,6 +338,8 @@ class LibretroCoreCoordinatorLockTest {
         ControllerInputRouter.reset()
         try {
             val core = EdgeWriteCore()
+            assertTrue(core.loadRom("synthetic.gba"))
+            core.attempts.clear()
             core.failure = { mask, _ ->
                 if (mask != 0) LibretroCoreCoordinator.LockTimeoutException("Synthetic lock timeout") else null
             }
@@ -312,6 +362,8 @@ class LibretroCoreCoordinatorLockTest {
         ControllerInputRouter.reset()
         try {
             val core = EdgeWriteCore()
+            assertTrue(core.loadRom("synthetic.gba"))
+            core.attempts.clear()
             core.failure = { mask, _ ->
                 if (mask == 0) LibretroCoreCoordinator.LockTimeoutException("Synthetic lock timeout") else null
             }
@@ -438,6 +490,7 @@ class LibretroCoreCoordinatorLockTest {
         val overlapping = AtomicBoolean(false)
         val bridge = OverlapDetectingBridge(inMutation, overlapping)
         coordinator.bridge = bridge
+        assertTrue(coordinator.loadRom("synthetic.gba"))
 
         val iterations = 200
         // Makes the mutation hold the lock long enough to be hit by a concurrent stepFrame.

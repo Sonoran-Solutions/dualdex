@@ -4,6 +4,8 @@ import com.dualdex.emulator.ControllerInputRouter
 import com.dualdex.emulator.InputManager
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.emulator.bindSyntheticRom
+import com.dualdex.emulator.syntheticRomBridge
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
@@ -99,7 +101,7 @@ class BattleInputAdapterTest {
     @Test fun pollerPassesPackedCursorsAndMacroReaderDoesNotUseItsCache() = runBlocking {
         var nativeCode: Int? = 2 or (1 shl 4) or (2 shl 8) or (4 shl 12) or (1 shl 16)
         var reads = 0
-        val core = object : LibretroCoreCoordinator() {
+        val core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
             override fun readBattleUiState(gameId: Int): Int? { reads++; return nativeCode }
             override fun readBattlePresence(gameId: Int) = 1
             override fun setInputButtons(buttonMask: Int) = Unit
@@ -113,6 +115,7 @@ class BattleInputAdapterTest {
         )
         val vm = CompanionViewModel(coreCoordinator = core)
         vm.setRomSession(RomCompatibility.verified(profile, hash), RomIdentity(hash, "H&S test"))
+        bindSyntheticRom(core, RomIdentity(hash, "H&S test"))
         vm.setInteractiveBattleControlsEnabled(true)
         vm.pollTick()
         vm.pollTick()

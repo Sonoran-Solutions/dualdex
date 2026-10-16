@@ -131,6 +131,7 @@ open class RomSessionManager(
         onEmulationResume: (() -> Unit)? = null
     ): SwitchResult = withContext(Dispatchers.IO) {
         sessionMutex.withLock {
+            var coreMutationStarted = false
             try {
                 // 1. Prepare new ROM in cache before touching running session
                 val tmpIncoming = File(romCacheDir, "incoming_${System.currentTimeMillis()}.tmp")
@@ -292,7 +293,9 @@ open class RomSessionManager(
                 val gameTitle = preferredTitle ?: profile.name.ifEmpty { "current_game" }
                 val newIdentity = RomIdentity.fromFile(cachedRomFile, gameTitle)
 
-                if (!newIdentity.isValid) {
+                if (!newIdentity.isValid || !newIdentity.sha256.equals(finalHash, ignoreCase = true) ||
+                    !detection.sha256.equals(finalHash, ignoreCase = true)
+                ) {
                     return@withLock SwitchResult.Failure("Computed invalid ROM identity for ${cachedRomFile.name}")
                 }
 
@@ -319,10 +322,11 @@ open class RomSessionManager(
                             saveStateManager.saveAutoResume(oldIdentity)
                         }
 
+                        coreMutationStarted = true
                         coreCoordinator.unloadRom()
                         coreCoordinator.clearAudio()
 
-                        val ok = coreCoordinator.loadRom(cachedRomFile.absolutePath)
+                        val ok = coreCoordinator.loadVerifiedRom(cachedRomFile.absolutePath, newIdentity)
                         if (!ok) {
                             Log.e(TAG, "Core failed to load ROM: ${cachedRomFile.absolutePath}")
                             coreCoordinator.unloadRom()
@@ -382,6 +386,13 @@ open class RomSessionManager(
                 return@withLock SwitchResult.Success(newIdentity, profile)
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected exception during ROM switch: ${e.message}", e)
+                // An exception before unload leaves the old core/session intact. Once the
+                // transaction started mutating the core, never keep UI identity claiming it.
+                if (coreMutationStarted) {
+                    saveStateManager.activeIdentity = null
+                    viewModel?.clearRomSession()
+                    viewModel?.stopPolling()
+                }
                 return@withLock SwitchResult.Failure(
                     reason = "Exception during ROM switch: ${e.message}",
                     isAccessError = false,

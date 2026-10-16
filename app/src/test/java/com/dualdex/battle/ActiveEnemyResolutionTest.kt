@@ -3,6 +3,8 @@ package com.dualdex.battle
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.emulator.bindSyntheticRom
+import com.dualdex.emulator.syntheticRomBridge
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.romhack.ProfileMatchMethod
@@ -211,7 +213,7 @@ class ActiveEnemyResolutionTest {
         var resolution: ActiveEnemyResolution,
         private val enemies: Array<ParsedPokemon>,
         private val inBattle: Boolean
-    ) : LibretroCoreCoordinator() {
+    ) : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
         var resolveCalls = 0
         override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = arrayOf()
         override fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = enemies
@@ -229,6 +231,7 @@ class ActiveEnemyResolutionTest {
             RomCompatibility.verified(fireRedProfile, fireRedSha),
             RomIdentity(fireRedSha, "Pokemon FireRed")
         )
+        bindSyntheticRom(coordinator, RomIdentity(fireRedSha, "Pokemon FireRed"))
         return vm
     }
 

@@ -114,7 +114,8 @@ open class LibretroCoreCoordinator(
      * Supports reentrant execution on the same thread without self-deadlock.
      */
     open fun <T> executeExclusive(timeoutMs: Long = 5000L, block: () -> T): T {
-        val diag = FastForwardDiagnostics.enabled
+        // Nested reader holds overlap their enclosing poll; measure the outer transaction once.
+        val diag = FastForwardDiagnostics.enabled && !lock.isHeldByCurrentThread
         val waitStart = if (diag) SystemClock.elapsedRealtimeNanos() else 0L
         val acquired = if (timeoutMs > 0) {
             lock.tryLock(timeoutMs, TimeUnit.MILLISECONDS)

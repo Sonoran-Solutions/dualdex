@@ -35,6 +35,28 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Core mutation, stepFrame and the protected memory readers must still be mutually exclusive.
  */
 class LibretroCoreCoordinatorLockTest {
+    @Test fun diagnosticHoldCountsOnlyTheOutermostTransaction() {
+        val counter = FastForwardDiagnostics::class.java.getDeclaredField("companionReads").apply {
+            isAccessible = true
+        }
+        val previousCount = counter.getLong(FastForwardDiagnostics)
+        val previousEnabled = FastForwardDiagnostics.enabled
+        try {
+            counter.setLong(FastForwardDiagnostics, 0L)
+            FastForwardDiagnostics.enabled = true
+            val core = LibretroCoreCoordinator(bridge = syntheticRomBridge())
+            core.executeExclusive {
+                core.loadedRomSnapshot()
+                core.executeExclusive { }
+            }
+            // Before the fix this was 3: nested holds overlapped the complete outer hold.
+            assertEquals(1L, counter.getLong(FastForwardDiagnostics))
+        } finally {
+            FastForwardDiagnostics.enabled = previousEnabled
+            counter.setLong(FastForwardDiagnostics, previousCount)
+        }
+    }
+
     @Test fun loadedRomBindingRequiresAuthorizedSuccessfulLoadAndTracksGeneration() {
         val bridge = object : LibretroCoreBridge {
             var succeeds = true

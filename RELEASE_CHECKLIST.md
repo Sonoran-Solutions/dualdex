@@ -384,6 +384,7 @@ Should define:
 
 ### Android Backups
 
+- [ ] Do not enable quota-aware cloud backup until issue #186 restore staging, review UI, owner decisions, and disposable transport validation are complete. No quota-aware agent is registered in normal builds.
 - [x] Keep `android:allowBackup` enabled and define explicit save-only allowlists for cloud backup and device transfer.
 - [x] Add Android 12+ `dataExtractionRules` and Android 11-and-earlier `fullBackupContent` rules.
 - [x] Exclude ROM caches/copies, sensitive preferences, debug data, generated caches, and dedicated save staging.
@@ -655,6 +656,7 @@ The static audit produced GitHub issues **#1–#19**. Work through the following
 12. [ ] **#14 — Implement the controller shortcuts currently advertised by DualDex.**
 13. [ ] **#6 — Persist direct-ROM URI permissions and recover cleanly from stale URIs.**
 14. [ ] **#12 — Define Android backup/data-transfer policy for ROM cache and saves.** The policy and host regressions are implemented, and safe same-signer AYN Thor update, save-integrity, ROM-load, companion, and installed-rule checks passed on 2026-10-12. Keep this open until disposable cloud/device-transfer restore validation is complete; details are in [ANDROID_BACKUP_POLICY.md](docs/ANDROID_BACKUP_POLICY.md). Gemini credential and Assistant disclosure work is retired after the feature removal.
+   - Quota-aware candidate PR #188 remains draft and its BackupAgent is not registered. Review fixes cover explicit D2D file traversal, shared D2D/restore path policy, separate large D2D staging bounds, cloud archive ownership semantics, and final source-set revalidation. Staged per-file review/import and conflict-safe atomic commits now have implementation and host regressions. Device verification of this workflow and atomic storage behavior, disposable API 28–34 transport tests, and owner acceptance remain activation blockers.
 15. [x] **#13 — Retire the Assistant fallback from the app build.** Its source is retained under `disabled/assistant/`; the project decided not to use it for now.
 
 ### Tier 4 — Cleanup and Regression Prevention

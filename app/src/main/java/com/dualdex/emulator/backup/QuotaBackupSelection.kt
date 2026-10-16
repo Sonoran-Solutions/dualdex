@@ -1,13 +1,17 @@
-package com.dualdex.emulator
+package com.dualdex.emulator.backup
 
 import java.security.MessageDigest
 import java.io.File
 
-/** Host-only design prototype. It has no Android or filesystem access. */
+/** Deterministic, bounded selection and routing rules shared by inventory, archive, and restore code. */
 object QuotaBackupSelection {
     const val MAX_PAYLOAD_BYTES = 20L * 1024 * 1024
     const val CONTAINER_RESERVE_BYTES = 256L * 1024
     const val DEFAULT_BUDGET_BYTES = MAX_PAYLOAD_BYTES - CONTAINER_RESERVE_BYTES
+    const val MAX_ENTRIES = 1024
+    const val MAX_MANIFEST_BYTES = 1024L * 1024
+    const val MAX_PATH_CHARS = 1024
+    const val MAX_ENTRY_BYTES = MAX_PAYLOAD_BYTES
 
     enum class Category { CANONICAL_BATTERY, SAVE_METADATA, VERIFIED_RECOVERY_BATTERY, VERIFIED_LEGACY_BATTERY, STATE, THUMBNAIL }
     enum class Verdict { SUCCESS, PARTIAL, REFUSAL }
@@ -51,6 +55,22 @@ object QuotaBackupSelection {
         val targetFileName: String
     )
 
+
+    fun checkedTotalBytes(sizes: Iterable<Long>): Long? = sumChecked(sizes)
+
+    fun isPortableLegacyPath(path: String): Boolean = isApprovedLegacySavePath(path)
+
+    fun isAllowedSourcePath(appFilesRoot: String, sourceFilePath: String, expectedRelativePath: String): Boolean {
+        val relative = relativePathUnder(appFilesRoot, sourceFilePath) ?: return false
+        if (relative != expectedRelativePath) return false
+        return when {
+            relative.startsWith("saves_v2/") -> relative.split('/').size >= 3
+            relative.startsWith("saves/") || relative.startsWith("saves_fallback/") ->
+                isApprovedLegacySavePath(relative) || relative.endsWith(".state", ignoreCase = true)
+            else -> false
+        }
+    }
+
     fun portableLegacyBinding(
         appFilesRoot: String,
         sourceFilePath: String,
@@ -58,9 +78,13 @@ object QuotaBackupSelection {
         romSha256: String,
         targetFileName: String
     ): PortableLegacyBinding? {
+        val source = File(sourceFilePath)
         val archiveEntry = relativePathUnder(appFilesRoot, sourceFilePath) ?: return null
-        if (!validSha(contentSha256) || !validSha(romSha256) || !safeTargetName(targetFileName)) return null
-        return PortableLegacyBinding(archiveEntry, contentSha256.lowercase(), romSha256.lowercase(), targetFileName)
+        if (!isApprovedLegacySavePath(archiveEntry) || !validSha(contentSha256) || !validSha(romSha256) ||
+            !safeTargetName(targetFileName) || !source.isFile || source.length() !in 1..MAX_ENTRY_BYTES) return null
+        val actualDigest = hashFileBounded(source) ?: return null
+        if (!actualDigest.equals(contentSha256, ignoreCase = true)) return null
+        return PortableLegacyBinding(archiveEntry, actualDigest, romSha256.lowercase(), targetFileName)
     }
 
     fun portableLegacyDestination(
@@ -69,17 +93,23 @@ object QuotaBackupSelection {
         restoredFilePath: String,
         restoredContentSha256: String
     ): String? {
+        val restoredFile = File(restoredFilePath)
         val restoredArchiveEntry = relativePathUnder(appFilesRoot, restoredFilePath) ?: return null
-        if (!safeRelativePath(binding.archiveEntry) || binding.archiveEntry != restoredArchiveEntry ||
-            !validSha(binding.contentSha256) || !binding.contentSha256.equals(restoredContentSha256, ignoreCase = true) ||
-            !validSha(binding.romSha256) || !safeTargetName(binding.targetFileName)) return null
+        val actualDigest = hashFileBounded(restoredFile) ?: return null
+        if (!isApprovedLegacySavePath(binding.archiveEntry) || !isApprovedLegacySavePath(restoredArchiveEntry) ||
+            binding.archiveEntry != restoredArchiveEntry || !validSha(binding.contentSha256) ||
+            !binding.contentSha256.equals(restoredContentSha256, ignoreCase = true) ||
+            !binding.contentSha256.equals(actualDigest, ignoreCase = true) || !validSha(binding.romSha256) ||
+            !safeTargetName(binding.targetFileName)) return null
         return "saves_v2/${binding.romSha256.lowercase()}/${binding.targetFileName}"
     }
 
     fun budgetFor(reportedQuotaBytes: Long?): Long {
-        val usableQuota = reportedQuotaBytes?.takeIf { it > 0 }?.let { quota ->
-            quota / 5 * 4 + quota % 5 * 4 / 5
-        } ?: MAX_PAYLOAD_BYTES
+        val usableQuota = when {
+            reportedQuotaBytes == null -> MAX_PAYLOAD_BYTES
+            reportedQuotaBytes <= 0 -> return 0
+            else -> reportedQuotaBytes / 5 * 4 + reportedQuotaBytes % 5 * 4 / 5
+        }
         return (minOf(MAX_PAYLOAD_BYTES, usableQuota) - CONTAINER_RESERVE_BYTES).coerceAtLeast(0)
     }
 
@@ -140,8 +170,16 @@ object QuotaBackupSelection {
     ): Result {
         require(budgetBytes >= 0) { "budget must not be negative" }
         val exclusions = linkedMapOf<Candidate, String>()
+        if (candidates.size > MAX_ENTRIES || expectedRomIdentities.size > MAX_ENTRIES || budgetBytes > MAX_PAYLOAD_BYTES) {
+            return Result(emptyList(), emptyMap(), 0, emptySet(), expectedRomIdentities.toSortedSet(),
+                emptySet(), false, false, false, Verdict.REFUSAL)
+        }
         val unassignable = linkedSetOf<String>()
         val discovered = expectedRomIdentities.map(String::lowercase).toMutableSet()
+        if (discovered.isEmpty() && candidates.isEmpty()) {
+            return Result(emptyList(), emptyMap(), 0, emptySet(), emptySet(), emptySet(), inventoryComplete,
+                false, false, Verdict.REFUSAL)
+        }
         candidates.forEach { candidate ->
             canonicalDirectoryIdentity(candidate)?.let(discovered::add)
             if (candidate.category in setOf(Category.VERIFIED_RECOVERY_BATTERY, Category.VERIFIED_LEGACY_BATTERY) &&
@@ -156,7 +194,9 @@ object QuotaBackupSelection {
             val reason = invalidReason(candidate, discovered)
             if (reason != null) {
                 exclusions[candidate] = reason
-                if (isSaveSource(candidate)) unassignable += candidate.relativePath
+                if (isSaveSource(candidate) && reason !in setOf("invalid file size", "integrity check failed")) {
+                    unassignable += candidate.relativePath
+                }
             }
             reason == null
         }
@@ -202,25 +242,30 @@ object QuotaBackupSelection {
             }
         }
 
-        val essentialBytes = essentials.values.flatten().sumOf { it.sizeBytes }
+        val essentialBytes = sumChecked(essentials.values.flatten().map { it.sizeBytes })
         val essentialsComplete = discovered.all { it in essentials } && unassignable.isEmpty()
-        if (!inventoryComplete || !essentialsComplete || essentialBytes > budgetBytes) {
+        val essentialOverBudget = essentialBytes?.let { it > budgetBytes } ?: true
+        if (!inventoryComplete || !essentialsComplete || essentialOverBudget) {
             unique.filter { it !in essentials.values.flatten() }.forEach {
                 exclusions.putIfAbsent(it, "essential coverage refused")
             }
             essentials.values.flatten().forEach { exclusions[it] = "essential collection refused as a whole" }
             return Result(
                 emptyList(), exclusions, 0, emptySet(), discovered.toSortedSet(),
-                unassignable.toSortedSet(), inventoryComplete, false, essentialBytes > budgetBytes, Verdict.REFUSAL
+                unassignable.toSortedSet(), inventoryComplete, false, essentialOverBudget, Verdict.REFUSAL
             )
         }
 
+        val requiredBytes = essentialBytes ?: return Result(
+            emptyList(), exclusions, 0, emptySet(), discovered.toSortedSet(), unassignable.toSortedSet(),
+            inventoryComplete, false, true, Verdict.REFUSAL
+        )
         val selected = essentials.values.flatten().toMutableList()
-        var remaining = budgetBytes - essentialBytes
+        var remaining = budgetBytes - requiredBytes
         val optional = unique.asSequence().filter { it !in selected }
             .sortedWith(compareBy<Candidate>({ it.category.ordinal }, { it.romSha256.lowercase() }, { it.relativePath }, { it.modifiedAtMillis }))
         for (candidate in optional) {
-            if (candidate.sizeBytes <= remaining) {
+            if (candidate.sizeBytes <= remaining && checkedAdd(selectedBytes(selected), candidate.sizeBytes) != null) {
                 selected += candidate
                 remaining -= candidate.sizeBytes
             } else {
@@ -228,7 +273,10 @@ object QuotaBackupSelection {
             }
         }
         val selectedSorted = selected.distinct().sortedWith(candidateOrder)
-        val bytes = selectedSorted.sumOf { it.sizeBytes }
+        val bytes = sumChecked(selectedSorted.map { it.sizeBytes }) ?: return Result(
+            emptyList(), exclusions, 0, emptySet(), discovered.toSortedSet(), unassignable.toSortedSet(),
+            inventoryComplete, false, true, Verdict.REFUSAL
+        )
         val optionalOmitted = selectedSorted.size < unique.size || exclusions.isNotEmpty()
         return Result(
             selectedSorted, exclusions, bytes, essentials.keys.toSortedSet(), emptySet(), emptySet(), true,
@@ -245,8 +293,8 @@ object QuotaBackupSelection {
     }
 
     private fun isSaveSource(candidate: Candidate): Boolean = candidate.category in setOf(
-        Category.CANONICAL_BATTERY, Category.VERIFIED_RECOVERY_BATTERY, Category.VERIFIED_LEGACY_BATTERY
-    ) || candidate.relativePath.endsWith(".sav", ignoreCase = true)
+        Category.CANONICAL_BATTERY, Category.VERIFIED_RECOVERY_BATTERY, Category.VERIFIED_LEGACY_BATTERY, Category.STATE
+    ) || candidate.relativePath.endsWith(".sav", ignoreCase = true) || candidate.relativePath.endsWith(".state", ignoreCase = true)
 
     private fun invalidReason(candidate: Candidate, expected: Set<String>): String? {
         val id = candidate.romSha256
@@ -254,9 +302,10 @@ object QuotaBackupSelection {
         if (candidate.category in setOf(Category.VERIFIED_RECOVERY_BATTERY, Category.VERIFIED_LEGACY_BATTERY) && !candidate.assignmentVerified) {
             return "legacy/recovery assignment is unverified"
         }
-        if (candidate.sizeBytes <= 0) return "invalid file size"
+        if (candidate.sizeBytes <= 0 || candidate.sizeBytes > MAX_ENTRY_BYTES) return "invalid file size"
         if (!candidate.integrityValid) return "integrity check failed"
         val path = candidate.relativePath
+        if (path.length > MAX_PATH_CHARS) return "path exceeds limit"
         if (path.isBlank() || path.startsWith('/') || path.startsWith('\\') || '\\' in path ||
             path.split('/').any { it.isBlank() || it == "." || it == ".." }) return "unsafe relative path"
         if (path.substringBefore('/') !in setOf("saves_v2", "saves", "saves_fallback")) return "source root is not allowlisted"
@@ -271,38 +320,90 @@ object QuotaBackupSelection {
             !path.equals("saves_v2/$id/metadata.json", ignoreCase = true)) return "metadata path does not match identity"
         if (candidate.category in setOf(Category.VERIFIED_RECOVERY_BATTERY, Category.VERIFIED_LEGACY_BATTERY) &&
             !path.endsWith(".sav", ignoreCase = true)) return "recovery candidate is not a battery save"
-        if (candidate.category == Category.STATE && !path.endsWith(".state", ignoreCase = true)) return "state candidate has wrong file type"
+        if (candidate.category == Category.STATE && (!path.endsWith(".state", ignoreCase = true) ||
+                (path.startsWith("saves_v2/") && parts.size != 3))) return "state candidate has wrong file type"
         if (candidate.category == Category.STATE && !path.startsWith("saves_v2/") && !candidate.assignmentVerified) {
             return "legacy state assignment is unverified"
         }
-        if (candidate.category == Category.THUMBNAIL && !path.substringAfterLast('/').endsWithAny(".png", ".jpg", ".jpeg", ".webp")) {
+        if (candidate.category == Category.THUMBNAIL && (!path.substringAfterLast('/').endsWithAny(".png", ".jpg", ".jpeg", ".webp") ||
+                (path.startsWith("saves_v2/") && parts.size != 3))) {
             return "thumbnail candidate has wrong file type"
         }
         if (id.lowercase() !in expected) return "unexpected ROM identity"
         return null
     }
 
-    private fun validStamp(source: SourceStamp): Boolean = source.sizeBytes > 0 && validSha(source.contentSha256) &&
-        safeRelativePath(source.relativePath)
+    private fun validStamp(source: SourceStamp): Boolean = source.sizeBytes in 1..MAX_ENTRY_BYTES &&
+        validSha(source.contentSha256) && source.relativePath.length <= MAX_PATH_CHARS && safeRelativePath(source.relativePath)
 
-    private fun safeRelativePath(path: String): Boolean = path.isNotBlank() && !path.startsWith('/') && !path.startsWith('\\') &&
+    private fun safeRelativePath(path: String): Boolean = path.isNotBlank() && path.length <= MAX_PATH_CHARS && !path.startsWith('/') && !path.startsWith('\\') &&
         '\\' !in path && path.split('/').none { it.isBlank() || it == "." || it == ".." }
 
     private fun safeTargetName(name: String): Boolean = name.isNotBlank() && name != "." && name != ".." &&
-        '/' !in name && '\\' !in name && name.none { it == '\u0000' } &&
-        (name == "battery.sav" || name.matches(Regex("[A-Za-z0-9_.-]+\\.state")))
+        '/' !in name && '\\' !in name && name.none { it == '\u0000' } && name == "battery.sav"
 
     private fun relativePathUnder(root: String, file: String): String? = runCatching {
-        val rootPath = File(root).canonicalFile.toPath()
-        val filePath = File(file).canonicalFile.toPath()
+        val rootFile = File(root).absoluteFile.normalize()
+        val fileFile = File(file).absoluteFile.normalize()
+        if (hasSymlinkBetween(rootFile, fileFile)) return@runCatching null
+        val rootPath = rootFile.canonicalFile.toPath()
+        val filePath = fileFile.canonicalFile.toPath()
         if (!filePath.startsWith(rootPath)) null
         else rootPath.relativize(filePath).toString().replace(File.separatorChar, '/')
     }.getOrNull()?.takeIf(::safeRelativePath)
 
+    private fun hasSymlinkBetween(root: File, file: File): Boolean = runCatching {
+        val rootPath = root.toPath()
+        val filePath = file.toPath()
+        if (!filePath.startsWith(rootPath)) return@runCatching true
+        var current = rootPath
+        for (part in rootPath.relativize(filePath)) {
+            current = current.resolve(part)
+            if (java.nio.file.Files.isSymbolicLink(current)) return@runCatching true
+        }
+        false
+    }.getOrDefault(true)
+
+    private fun isApprovedLegacySavePath(path: String): Boolean = safeRelativePath(path) &&
+        (path.startsWith("saves/") || path.startsWith("saves_fallback/")) &&
+        path.substringAfterLast('/').endsWith(".sav", ignoreCase = true) &&
+        path.split('/').size in 2..8
+
+    private fun checkedAdd(left: Long, right: Long): Long? =
+        if (left < 0 || right < 0 || left > Long.MAX_VALUE - right) null else left + right
+
+    private fun sumChecked(values: Iterable<Long>): Long? {
+        var total = 0L
+        for (value in values) total = checkedAdd(total, value) ?: return null
+        return total
+    }
+
+    private fun selectedBytes(values: List<Candidate>): Long = sumChecked(values.map { it.sizeBytes }) ?: Long.MAX_VALUE
+
+
+    private fun hashFileBounded(file: File): String? = runCatching {
+        val expected = file.length()
+        if (expected !in 1..MAX_ENTRY_BYTES) return null
+        val md = MessageDigest.getInstance("SHA-256")
+        var total = 0L
+        file.inputStream().use { input ->
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = input.read(buffer); if (count < 0) break
+                total = checkedAdd(total, count.toLong()) ?: return null
+                if (total > expected || total > MAX_ENTRY_BYTES) return null
+                md.update(buffer, 0, count)
+            }
+        }
+        if (total == expected && file.length() == expected) md.digest().toHex() else null
+    }.getOrNull()
+
     private fun validSha(value: String): Boolean = value.matches(HASH)
 
     private fun sha256(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
-        .digest(bytes).joinToString("") { "%02x".format(it) }
+        .digest(bytes).toHex()
+
+    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
 
     private fun String.endsWithAny(vararg endings: String): Boolean = endings.any { endsWith(it, ignoreCase = true) }
 

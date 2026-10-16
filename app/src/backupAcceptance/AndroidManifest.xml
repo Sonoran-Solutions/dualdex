@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application android:testOnly="true" android:fullBackupOnly="true" android:allowBackup="${acceptanceAllowBackup}"
+        android:backupAgent="com.dualdex.acceptance.ObservedBackupAgent"
+        android:label="DualDex synthetic acceptance" tools:replace="android:label,android:allowBackup">
+        <activity android:name="com.dualdex.acceptance.AcceptanceActivity" android:exported="false" />
+    </application>
+    <instrumentation android:name="com.dualdex.acceptance.AcceptanceInstrumentation"
+        android:targetPackage="${applicationId}" android:functionalTest="true" />
+</manifest>

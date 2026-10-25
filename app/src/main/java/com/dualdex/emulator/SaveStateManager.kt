@@ -13,10 +13,12 @@ import com.dualdex.emulator.storage.SafMirrorStore
 import com.dualdex.emulator.storage.SaveShareStore
 import com.dualdex.emulator.storage.SaveStateFiles
 import com.dualdex.emulator.storage.SaveWriteResult
+import com.dualdex.emulator.backup.StagedRestoreStore
 import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
+import java.io.IOException
 import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -63,6 +65,20 @@ open class SaveStateManager(
     private val safMirrorStore by lazy { customSafStore ?: SafMirrorStore(context) }
     private val legacyCatalog by lazy { customLegacyCatalog ?: LegacySaveCatalog(context) }
     val saveShareStore by lazy { SaveShareStore(context) }
+    private val stagedRestores by lazy { StagedRestoreStore(customBaseDir ?: checkNotNull(context).filesDir) }
+
+    fun reviewRestoredSaves(): List<StagedRestoreStore.Session> = synchronized(globalSaveLock) {
+        stagedRestores.review()
+    }
+
+    fun importRestoredSave(review: StagedRestoreStore.Review, decision: StagedRestoreStore.Decision): StagedRestoreStore.Result =
+        synchronized(globalSaveLock) {
+            if (decision == StagedRestoreStore.Decision.KEEP_LOCAL) return@synchronized StagedRestoreStore.Result.KEPT_LOCAL
+            if (activeIdentity != null || coreCoordinator.emulationRunning) return@synchronized StagedRestoreStore.Result.CLOSE_GAME
+            coreCoordinator.executeExclusive {
+                stagedRestores.import(review, decision)
+            }
+        }
 
     var activeIdentity: RomIdentity? = null
     var activeProfileName: String? = null
@@ -240,7 +256,9 @@ open class SaveStateManager(
         val ok = nativeSaveState(stagingFile.absolutePath)
         if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) return null
         val canonicalFile = getCanonicalFile(identity, fileName)
-        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it) }
+        val timestamp = try { SaveStateFiles.nextStateTimestamp(checkNotNull(canonicalFile.parentFile)) }
+            catch (failure: IOException) { Log.e(TAG, "Cannot order new state safely", failure); return null }
+        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it, timestamp) }
     }
 
     /**
@@ -375,13 +393,21 @@ open class SaveStateManager(
      * Manual slots stay on disk and remain loadable by hand.
      */
     fun clearAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (!publishResumeBarrier(identity)) return false
+        File(getCanonicalRomDir(identity), SaveStateFiles.AUTO_RESUME).delete()
+        true
+    }
+
+    /** Caller holds globalSaveLock. Publish protection without deleting any state on a failed import. */
+    private fun publishResumeBarrier(identity: RomIdentity): Boolean {
         if (!identity.isValid) return false
         val dir = getCanonicalRomDir(identity)
-        File(dir, SaveStateFiles.AUTO_RESUME).delete()
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER)
         return try {
-            barrier.writeText(System.currentTimeMillis().toString())
-            true
+            val timestamp = SaveStateFiles.nextStateTimestamp(dir)
+            val staged = getStagingFile(identity, SaveStateFiles.RESUME_BARRIER)
+            staged.writeText(timestamp.toString())
+            AtomicSaveFile.copyFromStaging(staged, barrier, timestamp)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to write resume barrier: ${e.message}")
             false
@@ -626,6 +652,12 @@ open class SaveStateManager(
                         return@executeExclusive false
                     }
 
+                    // Publish protection before either live SRAM or the canonical battery can change.
+                    if (!publishResumeBarrier(identity)) {
+                        Log.e(TAG, "Import aborted: resume barrier could not be durably published")
+                        return@executeExclusive false
+                    }
+
                     // 5. Test load candidate into live core from temp file
                     tempCandidate.writeBytes(cleanBytes)
 
@@ -644,6 +676,8 @@ open class SaveStateManager(
                         return@executeExclusive false
                     }
 
+                    // The durable barrier protects the new battery even if removing the old resume fails.
+                    File(checkNotNull(canonicalFile.parentFile), SaveStateFiles.AUTO_RESUME).delete()
                     // 8. Reset core only after entire transaction succeeds
                     nativeResetCore()
                     true
@@ -660,8 +694,6 @@ open class SaveStateManager(
             // 7. Mirror to SAF and record metadata
             safMirrorStore.mirrorFile(identity, "battery.sav", canonicalFile)
             recordMetadata(identity, activeProfileId)
-            // A resume state carries its own SRAM; booting into an older one would roll back this import.
-            clearAutoResume(identity)
 
             Log.i(TAG, "Import battery save succeeded for ${identity.storageKey} ($expectedRamSize bytes)")
             return true

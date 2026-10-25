@@ -1,4 +1,5 @@
 package com.dualdex.emulator
+import com.dualdex.emulator.backup.QuotaBackupSelection
 
 import org.junit.Assert.*
 import org.junit.Test
@@ -56,17 +57,29 @@ class QuotaBackupSelectionTest {
     }
 
     @Test fun verifiedLegacyBindingRestoresAcrossDifferentAppRoots() {
-        val sourceRoot = "/data/user/0/com.dualdex/files"
-        val targetRoot = "/data/user/12/com.dualdex/files"
-        val sourcePath = "$sourceRoot/saves/FireRed.sav"
-        val restoredPath = "$targetRoot/saves/FireRed.sav"
-        assertNotEquals(sourcePath, restoredPath)
-        val binding = QuotaBackupSelection.portableLegacyBinding(sourceRoot, sourcePath, hash1, a, "battery.sav")!!
-        val destination = QuotaBackupSelection.portableLegacyDestination(binding, targetRoot, restoredPath, hash1)
-        assertEquals("saves_v2/$a/battery.sav", destination)
-        assertNull(QuotaBackupSelection.portableLegacyDestination(binding, targetRoot, "$targetRoot/saves/Emerald.sav", hash1))
-        assertNull(QuotaBackupSelection.portableLegacyDestination(binding, targetRoot, restoredPath, hash2))
-        assertNull(QuotaBackupSelection.portableLegacyBinding(sourceRoot, "/elsewhere/FireRed.sav", hash1, a, "battery.sav"))
+        val sourceRoot = java.nio.file.Files.createTempDirectory("legacy-source").toFile()
+        val targetRoot = java.nio.file.Files.createTempDirectory("legacy-target").toFile()
+        try {
+            val sourceFile = java.io.File(sourceRoot, "saves/FireRed.sav").apply { parentFile.mkdirs(); writeBytes(byteArrayOf(1, 2, 3)) }
+            val restoredFile = java.io.File(targetRoot, "saves/FireRed.sav").apply { parentFile.mkdirs(); writeBytes(byteArrayOf(1, 2, 3)) }
+            val digest = java.security.MessageDigest.getInstance("SHA-256").digest(sourceFile.readBytes())
+                .joinToString("") { "%02x".format(it) }
+            val binding = QuotaBackupSelection.portableLegacyBinding(sourceRoot.path, sourceFile.path, digest, a, "battery.sav")!!
+            assertNotEquals(sourceFile.path, restoredFile.path)
+            val destination = QuotaBackupSelection.portableLegacyDestination(binding, targetRoot.path, restoredFile.path, digest)
+            assertEquals("saves_v2/$a/battery.sav", destination)
+            assertNull(QuotaBackupSelection.portableLegacyDestination(binding, targetRoot.path,
+                java.io.File(targetRoot, "saves/Emerald.sav").path, digest))
+            assertNull(QuotaBackupSelection.portableLegacyDestination(binding, targetRoot.path, restoredFile.path, hash2))
+            assertNull(QuotaBackupSelection.portableLegacyBinding(sourceRoot.path,
+                java.io.File(sourceRoot, "rom_cache/game.sav").path, digest, a, "battery.sav"))
+            assertNull(QuotaBackupSelection.portableLegacyBinding(sourceRoot.path,
+                java.io.File(sourceRoot, "random.dat").path, digest, a, "battery.sav"))
+            assertNull(QuotaBackupSelection.portableLegacyBinding(sourceRoot.path, sourceFile.path, "bad", a, "battery.sav"))
+            assertNull(QuotaBackupSelection.portableLegacyBinding(sourceRoot.path, sourceFile.path, digest, a, "slot1.state"))
+            sourceFile.writeBytes(byteArrayOf(9, 9, 9))
+            assertNull(QuotaBackupSelection.portableLegacyBinding(sourceRoot.path, sourceFile.path, digest, a, "battery.sav"))
+        } finally { sourceRoot.deleteRecursively(); targetRoot.deleteRecursively() }
     }
 
     @Test fun manyLargeOptionalStatesAndRecoveryDoNotDisplaceEssentials() {
@@ -123,7 +136,7 @@ class QuotaBackupSelectionTest {
         val state = QuotaBackupSelection.Candidate(b, QuotaBackupSelection.Category.STATE, "saves_v2/$a/slot1.state", 50, 1)
         val result = select(setOf(a), canonical(a) + state)
         assertEquals("source path does not match ROM identity", result.excluded[state])
-        assertEquals(QuotaBackupSelection.Verdict.PARTIAL, result.verdict)
+        assertEquals(QuotaBackupSelection.Verdict.REFUSAL, result.verdict)
     }
 
     @Test fun essentialDataOverBudgetRefusesEntireCollection() {
@@ -146,6 +159,34 @@ class QuotaBackupSelectionTest {
         assertEquals(20_000_000L * 4 / 5 - QuotaBackupSelection.CONTAINER_RESERVE_BYTES,
             QuotaBackupSelection.budgetFor(20_000_000L))
         assertEquals(0L, QuotaBackupSelection.budgetFor(1L))
+    }
+
+    @Test fun explicitZeroQuotaRefusesButUnknownQuotaUsesConservativeCap() {
+        assertEquals(0L, QuotaBackupSelection.budgetFor(0L))
+        assertEquals(0L, QuotaBackupSelection.budgetFor(-1L))
+        assertEquals(QuotaBackupSelection.DEFAULT_BUDGET_BYTES, QuotaBackupSelection.budgetFor(null))
+    }
+
+    @Test fun checkedTotalsRejectOverflowAndOptionalSelectionStaysWithinBudget() {
+        assertEquals(Long.MAX_VALUE, QuotaBackupSelection.checkedTotalBytes(listOf(Long.MAX_VALUE)))
+        assertNull(QuotaBackupSelection.checkedTotalBytes(listOf(Long.MAX_VALUE, 1L)))
+        val result = select(setOf(a), canonical(a) + listOf(
+            QuotaBackupSelection.Candidate(a, QuotaBackupSelection.Category.STATE, "saves_v2/$a/one.state", 900, 1),
+            QuotaBackupSelection.Candidate(a, QuotaBackupSelection.Category.STATE, "saves_v2/$a/two.state", 900, 2)
+        ), budget = 1_000)
+        assertTrue(result.selectedBytes <= 1_000)
+        assertTrue(result.allEssentialSavesCovered)
+    }
+
+    @Test fun malformedSizesAndExcessiveEntriesFailClosed() {
+        val huge = canonical(a, Long.MAX_VALUE)
+        assertEquals(QuotaBackupSelection.Verdict.REFUSAL, select(setOf(a), huge).verdict)
+        val empty = canonical(a, 0)
+        assertEquals(QuotaBackupSelection.Verdict.REFUSAL, select(setOf(a), empty).verdict)
+        val tooMany = (0..QuotaBackupSelection.MAX_ENTRIES).map { index ->
+            QuotaBackupSelection.Candidate(a, QuotaBackupSelection.Category.STATE, "saves_v2/$a/$index.state", 1, index.toLong())
+        }
+        assertEquals(QuotaBackupSelection.Verdict.REFUSAL, select(setOf(a), canonical(a) + tooMany).verdict)
     }
 
     @Test fun transportDispatchCoversAllFlagCombinations() {

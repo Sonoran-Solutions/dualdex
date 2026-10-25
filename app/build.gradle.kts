@@ -119,6 +119,16 @@ android {
         }
     }
 
+    // Opt-in test flavor uses Android's normal main + flavor + debug isolation.
+    if (project.hasProperty("dualdex.backupAcceptance")) {
+        flavorDimensions += "acceptance"
+        productFlavors.create("backupAcceptance") {
+            dimension = "acceptance"
+            applicationIdSuffix = ".backupacceptance"
+            manifestPlaceholders["acceptanceAllowBackup"] = (project.findProperty("dualdex.acceptanceBackup") ?: "true").toString()
+        }
+    }
+
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
@@ -167,6 +177,13 @@ android {
         jniLibs {
             useLegacyPackaging = true
         }
+    }
+}
+
+// This disposable harness has no release variant.
+androidComponents {
+    if (project.hasProperty("dualdex.backupAcceptance")) {
+        beforeVariants { if (it.buildType != "debug") it.enable = false }
     }
 }
 

@@ -205,7 +205,7 @@ SHA-256 `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7` (owne
 v2.1.1.1; publisher patch-to-ROM identity is NOT_VERIFIED). Findings and limits:
 [release](../../docs/UNBOUND_RELEASE_EVIDENCE.md), [data/text](../../docs/UNBOUND_DATA_TEXT_EVIDENCE.md),
 [party layout](../../docs/UNBOUND_PARTY_LAYOUT_EVIDENCE.md),
-[calculator inventory](../../docs/UNBOUND_CALCULATOR_CAPABILITY_INVENTORY.md) and the
+[calculator inventory](../../docs/UNBOUND_CALCULATOR_CAPABILITY_INVENTORY.md),
 [existing-support audit](../../docs/UNBOUND_EXISTING_SUPPORT_AUDIT.md),
 [species mapping](../../docs/UNBOUND_SPECIES_MAPPING_EVIDENCE.md) and
 [battle lifecycle](../../docs/UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md).

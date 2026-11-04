@@ -1,24 +1,103 @@
 {
-  "schema_version": 1,
-  "task_id": "unbound-static",
-  "status": "BLOCKED",
-  "report_kind": "blocked_run_manifest_not_inspector_output",
-  "base_revision": "d592f559e0eb97159513551fc05ea6a663532a9a",
-  "owner_supplied_candidate": {
-    "bytes": 33554432,
-    "sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7",
-    "header_title": "POKEMON FIRE",
-    "header_game_code": "BPRE",
-    "independent_verification": "NOT_VERIFIED"
+  "base": {
+    "bytes": 16777216,
+    "crc32": "dd88761c",
+    "gba_header": {
+      "calculated_checksum": 104,
+      "checksum": 104,
+      "checksum_valid": true,
+      "device_type": 0,
+      "fixed_byte": 150,
+      "game_code": "BPRE",
+      "maker": "01",
+      "reserved_hex": "00000000000000",
+      "reserved_tail_hex": "0000",
+      "revision": 0,
+      "title": "POKEMON FIRE",
+      "unit_code": 0
+    },
+    "sha1": "41cb23d8dccc8ebd7c649cd8fbb58eeace6e2fdc",
+    "sha256": "3d0c79f1627022e18765766f6cb5ea067f6b5bf7dca115552189ad65a5c3a8ac"
   },
-  "measured_candidate_identity": null,
-  "measured_base_identity": null,
-  "version_label": null,
-  "version_label_status": "NOT_VERIFIED",
-  "base_derivation_consistency": "NOT_VERIFIED",
+  "base_comparison": {
+    "block_size": 4096,
+    "compared_bytes": 16777216,
+    "conclusion": "Shared bytes are consistent with derivation, not patch provenance",
+    "equal_bytes": 7062654,
+    "selected_unchanged_blocks": [
+      {
+        "bytes": 4096,
+        "offset": "0x00001000",
+        "sha256": "f4ab120671cc47a89551dffe75ed7071468aa584c36f4cb689b9a09ebaf4c591"
+      },
+      {
+        "bytes": 4096,
+        "offset": "0x00002000",
+        "sha256": "7e78fddd95459f0faa2c804a7348a4a9aeedeb4d52c5b4bd54793842f7225df0"
+      },
+      {
+        "bytes": 4096,
+        "offset": "0x00003000",
+        "sha256": "a1045969000aaf103f4f6143fc52438f48456254a3f7c43797b124646f295f48"
+      },
+      {
+        "bytes": 4096,
+        "offset": "0x0000b000",
+        "sha256": "6f93aa26af5ee9b864fe515698d6a0405b6219229a2f9b2834b362df94729f0c"
+      },
+      {
+        "bytes": 4096,
+        "offset": "0x00010000",
+        "sha256": "1e95d3bee10dc7c78d073d14ddc9b802dcb481a8ac77a47208f0f3e2e3fe5548"
+      },
+      {
+        "bytes": 4096,
+        "offset": "0x00036000",
+        "sha256": "b6d5ad1ac13738c95c1bfb15cbabe9fce9dc66a00db4e50445beb9a05fb8a87e"
+      }
+    ],
+    "status": "OBSERVED",
+    "unchanged_nonuniform_blocks": 924
+  },
+  "candidate": {
+    "bytes": 33554432,
+    "crc32": "4b3d4957",
+    "gba_header": {
+      "calculated_checksum": 104,
+      "checksum": 104,
+      "checksum_valid": true,
+      "device_type": 0,
+      "fixed_byte": 150,
+      "game_code": "BPRE",
+      "maker": "01",
+      "reserved_hex": "00000000000000",
+      "reserved_tail_hex": "0000",
+      "revision": 0,
+      "title": "POKEMON FIRE",
+      "unit_code": 0
+    },
+    "sha1": "b4776b82a4c7915d0fadeaa27e013523f99dfd94",
+    "sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+  },
+  "credits_title": {
+    "encoding": "GEN_III",
+    "file_offset": "0x01eefe18",
+    "status": "VERIFIED",
+    "text": "Pok\u00e9mon Unbound Version"
+  },
+  "inspector_sha256": "201df5e8957aba885cee98fc2af12041c48e9017585e338c2b32604042bf6524",
+  "owner_version_claim": {
+    "agreement": "NOT_VERIFIED: no plain Gen III numeric label located",
+    "date": "2026-11-04",
+    "label": "2.1.1.1",
+    "status": "NOT_VERIFIED"
+  },
   "patch_to_rom_identity": "NOT_VERIFIED",
-  "patch_prerequisite": "Official English main-story patch matching the yet-unmeasured candidate version, original filename and publisher release URL, and SHA-256; not present",
-  "private_rom_runs": 0,
-  "private_output_blocker": "Required private log directory lies outside session writable roots; alternate sanitized log destination awaits approval",
-  "production_support": "NOT_VERIFIED"
+  "production_support": "NOT_VERIFIED",
+  "runtime_version": "NOT_VERIFIED",
+  "schema_version": 1,
+  "scope": "Exact bytes and static observations only",
+  "status": "VERIFIED",
+  "task_id": "unbound-static",
+  "version_candidates": []
 }

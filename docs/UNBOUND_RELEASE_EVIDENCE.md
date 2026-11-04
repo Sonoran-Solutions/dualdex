@@ -1,85 +1,104 @@
-# Unbound release identity — incomplete evidence checkpoint
+# Unbound exact-candidate release evidence
 
-Task: `unbound-static`, issues [#60](https://github.com/Sonoran-Solutions/dualdex/issues/60)
-and [#26](https://github.com/Sonoran-Solutions/dualdex/issues/26).
-Starting revision: `d592f559e0eb97159513551fc05ea6a663532a9a`.
+Task `unbound-static`; issues [#60](https://github.com/Sonoran-Solutions/dualdex/issues/60)
+and [#26](https://github.com/Sonoran-Solutions/dualdex/issues/26). Measured 2026-11-04 UTC.
+Base revision `d592f559e0eb97159513551fc05ea6a663532a9a`; this work continues
+checkpoint `982224b`. Attempt 2 replaces the earlier unmeasured/blocked identity manifest.
 
-**BLOCKED:** this checkpoint does not establish the candidate's release identity.
-The owner supplied a 33,554,432-byte candidate with SHA-256
-`7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7`,
-header `POKEMON FIRE` / `BPRE`. Those are owner-supplied assertions, not independently
-measured results in this checkpoint. Do not register this diagnostic pin as trusted.
+**VERIFIED:** the identities below were measured from both owner-supplied files,
+not copied from the task assertions. **NOT_VERIFIED:** official patch provenance,
+numeric release label, runtime layout, and production support. The SHA-256 guard
+is diagnostic only; no production profile or trusted-hash registration changed.
 
-## Prepared inspector
+## Exact bytes
 
-[`unbound_identity.py`](../tools/rom-evidence/unbound_identity.py) reuses the existing
-bounded local-file reader, digest helper and strict Gen III text decoder. It rejects
-any candidate with a different length or SHA-256, reads the base header, computes
-length/CRC32/SHA-1/SHA-256 and the GBA header checksum, looks for bounded Gen III
-version candidates, and reports unchanged nonuniform 4 KiB base regions by digest.
-It writes no ROM, copied table, save or dump. A numeric version candidate is only
-**OBSERVED**, not a verified release label or evidence that the title screen uses it.
+The sanitized [identity JSON](../tools/rom-evidence/evidence/unbound-identity.json)
+is output from [unbound_identity.py](../tools/rom-evidence/unbound_identity.py).
 
-**NOT_VERIFIED:** candidate/base independent identities, exact version label,
-unchanged base regions, and consistency with applying the official patch to FireRed
-USA revision zero. The report at
-[`unbound-identity.json`](../tools/rom-evidence/evidence/unbound-identity.json)
-records these omissions explicitly; it is a blocked-run manifest, not tool output.
+| Property | Supplied FireRed base | Candidate |
+|---|---|---|
+| Status | VERIFIED measured bytes | VERIFIED measured bytes |
+| Length | 16,777,216 | 33,554,432 |
+| CRC32 | `dd88761c` | `4b3d4957` |
+| SHA-1 | `41cb23d8dccc8ebd7c649cd8fbb58eeace6e2fdc` | `b4776b82a4c7915d0fadeaa27e013523f99dfd94` |
+| SHA-256 | `3d0c79f1627022e18765766f6cb5ea067f6b5bf7dca115552189ad65a5c3a8ac` | `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7` |
 
-**NOT_VERIFIED:** publisher patch-to-ROM identity. The exact owner prerequisite is
-the official English main-story Unbound patch for the version established from this
-candidate (version currently unknown), obtained through Skeli's original publisher
-release post, with its original filename, release/source URL and SHA-256. A similarly
-named ROM, an unofficial modification, a translated patch or the Battle Frontier
-demo does not close this gate. After establishing the version, record the precise
-patch filename and source before reproducing it against the independently hashed
-FireRed USA rev0 base. It would be dishonest to prescribe a particular versioned
-patch file before the in-ROM label has been measured. No patch was downloaded.
+**VERIFIED:** both GBA headers contain title `POKEMON FIRE`, game code `BPRE`,
+maker `01`, fixed byte `0x96`, unit/device bytes zero, revision zero, and zero
+reserved bytes. Stored and calculated complement checksums both equal `0x68`.
+The JSON includes all these fields. Retaining this header does not identify a hack.
 
-## Execution blockers and handoff
+**OBSERVED:** 7,062,654 of the first 16,777,216 bytes agree with the supplied base;
+924 nonuniform aligned 4 KiB blocks are unchanged. Six selected block offsets and
+SHA-256 values are in the JSON. Uniform padding is excluded from the block count.
+This is consistent with derivation from this revision-zero FireRed base, including
+substantial retained code/data. It does **not** establish which patch was applied,
+whether extra modifications were applied, or publisher authenticity.
 
-1. **BLOCKED — private logging:** session writes are limited to this worktree and
-   `/tmp`; the required `/home/dq/dualdex-private/unbound/unbound-static/` is outside
-   those roots. No ROM/core inspection was launched and no private input was copied.
-   A question requesting permission to keep only sanitized bounded logs in `/tmp`
-   was submitted, but no approval had arrived at this checkpoint. Alternatively,
-   provide a session writable private directory. Do not interpret silence as approval.
-2. **BLOCKED — canonical ROM-free test gate:** the unchanged existing test
-   `test_private_capture_guard_checkout_worktree_and_symlinks` rejects its temporary
-   directory because the sandbox exposes a read-only `/tmp/.git` marker. Both
-   permitted write roots therefore lie under Git markers. A writable temporary
-   directory outside any Git checkout is needed; do not weaken the existing guard
-   or test and do not remove an unowned marker.
-3. **BLOCKED — checkpoint commit:** `git add` failed with read-only-filesystem error
-   creating `/home/dq/Projects/dualdex/.git/worktrees/unbound-static/index.lock`.
-   The session must permit ordinary writes to this worktree's Git metadata before
-   the requested checkpoint commit can be made. No push or PR was attempted.
+## Release label and remaining patch prerequisite
 
-Once logging is authorized, the intended command is:
+**VERIFIED (static text only):** the bounded Gen III string at file offset
+`0x01EEFE18` decodes to `Pokémon Unbound Version`. It is credits text; its use by a
+running credits screen was not observed. The original BPRE header and this text
+establish neither the numeric version nor a particular official patch.
+
+**NOT_VERIFIED:** the owner's 2026-11-04 claim is **Unbound v2.1.1.1**. The bounded
+plain Gen III numeric-version scan returned no candidates. Additional private
+searches for the exact encoded `2.1.1.1` and ASCII numeric versions found no credible
+numeric label. Therefore agreement **or disagreement** with the claim is unknown;
+absence of plain text does not contradict it. Compressed graphics, dynamically
+constructed text, title-screen rendering, and an exact source build remain unexamined.
+This task does not invent a version label from the filename or source constants.
+
+**VERIFIED (publisher web metadata only):** Skeli's
+[original release thread](https://www.pokecommunity.com/threads/pok%C3%A9mon-unbound-completed.382178/)
+labels its main-story download **Unbound 2.1.1.1**, updated November 8, 2022, with a
+rival-battle crash hotfix. That link resolves to the landing page for
+[Pokemon Unbound Official Patch 2.1.1+.zip](https://www.mediafire.com/file/1utikbeymc5b2by/Pokemon_Unbound_Official_Patch_2.1.1%252B.zip/file).
+Only HTML metadata was read; no archive, patch or ROM was downloaded.
+
+**BLOCKED — official reproduction:** the owner must supply the original patch
+inside that exact publisher-linked **2.1.1+** archive (the release-thread label is
+**2.1.1.1**), retaining the original inner filename, archive and patch SHA-256,
+and the above source URL. The inner patch filename/hash cannot be verified without
+the archive; it is not assumed to be `2.1.1.1.ups`. The Battle Frontier demo, a
+translation, an audio/performance modification, or an unofficial mirror is not
+this prerequisite. Validate the patch format and input checksums, apply in memory
+to the measured base, and compare every candidate byte. Until then,
+`patch_to_rom_identity` remains **NOT_VERIFIED**. A publisher label alone cannot
+bind this candidate to that release.
+
+## Reproduction and validation
+
+All commands ran from this worktree with `TMPDIR` unchanged:
+`/home/dq/dualdex-private/unbound/static-tmp`. Private output stays in
+`$TMPDIR/private/`, outside the actual repository. Each ROM invocation used a
+600-second wall-clock deadline, five-second kill grace, and `ulimit -f 2048`
+(2 MiB per file in Bash); displays were bounded by `head -c 1048576`.
+No emulator, core, save or state was loaded. No background job remains.
 
 ```bash
-timeout --kill-after=5 600 python3 tools/rom-evidence/unbound_identity.py \
+(ulimit -f 2048; timeout --kill-after=5 600 \
+  python3 tools/rom-evidence/unbound_identity.py \
   --rom /home/dq/dualdex-private/unbound/unbound-candidate.gba \
   --base '/home/dq/Downloads/1636 - Pokemon Fire Red (U)(Squirrels).gba' \
-  > /home/dq/dualdex-private/unbound/unbound-static/identity.log 2>&1
+  > "$TMPDIR/private/identity-final.json" 2> "$TMPDIR/private/identity-final.err")
 ```
 
-Run with a 1 MiB output-file limit, inspect at most `head -c 1M`, preserve command
-status, and only replace the blocked manifest with successful sanitized JSON.
-This command has **NOT** run. The existing 60-minute validation budget remains;
-no expensive suite, emulator, save or state was used.
+**VERIFIED:** identity inspection exited 0 (under two seconds). The report binds
+its inspector SHA-256. The data report and validation details are in
+[UNBOUND_DATA_TEXT_EVIDENCE.md](UNBOUND_DATA_TEXT_EVIDENCE.md).
 
-## Validation actually performed
+**BLOCKED:** full ROM-free discovery ran 80 tests in 0.208 seconds: 79 passed,
+one unchanged private-directory-guard test errored. All 15 Unbound tests passed.
+The sandbox also exposes a read-only synthetic `.git` directory at `$TMPDIR/.git`,
+despite the corrected directory setting. Python confirms it uses this exact TMPDIR;
+`git -C "$TMPDIR" rev-parse --show-toplevel` reports no actual Git repository.
+The guard intentionally treats the marker conservatively. No test was weakened,
+no marker was removed, and no unchanged failed suite was blindly retried.
+Coordinator prerequisite: rerun the same discovery in an environment without this
+synthetic ancestor marker. This is a failed required gate, not a successful suite.
 
-**OBSERVED:** Python 3 ROM-free command
-`python3 -m unittest discover -s tools/rom-evidence -v`, under a 600-second timeout,
-five-second kill grace and 1 MiB file-size limit, ran **70 tests in 0.408 seconds**:
-69 passed, one existing environment-dependent test errored as described above.
-All **five new `UnboundIdentityTest` tests passed**. The exit status was **1**, not
-a successful suite result. Bounded log: `/tmp/unbound-static-tests-part1.log`.
-There is no current-candidate `ci.sh` evidence; combined validation belongs to the
-coordinator and was explicitly excluded from this task.
-
-Production profiles, trusted hashes, native/Kotlin code, `ci.sh`, and the shared
-ROM-evidence README are unchanged. Part 2 source leads and remaining work are in
-[`UNBOUND_DATA_TEXT_EVIDENCE.md`](UNBOUND_DATA_TEXT_EVIDENCE.md).
+No `ci.sh test/build/all`, commit, push or PR was attempted in attempt 2; the
+coordinator owns combined validation and commits. Production files and the shared
+ROM-evidence README are unchanged.

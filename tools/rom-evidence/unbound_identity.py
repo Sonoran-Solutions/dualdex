@@ -88,11 +88,23 @@ def inspect(candidate, base):
     base_header = header(base)
     require(base_header["game_code"] == "BPRE" and base_header["revision"] == 0
             and base_header["checksum_valid"], "base is not checksum-valid BPRE revision zero")
+    title_offset = 0x1EEFE18
+    title_end = candidate.find(b"\xff", title_offset, title_offset + 64)
+    require(title_end >= title_offset, "missing bounded credits title")
+    title = decode_text(candidate[title_offset:title_end + 1], "map_section_name")
+    require(title.status == VALID_TEXT and title.text == "Pokémon Unbound Version",
+            "credits title mismatch")
     return dict(schema_version=1, task_id="unbound-static", status="VERIFIED",
                 scope="Exact bytes and static observations only",
+                inspector_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 candidate=dict(**candidate_identity, gba_header=header(candidate)),
                 base=dict(**identity(base), gba_header=base_header),
                 version_candidates=version_candidates(candidate),
+                credits_title=dict(status="VERIFIED", text=title.text,
+                                   file_offset=f"0x{title_offset:08x}", encoding="GEN_III"),
+                owner_version_claim=dict(label="2.1.1.1", date="2026-11-04",
+                                        status="NOT_VERIFIED",
+                                        agreement="NOT_VERIFIED: no plain Gen III numeric label located"),
                 base_comparison=base_comparison(candidate, base),
                 patch_to_rom_identity="NOT_VERIFIED", runtime_version="NOT_VERIFIED",
                 production_support="NOT_VERIFIED")

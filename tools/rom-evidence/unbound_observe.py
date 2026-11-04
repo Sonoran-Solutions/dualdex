@@ -25,6 +25,7 @@ STATE_SHA256 = 'eb64974477c908ab5a46f52642047fd55db2ee02b7999c67191bff7615727482
 SYMBOLS = dict(gPlayerPartyCount=0x02024029, gPlayerParty=0x02024284,
                gEnemyPartyCount=0x02024028, gEnemyParty=0x0202402c,
                gSaveBlock1Ptr=0x03005008, gSaveBlock2Ptr=0x0300500c)
+SB1_COUNT, SB1_PARTY = 0x34, 0x38
 ORDERS = tuple(itertools.permutations('GAEM'))
 STATS = ('max_hp', 'attack', 'defense', 'speed', 'sp_attack', 'sp_defense')
 STATIC_SPANS = (
@@ -140,7 +141,11 @@ def native_fields(host, data):
     # Failed parser output is never presented as a usable Pokemon.
     if not ok:
         return dict(accepted=False)
+    text = lambda raw: raw.split(b'\0', 1)[0].decode('ascii', 'replace')
     return dict(accepted=True, species=out.species, held_item=out.held_item,
+                tid=out.tid, sid=out.sid, nickname=text(out.nickname), ot_name=text(out.ot_name),
+                nature=out.nature, is_shiny=out.is_shiny, shiny_value=out.shiny_value,
+                experience=out.experience, friendship=out.friendship, is_egg=out.is_egg,
                 moves=list(out.moves), pp=list(out.pp), level=out.level, hp=out.current_hp,
                 stats={n: getattr(out, n) for n in STATS}, ability_slot=out.ability_slot,
                 ivs=[getattr(out, n+'_iv') for n in ('hp', *STATS[1:])],
@@ -173,6 +178,18 @@ class Observer:
                          slots=[dict(slot_fields(s), production=native_fields(self.engine.host, s))
                                 for s in slots[:count]])
 
+    def save_party_copy(self, pointer, live):
+        """Vanilla FireRed SaveBlock1 hypothesis: count u8 at +0x34, party at +0x38."""
+        if not 0x02000000 <= pointer <= 0x02040000 - SB1_PARTY - 600:
+            return dict(status='POINTER_OUT_OF_RANGE')
+        read = self.engine.read
+        copy = read(pointer+SB1_PARTY, 300) + read(pointer+SB1_PARTY+300, 300)
+        slots = [rowe.digest(copy[i*100:(i+1)*100]) for i in range(6)]
+        count = live['count']
+        return dict(offsets_hypothesis='FIRERED_SB1_0x34_0x38', count=read(pointer+SB1_COUNT, 1)[0],
+                    sha256=rowe.digest(copy), slot_sha256=slots,
+                    counted_slots_equal_live=slots[:count] == live['slot_sha256'][:count])
+
     def observe(self, label, private):
         rowe.require_private_directory(private)
         row = dict(label=label, frame=self.engine.frames, parties={}, save_blocks={})
@@ -183,6 +200,11 @@ class Observer:
         for n in (1, 2):
             pointer = struct.unpack('<I', self.engine.read(SYMBOLS[f'gSaveBlock{n}Ptr'], 4))[0]
             row['save_blocks'][str(n)] = f'0x{pointer:08x}'
+        row['save_party_copy'] = self.save_party_copy(int(row['save_blocks']['1'], 16),
+                                                      row['parties']['player'])
+        # Both candidate enemy-count bytes (Unbound config 0x24028, FireRed config 0x2402A).
+        row['enemy_count_candidates'] = {hex(a): self.engine.read(a, 1)[0]
+                                         for a in (0x02024028, 0x0202402a)}
         video = rowe.Video()
         require(self.engine.host.libretro_host_get_video_frame(C.byref(video)) and video.pixels
                 and video.fmt == 2 and video.width == 240 and video.height == 160

@@ -110,11 +110,86 @@ class UnboundObserveTests(unittest.TestCase):
             out.max_hp = 99
             out.moves[:] = [1, 2, 3, 4]
             out.hp_iv, out.sp_defense_ev = 31, 255
+            out.nickname, out.tid, out.is_shiny, out.shiny_value = b'GARY', 53340, False, 15
             return True
         host.pokemon_parse_single.side_effect = parse
         row = u.native_fields(host, invented_slot())
         self.assertEqual((row['species'], row['held_item'], row['moves']), (777, 1023, [1, 2, 3, 4]))
         self.assertEqual((row['hp'], row['stats']['max_hp'], row['ivs'][0], row['evs'][5]), (30, 99, 31, 255))
+        self.assertEqual((row['nickname'], row['tid'], row['is_shiny'], row['shiny_value']),
+                         ('GARY', 53340, False, 15))
+
+    def test_save_block_party_copy_is_bounded_and_compared_per_counted_slot(self):
+        observer = u.Observer.__new__(u.Observer)
+        observer.engine = Mock()
+        raw = bytes(invented_slot())*6
+        live = dict(count=2, slot_sha256=[u.rowe.digest(raw[i*100:(i+1)*100]) for i in range(6)])
+        observer.engine.read = Mock(side_effect=[raw[:300], raw[300:], b'\x02'])
+        row = observer.save_party_copy(0x0202552c, live)
+        self.assertEqual((row['count'], row['counted_slots_equal_live']), (2, True))
+        observer.engine.read.assert_any_call(0x0202552c + 0x38, 300)
+        observer.engine.read.assert_any_call(0x0202552c + 0x34, 1)
+        changed = bytearray(raw); changed[150] ^= 1
+        observer.engine.read = Mock(side_effect=[bytes(changed[:300]), bytes(changed[300:]), b'\x02'])
+        self.assertFalse(observer.save_party_copy(0x0202552c, live)['counted_slots_equal_live'])
+        for pointer in (0, 0x01ffffff, 0x02040000 - 0x38 - 599, 0x03000000):
+            observer.engine.read = Mock()
+            self.assertEqual(observer.save_party_copy(pointer, live), {'status': 'POINTER_OUT_OF_RANGE'})
+            observer.engine.read.assert_not_called()
+
+    def test_committed_route_movie_is_bounded_and_matches_evidence(self):
+        movie = (Path(u.__file__).parent/'unbound-continue-summary.movie').read_bytes()
+        commands = u.parse_movie(movie.decode('ascii'))
+        labels = [c[1] for c in commands if c[0] == 'observe']
+        self.assertEqual(len(labels), 26)
+        self.assertTrue(all(c[0] in ('run', 'mash', 'observe') for c in commands))
+        self.assertEqual([l for l in labels if l.endswith('_info')], ['s%d_info' % n for n in range(1, 7)])
+        evidence = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-observation.json').read_text())
+        self.assertEqual(evidence['battery_run']['movie_sha256'], u.rowe.digest(movie))
+        self.assertEqual(evidence['battery_run']['observations'], len(labels))
+
+    def test_committed_runtime_observation_is_self_consistent_and_sanitized(self):
+        evidence = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-observation.json').read_text())
+        self.assertEqual(evidence['support_verdict'], 'NONE')
+        self.assertEqual(evidence['inputs']['rom']['sha256'], u.ROM_SHA256)
+        self.assertEqual(evidence['inputs']['battery']['sha256'], u.SAVE_SHA256)
+        self.assertEqual(evidence['inputs']['quicksave']['sha256'], u.STATE_SHA256)
+        self.assertEqual(evidence['inputs']['core_sha256'], u.rowe.CORE_SHA256)
+        self.assertEqual(evidence['inputs']['observer_sha256'], u.rowe.digest(Path(u.__file__).read_bytes()))
+        self.assertTrue(evidence['battery_run']['all_observations_same_player_sha256'])
+        natures = ('Hardy Lonely Brave Adamant Naughty Bold Docile Relaxed Impish Lax Timid Hasty Serious '
+                   'Jolly Naive Modest Mild Quiet Bashful Rash Calm Gentle Sassy Careful Quirky').split()
+        slots = evidence['party']
+        self.assertEqual(len(slots), evidence['battery_run']['timeline']['s1_info']['player_count'])
+        self.assertGreaterEqual(len(slots), 2)
+        for slot in slots:
+            ui, raw, native = slot['ui_transcription'], slot['raw_selected'], slot['production_native']
+            with self.subTest(slot=slot['slot']):
+                # Recomputed here from raw fields, independent of the stored 'checks'.
+                self.assertEqual(raw['checksum_word'], '0x0000')
+                self.assertNotIn(raw['checksum_word'], (raw['raw_sum16'], raw['xor_sum16']))
+                self.assertEqual(ui['level'], raw['level_byte'])
+                self.assertEqual(ui['hp'], [raw['hp_word'], raw['stats_words']['max_hp']])
+                for name in ('attack', 'defense', 'sp_attack', 'sp_defense', 'speed'):
+                    self.assertEqual(ui[name], raw['stats_words'][name])
+                self.assertEqual(ui['exp'], raw['experience_word'])
+                self.assertEqual([m[1] for m in ui['moves']], raw['pp_bytes'])
+                self.assertEqual(ui['nature'], natures[raw['pid_mod25']])
+                self.assertEqual(ui['id_no'], int(raw['otid'], 16) & 0xffff)
+                self.assertEqual(bytes.fromhex(raw['nickname_hex']).split(b'\xff')[0],
+                                 bytes(0xbb + ord(c) - 65 if c.isupper() else 0xd5 + ord(c) - 97
+                                       for c in ui['nickname']))
+                self.assertEqual(native['species'], int(raw['species_word'], 16) & 0x7ff)
+                self.assertTrue(native['accepted'])
+        # Sanitized: selected fields only; no 100-byte record or longer raw hex blobs.
+        def strings(node):
+            if isinstance(node, dict):
+                for value in node.values(): yield from strings(value)
+            elif isinstance(node, list):
+                for value in node: yield from strings(value)
+            elif isinstance(node, str):
+                yield node
+        self.assertFalse([t for t in strings(evidence) if len(t) > 64 and all(c in '0123456789abcdef' for c in t)])
 
     def test_identity_requires_both_length_and_hash(self):
         raw = b'invented'
@@ -199,7 +274,7 @@ class UnboundObserveTests(unittest.TestCase):
 
     def test_committed_static_manifest_has_no_runtime_claim(self):
         evidence = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-static.json').read_text())
-        self.assertEqual(evidence['runtime_status'], 'BLOCKED')
+        self.assertEqual(evidence['runtime_status'], 'SEE_RUNTIME_OBSERVATION')
         self.assertEqual(evidence['static']['runtime_layout'], 'NOT_VERIFIED')
         self.assertEqual(evidence['static']['rom']['sha256'], u.ROM_SHA256)
         self.assertEqual(evidence['static']['player_stride_bytes'], 100)

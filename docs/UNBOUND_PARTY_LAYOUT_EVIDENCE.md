@@ -1,49 +1,53 @@
 # Unbound exact-candidate party layout evidence
 
 Task `unbound-runtime`, issues [#60](https://github.com/Sonoran-Solutions/dualdex/issues/60)
-and [#26](https://github.com/Sonoran-Solutions/dualdex/issues/26). Inspected 2026-11-03
-(America/Phoenix), base `d592f559e0eb97159513551fc05ea6a663532a9a`.
+and [#26](https://github.com/Sonoran-Solutions/dualdex/issues/26). Static inspection
+2026-11-03 (attempt 1, base `d592f559e0eb97159513551fc05ea6a663532a9a`); runtime
+observation 2026-11-03 (attempt 3, on top of `27da0d9`).
 
-**Runtime evidence is BLOCKED.** This change supplies a diagnostic observer and
-identity-bound static findings, not two observed party slots or permission to enable
-support. Production profiles, hashes, readers, Kotlin, CI and the shared README are
-unchanged. The release label is **NOT_VERIFIED**; the inherited FireRed header does
-not establish a version. No ROM, save, state, RAM, screenshot, extracted table or
-instruction bytes are included.
+**Six party records from one owner save were OBSERVED at runtime and matched the
+in-game summary screens.** This is layout evidence for one exact cartridge and one
+save, not a support verdict: production profiles, hashes, readers, Kotlin, CI and the
+shared README are unchanged. The release label is **NOT_VERIFIED** (the owner says
+v2.1.1.1; no publisher patch exists on the host, and the `POKEMON FIRE`/`BPRE` header
+does not identify a version). No ROM, save, state, RAM, screenshot, full record,
+extracted table or instruction bytes are committed.
 
-The [sanitized manifest](../tools/rom-evidence/evidence/unbound-runtime-static.json)
-records exact input identities, adapter/source pins, selected instruction-span
-hashes and the limitations. **VERIFIED** below means the stated static operation
-or hash was checked, **OBSERVED** means an actual runtime/UI observation,
-**NOT_VERIFIED** means insufficient evidence, and **BLOCKED** names a prerequisite.
-There are **no OBSERVED runtime findings** in this revision. `NOT_RUN` describes a
-scenario that was not exercised.
+Evidence files:
+
+* [static manifest](../tools/rom-evidence/evidence/unbound-runtime-static.json):
+  input identities, adapter/source pins, selected instruction-span hashes (attempt 1).
+* [runtime observation](../tools/rom-evidence/evidence/unbound-runtime-observation.json):
+  input/tool/movie hashes, a frame timeline, and, per slot, the manual UI
+  transcription, the selected raw fields, the production parser's output, screen
+  hashes and the comparison results. Raw 600-byte party regions and PPM screens stay private
+  under `/home/dq/dualdex-private/unbound/runtime-opus/` (mode 700, no Git ancestor).
+* [route movie](../tools/rom-evidence/unbound-continue-summary.movie): boot, Continue,
+  Start menu, Pokémon, Summary, all three pages for all six slots.
+
+Labels: **VERIFIED** means a stated static operation or hash was checked;
+**OBSERVED** means seen at runtime and/or on screen for the records named;
+**NOT_VERIFIED** means the evidence is insufficient; **NOT_RUN** means the scenario
+was not exercised. One save with six Pokémon cannot prove every value domain or mode.
 
 ## Identity and prerequisite results
 
 | Input | Result |
 |---|---|
 | Candidate | **VERIFIED** 33,554,432 bytes, SHA-256 `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7`; header `POKEMON FIRE` / `BPRE` |
-| Thor battery | **VERIFIED** 131,072 bytes, SHA-256 `a561cab2c9f4ecd32997d34a6f6b82ca592ec71f28d8713a16c9950e797e5236` |
-| Thor quicksave | **VERIFIED** 528,448 bytes, SHA-256 `eb64974477c908ab5a46f52642047fd55db2ee02b7999c67191bff7615727482`; host acceptance **BLOCKED**, not tried |
-| Pinned host core | **VERIFIED** SHA-256 `fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e`; existing developer documentation attributes mGBA commit `e31759b24e7a4e3899285ff720d7b573ac328ae7`; no independent rebuild here |
-| Developer adapter | **VERIFIED** canonical developer build reproduced `aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99`; existing `adapter-pin.json` source/build inputs all matched |
-| Exact release / publisher patch | **NOT_VERIFIED**; publisher patch/source build was not supplied; no download attempted |
-| Issue #24 | **BLOCKED**: required `gh issue view 24 --json body,comments` failed connecting to GitHub; web fallback also failed. Its comments were not read or treated as authority |
-
-The required private directory `/home/dq/dualdex-private/unbound/unbound-runtime/`
-is outside this sandbox's writable roots (only this worktree and `/tmp`). The
-owner was asked about using `/tmp`; no authorization was received during this
-revision. Independently, `/tmp/.git` exists in this environment, and the inherited
-private-directory guard rejects every `/tmp` capture path. Removing that marker,
-bypassing the guard or writing private captures into the checkout was not attempted.
-Required remedy: run in an environment permitted to write the prescribed private
-directory, outside any Git checkout. No battery/state core run was launched.
+| Thor battery | **VERIFIED** 131,072 bytes, SHA-256 `a561cab2c9f4ecd32997d34a6f6b82ca592ec71f28d8713a16c9950e797e5236`; loaded from a private copy and **accepted** by the host core |
+| Thor quicksave | **VERIFIED** 528,448 bytes, SHA-256 `eb64974477c908ab5a46f52642047fd55db2ee02b7999c67191bff7615727482`; **OBSERVED accepted** by the pinned host core (private copy) |
+| Pinned host core | **VERIFIED** SHA-256 `fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e` |
+| Developer adapter | **VERIFIED** `probe_host.so` `aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99`; all `adapter-pin.json` source inputs matched (checked by the observer each run) |
+| Observer | SHA-256 `0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a` (bound by both manifests and a unit test) |
+| Exact release / publisher patch | **NOT_VERIFIED**; owner claim v2.1.1.1 recorded as a claim only |
+| Issue #24 | Offline copy read as prior claims, not as authority. Fixed order and the zero checksum match this run. Its “BADC” name is wrong: the order is G/A/E/M. Its “IDs > 898” scope for the species map does not match either: internal 942 (Litten) is national 725 (see species row) |
+| Public source | CFRU `b637a27898b14e25dd24d0f69a3e302f0069deb8`, DPE `cdfc053a56326a13dc5311b24488445e17536b7e` (local, approximate; not the exact build). Used only to name the observed raw IDs and the hidden-ability bit |
 
 ## Selected exact-ROM instruction evidence
 
 Read-only bounded Thumb disassembly used local Capstone 5.0.7. No public CFRU/DPE
-source revision was fetched or substituted for the exact cartridge. Function names
+source was substituted for the exact cartridge. Function names
 here describe behavior; they are not claims of exact-release symbols. The observer's
 `inspect_rom()` rechecks the full ROM identity and all seven inspected span hashes;
 it emits numerical facts and descriptions, never disassembly or game tables.
@@ -76,140 +80,163 @@ disassembler, executed-PC trace or proof of all callers/modes.
   No mask or constant internal-ID subtraction is present on the selected normal
   species-load path. A complete identity mapping cannot be inferred from that.
 
+## Runtime observation (battery path)
+
+Route: the committed movie run by `unbound_observe.py --battery-save`. It produced 26
+observations from frame 600 to frame 4607. All 26 paused snapshots were coherent:
+the count was read three times and the region twice. The player party digest was the
+same at every observation, so menus did not change party RAM.
+
+* At frame 600, during the title logo and **before** Continue, `gPlayerPartyCount` was
+  already 6 and the party region was populated. The bytes were already equal to the
+  SaveBlock1 copy. The Continue screen showed “Annie, 147:31, Pokédex 274, Badges 8”.
+  After Continue, the overworld was Hidden Grotto.
+* `gSaveBlock1Ptr`=`0x0202552C`, `gSaveBlock2Ptr`=`0x02024588` at every observation.
+  With the vanilla FireRed hypothesis (count u8 at SB1+0x34, party at SB1+0x38), the
+  copy count was 6 and all six 100-byte copies were byte-identical to `gPlayerParty`.
+* Both enemy-count candidates (`0x02024028`, production Unbound config; `0x0202402A`,
+  production FireRed config) read 0 out of battle. No enemy records were decoded.
+* Stored checksum word (`+28`) was `0x0000` in all six records. Neither the raw
+  16-bit sum of the 48 substructure bytes nor the PID^OTID-XOR sum equals it. Slots
+  have `pid % 24` = 10, 6, 12, 16, 22, 15, so a personality permutation would have
+  moved every field. Every UI value below matched the fixed G/A/E/M reading.
+
+### Manual summary-screen transcription (all six slots)
+
+The agent viewed the private PPMs, converted to PNG with a stdlib script. Screen
+SHA-256 values (RGB565) and frames for every page are in the runtime manifest.
+“Raw” is the fixed-GAEM word. Natures matched `pid % 25` for all six. The IDNo
+(53340) matched the low 16 bits of the OT ID. Nicknames and the OT name “Annie”
+matched the Gen III charset bytes.
+
+| Slot | UI: nickname / No. / species (form) / item / ability | Raw species / item | Lv, HP, stats, EXP, PP | Production parser |
+|---|---|---|---|---|
+| 1 | Gary / 130 / Gyarados / Gyaradosite / Intimidate; shiny star | `0x0082` / `0x01C9` | all match | species 130, item 457; **is_shiny false** (shiny value 15) |
+| 2 | Reyna / 230 / Kingdra / Choice Specs / Swift Swim; shiny star | `0x00E6` / `0x00B1` | all match | 230, 177; shiny true (value 5) |
+| 3 | Toady / 186 / Politoed / Damp Rock / **Drizzle** | `0x00BA` / `0x00F1` | all match | 186, 241; **ability_slot 1** (IV-word bit31 = 1) |
+| 4 | Trippy / **785** / Tapu Koko / Focus Sash / Electric Surge | **`0x03EA` (1002)** / `0x023A` | all match | **species 1002** |
+| 5 | Frank / **089** / Muk, Poison/Dark (Alolan) / Black Sludge / Poison Touch | **`0x040B` (1035)** / `0x003A` | all match | **species 1035** |
+| 6 | Litten / **725** / Litten / None / Blaze | **`0x03AE` (942)** / `0x0000` | all match | **species 942** |
+
+Moves (UI name: raw word): slot 1 Waterfall `0x7F`, Dragon Dance `0x15D`, Crunch
+`0xF2`, Protect `0xB6`. Slot 2 Muddy Water `0x14A`, **Draco Meteor `0x171`** (national 434),
+Ice Beam `0x3A`, **Hurricane `0x19C`** (542). Slot 3 **Scald `0x1CB`** (503), Encore `0xE3`,
+Icy Wind `0xC4`, Helping Hand `0x10E`. Slot 4 Thunderbolt `0x55`, **Volt Switch `0x1BB`**
+(521), **Dazzling Gleam `0x1D2`** (605), Protect `0xB6`. Slot 5 Toxic `0x5C`, Crunch `0xF2`,
+Acid Armor `0x97`, Poison Fang `0x131`. Slot 6 Flamethrower `0x35`, Thrash `0x25`,
+**Flare Blitz `0x1B2` = 434** (national 394), Outrage `0xC8`. All observed IDs ≤ 354
+equal the national number. All observed IDs above that are CFRU-internal and match the
+public CFRU `MOVE_*` constants. Note that internal Flare Blitz (434) equals the
+national number of Draco Meteor.
+
+The skills page shows a letter grade per stat (S … E-). For all 36 stat
+positions, the grades rank in the same order as the six 5-bit IVs at M+4 in
+production bit order (HP, Atk, Def, Spe, SpA, SpD). Examples: Kingdra's Atk IV 0 is
+`E-`; Tapu Koko's (31,14,31,5,12,31) shows S/C/S/E+/C-/S. This is consistency evidence,
+not an exact numeric IV readout. EVs are not displayed and were not compared.
+
+## Runtime observation (quicksave path)
+
+`--initial-state` with a private copy of the quicksave: the state was **accepted** and the
+game resumed in the Hidden Grotto overworld. There were six records with the same
+PIDs, species, levels and HP. Only `+41` (G+9, friendship) differed: slot 3 251→252,
+slot 6 50→52. So the quicksave was taken after later play than the battery save. Its
+SaveBlock1 party copy was not equal to the live party, which fits play after the
+last in-game save. This is one host-core load, not a claim about Android-core state
+compatibility in general.
+
 ## Field status matrix
 
-Offsets below are relative to a hypothesized 100-byte record. Byte/halfword/word
-mean 8/16/32 bits, little-endian. Runtime findings, including the two-slot manual
-UI transcription, remain **BLOCKED** pending the output-directory prerequisite.
+Offsets are relative to the 100-byte party record; G/A/E/M blocks start at
+`+32/+44/+56/+68`. "Production" means `pokemon_parse_single()` (vanilla-layout entry,
+the layout `CONFIG_UNBOUND` uses). The observer calls it host-side through the
+source-pinned adapter for each counted record; that is the real C parser, not a
+Python model. Product party discovery, game detection and Kotlin mapping were
+reasoned about from source only.
 
-| Area | Exact-candidate evidence and status | Production comparison / remaining gate |
+| Area | Status and evidence | Production comparison |
 |---|---|---|
-| Party count | **VERIFIED static** u8 at `0x02024029`, loop maximum six | Config matches. Loaded count, count changes and coherent snapshot **NOT_VERIFIED** |
-| Stride/base | **VERIFIED static** 100 bytes at `0x02024284` | Config/profile agree (`33702532`). Two occupied slots, switch/permutation experiment **NOT_VERIFIED** |
-| Encryption/order | **VERIFIED static** fixed G/A/E/M at `+32/+44/+56/+68`; XOR disabled on inspected paths | Production selects this only when `+28` checksum is zero; actual checksum-dependent disagreement **NOT_VERIFIED** |
-| Checksum | **VERIFIED static** getter validation bypass; stored word at `+28` exists | Word value, reuse and save semantics **NOT_VERIFIED**. Zero is not an identity/support credential |
-| Species width / ID domain | **VERIFIED static** normal getter reads full 16-bit G+0 | Production masks `0x07FF`; raw high-bit loss is possible. Internal IDs, dex mapping, forms and any national-ID offset **NOT_VERIFIED** |
-| Moves / PP | **VERIFIED static** four A halfwords and four A+8..11 bytes | Production masks moves `0x07FF` and PP `0x7F`; exact high-bit semantics and UI names **NOT_VERIFIED** |
-| Item | **VERIFIED static** G+2 halfword | Production masks `0x03FF`; full ID domain and held-item UI **NOT_VERIFIED** |
-| Level | **NOT_VERIFIED runtime**; inspected stored getter uses byte `+84` | Production uses `+84`; no level/UI correlation or override coverage |
-| HP/stats | **NOT_VERIFIED runtime**; selected stored getter paths use halfwords `+86..98` (stat getters have override calls) | Production uses these raw party words; no UI/mutation correlation or effective-stat guarantee |
-| IVs/EVs | **VERIFIED static** six EV bytes at E+0..5; IV semantic contract **NOT_VERIFIED** | Observer reports M+4 word and six 5-bit hypotheses; production uses the same Gen III hypothesis; no IV/EV UI comparison |
-| Ability slot | **NOT_VERIFIED** | Observer labels M+4 bit31 only as a hypothesis; production vanilla path treats it as a known ability slot. Hidden/alternate abilities unresolved |
-| Nickname / OT | **NOT_VERIFIED runtime** | Observer preserves nickname `+8..17` and OT `+20..26` hex plus full PID/OTID; exact text, padding, maximums and UI identity unresolved |
-| Enemy party | **NOT_VERIFIED** diagnostic base/count `0x0202402C/0x02024028` | Inherited config and ROM literal occurrences are leads, not lifecycle authority; no enemy scan or fallback. Battle lifecycle **NOT_RUN** |
-| Save-block pointers | **NOT_VERIFIED** diagnostic pointer locations `0x03005008/0x0300500C` | Literal occurrences alone do not identify live blocks, copy offsets or serialization; no saved-copy layout claimed |
+| Party count | **OBSERVED** u8 `0x02024029` = 6, stable over 26 observations; equals SB1+0x34; already set at title (frame 600) | Config `0x24029` agrees |
+| Stride/base | **OBSERVED** 6 × 100 bytes at `0x02024284`, each record bound to its UI slot | Config/profile `0x24284` agree |
+| Encryption/order | **OBSERVED** fixed G/A/E/M, unencrypted (6/6 records across 6 different `pid % 24` values) + **VERIFIED static** | Zero-checksum branch takes fixed order: agrees for these records |
+| Checksum | **OBSERVED** stored `+28` = `0x0000` in 6/6; matches neither raw nor XOR sum | Production keys its CFRU branch on zero. The branch ran for all six. A non-zero stored word (e.g. in battle, as #24 claims) is **NOT_RUN**, and then production would try XOR+permutation |
+| Species width / ID domain | **OBSERVED** 16-bit internal ID ≠ displayed dex for Tapu Koko 1002→785, Litten 942→725, Alolan Muk 1035→089 (forms are separate IDs); Gen 1–2 samples 130/186/230 equal dex. **NOT_VERIFIED**: Gen 3–6 internal numbering, full map | **Disagreement**: production outputs internal IDs (1002, 942, 1035) as `species`. If downstream treats them as national dex numbers, three of six slots are wrong. `& 0x07FF` did not change any observed word (max `0x040B`) |
+| Moves / PP | **OBSERVED** four A halfwords, four A+8 bytes = current PP (24/24 match); IDs are CFRU-internal above 354 | Parser output = raw words. **Disagreement** if consumers use national move IDs (6 of 24 moves; Flare Blitz 434 collides with national Draco Meteor). Masks `0x07FF`/`0x7F` changed nothing observed. Max PP / PP-ups **NOT_VERIFIED** |
+| Item | **OBSERVED** G+2 halfword, CFRU-internal IDs (e.g. Gyaradosite `0x1C9`, Focus Sash `0x23A`, Black Sludge `0x3A`) | `& 0x03FF` changed nothing observed. Item-ID domain mapping downstream **NOT_VERIFIED** |
+| Level | **OBSERVED** byte `+84` (6/6) | Agrees |
+| HP/stats | **OBSERVED** halfwords `+86` current HP, `+88..98` max HP/Atk/Def/Spe/SpA/SpD (36/36 values + 6 current HP) | Agrees |
+| Experience | **OBSERVED** G+4 word (6/6) | Agrees (`& 0x1FFFFF` not exercised above 1,250,000) |
+| IVs/EVs | IVs **OBSERVED consistent** with UI grade letters (36/36 rank-consistent); EVs **NOT_VERIFIED** (not shown in UI) | Same bit layout; agrees as far as observed |
+| Nature | **OBSERVED** `pid % 25` (6/6, including the stat colours) | Agrees |
+| Ability slot | **OBSERVED (one discriminating record)**: Politoed with M+4 bit31 = 1 shows hidden ability Drizzle. Public CFRU defines that bit as `hiddenAbility`, with the normal slot selected by `personality & 1`. The other five have bit31 = 0 and show ability 1 (Litten's pid bit0 = 1, but it has no ability 2). `personality & 1` choosing ability 2 is **NOT_VERIFIED** | **Disagreement**: production vanilla path reports bit31 as `ability_slot` 1 for Politoed, i.e. its second regular ability (Damp). It never uses `personality & 1`. Hidden ability is not represented |
+| Shiny | **OBSERVED** UI star on slot 1 (shiny value 15) and slot 2 (value 5); none on values ≥ 2596 | **Disagreement**: production vanilla rule `< 8` reports slot 1 not shiny. Exact Unbound threshold **NOT_VERIFIED** (≥ 16 implied) |
+| Nickname / OT | **OBSERVED** nickname `+8..17`, OT `+20..26`, Gen III charset, `0xFF` terminator; bytes after the terminator are not always `0xFF` (Litten). OT ID low half = IDNo | Production decodes up to the terminator; strings agree (6/6) |
+| Enemy party | **NOT_RUN** (no battle). Both count candidates read 0 in the overworld | Unbound config uses `0x24028`; the FireRed config uses `0x2402A`. Neither was disambiguated |
+| Save-block pointers | **OBSERVED** SB1 `0x0202552C`, SB2 `0x02024588` (stable); SB1+0x34/+0x38 party copy byte-identical to live after the battery load | Production does not read SaveBlocks for party. Serialized flash layout **NOT_VERIFIED** |
+| Game detection | Source-only: the header is `POKEMON FIRE`, so `pokemon_detect_game()` would return FireRed, not Unbound. `unbound.json` matches only `UNBOUND` titles and has no hashes | **Disagreement (reasoned, not run)**: this exact cartridge would not select `CONFIG_UNBOUND`. Party offsets happen to be the same; the enemy count offset is not |
 
-There are **no measured runtime disagreements**. The mask differences and
-checksum-dependent decoding are source/static contract differences, not a claim
-that these particular saved Pokémon exercise those cases. Species names, an
-internal-to-national offset, the observed checksum word and at least two UI-bound
-identities must be established in a later runtime run.
+Every disagreement above is about field meaning or domain, not byte location.
+Production reads the right bytes for all six records. Its output differs from what the
+game displays for species identity (3/6), CFRU-internal move IDs (6/24 moves),
+ability slot (1/6) and shiny (1/6), if consumers assume vanilla/national meanings.
+How the Kotlin or calculator layer maps these IDs was **not** examined at runtime.
 
 ## Observer contract and reproduction
 
 [`unbound_observe.py`](../tools/rom-evidence/unbound_observe.py) composes the existing
-ROWE input/read host, movie parser, private-directory guard, video ABI and adapter
-verifier. It does not modify shared helpers. It requires the exact candidate ROM,
-core, source-pinned adapter and either the exact Thor battery or exact quicksave.
-It creates an exclusive private cartridge directory and copies the already hashed
-ROM/save/state bytes there; originals are never passed to writable cartridge APIs.
-No RAM-write, scan, in-game save automation or cartridge-flush command is exposed.
+ROWE host, movie parser, private-directory guard, video ABI and adapter verifier
+without modifying them. It requires the exact candidate ROM, core and source-pinned
+adapter, plus either the exact Thor battery or the exact quicksave. It copies the
+already hashed bytes into a new exclusive private directory. Originals are never passed
+to writable cartridge APIs. There is no RAM-write, scan or `cartridge_save` command.
+Movies support bounded `run`, `mash`, `observe`, `save` and `restore`. Ordinary inputs can
+change emulated RAM. The committed route never confirms the in-game save prompt.
 
-Movies support bounded `run`, `mash`, `observe`, `save` and `restore`; they reject
-`cartridge_save`, unknown commands, excess frames (>500,000), excess commands
-(>4,096), duplicate labels and >64 captures. Temporary state save/restore refers
-only to this run's private state. Add a released frame after restore before a
-screenshot to refresh cached video. Ordinary gameplay inputs can naturally change
-RAM and private cartridge RAM; “read-only” means no injected gameplay RAM writes.
+Each observation reads count, party (2 × 300 bytes), count, party again, count, and fails
+the whole report on any mismatch or count > 6. It then reads both SaveBlock pointers,
+the SB1+0x34/+0x38 copy (bounded and range-checked; digests and a per-counted-slot
+equality only), both enemy-count candidates and the video frame. Only counted slots
+are decoded. Each one gets fixed-GAEM raw fields, PID-permuted raw/XOR alternatives, both
+checksum sums and the production parser result. Raw regions and PPMs stay in the
+private directory. The report starts as FAIL and becomes OBSERVED only after the whole
+movie finishes.
 
-At each paused observation the tool reads count, two bounded 300-byte party
-chunks, count, both chunks again, then count. Any mismatch or count >6 fails the
-whole report and clears earlier observations. Only counted slots are decoded;
-all six record digests are retained, with no stale-slot discovery. Raw 600-byte
-regions and exclusive PPMs remain private. The JSON contains selected numeric
-fields, name hex and digests. It reports fixed raw GAEM and PID-permuted raw/XOR
-alternatives separately, including both checksum sums; none is automatically
-declared correct. It records ROM/core/adapter/tool/helper/movie/bootstrap hashes.
-The output is initialized to FAIL, refuses aliases to named inputs/tools, and is
-OBSERVED only after the whole input movie finishes; `runtime_layout` remains
-NOT_VERIFIED even then.
-
-The adapter exports `pokemon_parse_single()`, so the observer calls the actual
-production parser for **each counted 100-byte record** through its source-pinned
-`ParsedPokemon` ABI. Failed native parses expose only `accepted: false`, never
-partially populated Pokémon. This is a decoder comparison, not the product's
-heuristic party discovery, lifecycle resolver or full Android pipeline.
-
-After resolving the directory prerequisite, use an owner-reviewed movie for the
-actual boot/Continue/party-summary route. No untested route is committed as a
-successful fixture. For example (these commands are **NOT_RUN**):
+Commands run in attempt 3 (each with `timeout 600`, output redirected to private files):
 
 ```bash
-./tools/vanilla-runtime-probe/build.sh
-timeout 600 python3 tools/rom-evidence/unbound_observe.py \
-  --rom /home/dq/dualdex-private/unbound/unbound-candidate.gba \
+P=/home/dq/dualdex-private/unbound
+timeout 600 python3 tools/rom-evidence/unbound_observe.py --rom $P/unbound-candidate.gba \
   --core /home/dq/Projects/upstream-hns/mgba-host/mgba_libretro.so \
-  --battery-save /home/dq/dualdex-private/unbound/thor-2026-09-06.sav \
-  --movie /home/dq/dualdex-private/unbound/unbound-runtime/continue.movie \
-  --private-dir /home/dq/dualdex-private/unbound/unbound-runtime/run01 \
-  --output /home/dq/dualdex-private/unbound/unbound-runtime/run01.json
-# Wrap with the coordinator's bounded-output supervisor, not unlimited capture.
-# For the separate compatibility attempt, replace --battery-save with:
-# --initial-state /home/dq/dualdex-private/unbound/thor-2026-09-06-quicksave.state
-# Use a new private directory/report. Do not force a rejected state to load.
+  --battery-save $P/thor-2026-09-06.sav --movie tools/rom-evidence/unbound-continue-summary.movie \
+  --private-dir $P/runtime-opus/run04 --output $P/runtime-opus/run04.json
+timeout 600 python3 tools/rom-evidence/unbound_observe.py --rom $P/unbound-candidate.gba \
+  --core /home/dq/Projects/upstream-hns/mgba-host/mgba_libretro.so \
+  --initial-state $P/thor-2026-09-06-quicksave.state --movie $P/runtime-opus/mstate.movie \
+  --private-dir $P/runtime-opus/run05 --output $P/runtime-opus/run05.json
 ```
 
-Inspect private PPMs directly and transcribe at least two slots' summary, stats,
-item and move pages, binding the transcription to frame/screen/record hashes.
-Compare raw and native fields and distinguish dex number from internal species.
-Enemy/battler lifecycle remains a separate optional experiment, not inferred from
-nonzero enemy bytes outside a confirmed battle.
+`mstate.movie` is `run 1`, `observe state_loaded`, `run 120`, `observe state_120`. Three
+earlier exploratory battery runs (run01–03) found the route. One of them reached the
+in-game “overwrite save?” prompt with an extra A press but did not confirm it. The
+private cartridge copy was not saved, and the original `.sav` is never written. The
+runtime manifest was derived from `run04.json`/`run05.json`, whose SHA-256 values it records. The
+transcription fields are manual.
 
 ## Validation and outstanding work
 
-Validation owner: this task; combined CI owner: coordinator. Required full
-`ci.sh test/build/all` were not run. Before execution, the canonical CI header,
-test entry points and adapter build script were read; no reusable local binary or
-same-input test result was present. Free disk was about 70 GiB. Supervised jobs
-used `/tmp/dualdex-host-heavy.lock`, finite 120-second deadlines, process-group
-TERM/grace/KILL cleanup, 1 MiB head + 4 MiB rolling tail, 64 MiB produced-output
-limit and 10 GiB disk stop threshold. No core/engine job was launched.
+* ROM/core runs: 5 (run01–05), all exit 0, total about 12 s of wall time
+  (3.4 + 1.6 + 3.4 + 3.0 + 0.3 s), within the 40-minute budget. No process outlived its run.
+* `TMPDIR=/home/dq/dualdex-private/unbound/runtime-opus python3 -m unittest discover -s tools/rom-evidence -v`:
+  exit 0, 82 cases in 0.65 s (17 Unbound, 65 existing). The Unbound cases include the
+  sanitized-manifest self-consistency check, which recomputes UI agreement from the
+  committed raw fields, plus the movie-hash binding and SB1-copy bounds. The `TMPDIR` is set
+  because an unrelated `/tmp/.git` exists on this host. The ROWE guard test is unchanged.
+* `./ci.sh` and Gradle were not run (the coordinator owns combined validation). No
+  production file changed.
 
-* **VERIFIED** `./tools/vanilla-runtime-probe/build.sh` via `timeout 120`:
-  exit 0, 0.735 s, no console output; binary and all source pins matched.
-* **VERIFIED** ROM-free actual-native ABI/mask self-check: synthetic raw slot,
-  parser accepted species 1234, item `0xBCDE & 1023 = 222`, full synthetic move
-  words reduced with `& 2047`, expected HP/stats/IVs/EVs. It checked ctypes ABI
-  offsets through the real parser, not only a mock; no emulator/core initialized.
-* **VERIFIED** focused discovery selected 14 new tests and passed, 0.165 s:
-  `python3 -m unittest discover -s tools/rom-evidence -p test_unbound_observe.py -v`.
-  Cases include full raw widths, all 24 permutations, XOR/checksums, malformed
-  movies, snapshot coherence/stale tails, aliases, core/save identity refusal,
-  partial-host cleanup, failed-run invalidation, native projection and static pins.
-* **BLOCKED required validation** initial full command
-  `python3 -m unittest discover -s tools/rom-evidence -v` ran 77 cases in 0.530 s:
-  76 passed (including all then-existing 12 new cases), one existing case errored:
-  `test_rowe_observe.ObserveTest.test_private_capture_guard_checkout_worktree_and_symlinks`.
-  It expects an outside-checkout tempfile path, but `/tmp/.git` makes that path
-  fail the existing guard. No test was weakened/skipped and the marker was not
-  removed. Later changes added two focused cases; they do not fix that environment.
-* Initial focused attempt selected 10 tests, with two fixture errors caused by
-  the same `/tmp/.git` guard. Synthetic-only main-path tests were isolated with a
-  mocked guard, and the wrong-ROM CLI case now refuses before the guard/core.
-  Actual captures still use the unmodified real guard. Failure logs are preserved.
-
-Bounded non-private validation metadata/logs are under
-`/tmp/unbound-runtime-validation/{adapter-build,focused-v1,focused-v2,focused-v3,discovery-v1}/`.
-These are synthetic diagnostics, not ROM/core capture outputs. No jobs or owned
-descendants remain. The new observer source hash is bound by the manifest; current
-revision remains `d592f559e0eb97159513551fc05ea6a663532a9a` with the four new
-task files untracked. **BLOCKED checkpoint commit**: `git add` could not create
-`/home/dq/Projects/dualdex/.git/worktrees/unbound-runtime/index.lock` because the
-worktree metadata is read-only in this sandbox. No commit, push or PR was made.
-The coordinator must stage/commit these files from its writable checkout.
-
-Outstanding gates: writable private directory; successful full ROM-free discovery
-in a normal tempfile environment; actual battery bootstrap and Continue; coherent
-two-slot party capture and manually inspected summaries; checksum semantics and
-internal-ID correlations; live save-block/serialized-layout correlation; optional
-quicksave compatibility and battle lifecycle. No runtime or support gate is closed.
+Outstanding: exact release identity (publisher patch); internal→national species map
+beyond the six sampled IDs (Gen 3–6 internal numbering is untested); move/item ID
+mapping for consumers; ability-2 selection by `personality & 1`; exact shiny threshold;
+EVs vs UI; checksum-word use during battle; enemy party and battler lifecycle
+(**NOT_RUN**); serialized flash layout; whether product game detection selects
+`CONFIG_UNBOUND` for this header (source says no); Android-core quicksave behaviour.

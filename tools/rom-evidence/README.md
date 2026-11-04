@@ -196,3 +196,33 @@ All comparison inputs/outputs containing private capture details must remain out
 See [the revision-1 form runtime report](../../docs/ROWE_2_1_9_1_FORM_RUNTIME_EVIDENCE.md) for
 commands, the UI JSON schema, source identities, the bounded failed Route 101 acquisition movie,
 and the `BLOCKED`/`NOT_VERIFIED` finding. No nonzero-form runtime confirmation is claimed.
+
+## Pokémon Unbound exact-candidate evidence (#60, #26)
+
+Same rules as above: host-only, standard library, no downloads, no production profile, hash,
+reader or data-pack change. Each tool refuses any ROM other than the candidate
+SHA-256 `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7` (owner-stated
+v2.1.1.1; publisher patch-to-ROM identity is NOT_VERIFIED). Findings and limits:
+[release](../../docs/UNBOUND_RELEASE_EVIDENCE.md), [data/text](../../docs/UNBOUND_DATA_TEXT_EVIDENCE.md),
+[party layout](../../docs/UNBOUND_PARTY_LAYOUT_EVIDENCE.md),
+[calculator inventory](../../docs/UNBOUND_CALCULATOR_CAPABILITY_INVENTORY.md) and the
+[existing-support audit](../../docs/UNBOUND_EXISTING_SUPPORT_AUDIT.md).
+
+```bash
+python3 tools/rom-evidence/unbound_identity.py --rom /private/unbound.gba \
+  --base /private/firered-usa-rev0.gba > /tmp/unbound-identity.json
+# --source-dir holds the pinned public CFRU/DPE species headers (optional comparison)
+python3 tools/rom-evidence/unbound_data.py --rom /private/unbound.gba \
+  --source-dir /private/unbound-src > /tmp/unbound-data-contract.json
+./tools/vanilla-runtime-probe/build.sh
+python3 tools/rom-evidence/unbound_observe.py --rom /private/unbound.gba \
+  --core /private/mgba_libretro.so --battery-save /private/own-unbound.sav \
+  --movie tools/rom-evidence/unbound-continue-summary.movie \
+  --private-dir /private/unbound-run --output /private/unbound-run.json
+```
+
+`unbound_data.py` emits counts, offsets, table hashes and selected representative rows only, never
+a full copied table. `unbound_observe.py` performs no RAM writes, loads a private copy of the battery
+save (the original is never written) and never confirms an in-game save; `--initial-state` replaces
+`--battery-save` for an mGBA state. Private directories must be outside any Git checkout. Overworld
+and menu screen hashes vary between runs (animated scenes); summary-screen evidence is what binds.

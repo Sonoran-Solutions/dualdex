@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "task_id": "unbound-static",
+  "status": "BLOCKED",
+  "report_kind": "blocked_run_manifest_not_inspector_output",
+  "base_revision": "d592f559e0eb97159513551fc05ea6a663532a9a",
+  "owner_supplied_candidate": {
+    "bytes": 33554432,
+    "sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7",
+    "header_title": "POKEMON FIRE",
+    "header_game_code": "BPRE",
+    "independent_verification": "NOT_VERIFIED"
+  },
+  "measured_candidate_identity": null,
+  "measured_base_identity": null,
+  "version_label": null,
+  "version_label_status": "NOT_VERIFIED",
+  "base_derivation_consistency": "NOT_VERIFIED",
+  "patch_to_rom_identity": "NOT_VERIFIED",
+  "patch_prerequisite": "Official English main-story patch matching the yet-unmeasured candidate version, original filename and publisher release URL, and SHA-256; not present",
+  "private_rom_runs": 0,
+  "private_output_blocker": "Required private log directory lies outside session writable roots; alternate sanitized log destination awaits approval",
+  "production_support": "NOT_VERIFIED"
+}

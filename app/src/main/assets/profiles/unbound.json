@@ -15,8 +15,8 @@
   "docsUrl": "https://pokemonunboundpokedex.com/borrius/",
   "headerTitles": ["UNBOUND", "POKEMON UNBOUND"],
   "sha256Hashes": [],
-  "isVerified": true,
-  "memoryLayoutVerified": true,
+  "isVerified": false,
+  "memoryLayoutVerified": false,
   "battleUiVerified": false,
   "interactiveControlsVerified": false,
   "gameDataPackId": "modern"

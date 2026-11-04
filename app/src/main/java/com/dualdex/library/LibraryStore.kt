@@ -79,7 +79,7 @@ object LibraryScanner {
 
     private fun inspect(context: Context, doc: DocumentFile, profiles: List<RomHackProfile>): ScanVerdict? {
         val (header, sums) = context.contentResolver.openInputStream(doc.uri)?.let(::headerAndChecksums) ?: return null
-        val compat = RomHackDetector.detectCompatibilityFromBytes(header, sums.sha256, profiles, doc.name.orEmpty())
+        val compat = RomHackDetector.detectCompatibilityFromBytes(header, sums.sha256, profiles, doc.name.orEmpty(), doc.length())
         val profileName = if (compat.status == RomCompatibilityStatus.UNSUPPORTED) "" else compat.profile.name
         return ScanVerdict(doc.uri.toString(), doc.length(), doc.lastModified(), sums.sha256, compat.status, profileName)
     }

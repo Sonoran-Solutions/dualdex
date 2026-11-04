@@ -75,7 +75,7 @@ static void pack_and_encrypt(
 }
 
 // Helper: pack substructures in fixed GAEM order (Unbound/CFRU), unencrypted,
-// with a zeroed checksum — exactly how Unbound stores party mons in EWRAM.
+// with a zeroed checksum. Callers must explicitly select PKMN_STORAGE_CFRU.
 static void pack_cfru_fixed(
     const uint8_t* g_block,
     const uint8_t* a_block,
@@ -2149,8 +2149,7 @@ static void test_party_discovery_policy_assignments(void) {
     TEST_ASSERT(firered != NULL && firered->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
                 "FireRed must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
 
-    // Other vanilla titles and unverified hacks keep PARTY_DISCOVERY_HEURISTIC:
-    // - Unverified hacks (Ghost Grey, Radical Red, Unbound) do not have proven symbol authority.
+    // Other vanilla titles, Ghost Grey and Radical Red keep PARTY_DISCOVERY_HEURISTIC.
     const GameMemoryConfig* leafgreen = pokemon_get_game_config(GAME_LEAFGREEN);
     TEST_ASSERT(leafgreen != NULL && leafgreen->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
                 "LeafGreen must use PARTY_DISCOVERY_HEURISTIC");
@@ -2166,14 +2165,26 @@ static void test_party_discovery_policy_assignments(void) {
     const GameMemoryConfig* ghost_grey = pokemon_get_game_config(GAME_GHOST_GREY);
     TEST_ASSERT(ghost_grey != NULL && ghost_grey->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
                 "Ghost Grey must use PARTY_DISCOVERY_HEURISTIC");
+    TEST_ASSERT(ghost_grey->storage_layout == PKMN_STORAGE_VANILLA_GEN3,
+                "Ghost Grey is not a CFRU layout");
 
     const GameMemoryConfig* radical_red = pokemon_get_game_config(GAME_RADICAL_RED);
     TEST_ASSERT(radical_red != NULL && radical_red->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
                 "Radical Red must use PARTY_DISCOVERY_HEURISTIC");
+    TEST_ASSERT(radical_red->storage_layout == PKMN_STORAGE_CFRU, "Radical Red must use CFRU storage");
 
+    // Exact-ROM getters and runtime observations now establish Unbound's static party authority.
     const GameMemoryConfig* unbound = pokemon_get_game_config(GAME_UNBOUND);
-    TEST_ASSERT(unbound != NULL && unbound->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
-                "Unbound must use PARTY_DISCOVERY_HEURISTIC");
+    TEST_ASSERT(unbound != NULL && unbound->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+                "Unbound must use PARTY_DISCOVERY_AUTHORITATIVE_STATIC");
+    TEST_ASSERT(unbound->storage_layout == PKMN_STORAGE_CFRU, "Unbound must use CFRU storage");
+    TEST_ASSERT(unbound->player_party_offset == 0x24284 && unbound->player_party_count_offset == 0x24029,
+                "Unbound player offsets must match exact-ROM evidence");
+    TEST_ASSERT(unbound->enemy_party_offset == 0x2402C && unbound->enemy_party_count_offset == 0x2402A,
+                "Unbound enemy count is 0x2402A, not sLearningMoveTableID at 0x24028");
+    TEST_ASSERT(unbound->main_struct_gba_address == 0 && unbound->battlers_count_offset == 0 &&
+                unbound->battle_type_flags_offset == 0 && unbound->battle_mons_offset == 0,
+                "party evidence must not grant Unbound battle authority");
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_party_discovery_policy_assignments" ANSI_RESET "\n");
@@ -3589,7 +3600,8 @@ static void test_unbound_cfru_fixed_substructures(void) {
     raw.attack = 100; raw.defense = 90; raw.speed = 80; raw.sp_attack = 70; raw.sp_defense = 60;
 
     ParsedPokemon parsed;
-    bool ok = pokemon_parse_single((const uint8_t*)&raw, true, &parsed);
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_UNBOUND);
+    bool ok = pokemon_parse_single_layout((const uint8_t*)&raw, true, cfg->storage_layout, &parsed);
 
     TEST_ASSERT(ok, "Unbound fixed-order mon should parse successfully");
     TEST_ASSERT(parsed.is_valid, "Unbound mon should be valid");
@@ -3601,6 +3613,168 @@ static void test_unbound_cfru_fixed_substructures(void) {
 
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_unbound_cfru_fixed_substructures" ANSI_RESET "\n");
+}
+
+static void test_non_cfru_requires_encrypted_checksum(void) {
+    printf("Running test_non_cfru_requires_encrypted_checksum...\n");
+    RawGbaPokemon raw;
+    build_vanilla_mon(&raw, 25, 2, 25, 30, 90, 31);
+    TEST_ASSERT(raw.checksum != 0, "fixture needs a nonzero computed checksum");
+    const GbaGameId games[] = {GAME_FIRERED, GAME_EMERALD, GAME_HEART_AND_SOUL, GAME_GHOST_GREY};
+    ParsedPokemon parsed;
+    for (size_t i = 0; i < sizeof(games) / sizeof(games[0]); i++) {
+        PokemonStorageLayout layout = pokemon_get_game_config(games[i])->storage_layout;
+        TEST_ASSERT(pokemon_parse_single_layout((uint8_t*)&raw, true, layout, &parsed),
+                    "valid encrypted fixture must parse before checksum corruption");
+        RawGbaPokemon zero_checksum = raw;
+        zero_checksum.checksum = 0;
+        TEST_ASSERT(!pokemon_parse_single_layout((uint8_t*)&zero_checksum, true, layout, &parsed) && !parsed.is_valid,
+                    "zeroing a non-CFRU checksum must fail validation");
+    }
+
+    // Plaintext with a matching checksum used to reach Attempt B for every layout.
+    uint32_t key = raw.pid ^ raw.otid;
+    for (int i = 0; i < 12; i++) {
+        uint8_t* word = raw.raw_substructures + i * 4;
+        uint32_t value = (uint32_t)word[0] | ((uint32_t)word[1] << 8) |
+                         ((uint32_t)word[2] << 16) | ((uint32_t)word[3] << 24);
+        write32_le_t(word, value ^ key);
+    }
+    for (size_t i = 0; i < sizeof(games) / sizeof(games[0]); i++) {
+        PokemonStorageLayout layout = pokemon_get_game_config(games[i])->storage_layout;
+        TEST_ASSERT(!pokemon_parse_single_layout((uint8_t*)&raw, true, layout, &parsed),
+                    "matching plaintext checksum must not enable Attempt B outside CFRU");
+    }
+    TEST_ASSERT(pokemon_parse_single_layout((uint8_t*)&raw, true, PKMN_STORAGE_CFRU, &parsed) && parsed.species == 25,
+                "CFRU retains matching-checksum plaintext with PID-permuted substructures");
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_non_cfru_requires_encrypted_checksum" ANSI_RESET "\n");
+}
+
+static void test_cfru_full_width_party_ids(void) {
+    printf("Running test_cfru_full_width_party_ids...\n");
+    const size_t ewram_size = 0x40000;
+    uint8_t* ewram = calloc(1, ewram_size);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation required");
+    RawGbaPokemon raw;
+    build_vanilla_mon(&raw, 1, 2, 25, 30, 90, 31);
+    // 1293 is Unbound's highest observed internal species ID.
+    SubstructGrowth g = {.species = 1293, .held_item = 0xF456};
+    SubstructAttacks a = {.moves = {0xFFFF, 0x8ABC, 0x0800, 900}};
+    SubstructEVs e = {0};
+    SubstructMisc m = {0};
+    pack_cfru_fixed((uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
+                    raw.raw_substructures, &raw.checksum);
+    const GbaGameId games[] = {GAME_UNBOUND, GAME_RADICAL_RED};
+    for (size_t i = 0; i < sizeof(games) / sizeof(games[0]); i++) {
+        pokemon_reader_reset();
+        const GameMemoryConfig* cfg = pokemon_get_game_config(games[i]);
+        memcpy(ewram + cfg->player_party_offset, &raw, sizeof(raw));
+        ewram[cfg->player_party_count_offset] = 1;
+        PartySnapshot snap;
+        TEST_ASSERT(pokemon_read_player_party(ewram, ewram_size, cfg, &snap) == 1,
+                    "configured CFRU party path must accept full-width IDs");
+        TEST_ASSERT(snap.members[0].species == g.species && snap.members[0].held_item == g.held_item &&
+                    memcmp(snap.members[0].moves, a.moves, sizeof(a.moves)) == 0,
+                    "CFRU species, item and every move must retain all 16 bits");
+        TEST_ASSERT(!snap.active_battler_known, "CFRU party alone cannot establish a live battler");
+        // A species halfword outside the ID domain is rejected, never masked into a smaller ID.
+        RawGbaPokemon wide = raw;
+        SubstructGrowth wide_g = {.species = 0x0805, .held_item = 0xF456};
+        pack_cfru_fixed((uint8_t*)&wide_g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
+                        wide.raw_substructures, &wide.checksum);
+        ParsedPokemon wide_parsed;
+        TEST_ASSERT(!pokemon_parse_single_layout((uint8_t*)&wide, true, PKMN_STORAGE_CFRU, &wide_parsed) &&
+                    wide_parsed.species == 0x0805,
+                    "out-of-domain CFRU species must fail validation without aliasing to species 5");
+        if (games[i] == GAME_UNBOUND) {
+            // A stale cached/static party and a scan decoy cannot override authoritative count.
+            memcpy(ewram + 0x28000, &raw, sizeof(raw));
+            ewram[cfg->player_party_count_offset] = 0;
+            TEST_ASSERT(pokemon_read_player_party(ewram, ewram_size, cfg, &snap) == 0,
+                        "Unbound count zero must defeat both cache and decoy scan");
+            ewram[cfg->player_party_count_offset] = 7;
+            TEST_ASSERT(pokemon_read_player_party(ewram, ewram_size, cfg, &snap) == 0,
+                        "Unbound invalid authoritative count must fail closed");
+            ewram[cfg->player_party_count_offset] = 2;
+            TEST_ASSERT(pokemon_read_player_party(ewram, ewram_size, cfg, &snap) == 0 && snap.members[0].species == 0,
+                        "Unbound corrupt counted slot must reject the entire party");
+            TEST_ASSERT(pokemon_read_enemy_party(ewram, ewram_size, cfg, &snap) == 0,
+                        "Unbound enemy party must remain gated without battle authority");
+            memset(ewram + 0x28000, 0, sizeof(raw));
+        }
+    }
+    pokemon_reader_reset();
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_cfru_full_width_party_ids" ANSI_RESET "\n");
+}
+
+static void test_cfru_ability_and_shiny_are_unknown(void) {
+    printf("Running test_cfru_ability_and_shiny_are_unknown...\n");
+    const uint16_t shiny_values[] = {0, 7, 8, 15, 128, 0xFFFF};
+    for (size_t i = 0; i < sizeof(shiny_values) / sizeof(shiny_values[0]); i++) {
+        for (unsigned hidden = 0; hidden < 2; hidden++) {
+            RawGbaPokemon raw;
+            build_vanilla_mon(&raw, 1, 1 ^ shiny_values[i], 25, 30, 90, 0);
+            SubstructGrowth g = {.species = 25};
+            SubstructAttacks a = {0};
+            SubstructEVs e = {0};
+            SubstructMisc m = {.iv_egg_ability = 31u | (hidden << 31)};
+            pack_cfru_fixed((uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
+                            raw.raw_substructures, &raw.checksum);
+            ParsedPokemon parsed;
+            TEST_ASSERT(pokemon_parse_single_layout((uint8_t*)&raw, true, PKMN_STORAGE_CFRU, &parsed),
+                        "CFRU ability/shiny fixture must parse");
+            TEST_ASSERT(!parsed.ability_slot_known && parsed.ability_slot == 0 && parsed.ability_num == 0,
+                        "CFRU hidden-ability bit must not be presented as vanilla slot 1");
+            TEST_ASSERT(parsed.shiny_value == shiny_values[i] && parsed.shiny_state == PKMN_SHINY_UNKNOWN && !parsed.is_shiny,
+                        "unverified CFRU shiny threshold must remain unknown, including shiny value 15");
+        }
+    }
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_cfru_ability_and_shiny_are_unknown" ANSI_RESET "\n");
+}
+
+static void test_legacy_location_never_falls_back_to_ewram(void) {
+    printf("Running test_legacy_location_never_falls_back_to_ewram...\n");
+    const size_t ewram_size = 0x40000;
+    uint8_t* ewram = calloc(1, ewram_size);
+    TEST_ASSERT(ewram != NULL, "EWRAM allocation required");
+    const GbaGameId games[] = {GAME_FIRERED, GAME_EMERALD};
+    for (size_t i = 0; i < sizeof(games) / sizeof(games[0]); i++) {
+        pokemon_reader_reset();
+        GameMemoryConfig cfg = *pokemon_get_game_config(games[i]);
+        size_t sb1_offset = cfg.player_party_offset - (games[i] == GAME_FIRERED ? 0x38 : 0x238);
+        ewram[sb1_offset + 4] = 3;
+        ewram[sb1_offset + 5] = 7;
+        PlayerLocationRaw loc;
+        TEST_ASSERT(pokemon_read_player_location(ewram, ewram_size, &cfg, &loc) &&
+                    loc.is_valid && loc.map_group == 3 && loc.map_num == 7,
+                    "valid FireRed/Emerald legacy location behavior must remain unchanged");
+
+        // Plausible location at EWRAM base must never stand in for an invalid SaveBlock offset.
+        ewram[4] = 1;
+        ewram[5] = 2;
+        cfg.player_party_offset = 0x20;
+        TEST_ASSERT(!pokemon_read_player_location(ewram, ewram_size, &cfg, &loc) && !loc.is_valid,
+                    "party offset below SaveBlock party field must fail closed");
+
+        cfg = *pokemon_get_game_config(games[i]);
+        RawGbaPokemon raw;
+        build_vanilla_mon(&raw, 1, 2, 25, 30, 90, 31);
+        memcpy(ewram + cfg.player_party_offset, &raw, sizeof(raw));
+        ewram[cfg.player_party_count_offset] = 1;
+        PartySnapshot snap;
+        TEST_ASSERT(pokemon_read_player_party(ewram, ewram_size, &cfg, &snap) == 1,
+                    "valid party must seed cached offset for bounds regression");
+        TEST_ASSERT(!pokemon_read_player_location(ewram, 128, &cfg, &loc) && !loc.is_valid,
+                    "cached party offset outside truncated EWRAM must fail closed");
+    }
+    pokemon_reader_reset();
+    free(ewram);
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_legacy_location_never_falls_back_to_ewram" ANSI_RESET "\n");
 }
 
 static void test_battle_presence_and_unknown_ui_state(void) {
@@ -6891,6 +7065,10 @@ int main(void) {
     test_hns_stale_player_slot_cannot_survive_faint();
 
     test_unbound_cfru_fixed_substructures();
+    test_non_cfru_requires_encrypted_checksum();
+    test_cfru_full_width_party_ids();
+    test_cfru_ability_and_shiny_are_unknown();
+    test_legacy_location_never_falls_back_to_ewram();
     test_battle_presence_and_unknown_ui_state();
     test_unknown_game_fails_closed();
 

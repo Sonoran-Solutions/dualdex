@@ -249,8 +249,12 @@ class CrossPhaseContractTest(unittest.TestCase):
         self.assertEqual(new['rom'],prior['rom']);self.assertEqual(new['rom'],old['rom'])
         self.assertEqual(new['reference_core_sha256'],old['core_sha256'])
         self.assertEqual(new['adapter_sha256'],old['adapter']['binary_sha256'])
-        for name,sha in old['adapter']['inputs'].items():
-            self.assertEqual(trace.digest((root.parents[1]/name).read_bytes()),sha,name)
+        # The Phase 6F adapter is the pinned diagnostic adapter. Production native sources may
+        # move on (verify_adapter then refuses a rebuilt adapter until it is re-pinned), so the
+        # historical inputs are checked against the committed pin, not the working tree.
+        pin=json.loads((root/'adapter-pin.json').read_text())
+        self.assertEqual(old['adapter']['inputs'],pin['inputs'])
+        self.assertEqual(old['adapter']['binary_sha256'],pin['binary_sha256'])
         for name,sha in old['tools'].items():
             if name != 'rowe_startup_trace.py':
                 self.assertEqual(trace.digest((root/name).read_bytes()),sha,name)

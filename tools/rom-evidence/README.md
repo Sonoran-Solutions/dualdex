@@ -162,7 +162,9 @@ It never loads a Downloads or personal save by default.
 
 [adapter-pin.json](adapter-pin.json) checks the existing adapter's source/build inputs and
 expected binary before CDLL/core initialization. It intentionally refuses another compiler's
-output until separately reviewed; the pin is diagnostic only. Count/data/count plus repeated
+output until separately reviewed; the pin is diagnostic only. It records the adapter that produced the
+committed evidence: after a production native-reader change the observers refuse a rebuilt adapter
+(source mismatch) until the pin is deliberately updated and the affected evidence is rerun. Count/data/count plus repeated
 456-byte reads fail on any mismatch while stepping is paused. All six slot digests and excluded
 species are recorded as diagnostics; only counted slots are parsed as occupied. Counts >6 fail;
 a zero enemy count with nonzero excluded species does not authorize enemy scanning.

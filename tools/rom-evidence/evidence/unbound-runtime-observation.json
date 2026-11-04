@@ -1,0 +1,1614 @@
+{
+  "attempt": 3,
+  "battery_run": {
+    "all_observations_same_player_sha256": true,
+    "diagnostic_addresses": {
+      "gEnemyParty": "0x202402c",
+      "gEnemyPartyCount": "0x2024028",
+      "gPlayerParty": "0x2024284",
+      "gPlayerPartyCount": "0x2024029",
+      "gSaveBlock1Ptr": "0x3005008",
+      "gSaveBlock2Ptr": "0x300500c"
+    },
+    "movie": "tools/rom-evidence/unbound-continue-summary.movie",
+    "movie_sha256": "ce811490c198fb878965be3d9eaa70e8974cdeaedb12a3dc7a4ac2488e51037e",
+    "observations": 26,
+    "private_report_sha256": "f17f97622714937c47f792364995c7f86f5352de529b526a7365b99360341d2f",
+    "timeline": {
+      "back_party_menu": {
+        "enemy_count_candidates": {
+          "0x2024028": 0,
+          "0x202402a": 0
+        },
+        "frame": 4607,
+        "player_count": 6,
+        "player_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+        "rgb565_sha256": "7c38047c0e0b62a4c905239bf706b7ee998f9b4108b90326571cf9c73c69bd68",
+        "save_blocks": {
+          "1": "0x0202552c",
+          "2": "0x02024588"
+        },
+        "save_party_copy": {
+          "count": 6,
+          "counted_slots_equal_live": true,
+          "offsets_hypothesis": "FIRERED_SB1_0x34_0x38",
+          "sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+          "slot_sha256": [
+            "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+            "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+            "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+            "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+            "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+            "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb"
+          ]
+        }
+      },
+      "continue_menu": {
+        "enemy_count_candidates": {
+          "0x2024028": 0,
+          "0x202402a": 0
+        },
+        "frame": 1491,
+        "player_count": 6,
+        "player_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+        "rgb565_sha256": "38439d257f0f04d6b3de24a1d39043a8acfa7af3ad3679de0fcbf22a767cf1ea",
+        "save_blocks": {
+          "1": "0x0202552c",
+          "2": "0x02024588"
+        },
+        "save_party_copy": {
+          "count": 6,
+          "counted_slots_equal_live": true,
+          "offsets_hypothesis": "FIRERED_SB1_0x34_0x38",
+          "sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+          "slot_sha256": [
+            "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+            "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+            "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+            "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+            "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+            "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb"
+          ]
+        }
+      },
+      "overworld": {
+        "enemy_count_candidates": {
+          "0x2024028": 0,
+          "0x202402a": 0
+        },
+        "frame": 1882,
+        "player_count": 6,
+        "player_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+        "rgb565_sha256": "00b94ae6a177a226572bb5fd6007fc08c1baf0e61994e1c474786755609d41e8",
+        "save_blocks": {
+          "1": "0x0202552c",
+          "2": "0x02024588"
+        },
+        "save_party_copy": {
+          "count": 6,
+          "counted_slots_equal_live": true,
+          "offsets_hypothesis": "FIRERED_SB1_0x34_0x38",
+          "sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+          "slot_sha256": [
+            "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+            "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+            "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+            "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+            "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+            "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb"
+          ]
+        }
+      },
+      "party_menu": {
+        "enemy_count_candidates": {
+          "0x2024028": 0,
+          "0x202402a": 0
+        },
+        "frame": 2366,
+        "player_count": 6,
+        "player_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+        "rgb565_sha256": "5f612c2dec095481b8d2297d70110b8afa1f67c2a810a3b14888f5720943356b",
+        "save_blocks": {
+          "1": "0x0202552c",
+          "2": "0x02024588"
+        },
+        "save_party_copy": {
+          "count": 6,
+          "counted_slots_equal_live": true,
+          "offsets_hypothesis": "FIRERED_SB1_0x34_0x38",
+          "sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+          "slot_sha256": [
+            "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+            "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+            "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+            "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+            "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+            "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb"
+          ]
+        }
+      },
+      "s1_info": {
+        "enemy_count_candidates": {
+          "0x2024028": 0,
+          "0x202402a": 0
+        },
+        "frame": 2608,
+        "player_count": 6,
+        "player_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+        "rgb565_sha256": "2e252f2e95119681eb2a019c13fa6f7824ae16d9d01c1d7bc001928ff8366e97",
+        "save_blocks": {
+          "1": "0x0202552c",
+          "2": "0x02024588"
+        },
+        "save_party_copy": {
+          "count": 6,
+          "counted_slots_equal_live": true,
+          "offsets_hypothesis": "FIRERED_SB1_0x34_0x38",
+          "sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+          "slot_sha256": [
+            "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+            "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+            "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+            "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+            "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+            "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb"
+          ]
+        }
+      },
+      "title_logo": {
+        "enemy_count_candidates": {
+          "0x2024028": 0,
+          "0x202402a": 0
+        },
+        "frame": 600,
+        "player_count": 6,
+        "player_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+        "rgb565_sha256": "d6e46abb31f762371670a3b5d77d5f61b618d56dca6f7ffb8be5a1066953eadc",
+        "save_blocks": {
+          "1": "0x0202552c",
+          "2": "0x02024588"
+        },
+        "save_party_copy": {
+          "count": 6,
+          "counted_slots_equal_live": true,
+          "offsets_hypothesis": "FIRERED_SB1_0x34_0x38",
+          "sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+          "slot_sha256": [
+            "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+            "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+            "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+            "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+            "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+            "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb"
+          ]
+        }
+      }
+    }
+  },
+  "battle_lifecycle": "NOT_RUN (Hidden Grotto has no wild encounters; not attempted)",
+  "inputs": {
+    "adapter_binary_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+    "adapter_source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+    "battery": {
+      "bytes": 131072,
+      "crc32": "ca8c1edb",
+      "sha1": "dff1b77130264cb24cee8fc4cc8e028fa7436753",
+      "sha256": "a561cab2c9f4ecd32997d34a6f6b82ca592ec71f28d8713a16c9950e797e5236"
+    },
+    "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+    "helper_sha256": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+    "identity_helper_sha256": "51a303b7b3e7ad07c8099e37a290912722529bb759cb421441f175c59521accc",
+    "observer_sha256": "0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a",
+    "quicksave": {
+      "bytes": 528448,
+      "crc32": "91c28565",
+      "sha1": "e5952949262d576f1df0039cbb0a81f2f2623c51",
+      "sha256": "eb64974477c908ab5a46f52642047fd55db2ee02b7999c67191bff7615727482"
+    },
+    "rom": {
+      "bytes": 33554432,
+      "crc32": "4b3d4957",
+      "sha1": "b4776b82a4c7915d0fadeaa27e013523f99dfd94",
+      "sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+    }
+  },
+  "party": [
+    {
+      "checks": {
+        "experience": true,
+        "high_bits_clear": {
+          "item": true,
+          "moves": true,
+          "pp": true,
+          "species": true
+        },
+        "hp_current_max": true,
+        "id_no_low16": true,
+        "level": true,
+        "moves_internal_word_vs_national_id": [],
+        "nature_pid_mod25": true,
+        "nickname": true,
+        "ot_name": true,
+        "pp_current": true,
+        "production_shiny_equals_ui": false,
+        "production_species_equals_dex_no": true,
+        "species_word_equals_dex_no": true,
+        "stats": true
+      },
+      "production_native": {
+        "ability_slot": 0,
+        "accepted": true,
+        "evs": [
+          6,
+          252,
+          0,
+          252,
+          0,
+          0
+        ],
+        "experience": 1250000,
+        "held_item": 457,
+        "hp": 195,
+        "is_egg": false,
+        "is_shiny": false,
+        "ivs": [
+          31,
+          31,
+          31,
+          31,
+          31,
+          31
+        ],
+        "level": 100,
+        "moves": [
+          127,
+          349,
+          242,
+          182
+        ],
+        "nature": 13,
+        "nickname": "Gary",
+        "ot_name": "Annie",
+        "pp": [
+          10,
+          20,
+          15,
+          10
+        ],
+        "shiny_value": 15,
+        "sid": 36394,
+        "species": 130,
+        "stats": {
+          "attack": 349,
+          "defense": 194,
+          "max_hp": 332,
+          "sp_attack": 140,
+          "sp_defense": 236,
+          "speed": 287
+        },
+        "tid": 53340
+      },
+      "public_cfru_dpe_constants": {
+        "item": "ITEM_GYARADOSITE 0x1C9"
+      },
+      "raw_selected": {
+        "bit30": 0,
+        "bit31": 0,
+        "checksum_word": "0x0000",
+        "ev_bytes": [
+          6,
+          252,
+          0,
+          252,
+          0,
+          0
+        ],
+        "experience_word": 1250000,
+        "hp_word": 195,
+        "item_word": "0x01c9",
+        "iv_word": "0x3fffffff",
+        "ivs_5bit": [
+          31,
+          31,
+          31,
+          31,
+          31,
+          31
+        ],
+        "level_byte": 100,
+        "move_words": [
+          "0x007f",
+          "0x015d",
+          "0x00f2",
+          "0x00b6"
+        ],
+        "nickname_hex": "c1d5e6edffffffffffff",
+        "ot_name_hex": "bbe2e2ddd9ffff",
+        "otid": "0x8e2ad05c",
+        "pid": "0x97fbc982",
+        "pid_bit0": 0,
+        "pid_mod24": 10,
+        "pid_mod25": 13,
+        "pp_bytes": [
+          10,
+          20,
+          15,
+          10
+        ],
+        "raw_sum16": "0x81e8",
+        "record_sha256": "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+        "species_word": "0x0082",
+        "stats_words": {
+          "attack": 349,
+          "defense": 194,
+          "max_hp": 332,
+          "sp_attack": 140,
+          "sp_defense": 236,
+          "speed": 287
+        },
+        "xor_sum16": "0x7830"
+      },
+      "screens": {
+        "info": {
+          "frame": 2608,
+          "label": "s1_info",
+          "rgb565_sha256": "2e252f2e95119681eb2a019c13fa6f7824ae16d9d01c1d7bc001928ff8366e97"
+        },
+        "moves": {
+          "frame": 2790,
+          "label": "s1_moves",
+          "rgb565_sha256": "a86de350e947dcc65f8fa4e903a41aaed8db74b36b6068a5bf202892054eb076"
+        },
+        "skills": {
+          "frame": 2699,
+          "label": "s1_skills",
+          "rgb565_sha256": "fb56af8d02ec733d0f7bc401be000a9d15ca59560ae197dafaa07dbabd5ae10c"
+        }
+      },
+      "slot": 1,
+      "ui_transcription": {
+        "ability": "Intimidate",
+        "attack": 349,
+        "defense": 194,
+        "dex_no": 130,
+        "exp": 1250000,
+        "exp_to_next": 0,
+        "gender": "male",
+        "hp": [
+          195,
+          332
+        ],
+        "id_no": 53340,
+        "item": "Gyaradosite",
+        "iv_grades": {
+          "attack": "S",
+          "defense": "S",
+          "hp": "S",
+          "sp_attack": "S",
+          "sp_defense": "S",
+          "speed": "S"
+        },
+        "level": 100,
+        "moves": [
+          [
+            "Waterfall",
+            10,
+            15
+          ],
+          [
+            "Dragon Dance",
+            20,
+            20
+          ],
+          [
+            "Crunch",
+            15,
+            15
+          ],
+          [
+            "Protect",
+            10,
+            10
+          ]
+        ],
+        "nature": "Jolly",
+        "nickname": "Gary",
+        "ot": "Annie",
+        "shiny_star": true,
+        "sp_attack": 140,
+        "sp_defense": 236,
+        "species_name": "Gyarados",
+        "speed": 287,
+        "types": [
+          "WATER",
+          "FLYING"
+        ]
+      }
+    },
+    {
+      "checks": {
+        "experience": true,
+        "high_bits_clear": {
+          "item": true,
+          "moves": true,
+          "pp": true,
+          "species": true
+        },
+        "hp_current_max": true,
+        "id_no_low16": true,
+        "level": true,
+        "moves_internal_word_vs_national_id": [
+          [
+            "Draco Meteor",
+            434,
+            369
+          ],
+          [
+            "Hurricane",
+            542,
+            412
+          ]
+        ],
+        "nature_pid_mod25": true,
+        "nickname": true,
+        "ot_name": true,
+        "pp_current": true,
+        "production_shiny_equals_ui": true,
+        "production_species_equals_dex_no": true,
+        "species_word_equals_dex_no": true,
+        "stats": true
+      },
+      "production_native": {
+        "ability_slot": 0,
+        "accepted": true,
+        "evs": [
+          2,
+          0,
+          4,
+          0,
+          252,
+          252
+        ],
+        "experience": 1000000,
+        "held_item": 177,
+        "hp": 291,
+        "is_egg": false,
+        "is_shiny": true,
+        "ivs": [
+          31,
+          0,
+          31,
+          31,
+          31,
+          31
+        ],
+        "level": 100,
+        "moves": [
+          330,
+          369,
+          58,
+          412
+        ],
+        "nature": 15,
+        "nickname": "Reyna",
+        "ot_name": "Annie",
+        "pp": [
+          10,
+          8,
+          10,
+          10
+        ],
+        "shiny_value": 5,
+        "sid": 36394,
+        "species": 230,
+        "stats": {
+          "attack": 175,
+          "defense": 227,
+          "max_hp": 291,
+          "sp_attack": 317,
+          "sp_defense": 289,
+          "speed": 206
+        },
+        "tid": 53340
+      },
+      "public_cfru_dpe_constants": {
+        "item": "ITEM_CHOICE_SPECS 0xB1",
+        "moves": [
+          "MOVE_DRACOMETEOR 0x171",
+          "MOVE_HURRICANE 0x19C"
+        ]
+      },
+      "raw_selected": {
+        "bit30": 0,
+        "bit31": 0,
+        "checksum_word": "0x0000",
+        "ev_bytes": [
+          2,
+          0,
+          4,
+          0,
+          252,
+          252
+        ],
+        "experience_word": 1000000,
+        "hp_word": 291,
+        "item_word": "0x00b1",
+        "iv_word": "0x3ffffc1f",
+        "ivs_5bit": [
+          31,
+          0,
+          31,
+          31,
+          31,
+          31
+        ],
+        "level_byte": 100,
+        "move_words": [
+          "0x014a",
+          "0x0171",
+          "0x003a",
+          "0x019c"
+        ],
+        "nickname_hex": "ccd9ede2d5ffffffffff",
+        "ot_name_hex": "bbe2e2ddd9ffff",
+        "otid": "0x8e2ad05c",
+        "pid": "0xff5da12e",
+        "pid_bit0": 0,
+        "pid_mod24": 6,
+        "pid_mod25": 15,
+        "pp_bytes": [
+          10,
+          8,
+          10,
+          10
+        ],
+        "raw_sum16": "0x0bf8",
+        "record_sha256": "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+        "species_word": "0x00e6",
+        "stats_words": {
+          "attack": 175,
+          "defense": 227,
+          "max_hp": 291,
+          "sp_attack": 317,
+          "sp_defense": 289,
+          "speed": 206
+        },
+        "xor_sum16": "0x3cc6"
+      },
+      "screens": {
+        "info": {
+          "frame": 3093,
+          "label": "s2_info",
+          "rgb565_sha256": "9731adcada440727cd3b8039124b1872f55878523406a317596b613c49f3551c"
+        },
+        "moves": {
+          "frame": 2911,
+          "label": "s2_moves",
+          "rgb565_sha256": "9ccf670afb2f78cf436c604ab2eae5fdabcee7b586897f945c1c4145b6d100dd"
+        },
+        "skills": {
+          "frame": 3002,
+          "label": "s2_skills",
+          "rgb565_sha256": "3eb6cefb89d98303da722b915322a3b908ceb174a1e80a2962ef90b3228aca6d"
+        }
+      },
+      "slot": 2,
+      "ui_transcription": {
+        "ability": "Swift Swim",
+        "attack": 175,
+        "defense": 227,
+        "dex_no": 230,
+        "exp": 1000000,
+        "exp_to_next": 0,
+        "gender": "female",
+        "hp": [
+          291,
+          291
+        ],
+        "id_no": 53340,
+        "item": "Choice Specs",
+        "iv_grades": {
+          "attack": "E-",
+          "defense": "S",
+          "hp": "S",
+          "sp_attack": "S",
+          "sp_defense": "S",
+          "speed": "S"
+        },
+        "level": 100,
+        "moves": [
+          [
+            "Muddy Water",
+            10,
+            10
+          ],
+          [
+            "Draco Meteor",
+            8,
+            8
+          ],
+          [
+            "Ice Beam",
+            10,
+            10
+          ],
+          [
+            "Hurricane",
+            10,
+            10
+          ]
+        ],
+        "nature": "Modest",
+        "nickname": "Reyna",
+        "ot": "Annie",
+        "shiny_star": true,
+        "sp_attack": 317,
+        "sp_defense": 289,
+        "species_name": "Kingdra",
+        "speed": 206,
+        "types": [
+          "WATER",
+          "DRAGON"
+        ]
+      }
+    },
+    {
+      "checks": {
+        "experience": true,
+        "high_bits_clear": {
+          "item": true,
+          "moves": true,
+          "pp": true,
+          "species": true
+        },
+        "hp_current_max": true,
+        "id_no_low16": true,
+        "level": true,
+        "moves_internal_word_vs_national_id": [
+          [
+            "Scald",
+            503,
+            459
+          ]
+        ],
+        "nature_pid_mod25": true,
+        "nickname": true,
+        "ot_name": true,
+        "pp_current": true,
+        "production_shiny_equals_ui": true,
+        "production_species_equals_dex_no": true,
+        "species_word_equals_dex_no": true,
+        "stats": true
+      },
+      "production_native": {
+        "ability_slot": 1,
+        "accepted": true,
+        "evs": [
+          252,
+          0,
+          252,
+          2,
+          3,
+          1
+        ],
+        "experience": 1059860,
+        "held_item": 241,
+        "hp": 177,
+        "is_egg": false,
+        "is_shiny": false,
+        "ivs": [
+          31,
+          31,
+          31,
+          31,
+          31,
+          31
+        ],
+        "level": 100,
+        "moves": [
+          459,
+          227,
+          196,
+          270
+        ],
+        "nature": 5,
+        "nickname": "Toady",
+        "ot_name": "Annie",
+        "pp": [
+          14,
+          5,
+          13,
+          20
+        ],
+        "shiny_value": 50580,
+        "sid": 36394,
+        "species": 186,
+        "stats": {
+          "attack": 167,
+          "defense": 273,
+          "max_hp": 384,
+          "sp_attack": 216,
+          "sp_defense": 236,
+          "speed": 176
+        },
+        "tid": 53340
+      },
+      "public_cfru_dpe_constants": {
+        "item": "ITEM_DAMP_ROCK 0xF1",
+        "moves": [
+          "MOVE_SCALD 0x1CB"
+        ]
+      },
+      "raw_selected": {
+        "bit30": 0,
+        "bit31": 1,
+        "checksum_word": "0x0000",
+        "ev_bytes": [
+          252,
+          0,
+          252,
+          2,
+          3,
+          1
+        ],
+        "experience_word": 1059860,
+        "hp_word": 177,
+        "item_word": "0x00f1",
+        "iv_word": "0xbfffffff",
+        "ivs_5bit": [
+          31,
+          31,
+          31,
+          31,
+          31,
+          31
+        ],
+        "level_byte": 100,
+        "move_words": [
+          "0x01cb",
+          "0x00e3",
+          "0x00c4",
+          "0x010e"
+        ],
+        "nickname_hex": "cee3d5d8edffffffffff",
+        "ot_name_hex": "bbe2e2ddd9ffff",
+        "otid": "0x8e2ad05c",
+        "pid": "0x1aae814c",
+        "pid_bit0": 0,
+        "pid_mod24": 12,
+        "pid_mod25": 5,
+        "pp_bytes": [
+          14,
+          5,
+          13,
+          20
+        ],
+        "raw_sum16": "0x42af",
+        "record_sha256": "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+        "species_word": "0x00ba",
+        "stats_words": {
+          "attack": 167,
+          "defense": 273,
+          "max_hp": 384,
+          "sp_attack": 216,
+          "sp_defense": 236,
+          "speed": 176
+        },
+        "xor_sum16": "0x44ff"
+      },
+      "screens": {
+        "info": {
+          "frame": 3214,
+          "label": "s3_info",
+          "rgb565_sha256": "734acd6220fceb1e70540681c20893ed8499f97ca6124fc177d906352b11cbeb"
+        },
+        "moves": {
+          "frame": 3396,
+          "label": "s3_moves",
+          "rgb565_sha256": "8a13f065251bbfb9d427bd8a57678a984a188cfd67626bf018368d6e58dac275"
+        },
+        "skills": {
+          "frame": 3305,
+          "label": "s3_skills",
+          "rgb565_sha256": "dca40f5fd701dede3668ee2c179feeb5db6972d4602857407422e246c7282495"
+        }
+      },
+      "slot": 3,
+      "ui_transcription": {
+        "ability": "Drizzle",
+        "attack": 167,
+        "defense": 273,
+        "dex_no": 186,
+        "exp": 1059860,
+        "exp_to_next": 0,
+        "gender": "female",
+        "hp": [
+          177,
+          384
+        ],
+        "id_no": 53340,
+        "item": "Damp Rock",
+        "iv_grades": {
+          "attack": "S",
+          "defense": "S",
+          "hp": "S",
+          "sp_attack": "S",
+          "sp_defense": "S",
+          "speed": "S"
+        },
+        "level": 100,
+        "moves": [
+          [
+            "Scald",
+            14,
+            15
+          ],
+          [
+            "Encore",
+            5,
+            5
+          ],
+          [
+            "Icy Wind",
+            13,
+            15
+          ],
+          [
+            "Helping Hand",
+            20,
+            20
+          ]
+        ],
+        "nature": "Bold",
+        "nickname": "Toady",
+        "ot": "Annie",
+        "shiny_star": false,
+        "sp_attack": 216,
+        "sp_defense": 236,
+        "species_name": "Politoed",
+        "speed": 176,
+        "types": [
+          "WATER"
+        ]
+      }
+    },
+    {
+      "checks": {
+        "experience": true,
+        "high_bits_clear": {
+          "item": true,
+          "moves": true,
+          "pp": true,
+          "species": true
+        },
+        "hp_current_max": true,
+        "id_no_low16": true,
+        "level": true,
+        "moves_internal_word_vs_national_id": [
+          [
+            "Volt Switch",
+            521,
+            443
+          ],
+          [
+            "Dazzling Gleam",
+            605,
+            466
+          ]
+        ],
+        "nature_pid_mod25": true,
+        "nickname": true,
+        "ot_name": true,
+        "pp_current": true,
+        "production_shiny_equals_ui": true,
+        "production_species_equals_dex_no": false,
+        "species_word_equals_dex_no": false,
+        "stats": true
+      },
+      "production_native": {
+        "ability_slot": 0,
+        "accepted": true,
+        "evs": [
+          0,
+          0,
+          0,
+          252,
+          252,
+          0
+        ],
+        "experience": 428750,
+        "held_item": 570,
+        "hp": 199,
+        "is_egg": false,
+        "is_shiny": false,
+        "ivs": [
+          31,
+          14,
+          31,
+          5,
+          12,
+          31
+        ],
+        "level": 70,
+        "moves": [
+          85,
+          443,
+          466,
+          182
+        ],
+        "nature": 10,
+        "nickname": "Trippy",
+        "ot_name": "Annie",
+        "pp": [
+          10,
+          15,
+          10,
+          10
+        ],
+        "shiny_value": 2596,
+        "sid": 36394,
+        "species": 1002,
+        "stats": {
+          "attack": 157,
+          "defense": 145,
+          "max_hp": 199,
+          "sp_attack": 190,
+          "sp_defense": 131,
+          "speed": 257
+        },
+        "tid": 53340
+      },
+      "public_cfru_dpe_constants": {
+        "item": "ITEM_FOCUS_SASH 0x23A",
+        "moves": [
+          "MOVE_VOLTSWITCH 0x1BB",
+          "MOVE_DAZZLINGGLEAM 0x1D2"
+        ],
+        "species": "SPECIES_TAPU_KOKO 0x3EA (NATIONAL_DEX_TAPU_KOKO 785)"
+      },
+      "raw_selected": {
+        "bit30": 0,
+        "bit31": 0,
+        "checksum_word": "0x0000",
+        "ev_bytes": [
+          0,
+          0,
+          0,
+          252,
+          252,
+          0
+        ],
+        "experience_word": 428750,
+        "hp_word": 199,
+        "item_word": "0x023a",
+        "iv_word": "0x3ec2fddf",
+        "ivs_5bit": [
+          31,
+          14,
+          31,
+          5,
+          12,
+          31
+        ],
+        "level_byte": 70,
+        "move_words": [
+          "0x0055",
+          "0x01bb",
+          "0x01d2",
+          "0x00b6"
+        ],
+        "nickname_hex": "cee6dde4e4edffffffff",
+        "ot_name_hex": "bbe2e2ddd9ffff",
+        "otid": "0x8e2ad05c",
+        "pid": "0x467a1228",
+        "pid_bit0": 0,
+        "pid_mod24": 16,
+        "pid_mod25": 10,
+        "pp_bytes": [
+          10,
+          15,
+          10,
+          10
+        ],
+        "raw_sum16": "0xdb88",
+        "record_sha256": "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+        "species_word": "0x03ea",
+        "stats_words": {
+          "attack": 157,
+          "defense": 145,
+          "max_hp": 199,
+          "sp_attack": 190,
+          "sp_defense": 131,
+          "speed": 257
+        },
+        "xor_sum16": "0x9338"
+      },
+      "screens": {
+        "info": {
+          "frame": 3699,
+          "label": "s4_info",
+          "rgb565_sha256": "c8ed6519d28d544032d689a7c4579d05ab831692454855958b0a90ff07752c0d"
+        },
+        "moves": {
+          "frame": 3517,
+          "label": "s4_moves",
+          "rgb565_sha256": "dd828b8329ff74f37538f9decc0d29490007d95b237d5dfd188ca651ea4ba8af"
+        },
+        "skills": {
+          "frame": 3608,
+          "label": "s4_skills",
+          "rgb565_sha256": "c19d3c355370d8455e7424ef23d586ee6dd50d2eed527db97ae080fe2a456087"
+        }
+      },
+      "slot": 4,
+      "ui_transcription": {
+        "ability": "Electric Surge",
+        "attack": 157,
+        "defense": 145,
+        "dex_no": 785,
+        "exp": 428750,
+        "exp_to_next": 18638,
+        "gender": "none",
+        "hp": [
+          199,
+          199
+        ],
+        "id_no": 53340,
+        "item": "Focus Sash",
+        "iv_grades": {
+          "attack": "C",
+          "defense": "S",
+          "hp": "S",
+          "sp_attack": "C-",
+          "sp_defense": "S",
+          "speed": "E+"
+        },
+        "level": 70,
+        "moves": [
+          [
+            "Thunderbolt",
+            10,
+            15
+          ],
+          [
+            "Volt Switch",
+            15,
+            20
+          ],
+          [
+            "Dazzling Gleam",
+            10,
+            10
+          ],
+          [
+            "Protect",
+            10,
+            10
+          ]
+        ],
+        "nature": "Timid",
+        "nickname": "Trippy",
+        "ot": "Annie",
+        "shiny_star": false,
+        "sp_attack": 190,
+        "sp_defense": 131,
+        "species_name": "Tapu Koko",
+        "speed": 257,
+        "types": [
+          "ELECTRIC",
+          "FAIRY"
+        ]
+      }
+    },
+    {
+      "checks": {
+        "experience": true,
+        "high_bits_clear": {
+          "item": true,
+          "moves": true,
+          "pp": true,
+          "species": true
+        },
+        "hp_current_max": true,
+        "id_no_low16": true,
+        "level": true,
+        "moves_internal_word_vs_national_id": [],
+        "nature_pid_mod25": true,
+        "nickname": true,
+        "ot_name": true,
+        "pp_current": true,
+        "production_shiny_equals_ui": true,
+        "production_species_equals_dex_no": false,
+        "species_word_equals_dex_no": false,
+        "stats": true
+      },
+      "production_native": {
+        "ability_slot": 0,
+        "accepted": true,
+        "evs": [
+          188,
+          90,
+          63,
+          64,
+          56,
+          49
+        ],
+        "experience": 1000000,
+        "held_item": 58,
+        "hp": 389,
+        "is_egg": false,
+        "is_shiny": false,
+        "ivs": [
+          22,
+          28,
+          8,
+          21,
+          3,
+          3
+        ],
+        "level": 100,
+        "moves": [
+          92,
+          242,
+          151,
+          305
+        ],
+        "nature": 1,
+        "nickname": "Frank",
+        "ot_name": "Annie",
+        "pp": [
+          10,
+          15,
+          20,
+          15
+        ],
+        "shiny_value": 41573,
+        "sid": 36394,
+        "species": 1035,
+        "stats": {
+          "attack": 291,
+          "defense": 160,
+          "max_hp": 389,
+          "sp_attack": 152,
+          "sp_defense": 220,
+          "speed": 142
+        },
+        "tid": 53340
+      },
+      "public_cfru_dpe_constants": {
+        "item": "ITEM_BLACK_SLUDGE 0x3A",
+        "species": "SPECIES_MUK_A 0x40B"
+      },
+      "raw_selected": {
+        "bit30": 0,
+        "bit31": 0,
+        "checksum_word": "0x0000",
+        "ev_bytes": [
+          188,
+          90,
+          63,
+          64,
+          56,
+          49
+        ],
+        "experience_word": 1000000,
+        "hp_word": 389,
+        "item_word": "0x003a",
+        "iv_word": "0x063aa396",
+        "ivs_5bit": [
+          22,
+          28,
+          8,
+          21,
+          3,
+          3
+        ],
+        "level_byte": 100,
+        "move_words": [
+          "0x005c",
+          "0x00f2",
+          "0x0097",
+          "0x0131"
+        ],
+        "nickname_hex": "c0e6d5e2dfffffffffff",
+        "ot_name_hex": "bbe2e2ddd9ffff",
+        "otid": "0x8e2ad05c",
+        "pid": "0xada551b6",
+        "pid_bit0": 0,
+        "pid_mod24": 22,
+        "pid_mod25": 1,
+        "pp_bytes": [
+          10,
+          15,
+          20,
+          15
+        ],
+        "raw_sum16": "0xe4ce",
+        "record_sha256": "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+        "species_word": "0x040b",
+        "stats_words": {
+          "attack": 291,
+          "defense": 160,
+          "max_hp": 389,
+          "sp_attack": 152,
+          "sp_defense": 220,
+          "speed": 142
+        },
+        "xor_sum16": "0x8822"
+      },
+      "screens": {
+        "info": {
+          "frame": 3820,
+          "label": "s5_info",
+          "rgb565_sha256": "b900012cfbb2961ecde9c5a618886b405d56f043e003487e572f84c19d6cb119"
+        },
+        "moves": {
+          "frame": 4002,
+          "label": "s5_moves",
+          "rgb565_sha256": "ae624718d834bb6aa22d2d78fc09cba5ecb6ffb18fe36e0db9e9854e74278a62"
+        },
+        "skills": {
+          "frame": 3911,
+          "label": "s5_skills",
+          "rgb565_sha256": "92a698ab1554a4a7ca465e466e05dc3b8f0a5e5d6b524470d57984d7a4b29d01"
+        }
+      },
+      "slot": 5,
+      "ui_transcription": {
+        "ability": "Poison Touch",
+        "attack": 291,
+        "defense": 160,
+        "dex_no": 89,
+        "exp": 1000000,
+        "exp_to_next": 0,
+        "gender": "male",
+        "hp": [
+          389,
+          389
+        ],
+        "id_no": 53340,
+        "item": "Black Sludge",
+        "iv_grades": {
+          "attack": "A+",
+          "defense": "D",
+          "hp": "B+",
+          "sp_attack": "E",
+          "sp_defense": "E",
+          "speed": "B"
+        },
+        "level": 100,
+        "moves": [
+          [
+            "Toxic",
+            10,
+            10
+          ],
+          [
+            "Crunch",
+            15,
+            15
+          ],
+          [
+            "Acid Armor",
+            20,
+            20
+          ],
+          [
+            "Poison Fang",
+            15,
+            15
+          ]
+        ],
+        "nature": "Lonely",
+        "nickname": "Frank",
+        "ot": "Annie",
+        "shiny_star": false,
+        "sp_attack": 152,
+        "sp_defense": 220,
+        "species_name": "Muk",
+        "speed": 142,
+        "types": [
+          "POISON",
+          "DARK"
+        ]
+      }
+    },
+    {
+      "checks": {
+        "experience": true,
+        "high_bits_clear": {
+          "item": true,
+          "moves": true,
+          "pp": true,
+          "species": true
+        },
+        "hp_current_max": true,
+        "id_no_low16": true,
+        "level": true,
+        "moves_internal_word_vs_national_id": [
+          [
+            "Flare Blitz",
+            394,
+            434
+          ]
+        ],
+        "nature_pid_mod25": true,
+        "nickname": true,
+        "ot_name": true,
+        "pp_current": true,
+        "production_shiny_equals_ui": true,
+        "production_species_equals_dex_no": false,
+        "species_word_equals_dex_no": false,
+        "stats": true
+      },
+      "production_native": {
+        "ability_slot": 0,
+        "accepted": true,
+        "evs": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "experience": 83334,
+        "held_item": 0,
+        "hp": 104,
+        "is_egg": false,
+        "is_shiny": false,
+        "ivs": [
+          20,
+          31,
+          12,
+          19,
+          31,
+          31
+        ],
+        "level": 45,
+        "moves": [
+          53,
+          37,
+          434,
+          200
+        ],
+        "nature": 13,
+        "nickname": "Litten",
+        "ot_name": "Annie",
+        "pp": [
+          15,
+          10,
+          15,
+          10
+        ],
+        "shiny_value": 16064,
+        "sid": 36394,
+        "species": 942,
+        "stats": {
+          "attack": 77,
+          "defense": 46,
+          "max_hp": 104,
+          "sp_attack": 64,
+          "sp_defense": 54,
+          "speed": 83
+        },
+        "tid": 53340
+      },
+      "public_cfru_dpe_constants": {
+        "moves": [
+          "MOVE_FLAREBLITZ 0x1B2"
+        ],
+        "species": "SPECIES_LITTEN 0x3AE (NATIONAL_DEX_LITTEN 725)"
+      },
+      "raw_selected": {
+        "bit30": 0,
+        "bit31": 0,
+        "checksum_word": "0x0000",
+        "ev_bytes": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "experience_word": 83334,
+        "hp_word": 104,
+        "item_word": "0x0000",
+        "iv_word": "0x3ff9b3f4",
+        "ivs_5bit": [
+          20,
+          31,
+          12,
+          19,
+          31,
+          31
+        ],
+        "level_byte": 45,
+        "move_words": [
+          "0x0035",
+          "0x0025",
+          "0x01b2",
+          "0x00c8"
+        ],
+        "nickname_hex": "c6dde8e8d9e2ff080200",
+        "ot_name_hex": "bbe2e2ddd9ffff",
+        "otid": "0x8e2ad05c",
+        "pid": "0x8b11eba7",
+        "pid_bit0": 1,
+        "pid_mod24": 15,
+        "pid_mod25": 13,
+        "pp_bytes": [
+          15,
+          10,
+          15,
+          10
+        ],
+        "raw_sum16": "0x7f50",
+        "record_sha256": "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb",
+        "species_word": "0x03ae",
+        "stats_words": {
+          "attack": 77,
+          "defense": 46,
+          "max_hp": 104,
+          "sp_attack": 64,
+          "sp_defense": 54,
+          "speed": 83
+        },
+        "xor_sum16": "0x2e80"
+      },
+      "screens": {
+        "info": {
+          "frame": 4305,
+          "label": "s6_info",
+          "rgb565_sha256": "d3e32d144a65969330379871ed39cd47dddbd8b02676b31bbd9e87e965114785"
+        },
+        "moves": {
+          "frame": 4123,
+          "label": "s6_moves",
+          "rgb565_sha256": "dc3c08414b6429081458a69db5f6cdfea1a9cbbf1e62054f7b388570b7996b50"
+        },
+        "skills": {
+          "frame": 4214,
+          "label": "s6_skills",
+          "rgb565_sha256": "a53a6a304809e330a7d5804ffaa5eaa04f25b5a06455dd35a6e634ec08607db5"
+        }
+      },
+      "slot": 6,
+      "ui_transcription": {
+        "ability": "Blaze",
+        "attack": 77,
+        "defense": 46,
+        "dex_no": 725,
+        "exp": 83334,
+        "exp_to_next": 6189,
+        "gender": "male",
+        "hp": [
+          104,
+          104
+        ],
+        "id_no": 53340,
+        "item": "None",
+        "iv_grades": {
+          "attack": "S",
+          "defense": "C-",
+          "hp": "B",
+          "sp_attack": "S",
+          "sp_defense": "S",
+          "speed": "B-"
+        },
+        "level": 45,
+        "moves": [
+          [
+            "Flamethrower",
+            15,
+            15
+          ],
+          [
+            "Thrash",
+            10,
+            10
+          ],
+          [
+            "Flare Blitz",
+            15,
+            15
+          ],
+          [
+            "Outrage",
+            10,
+            10
+          ]
+        ],
+        "nature": "Jolly",
+        "nickname": "Litten",
+        "ot": "Annie",
+        "shiny_star": false,
+        "sp_attack": 64,
+        "sp_defense": 54,
+        "species_name": "Litten",
+        "speed": 83,
+        "types": [
+          "FIRE"
+        ]
+      }
+    }
+  ],
+  "quicksave_run": {
+    "bootstrap_accepted": true,
+    "difference_from_battery": "Same six PIDs/species/levels/HP; only byte +41 (G+9, friendship) differs in slots 3 (251->252) and 6 (50->52); SB1+0x38 copy differs from live party (state taken after later play without in-game save).",
+    "movie_sha256": "a530f328b07c71a3d68d5b7f2b0a28f578184da313092851a5141d5ba2622dc9",
+    "movie_text": "run 1 / observe state_loaded / run 120 / observe state_120",
+    "private_report_sha256": "f5074a4fa193745027fee0d9c12ff7a38a0e01ba4341f0938fb0bb38dd209690",
+    "timeline": {
+      "state_120": {
+        "enemy_count_candidates": {
+          "0x2024028": 0,
+          "0x202402a": 0
+        },
+        "frame": 121,
+        "player_count": 6,
+        "player_sha256": "4a318058a8892a5a81bb770a612b21fd5d50082f1f32b2b01ae363b309aed89b",
+        "rgb565_sha256": "138d58ffacf6c79a2b1bdc6dd0dac34fd837c70d3387b1da88b0d3ed4ea8e2ee",
+        "save_blocks": {
+          "1": "0x0202552c",
+          "2": "0x02024588"
+        },
+        "save_party_copy": {
+          "count": 6,
+          "counted_slots_equal_live": false,
+          "offsets_hypothesis": "FIRERED_SB1_0x34_0x38",
+          "sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+          "slot_sha256": [
+            "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+            "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+            "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+            "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+            "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+            "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb"
+          ]
+        }
+      },
+      "state_loaded": {
+        "enemy_count_candidates": {
+          "0x2024028": 0,
+          "0x202402a": 0
+        },
+        "frame": 1,
+        "player_count": 6,
+        "player_sha256": "4a318058a8892a5a81bb770a612b21fd5d50082f1f32b2b01ae363b309aed89b",
+        "rgb565_sha256": "f28cc95408472826f6ca9dad734073156826dcdbd47260c10d0f0712e0d7835d",
+        "save_blocks": {
+          "1": "0x0202552c",
+          "2": "0x02024588"
+        },
+        "save_party_copy": {
+          "count": 6,
+          "counted_slots_equal_live": false,
+          "offsets_hypothesis": "FIRERED_SB1_0x34_0x38",
+          "sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+          "slot_sha256": [
+            "6994247be91e9dc0ba594d2df7739dbdc1c2cb1168cc20cfc3402722c068896d",
+            "46acb53beaaac5168718976820de4abe297e9ea04da004f5d7c7c8225110037d",
+            "5211185d95da36c5eb89a749f658a6147dbc0a10b6917ae91ceca4b40b06ec2b",
+            "20128a94f704384bcc45d77703c063ff54f2955b2837df9d87849cc59c54d856",
+            "2e773c71a11910afc8b6d98617cdc54a6c295d03c803ebfa1fe59e99847dedb0",
+            "95dc0ba83f6d13845035b765e699b91b85e24d71106754c6830b4b65d6dda4cb"
+          ]
+        }
+      }
+    }
+  },
+  "release_label": "NOT_VERIFIED (owner claim v2.1.1.1, no publisher patch)",
+  "revalidated": {
+    "evidence": "unbound-runtime-battle.json",
+    "observer_sha256": "9f0f1803f45d0ff6d6bbbe7892d4e5918601d8c5342669a8a2a4b5250480c189",
+    "private_report_sha256": "bc39e3f308d6a48733d71fcf90a8aa59e0614f059a7e06039b7d7b8c2fc9633f",
+    "scope": "battery route only; quicksave not rerun"
+  },
+  "runtime_layout": "OBSERVED_SIX_RECORDS_ONE_SAVE",
+  "schema_version": 1,
+  "status": "OBSERVED",
+  "support_verdict": "NONE",
+  "task": "unbound-runtime"
+}

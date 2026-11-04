@@ -206,7 +206,9 @@ v2.1.1.1; publisher patch-to-ROM identity is NOT_VERIFIED). Findings and limits:
 [release](../../docs/UNBOUND_RELEASE_EVIDENCE.md), [data/text](../../docs/UNBOUND_DATA_TEXT_EVIDENCE.md),
 [party layout](../../docs/UNBOUND_PARTY_LAYOUT_EVIDENCE.md),
 [calculator inventory](../../docs/UNBOUND_CALCULATOR_CAPABILITY_INVENTORY.md) and the
-[existing-support audit](../../docs/UNBOUND_EXISTING_SUPPORT_AUDIT.md).
+[existing-support audit](../../docs/UNBOUND_EXISTING_SUPPORT_AUDIT.md),
+[species mapping](../../docs/UNBOUND_SPECIES_MAPPING_EVIDENCE.md) and
+[battle lifecycle](../../docs/UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md).
 
 ```bash
 python3 tools/rom-evidence/unbound_identity.py --rom /private/unbound.gba \
@@ -219,6 +221,9 @@ python3 tools/rom-evidence/unbound_observe.py --rom /private/unbound.gba \
   --core /private/mgba_libretro.so --battery-save /private/own-unbound.sav \
   --movie tools/rom-evidence/unbound-continue-summary.movie \
   --private-dir /private/unbound-run --output /private/unbound-run.json
+# same observer, wild battle: --movie tools/rom-evidence/unbound-battle-wild-run.movie
+python3 tools/rom-evidence/unbound_species_map.py --rom /private/unbound.gba \
+  --source-root /private/unbound-src > /tmp/unbound-species-map.json
 ```
 
 `unbound_data.py` emits counts, offsets, table hashes and selected representative rows only, never

@@ -39,7 +39,7 @@ was not exercised. One save with six Pokémon cannot prove every value domain or
 | Thor quicksave | **VERIFIED** 528,448 bytes, SHA-256 `eb64974477c908ab5a46f52642047fd55db2ee02b7999c67191bff7615727482`; **OBSERVED accepted** by the pinned host core (private copy) |
 | Pinned host core | **VERIFIED** SHA-256 `fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e` |
 | Developer adapter | **VERIFIED** `probe_host.so` `aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99`; all `adapter-pin.json` source inputs matched (checked by the observer each run) |
-| Observer | SHA-256 `0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a` (bound by both manifests and a unit test) |
+| Observer | SHA-256 `0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a` for these runs. The battle extension changed the current observer to `9f0f1803f45d0ff6d6bbbe7892d4e5918601d8c5342669a8a2a4b5250480c189` (bound by both manifests and unit tests); rerunning this movie with it reproduced all 26 observations except the animated overworld/menu screen hashes ([battle evidence](UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md)) |
 | Exact release / publisher patch | **NOT_VERIFIED**; owner claim v2.1.1.1 recorded as a claim only |
 | Issue #24 | Offline copy read as prior claims, not as authority. Fixed order and the zero checksum match this run. Its “BADC” name is wrong: the order is G/A/E/M. Its “IDs > 898” scope for the species map does not match either: internal 942 (Litten) is national 725 (see species row) |
 | Public source | CFRU `b637a27898b14e25dd24d0f69a3e302f0069deb8`, DPE `cdfc053a56326a13dc5311b24488445e17536b7e` (local, approximate; not the exact build). Used only to name the observed raw IDs and the hidden-ability bit |

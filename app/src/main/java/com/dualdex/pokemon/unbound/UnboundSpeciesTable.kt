@@ -11,7 +11,7 @@ package com.dualdex.pokemon.unbound
  *   ROM SHA-256: 7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7
  *   Table: file offset 0x01A41FEC (GBA 0x09A41FEC), u16 LE, index = internal ID - 1
  *   Table SHA-256: 412e36320450f467b0f25208f82e6e3bee89b0590ad98a0a7247b6d4da9b3d9b
- *   Generator SHA-256 (tools/unbound-data-pack/generate_unbound_species.py): 45ebf02f324062ba22cf6762881278cdba6516113c9864411092abc8d615c391
+ *   Generator SHA-256 (tools/unbound-data-pack/generate_unbound_species.py): 6d69fc4c40c99c3721977797a46fae12112bbfb8d1e9499319eed64ffca75a49
  *   Inspector SHA-256 (tools/rom-evidence/unbound_species_map.py): 88056920b8a72c5fd17bfee7fc9d457c4410ad2f6078676963f61f53b3808e34
  *   CFRU species.h SHA-256 (form-class labels): 8c5acd30a4f06cbfe224ee282b60bac1c8a4898d3c75f632225c2200d8a59c43
  *   Form classes: base 905, regional 59, mega_primal 50, gigantamax 34, cosmetic 102, other_alternate 116, custom 1, reserved 27
@@ -25,7 +25,7 @@ internal object UnboundSpeciesTable {
     const val ROM_SHA256: String = "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
     const val TABLE_FILE_OFFSET: Int = 0x01A41FEC
     const val TABLE_SHA256: String = "412e36320450f467b0f25208f82e6e3bee89b0590ad98a0a7247b6d4da9b3d9b"
-    const val GENERATOR_SHA256: String = "45ebf02f324062ba22cf6762881278cdba6516113c9864411092abc8d615c391"
+    const val GENERATOR_SHA256: String = "6d69fc4c40c99c3721977797a46fae12112bbfb8d1e9499319eed64ffca75a49"
     const val INSPECTOR_SHA256: String = "88056920b8a72c5fd17bfee7fc9d457c4410ad2f6078676963f61f53b3808e34"
     const val CFRU_SPECIES_SHA256: String = "8c5acd30a4f06cbfe224ee282b60bac1c8a4898d3c75f632225c2200d8a59c43"
     const val MAPPING_DIGEST: String = "679b1cfefdaab58d73b6575f315d5e5ec4a8f154371f26a1ec8c218e51bd25f1"

@@ -12,6 +12,7 @@ from collections import Counter
 import hashlib
 from pathlib import Path
 import re
+import struct
 import sys
 
 HERE = Path(__file__).resolve().parent
@@ -200,6 +201,9 @@ def verify(text):
     require(p["table_file_offset"] == species_map.TABLE_OFFSET, "table location changed")
     require(p["table_sha256"] == species_map.TABLE_HASH, "table hash changed")
     check_rows(rows)
+    # The dex column must be the exact ROM table bytes (row 0 is outside the hashed span).
+    require(sha(struct.pack(f"<{len(rows) - 1}H", *[dex for dex, _ in rows[1:]])) == species_map.TABLE_HASH,
+            "dex column does not match the pinned ROM table")
     require(mapping_digest(rows) == recorded, "mapping digest mismatch: hand-edited or stale")
     require(render(rows, p) == text, "artifact is not byte-for-byte generator output")
     return rows, recorded

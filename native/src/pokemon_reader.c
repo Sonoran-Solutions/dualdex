@@ -598,24 +598,12 @@ bool pokemon_parse_single_layout(
 
         order = raw->pid % 24;
 
+        // No unencrypted fallback: CFRU plaintext was observed only with a zero checksum and fixed
+        // GAEM order (UNBOUND_PARTY_LAYOUT_EVIDENCE.md); a nonzero-checksum plaintext record is
+        // unobserved, so it fails closed rather than being decoded in a guessed order.
         if (calc_checksum != raw->checksum) {
-            if (storage_layout != PKMN_STORAGE_CFRU) return false;
-
-            // Attempt B: CFRU unencrypted substructures with a matching checksum.
-            uint16_t raw_checksum = 0;
-            for (int i = 0; i < 24; i++) {
-                raw_checksum += read16_le(raw_subs + (i * 2));
-            }
-
-            if (raw_checksum == raw->checksum) {
-                for (int i = 0; i < 12; i++) {
-                    decrypted_words[i] = read32_le(raw_subs + (i * 4));
-                }
-                calc_checksum = raw_checksum;
-            } else {
-                out->is_valid = false;
-                return false;
-            }
+            out->is_valid = false;
+            return false;
         }
     }
     out->is_valid = true;

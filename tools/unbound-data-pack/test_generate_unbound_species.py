@@ -32,6 +32,11 @@ def invented_rows():
     return rows
 
 
+def invented_table_hash(rows):
+    import struct
+    return gen.sha(struct.pack(f"<{len(rows) - 1}H", *[dex for dex, _ in rows[1:]]))
+
+
 class GenerateUnboundSpeciesTest(unittest.TestCase):
     def test_wrong_rom_refused_before_any_interpretation(self):
         with patch.object(gen.species_map, "inspect") as inspect:
@@ -68,7 +73,20 @@ class GenerateUnboundSpeciesTest(unittest.TestCase):
         self.assertEqual(provenance["inspector_sha256"], "6" * 64)
 
     def test_round_trip_and_hand_edits_refused(self):
-        text = gen.render(invented_rows(), PROVENANCE)
+        table_hash = invented_table_hash(invented_rows())
+        with patch.object(gen.species_map, "TABLE_HASH", table_hash):
+            self._round_trip_and_hand_edits_refused(dict(PROVENANCE, table_sha256=table_hash))
+
+    def test_regenerated_but_unbound_dex_column_refused(self):
+        # A consistent re-render (fresh digest, intact invariants) of a swapped dex column still
+        # fails: the dex column must equal the pinned ROM table bytes.
+        rows = invented_rows()
+        rows[1], rows[2] = (rows[2][0], rows[1][1]), (rows[1][0], rows[2][1])
+        with self.assertRaisesRegex(ValueError, "dex column"):
+            gen.verify(gen.render(rows, PROVENANCE))
+
+    def _round_trip_and_hand_edits_refused(self, provenance):
+        text = gen.render(invented_rows(), provenance)
         rows, digest = gen.verify(text)
         self.assertEqual(rows, invented_rows())
         self.assertEqual(digest, gen.mapping_digest(rows))

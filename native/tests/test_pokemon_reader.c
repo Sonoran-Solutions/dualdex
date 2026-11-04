@@ -3645,8 +3645,8 @@ static void test_non_cfru_requires_encrypted_checksum(void) {
         TEST_ASSERT(!pokemon_parse_single_layout((uint8_t*)&raw, true, layout, &parsed),
                     "matching plaintext checksum must not enable Attempt B outside CFRU");
     }
-    TEST_ASSERT(pokemon_parse_single_layout((uint8_t*)&raw, true, PKMN_STORAGE_CFRU, &parsed) && parsed.species == 25,
-                "CFRU retains matching-checksum plaintext with PID-permuted substructures");
+    TEST_ASSERT(!pokemon_parse_single_layout((uint8_t*)&raw, true, PKMN_STORAGE_CFRU, &parsed),
+                "unobserved nonzero-checksum CFRU plaintext must fail closed, not decode in PID order");
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_non_cfru_requires_encrypted_checksum" ANSI_RESET "\n");
 }

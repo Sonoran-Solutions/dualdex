@@ -29,7 +29,7 @@
   "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
   "helper_sha256": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
   "issue_24": "Offline copy read (treated as prior claims, not authority); see docs/UNBOUND_PARTY_LAYOUT_EVIDENCE.md",
-  "observer_sha256": "0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a",
+  "observer_sha256": "9f0f1803f45d0ff6d6bbbe7892d4e5918601d8c5342669a8a2a4b5250480c189",
   "party_ui_transcription": "SEE_RUNTIME_OBSERVATION",
   "quicksave_acceptance": "SEE_RUNTIME_OBSERVATION",
   "release_label": "NOT_VERIFIED",

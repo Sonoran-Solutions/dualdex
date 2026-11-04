@@ -24,6 +24,132 @@ def invented_slot():
     struct.pack_into('<7H', raw, 86, 0, 999, 101, 102, 103, 104, 105)
     return raw
 
+def invented_battler(slot):
+    """0x58-byte CFRU BattlePokemon hypothesis built from an invented party record."""
+    raw = bytearray(u.BATTLE_MON_SIZE)
+    struct.pack_into('<H', raw, 0, struct.unpack_from('<H', slot, 32)[0])
+    struct.pack_into('<5H', raw, 2, *struct.unpack_from('<5H', slot, 90))
+    raw[12:20] = slot[44:52]
+    raw[0x18:0x20] = bytes([20, 5, 6, 6, 6, 6, 6, 6])
+    raw[0x24:0x28] = slot[52:56]
+    struct.pack_into('<H', raw, 0x28, struct.unpack_from('<H', slot, 86)[0])
+    raw[0x2a] = slot[84]
+    struct.pack_into('<HH', raw, 0x2c, struct.unpack_from('<H', slot, 88)[0], struct.unpack_from('<H', slot, 34)[0])
+    struct.pack_into('<IIIII', raw, 0x44, struct.unpack_from('<I', slot, 36)[0],
+                     struct.unpack_from('<I', slot, 0)[0], 0, 0, struct.unpack_from('<I', slot, 4)[0])
+    return bytes(raw)
+
+
+class UnboundBattleTests(unittest.TestCase):
+    def test_literal_reference_counter_reads_thumb_pc_loads_widths_and_strides(self):
+        rom = bytearray(64)
+        struct.pack_into('<HHH', rom, 0, 0x4901, 0x7808, 0x2258)  # ldr r1,[pc,#4]; ldrb r0,[r1]; movs r2,#0x58
+        struct.pack_into('<I', rom, 8, 0x02023be4)
+        struct.pack_into('<I', rom, 30, 0x02023be4)  # unaligned copy: not a literal
+        struct.pack_into('<HH', rom, 16, 0x4b00, 0x881a)  # ldr r3,[pc,#0]; ldrh r2,[r3]
+        struct.pack_into('<I', rom, 20, 0x02023bce)
+        out = u.literal_references(bytes(rom), dict(mons=0x02023be4, indexes=0x02023bce, absent=0x02024028))
+        self.assertEqual(out['mons']['pc_literal_loads'], 1)
+        self.assertEqual(out['mons']['first_access'], {'ldrb': 1})
+        self.assertEqual(out['mons']['nearby_stride_constants']['0x58'], 1)
+        self.assertEqual((out['indexes']['pc_literal_loads'], out['indexes']['first_access']), (1, {'ldrh': 1}))
+        self.assertEqual(out['absent']['pc_literal_loads'], 0)
+
+    def test_battle_mon_fields_are_raw_and_size_bounded(self):
+        mon = u.battle_mon_fields(invented_battler(invented_slot()))
+        self.assertEqual((mon['species_word'], mon['item_word'], mon['level_byte'], mon['max_hp_word']),
+                         (0xfabc, 0xbcde, 100, 999))
+        self.assertEqual((mon['byte_18'], mon['stat_stage_bytes']), (20, [5, 6, 6, 6, 6, 6, 6]))
+        self.assertTrue(all(u.compare_battler(mon, bytes(invented_slot())).values()))
+        changed = bytearray(invented_slot()); changed[86] = 7
+        self.assertFalse(u.compare_battler(mon, bytes(changed))['hp'])
+        for size in (0, 0x57, 0x59, 100):
+            with self.subTest(size=size), self.assertRaises(ValueError):
+                u.battle_mon_fields(bytes(size))
+
+    def snapshot(self, memory, enemy):
+        observer = u.Observer.__new__(u.Observer)
+        observer.engine = Mock()
+        observer.engine.read = Mock(side_effect=lambda address, size: memory[address][:size])
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(u, 'native_fields', return_value={'accepted': True}):
+            row = observer.battle_snapshot('t', Path(folder), dict(player=bytes(invented_slot())*6, enemy=enemy))
+            self.assertEqual((Path(folder)/'t_battle.mons').stat().st_size, 4*u.BATTLE_MON_SIZE)
+        return row
+
+    def battle_memory(self, count=2, indexes=(2, 0, 0, 0)):
+        b, slot = u.BATTLE_SYMBOLS, bytes(invented_slot())
+        return {b['gBattleTypeFlags']: struct.pack('<I', 4), b['gBattlersCount']: bytes([count]),
+                b['gActiveBattler']: b'\x02', b['gBattlerPartyIndexes']: struct.pack('<4H', *indexes),
+                b['gBattlerPositions']: bytes([0, 1, 255, 255]), b['gBattleOutcome']: b'\x00',
+                0x02024028: b'\x00', 0x0202402a: b'\x00',
+                b['gBattleMons']: invented_battler(slot)*2 + bytes(2*u.BATTLE_MON_SIZE)}
+
+    def test_battle_snapshot_maps_battlers_to_party_index_and_skips_zeroed_enemy_records(self):
+        zeroed = bytearray(100); zeroed[85] = 0xff
+        enemy = bytes(invented_slot()) + bytes(zeroed)*5
+        row = self.snapshot(self.battle_memory(), enemy)
+        self.assertEqual([(m['side'], m['party_index']) for m in row['battlers']], [('player', 2), ('enemy', 0)])
+        self.assertTrue(all(all(m['matches_party_record'].values()) for m in row['battlers']))
+        self.assertEqual([s['slot'] for s in row['enemy_box_nonzero_slots']], [0])
+        self.assertEqual(row['enemy_count_bytes'], {'0x2024028': 0, '0x202402a': 0})
+        row = self.snapshot(self.battle_memory(count=5), enemy)
+        self.assertEqual((row['battlers_status'], row['battlers']), ('COUNT_OUT_OF_RANGE', []))
+        row = self.snapshot(self.battle_memory(indexes=(6, 0, 0, 0)), enemy)
+        self.assertNotIn('matches_party_record', row['battlers'][0])
+
+    def test_battle_snapshot_refuses_incoherent_reads(self):
+        memory, calls = self.battle_memory(), []
+        observer = u.Observer.__new__(u.Observer)
+        observer.engine = Mock()
+        def read(address, size):
+            calls.append(address)
+            if address == u.BATTLE_SYMBOLS['gBattlersCount'] and calls.count(address) == 2:
+                return b'\x01'
+            return memory[address][:size]
+        observer.engine.read = Mock(side_effect=read)
+        with tempfile.TemporaryDirectory() as folder, self.assertRaisesRegex(ValueError, 'incoherent'):
+            observer.battle_snapshot('t', Path(folder), dict(player=bytes(600), enemy=bytes(600)))
+
+    def test_committed_battle_movie_and_evidence_are_bound_and_sanitized(self):
+        here = Path(u.__file__).parent
+        movie = (here/'unbound-battle-wild-run.movie').read_bytes()
+        commands = u.parse_movie(movie.decode('ascii'))
+        self.assertTrue(all(c[0] in ('run', 'mash', 'observe') for c in commands))
+        labels = [c[1] for c in commands if c[0] == 'observe']
+        evidence = json.loads((here/'evidence/unbound-runtime-battle.json').read_text())
+        self.assertEqual(evidence['support_verdict'], 'NONE')
+        self.assertEqual(evidence['inputs']['rom_sha256'], u.ROM_SHA256)
+        self.assertEqual(evidence['inputs']['battery_sha256'], u.SAVE_SHA256)
+        self.assertEqual(evidence['inputs']['core_sha256'], u.rowe.CORE_SHA256)
+        self.assertEqual(evidence['inputs']['observer_sha256'], u.rowe.digest(Path(u.__file__).read_bytes()))
+        self.assertEqual(evidence['inputs']['movie_sha256'], u.rowe.digest(movie))
+        self.assertEqual([t['label'] for t in evidence['timeline']], labels)
+        self.assertEqual(evidence['addresses'], {k: hex(v) for k, v in u.BATTLE_SYMBOLS.items()})
+        timeline = {t['label']: t for t in evidence['timeline']}
+        for label, row in timeline.items():
+            with self.subTest(label=label):
+                self.assertEqual(row['enemy_count_bytes'], {'0x2024028': 0, '0x202402a': 0})
+                for battler in row['battlers']:
+                    self.assertTrue(all(battler['matches_party_record'].values()))
+        self.assertEqual([b['party_index'] for b in timeline['after_move']['battlers']], [0, 0])
+        self.assertEqual([b['party_index'] for b in timeline['after_switch']['battlers']], [2, 0])
+        self.assertEqual(timeline['after_switch']['battlers'][0]['species_word'],
+                         evidence['player_party_species_words'][2])
+        self.assertEqual(timeline['pre_battle_overworld']['battlers'], [])
+        # Teardown: the post-exit overworld still holds the last battle's globals.
+        self.assertEqual(timeline['overworld_later']['gBattleMons_sha256'],
+                         timeline['got_away']['gBattleMons_sha256'])
+        self.assertEqual(timeline['overworld_later']['outcome'], 4)
+        def strings(node):
+            if isinstance(node, dict):
+                for value in node.values(): yield from strings(value)
+            elif isinstance(node, list):
+                for value in node: yield from strings(value)
+            elif isinstance(node, str):
+                yield node
+        self.assertFalse([t for t in strings(evidence) if len(t) > 64 and all(c in '0123456789abcdef' for c in t)])
+
 
 class UnboundObserveTests(unittest.TestCase):
     def test_raw_fields_preserve_width_and_do_not_translate_ids(self):

@@ -45,6 +45,20 @@ STATIC_SPANS = (
      'Non-bad-egg species and item use full halfwords; moves use indexed halfwords; EVs use bytes.'),
 )
 
+# Battle candidates: public CFRU BPRE.ld names, checked against exact-ROM literal use
+# (literal_references) and runtime coherence. gEnemyPartyCount here is the exact-ROM
+# enemy-count routine's byte; SYMBOLS keeps the historical 0x02024028 candidate.
+BATTLE_SYMBOLS = dict(gBattleTypeFlags=0x02022b4c, gActiveBattler=0x02023bc4,
+                      gBattlersCount=0x02023bcc, gBattlerPartyIndexes=0x02023bce,
+                      gBattlerPositions=0x02023bd6, gBattleMons=0x02023be4,
+                      gBattleOutcome=0x02023e8a, gEnemyPartyCount=0x0202402a,
+                      sLearningMoveTableID=0x02024028, gEnemyParty=0x0202402c)
+BATTLE_MON_SIZE = 0x58
+BATTLE_STATIC_SPANS = (
+    (0x08040c80, 0x08040cc4, '96aaea0697f47d8ab3a387fb59e91bc4646ef14d10dc70e92d85b804cda04a71',
+     'Byte count at 0202402a cleared/incremented; 0..5 loop indexes 0202402c by 100 bytes.'),
+)
+
 
 def pinned(data, sha, size, label):
     require(len(data) == size and rowe.digest(data) == sha, label + ' identity mismatch')
@@ -63,12 +77,87 @@ def inspect_rom(data):
         require(rowe.digest(data[start-0x08000000:end-0x08000000]) == sha,
                 'inspected ROM span mismatch')
         spans.append(dict(start=hex(start), end_exclusive=hex(end), sha256=sha, finding=meaning))
+    battle = []
+    for start, end, sha, meaning in BATTLE_STATIC_SPANS:
+        require(rowe.digest(data[start-0x08000000:end-0x08000000]) == sha,
+                'inspected ROM span mismatch')
+        battle.append(dict(start=hex(start), end_exclusive=hex(end), sha256=sha, finding=meaning))
     return dict(status='VERIFIED', scope='STATIC_SELECTED_PATHS_ONLY', rom=rom, spans=spans,
+                battle_spans=battle, battle_literal_references=literal_references(data, BATTLE_SYMBOLS),
                 player_count_address=hex(SYMBOLS['gPlayerPartyCount']), player_count_width_bits=8,
                 player_party_address=hex(SYMBOLS['gPlayerParty']), player_stride_bytes=100,
                 substructures='FIXED_GAEM_UNENCRYPTED', species_load_width_bits=16,
                 internal_species_id_mapping='NOT_VERIFIED', checksum_zero_runtime='NOT_VERIFIED',
                 save_block_pointer_authority='NOT_VERIFIED', runtime_layout='NOT_VERIFIED')
+
+
+def literal_references(data, symbols):
+    """Count Thumb `ldr rd, [pc, #imm]` loads of each aligned literal word.
+
+    For each reference, the first load/store through rd within the next six
+    instructions gives the access width, and `movs rX, #0x58/#0x64` within
+    +-16 bytes hints at a battler/party stride. A count, not a caller proof.
+    """
+    out = {}
+    for name, value in symbols.items():
+        needle, refs, widths = struct.pack('<I', value), 0, {}
+        strides = {'0x58': 0, '0x64': 0}
+        at = data.find(needle)
+        while at >= 0:
+            if at % 4 == 0:
+                for off in range(max(0, at-1020-4) & ~1, at, 2):
+                    h = data[off] | data[off+1] << 8
+                    if h >> 11 != 9 or ((off+4) & ~3) + (h & 255)*4 != at:
+                        continue
+                    refs += 1
+                    rd = (h >> 8) & 7
+                    for nxt in range(off+2, min(off+14, len(data)-1), 2):
+                        g = data[nxt] | data[nxt+1] << 8
+                        # Thumb load/store immediate (ldr/str/ldrb/strb/ldrh/strh) with base rd.
+                        kind = {0b01100: 'str', 0b01101: 'ldr', 0b01110: 'strb', 0b01111: 'ldrb',
+                                0b10000: 'strh', 0b10001: 'ldrh'}.get(g >> 11)
+                        if kind is None and g >> 12 == 0b0101:  # register-offset forms
+                            kind = ('str', 'strh', 'strb', 'ldrsb', 'ldr', 'ldrh', 'ldrb', 'ldrsh')[(g >> 9) & 7]
+                        if kind and (g >> 3) & 7 == rd:
+                            widths[kind] = widths.get(kind, 0) + 1
+                            break
+                    for near in range(max(0, off-16), min(off+16, len(data)-1), 2):
+                        g = data[near] | data[near+1] << 8
+                        if g >> 11 == 0b00100 and g & 255 in (0x58, 0x64):
+                            strides['0x%02x' % (g & 255)] += 1
+            at = data.find(needle, at+1)
+        out[name] = dict(address=hex(value), pc_literal_loads=refs, first_access=widths,
+                         nearby_stride_constants=strides)
+    return out
+
+
+def battle_mon_fields(data):
+    """CFRU BattlePokemon hypothesis (0x58 bytes); raw words only, no ID translation."""
+    require(len(data) == BATTLE_MON_SIZE, 'battler must be exactly 0x58 bytes')
+    u16 = lambda off: struct.unpack_from('<H', data, off)[0]
+    u32 = lambda off: struct.unpack_from('<I', data, off)[0]
+    return dict(species_word=u16(0), stats_words=dict(zip(STATS[1:], (u16(2+2*i) for i in range(5)))),
+                moves_words=[u16(12+2*i) for i in range(4)], iv_word=u32(0x14),
+                byte_18=data[0x18], stat_stage_bytes=list(data[0x19:0x20]), ability_byte=data[0x20],
+                type_bytes=list(data[0x21:0x23]), pp_bytes=list(data[0x24:0x28]), hp_word=u16(0x28),
+                level_byte=data[0x2a], friendship_byte=data[0x2b], max_hp_word=u16(0x2c),
+                item_word=u16(0x2e), nickname_hex=data[0x30:0x3b].hex(), pp_bonuses_byte=data[0x3b],
+                experience_word=u32(0x44), personality=u32(0x48), status1=u32(0x4c),
+                status2=u32(0x50), otid=u32(0x54))
+
+
+def compare_battler(mon, slot):
+    """Field-by-field comparison of a battler with a party/enemy 100-byte record."""
+    rec = slot_fields(slot)
+    fixed = rec['fixed_raw_gaem']
+    return dict(personality=mon['personality'] == rec['pid'], otid=mon['otid'] == rec['otid'],
+                species=mon['species_word'] == fixed['species_word'],
+                item=mon['item_word'] == fixed['item_word'],
+                moves=mon['moves_words'] == fixed['moves_words'], pp=mon['pp_bytes'] == fixed['pp_bytes'],
+                hp=mon['hp_word'] == rec['hp_word'], max_hp=mon['max_hp_word'] == rec['stats_words']['max_hp'],
+                level=mon['level_byte'] == rec['level_byte'],
+                stats=all(mon['stats_words'][n] == rec['stats_words'][n] for n in STATS[1:]),
+                experience=mon['experience_word'] == fixed['experience_word'])
 
 
 def parse_movie(text):
@@ -178,6 +267,45 @@ class Observer:
                          slots=[dict(slot_fields(s), production=native_fields(self.engine.host, s))
                                 for s in slots[:count]])
 
+    def battle_snapshot(self, label, private, parties):
+        """Paused, read-twice battle globals; decodes battlers only within the read count.
+
+        Enemy records are decoded when their 80-byte box portion is non-zero, not by
+        a count byte: a wild battle need not run the enemy-count routine. A zeroed
+        record keeps only +85 = 0xFF. Stale data is reported as-is.
+        """
+        read, b = self.engine.read, BATTLE_SYMBOLS
+        def grab():
+            return dict(flags=struct.unpack('<I', read(b['gBattleTypeFlags'], 4))[0],
+                        count=read(b['gBattlersCount'], 1)[0], active=read(b['gActiveBattler'], 1)[0],
+                        party_indexes=list(struct.unpack('<4H', read(b['gBattlerPartyIndexes'], 8))),
+                        positions=list(read(b['gBattlerPositions'], 4)),
+                        outcome=read(b['gBattleOutcome'], 1)[0],
+                        enemy_count_bytes={hex(a): read(a, 1)[0] for a in (0x02024028, 0x0202402a)},
+                        mons=read(b['gBattleMons'], 4*BATTLE_MON_SIZE))
+        first, second = grab(), grab()
+        require(first == second, 'incoherent paused battle snapshot')
+        mons = first.pop('mons')
+        with (private / (label+'_battle.mons')).open('xb') as f:
+            f.write(mons)
+        row = dict(first, gBattleMons_sha256=rowe.digest(mons), battlers=[])
+        if first['count'] > 4:
+            row['battlers_status'] = 'COUNT_OUT_OF_RANGE'
+            return row
+        for n in range(first['count']):
+            mon = battle_mon_fields(mons[n*BATTLE_MON_SIZE:(n+1)*BATTLE_MON_SIZE])
+            index, side = first['party_indexes'][n], ('player', 'enemy')[first['positions'][n] & 1]
+            entry = dict(battler=n, side=side, party_index=index, fields=mon)
+            if index < 6:
+                entry['matches_party_record'] = compare_battler(mon, parties[side][index*100:(index+1)*100])
+            row['battlers'].append(entry)
+        enemy = parties['enemy']
+        row['enemy_box_nonzero_slots'] = [
+            dict(slot=i, **slot_fields(enemy[i*100:(i+1)*100]),
+                 production=native_fields(self.engine.host, enemy[i*100:(i+1)*100]))
+            for i in range(6) if any(enemy[i*100:i*100+80])]
+        return row
+
     def save_party_copy(self, pointer, live):
         """Vanilla FireRed SaveBlock1 hypothesis: count u8 at +0x34, party at +0x38."""
         if not 0x02000000 <= pointer <= 0x02040000 - SB1_PARTY - 600:
@@ -193,8 +321,10 @@ class Observer:
     def observe(self, label, private):
         rowe.require_private_directory(private)
         row = dict(label=label, frame=self.engine.frames, parties={}, save_blocks={})
+        raw_parties = {}
         for side in ('Player', 'Enemy'):
             raw, row['parties'][side.lower()] = self.party_snapshot(side)
+            raw_parties[side.lower()] = raw
             with (private / (label+'_'+side.lower()+'.party')).open('xb') as f:
                 f.write(raw)
         for n in (1, 2):
@@ -205,6 +335,7 @@ class Observer:
         # Both candidate enemy-count bytes (Unbound config 0x24028, FireRed config 0x2402A).
         row['enemy_count_candidates'] = {hex(a): self.engine.read(a, 1)[0]
                                          for a in (0x02024028, 0x0202402a)}
+        row['battle'] = self.battle_snapshot(label, private, raw_parties)
         video = rowe.Video()
         require(self.engine.host.libretro_host_get_video_frame(C.byref(video)) and video.pixels
                 and video.fmt == 2 and video.width == 240 and video.height == 160

@@ -198,7 +198,7 @@
     "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
     "helper_sha256": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
     "identity_helper_sha256": "51a303b7b3e7ad07c8099e37a290912722529bb759cb421441f175c59521accc",
-    "observer_sha256": "0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a",
+    "observer_sha256": "9f0f1803f45d0ff6d6bbbe7892d4e5918601d8c5342669a8a2a4b5250480c189",
     "quicksave": {
       "bytes": 528448,
       "crc32": "91c28565",

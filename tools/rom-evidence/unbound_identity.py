@@ -94,17 +94,19 @@ def inspect(candidate, base):
     title = decode_text(candidate[title_offset:title_end + 1], "map_section_name")
     require(title.status == VALID_TEXT and title.text == "Pokémon Unbound Version",
             "credits title mismatch")
+    versions = version_candidates(candidate)
     return dict(schema_version=1, task_id="unbound-static", status="VERIFIED",
                 scope="Exact bytes and static observations only",
                 inspector_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                 candidate=dict(**candidate_identity, gba_header=header(candidate)),
                 base=dict(**identity(base), gba_header=base_header),
-                version_candidates=version_candidates(candidate),
+                version_candidates=versions,
                 credits_title=dict(status="VERIFIED", text=title.text,
                                    file_offset=f"0x{title_offset:08x}", encoding="GEN_III"),
                 owner_version_claim=dict(label="2.1.1.1", date="2026-11-04",
                                         status="NOT_VERIFIED",
-                                        agreement="NOT_VERIFIED: no plain Gen III numeric label located"),
+                                        agreement=("NOT_VERIFIED: plain Gen III numeric labels require review" if versions else
+                                                   "NOT_VERIFIED: no plain Gen III numeric label located")),
                 base_comparison=base_comparison(candidate, base),
                 patch_to_rom_identity="NOT_VERIFIED", runtime_version="NOT_VERIFIED",
                 production_support="NOT_VERIFIED")

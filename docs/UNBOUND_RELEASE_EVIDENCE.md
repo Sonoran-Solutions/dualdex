@@ -89,16 +89,4 @@ No emulator, core, save or state was loaded. No background job remains.
 its inspector SHA-256. The data report and validation details are in
 [UNBOUND_DATA_TEXT_EVIDENCE.md](UNBOUND_DATA_TEXT_EVIDENCE.md).
 
-**BLOCKED:** full ROM-free discovery ran 80 tests in 0.208 seconds: 79 passed,
-one unchanged private-directory-guard test errored. All 15 Unbound tests passed.
-The sandbox also exposes a read-only synthetic `.git` directory at `$TMPDIR/.git`,
-despite the corrected directory setting. Python confirms it uses this exact TMPDIR;
-`git -C "$TMPDIR" rev-parse --show-toplevel` reports no actual Git repository.
-The guard intentionally treats the marker conservatively. No test was weakened,
-no marker was removed, and no unchanged failed suite was blindly retried.
-Coordinator prerequisite: rerun the same discovery in an environment without this
-synthetic ancestor marker. This is a failed required gate, not a successful suite.
-
-No `ci.sh test/build/all`, commit, push or PR was attempted in attempt 2; the
-coordinator owns combined validation and commits. Production files and the shared
-ROM-evidence README are unchanged.
+Coordinator rerun with a Git-free TMPDIR: full rom-evidence discovery passed; `./ci.sh all` passed on c42b43f.

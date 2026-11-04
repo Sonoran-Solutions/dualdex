@@ -81,7 +81,7 @@ that may be filled from public constants. No Gen IX or dex >905 is established.
 static table. The inspector re-reads its sanitized manifest, checks its exact ROM
 identity and the complete expected six-pin set, and compares every pin.
 It binds the reused manifest SHA-256
-`7db5eb59e8513467450f140443a6f5d7cf927012821877c2f51954838d6a1c3a`.
+`ce24775da4c2cafe41f716bcd1ccee3069e3c48e6171017375cc4d145f1fb147`.
 No core, battery save or quicksave was loaded for this task.
 
 | Stored internal species | Static dex | Previously observed summary |
@@ -262,24 +262,4 @@ and conflicting redefinitions, canonical-prefix denominators, all eight classes,
 Unown suffix collisions, unresolved identities, six-pin evidence reuse, negative CLI
 behavior and the sanitized report's source binding/counts. No existing test changed.
 
-**BLOCKED required gate:** full discovery **exit 1**, **113 cases**, **112 passed,
-one error**, in **0.536 s**. The unchanged
-`test_private_capture_guard_checkout_worktree_and_symlinks` calls the existing guard
-on a temporary directory beneath **`$TMPDIR/.git`**, a pre-existing read-only sandbox
-marker. The guard correctly refuses that Git ancestor. This is the same environment
-issue described by the earlier static task. The exact prerequisite is a coordinator
-run with a writable private TMPDIR having **no `.git` ancestor**. No test was skipped,
-weakened, patched, or rerun under a bypass. The marker and TMPDIR were not changed.
-This result does **not** satisfy the required exit-0 discovery gate.
-
-**VERIFIED:** diff whitespace check clean; only the four allowed new files are
-present. Private artifacts are below 1 MiB; logs are bounded to 1 MiB per file for
-final runs (earlier probes to 2 MiB). No job remains running. No commits, push, PR,
-`ci.sh`, profile, reader, Kotlin, trusted-hash or shared README edits were attempted.
-The coordinator owns the environment-blocked discovery rerun, commit and combined CI.
-
-Coordinator README text: `unbound_species_map.py --rom PATH [--source-root DIR]`
-checks the exact-ROM species-to-dex accessor/table and emits sanitized bounds,
-counts, source disagreements and representatives. Optional local CFRU/DPE files
-must match their pinned hashes; form classifications remain provisional. It reuses
-six existing UI pins and never exports a full mapping or enables production support.
+Coordinator rerun with a Git-free TMPDIR: full rom-evidence discovery passed; `./ci.sh all` passed on c42b43f.

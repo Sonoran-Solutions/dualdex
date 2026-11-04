@@ -12,7 +12,7 @@ runtime confirmation is required before promoting any such claim.
 | Input | Identity / evidence available in this task |
 |---|---|
 | Target release | Pokémon Unbound **v2.1.1.1**, as stated by the owner |
-| Target ROM SHA-256 | `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7` — owner-supplied identity, not independently hashed or runtime-verified here |
+| Target ROM SHA-256 | `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7` — independently measured in [release evidence](UNBOUND_RELEASE_EVIDENCE.md); runtime verification is outside this inventory |
 | Public CFRU | `Skeli789/Complete-Fire-Red-Upgrade` @ `b637a27898b14e25dd24d0f69a3e302f0069deb8`; local checkout `/home/dq/dualdex-private/unbound/src/cfru` |
 | Public DPE | `Skeli789/Dynamic-Pokemon-Expansion` @ `cdfc053a56326a13dc5311b24488445e17536b7e`; local checkout `/home/dq/dualdex-private/unbound/src/dpe` |
 | DualDex inspected revision | `d592f559e0eb97159513551fc05ea6a663532a9a` (`d592f55`, task base); no implementation changes in this task |

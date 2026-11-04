@@ -130,9 +130,12 @@ Everything here is reasoned from source; none of it was run in production.
    HP `+0x28`, stages base `0x18`) at `0x02023BE4`. The header selects `CONFIG_FIRERED`, as the
    party evidence notes. Its `battle_mons_offset = 0x23F90` has no literal loads in this ROM
    or in vanilla FireRed.
-4. Stat-stage validation around line 3216 rejects any of the 8 bytes from the stage base that
-   is outside 0..12. On this ROM byte `0x18` is `type3` (observed 20), so this check would set
-   `stages_invalid` for a correct battler. The `out_stages` path (indexes 1..7) is unaffected.
+4. This would apply if a battle layout were declared: today
+   `pokemon_read_battler_runtime_state_gba` returns before the stage check unless
+   `battle_pokemon_layout_matches_pinned_abi` (only the H&S layout). The later stat-stage
+   validation rejects any of the 8 bytes from the stage base outside 0..12. On this ROM
+   byte `0x18` is `type3` (observed 20), so that check would set `stages_invalid` for a
+   correct battler. The `out_stages` path (indexes 1..7) is unaffected.
 5. Teardown leaves every battle global and the enemy record stale. Battle state must be gated
    on a live battle signal. Which one (e.g. `gMain` callback / `gBattleMainFunc`) is **NOT_VERIFIED**.
 
@@ -145,10 +148,14 @@ enemy records whose 80-byte box part is non-zero. Each observation now also stor
 `*_battle.mons`. The existing party, SaveBlock and enemy-count-candidate paths and `SYMBOLS`
 are unchanged.
 
-The observer SHA-256 changed from `0c57a1bd…` (attempt 3) to `9f0f1803…`. The
-`observer_sha256` fields in `unbound-runtime-static.json` and `unbound-runtime-observation.json`
-were refreshed only because the existing tests bind them; no other field changed. To justify
-this, the attempt-3 route (`unbound-continue-summary.movie`) was rerun with the new observer.
+The observer SHA-256 changed from `0c57a1bd…` (attempt 3) to `9f0f1803…`. Both
+`unbound-runtime-static.json` and `unbound-runtime-observation.json` preserve the original
+producer hash. The observation manifest adds a `revalidated` record binding the current
+observer and the battery-route rerun report hash recorded in the battle manifest's regression
+section; its scope is battery route only, with the quicksave not rerun. The static manifest
+notes that its block predates the battle spans and points here via `unbound-runtime-battle.json`
+for the current observer's battle spans. The attempt-3 route (`unbound-continue-summary.movie`)
+was rerun with the new observer.
 All 26 observations had identical frames, party snapshots, production parser output and
 SaveBlock copy rows to the attempt-3 `run04.json`. Only the three animated overworld/menu screen
 hashes differed, which the README already documents. Five new ROM-free tests cover the counter,

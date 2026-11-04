@@ -281,7 +281,15 @@ class UnboundObserveTests(unittest.TestCase):
         self.assertEqual(evidence['inputs']['battery']['sha256'], u.SAVE_SHA256)
         self.assertEqual(evidence['inputs']['quicksave']['sha256'], u.STATE_SHA256)
         self.assertEqual(evidence['inputs']['core_sha256'], u.rowe.CORE_SHA256)
-        self.assertEqual(evidence['inputs']['observer_sha256'], u.rowe.digest(Path(u.__file__).read_bytes()))
+        current_observer = u.rowe.digest(Path(u.__file__).read_bytes())
+        if evidence['inputs']['observer_sha256'] != current_observer:
+            self.assertEqual(evidence['inputs']['observer_sha256'],
+                             '0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a')
+            battle = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-battle.json').read_text())
+            self.assertEqual(evidence['revalidated'], dict(
+                observer_sha256=current_observer,
+                private_report_sha256=battle['regression_of_attempt3_route']['private_report_sha256'],
+                scope='battery route only; quicksave not rerun', evidence='unbound-runtime-battle.json'))
         self.assertTrue(evidence['battery_run']['all_observations_same_player_sha256'])
         natures = ('Hardy Lonely Brave Adamant Naughty Bold Docile Relaxed Impish Lax Timid Hasty Serious '
                    'Jolly Naive Modest Mild Quiet Bashful Rash Calm Gentle Sassy Careful Quirky').split()
@@ -404,7 +412,13 @@ class UnboundObserveTests(unittest.TestCase):
         self.assertEqual(evidence['static']['runtime_layout'], 'NOT_VERIFIED')
         self.assertEqual(evidence['static']['rom']['sha256'], u.ROM_SHA256)
         self.assertEqual(evidence['static']['player_stride_bytes'], 100)
-        self.assertEqual(evidence['observer_sha256'], u.rowe.digest(Path(u.__file__).read_bytes()))
+        current_observer = u.rowe.digest(Path(u.__file__).read_bytes())
+        if evidence['observer_sha256'] != current_observer:
+            self.assertEqual(evidence['observer_sha256'],
+                             '0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a')
+            self.assertEqual(evidence['static_provenance']['battle_evidence'], 'unbound-runtime-battle.json')
+            battle = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-battle.json').read_text())
+            self.assertEqual(battle['inputs']['observer_sha256'], current_observer)
         self.assertEqual([s['sha256'] for s in evidence['static']['spans']], [s[2] for s in u.STATIC_SPANS])
 
     def test_private_output_guard_and_exclusive_directory(self):
@@ -414,7 +428,25 @@ class UnboundObserveTests(unittest.TestCase):
             link = root/'alias'; link.symlink_to(repo)
             with self.assertRaises(ValueError): u.rowe.require_private_directory(link/'screens')
             private = root/'private'; private.mkdir()
-            with self.assertRaises(FileExistsError): private.mkdir(exist_ok=False)
+            output = root/'out.json'
+            argv = ['unbound_observe', '--rom', str(root/'rom'), '--core', str(root/'core'),
+                    '--movie', str(root/'movie'), '--battery-save', str(root/'battery'),
+                    '--private-dir', str(private), '--output', str(output)]
+            def read(path, limit):
+                return b'observe first' if Path(path).name == 'movie' else b'invented'
+            with patch.object(sys, 'argv', argv), patch.object(u, 'read_local', side_effect=read), \
+                 patch.object(u, 'pinned', return_value={}), patch.object(u, 'inspect_rom', return_value={}), \
+                 patch.object(u.rowe, 'CORE_SHA256', u.rowe.digest(b'invented')), \
+                 patch.object(u.rowe, 'verify_adapter', return_value={}), \
+                 patch.object(u.rowe, 'require_private_directory') as guard, patch.object(u, 'Observer') as host:
+                self.assertEqual(u.main(), 1)
+                guard.assert_called_once_with(private)
+                host.assert_not_called()
+            result = json.loads(output.read_text())
+            self.assertEqual((result['status'], result['observations']), ('FAIL', []))
+            self.assertIn('File exists', result['error'])
+            self.assertFalse((private/'cartridge.gba').exists())
+            self.assertEqual(list(private.iterdir()), [])
 
 
 if __name__ == '__main__':

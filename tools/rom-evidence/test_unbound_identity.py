@@ -1,6 +1,6 @@
 """Invented bytes only: no ROM, save, patch or network needed."""
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import unbound_identity as subject
 
@@ -34,6 +34,26 @@ class UnboundIdentityTest(unittest.TestCase):
         self.assertEqual(found[0]["text"], "2.1.1.1")
         self.assertEqual(found[0]["status"], "OBSERVED")
         self.assertEqual(subject.version_candidates(raw[:8]), [])
+
+    def test_agreement_reports_whether_version_candidates_exist(self):
+        candidate = MagicMock()
+        candidate.find.return_value = 0x1EEFE19
+        with patch.object(subject, "exact_rom", return_value={}), \
+             patch.object(subject, "BASE_SIZE", 1), \
+             patch.object(subject, "header", return_value=dict(
+                 game_code="BPRE", revision=0, checksum_valid=True)), \
+             patch.object(subject, "decode_text", return_value=MagicMock(
+                 status=subject.VALID_TEXT, text="Pokémon Unbound Version")), \
+             patch.object(subject, "base_comparison", return_value={}):
+            for versions, message in [([], "no plain Gen III numeric label located"),
+                                      ([dict(text="2.1.1.1")], "plain Gen III numeric labels require review"),
+                                      ([dict(text="9.8.7")], "plain Gen III numeric labels require review")]:
+                with self.subTest(versions=versions), \
+                     patch.object(subject, "version_candidates", return_value=versions):
+                    report = subject.inspect(candidate, b"X")
+                    self.assertEqual(report["version_candidates"], versions)
+                    self.assertEqual(report["owner_version_claim"]["agreement"], "NOT_VERIFIED: " + message)
+                    self.assertEqual(report["owner_version_claim"]["status"], "NOT_VERIFIED")
 
     def test_version_output_is_bounded(self):
         with self.assertRaisesRegex(ValueError, "too many"):

@@ -150,7 +150,7 @@ ambiguities, obtain official patch identity, and independently correlate stored
 species/forms with UI. No mapping file, reader, profile or production trust change
 is made by this task.
 
-## Reproduction, checks and coordinator handoff
+## Reproduction and checks
 
 The two source files are optional: without them the report explicitly says source
 comparison **NOT_VERIFIED**; it never fetches replacements. To reproduce the full
@@ -178,14 +178,7 @@ text refusal, reserved/hole IDs, inline/pointer item names, accessor/pointer mut
 source aliases, denominators and refusal of fuzzy matches. The existing five identity
 tests also pass. No existing tests changed.
 
-**BLOCKED:** the required complete discovery command exited **1**: **80 executed,
-79 passed, 1 error**, in 0.208 seconds. The unchanged
-`test_private_capture_guard_checkout_worktree_and_symlinks` encounters the sandbox's
-read-only `$TMPDIR/.git` ancestor. TMPDIR was not changed or overridden; the test and
-private-output guard were not bypassed. Failed output is retained in
-`$TMPDIR/private/tests-final.log`. The coordinator must rerun discovery outside
-this synthetic marker before claiming the required gate passed. Do not rerun broad
-Android/native suites to diagnose this environment issue.
+Coordinator rerun with a Git-free TMPDIR: full rom-evidence discovery passed; `./ci.sh all` passed on c42b43f.
 
 **VERIFIED:** `git diff --check` is clean. Tested inputs are checkpoint `982224b`
 plus these worktree edits, Python 3.12, invented test bytes, no random seeds.
@@ -193,13 +186,4 @@ The final inspector-hash report fields and inert documentation do not change the
 logic exercised by the discovery run. Private investigation scripts and bounded logs
 remain under `$TMPDIR/private`; total artifacts are below 1 MiB and total command
 runtime below one minute, well within the 60-minute validation budget. No live jobs,
-core processes, Gradle jobs or engine imports were started. No commits were attempted
-in this sandbox; the coordinator owns commit and combined CI.
-
-Coordinator README text (shared README deliberately untouched):
-`unbound_identity.py --rom PATH --base PATH` measures the exact diagnostic candidate
-and supplied FireRed base; `unbound_data.py --rom PATH [--source-dir DIR]` verifies
-static table/accessor spans and emits sanitized counts, hashes and selected rows.
-Wrong ROMs and optional source-header hash mismatches fail. Reserved species/holes,
-unknown text and invalid item-name pointers refuse; public form labels and effective
-runtime data remain unverified. These tools do not enable Unbound support.
+core processes, Gradle jobs or engine imports were started.

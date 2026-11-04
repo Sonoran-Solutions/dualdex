@@ -191,6 +191,8 @@ class UnboundSpeciesMapTest(unittest.TestCase):
         self.assertLess(len(report["representative_rows"]), 40)
         self.assertEqual(set(counts), {row["classification"] for row in report["representative_rows"]})
         self.assertEqual(report["numeric_domain"]["nonzero_rows"], 1266)
+        self.assertEqual(report["reused_runtime_pins"]["sha256"],
+                         subject.sha((evidence.parent / "unbound-runtime-observation.json").read_bytes()))
         self.assertEqual(report["reused_runtime_pins"]["agreeing_pins"], 6)
         numeric = report["source_comparisons"]["numeric"]
         self.assertEqual((numeric["dpe_table"]["compared_ids"], numeric["dpe_table"]["agreeing_ids"]), (1267, 1232))

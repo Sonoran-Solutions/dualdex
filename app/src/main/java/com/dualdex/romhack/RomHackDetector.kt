@@ -161,7 +161,8 @@ object RomHackDetector {
                 sha256 = sha256,
                 matchMethod = ProfileMatchMethod.BASE_GAME_FALLBACK,
                 reason = "ROM header matches the ${baseGameProfile.baseGame} base game, but the ROM is not " +
-                    "retail-size (${romLength ?: "unknown"} bytes); treated as a ${baseGameProfile.baseGame}-based hack with no profile"
+                    "retail-size (${romLength ?: "unknown"} bytes); treated as a ${baseGameProfile.baseGame}-based hack with no profile",
+                baseGameProfileName = baseGameProfile.name
             )
         }
         if (baseGameProfile != null) {

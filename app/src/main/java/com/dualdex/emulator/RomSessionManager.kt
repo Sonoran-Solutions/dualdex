@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import com.dualdex.cheats.CheatManager
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.settings.SettingsManager
@@ -290,7 +291,7 @@ open class RomSessionManager(
 
                 val detection = RomHackDetector.detectCompatibility(cachedRomFile, loadedProfiles, preferredTitle)
                 val profile = detection.profile
-                val gameTitle = preferredTitle ?: profile.name.ifEmpty { "current_game" }
+                val gameTitle = sessionTitle(preferredTitle, detection)
                 val newIdentity = RomIdentity.fromFile(cachedRomFile, gameTitle)
 
                 if (!newIdentity.isValid || !newIdentity.sha256.equals(finalHash, ignoreCase = true) ||
@@ -407,5 +408,13 @@ open class RomSessionManager(
 
     companion object {
         private const val TAG = "RomSessionManager"
+
+        /**
+         * Session title, which is also the display name in [RomIdentity.legacyStorageKey]. An
+         * expanded FireRed/Emerald-based hack keeps the vanilla name it had before it stopped being
+         * presented as vanilla, so pre-SHA save folders are still found by migration.
+         */
+        internal fun sessionTitle(preferredTitle: String?, detection: RomCompatibility): String =
+            preferredTitle ?: (detection.baseGameProfileName ?: detection.profile.name).ifEmpty { "current_game" }
     }
 }

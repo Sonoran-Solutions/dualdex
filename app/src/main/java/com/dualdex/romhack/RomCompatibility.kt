@@ -39,7 +39,13 @@ data class RomCompatibility(
     val matchMethod: ProfileMatchMethod,
     val sha256: String,
     /** Human-readable explanation of why this status was assigned. */
-    val reason: String
+    val reason: String,
+    /**
+     * Name of the vanilla profile whose base game an expanded (non-retail-size) hack was recognized
+     * as, when no profile was selected. Only for keeping the session title, and so the legacy save
+     * key, what it was before such ROMs stopped being presented as vanilla; never a trust source.
+     */
+    val baseGameProfileName: String? = null
 ) {
     val isVerified: Boolean
         get() = status == RomCompatibilityStatus.VERIFIED
@@ -73,14 +79,16 @@ data class RomCompatibility(
             profile: RomHackProfile?,
             sha256: String,
             matchMethod: ProfileMatchMethod,
-            reason: String
+            reason: String,
+            baseGameProfileName: String? = null
         ): RomCompatibility = RomCompatibility(
             status = RomCompatibilityStatus.RECOGNIZED_UNVERIFIED,
             profile = profile ?: RomHackProfile.UNSUPPORTED,
             detectedProfile = profile,
             matchMethod = matchMethod,
             sha256 = sha256,
-            reason = reason
+            reason = reason,
+            baseGameProfileName = baseGameProfileName
         )
 
         fun unsupported(

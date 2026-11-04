@@ -1,7 +1,9 @@
 package com.dualdex.romhack
 
 import com.dualdex.calculator.CalcCapabilityPolicy
+import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.GbaGame
+import com.dualdex.pokemon.unbound.UnboundDataPack
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
@@ -319,6 +321,12 @@ class RomHackProfileTest {
                 assertTrue("${p.id} claims verification flags without a sha256 hash", p.sha256Hashes.isNotEmpty())
             }
         }
+    }
+
+    @Test
+    fun bundledUnboundProfileSelectsTheExactRomDataPack() {
+        val unbound = loadBundledProfiles().single { it.id == "unbound" }
+        assertSame(UnboundDataPack, GameDataPackRegistry.getForProfile(unbound))
     }
 
     // Real Unbound shape (docs/UNBOUND_RELEASE_EVIDENCE.md): FireRed header and code, 32 MiB.

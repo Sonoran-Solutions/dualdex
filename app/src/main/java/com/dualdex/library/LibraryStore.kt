@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import com.dualdex.companion.RomItem
-import com.dualdex.romhack.RomCompatibilityStatus
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
 import java.io.File
@@ -79,8 +78,10 @@ object LibraryScanner {
 
     private fun inspect(context: Context, doc: DocumentFile, profiles: List<RomHackProfile>): ScanVerdict? {
         val (header, sums) = context.contentResolver.openInputStream(doc.uri)?.let(::headerAndChecksums) ?: return null
-        val compat = RomHackDetector.detectCompatibilityFromBytes(header, sums.sha256, profiles, doc.name.orEmpty())
-        val profileName = if (compat.status == RomCompatibilityStatus.UNSUPPORTED) "" else compat.profile.name
+        val compat = RomHackDetector.detectCompatibilityFromBytes(header, sums.sha256, profiles, doc.name.orEmpty(), doc.length())
+        // No detected profile (unsupported, or a base-game hack with no profile): no profile name, so
+        // the library never labels or searches cover art by the "Unsupported ROM" placeholder.
+        val profileName = compat.detectedProfile?.name.orEmpty()
         return ScanVerdict(doc.uri.toString(), doc.length(), doc.lastModified(), sums.sha256, compat.status, profileName)
     }
 

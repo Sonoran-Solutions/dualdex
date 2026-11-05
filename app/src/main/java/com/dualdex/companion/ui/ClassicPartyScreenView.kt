@@ -17,7 +17,6 @@ import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
-import com.dualdex.pokemon.ItemDatabase
 import com.dualdex.pokemon.MoveDatabase
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
@@ -518,8 +517,7 @@ class ClassicPartyScreenView(
         updateHpBar(holder.hpBar, mon.currentHp, mon.maxHp)
 
         val nature = NatureTable.get(mon.nature)
-        val isExpansion = gameId != 2 && gameId != 6
-        val item = ItemDatabase.get(mon.heldItem, isExpansion = isExpansion)
+        val item = resolveHeldItem(mon.heldItem, gameId)
         val isHns = !pack.allowGlobalFallback || pack.id.startsWith("hns")
         holder.nature.text = "Nature  ${nature.formattedDescription}"
         holder.heldItem.text = if (mon.heldItem <= 0) {

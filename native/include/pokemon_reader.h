@@ -369,9 +369,11 @@ bool pokemon_parse_single(const uint8_t* raw_bytes, bool is_party_mon, ParsedPok
  * Decrypt and parse a single 100-byte GBA Pokémon structure with an explicit storage layout.
  *
  * The vanilla entry point above is exactly this function with PKMN_STORAGE_VANILLA_GEN3, so
- * FireRed/Emerald parsing is unchanged. The expansion layout changes only how the ability slot,
+ * FireRed/Emerald require a matching decrypted checksum. The expansion layout changes how the ability slot,
  * the mint nature and the shiny verdict are derived; species/move/item/IV extraction is shared
- * because H&S 2.0.5 uses the same widened fields DualDex already reads.
+ * because H&S 2.0.5 uses the same widened fields DualDex already reads. Only CFRU accepts
+ * plaintext records and a zero-checksum fixed GAEM record; its IDs are full halfwords and its
+ * ability slot and shiny verdict are reported as unknown.
  */
 bool pokemon_parse_single_layout(
     const uint8_t* raw_bytes,

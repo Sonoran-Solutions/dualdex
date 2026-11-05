@@ -1,6 +1,9 @@
 package com.dualdex.romhack
 
+import com.dualdex.calculator.CalcCapabilityPolicy
+import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.GbaGame
+import com.dualdex.pokemon.unbound.UnboundDataPack
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
@@ -297,21 +300,106 @@ class RomHackProfileTest {
         val detectedRR = RomHackDetector.detectProfileFromBytes(radRedHeader, profiles = profiles)
         assertEquals("radical_red", detectedRR.id)
 
-        // Mock Unbound header (offset 160: "UNBOUND")
-        val unboundHeader = ByteArray(192)
-        val ubBytes = "UNBOUND".toByteArray(Charsets.US_ASCII)
-        System.arraycopy(ubBytes, 0, unboundHeader, 160, ubBytes.size)
-
-        val detectedUnbound = RomHackDetector.detectProfileFromBytes(unboundHeader, profiles = profiles)
-        assertEquals("unbound", detectedUnbound.id)
-
-        // Mock Vanilla FireRed header (offset 160: "POKEMON FIRE")
+        // Retail-size vanilla FireRed header (offset 160: "POKEMON FIRE"). Unbound ships this same
+        // header, so it is covered by the real-shape tests below rather than an invented title.
         val fireRedHeader = ByteArray(192)
         val frBytes = "POKEMON FIRE".toByteArray(Charsets.US_ASCII)
         System.arraycopy(frBytes, 0, fireRedHeader, 160, frBytes.size)
 
-        val detectedFR = RomHackDetector.detectProfileFromBytes(fireRedHeader, profiles = profiles)
+        val detectedFR = RomHackDetector.detectProfileFromBytes(
+            fireRedHeader, profiles = profiles, romLength = RomHackDetector.RETAIL_ROM_SIZE
+        )
         assertEquals("vanilla_firered", detectedFR.id)
+    }
+
+    @Test
+    fun bundledProfilesClaimingVerificationCarryAnExactHash() {
+        val profiles = loadBundledProfiles()
+        assertTrue(profiles.size > 1)
+        profiles.forEach { p ->
+            if (p.isVerified || p.memoryLayoutVerified) {
+                assertTrue("${p.id} claims verification flags without a sha256 hash", p.sha256Hashes.isNotEmpty())
+            }
+        }
+    }
+
+    @Test
+    fun bundledUnboundProfileSelectsTheExactRomDataPack() {
+        val unbound = loadBundledProfiles().single { it.id == "unbound" }
+        assertSame(UnboundDataPack, GameDataPackRegistry.getForProfile(unbound))
+    }
+
+    // Real Unbound shape (docs/UNBOUND_RELEASE_EVIDENCE.md): FireRed header and code, 32 MiB.
+    private val unboundSha = "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+    private val unboundLength = 33_554_432L
+
+    private fun gbaHeader(title: String, code: String) = ByteArray(192).also {
+        title.toByteArray(Charsets.US_ASCII).copyInto(it, 160)
+        code.toByteArray(Charsets.US_ASCII).copyInto(it, 172)
+    }
+
+    private fun assertNoVanillaTrust(result: RomCompatibility) {
+        assertFalse(result.profile.id.startsWith("vanilla_"))
+        assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, result.status)
+        assertFalse(result.isVerified)
+        assertFalse(result.mayReadLiveMemory)
+        assertFalse(RuntimeRomTrust.from(result, result.sha256).mayReadLiveMemory)
+        assertNull("no calculator row, in particular not VANILLA_GEN3", CalcCapabilityPolicy.capabilityFor(result.profile))
+    }
+
+    @Test
+    fun expandedFireRedHeaderWithUnknownHashIsAFireRedBasedHackNotVanilla() {
+        val profiles = loadBundledProfiles()
+        assertTrue(profiles.none { unboundSha in it.sha256Hashes })
+        for (name in listOf("rom.gba", "Pokemon FireRed.gba", "")) {
+            val result = RomHackDetector.detectCompatibilityFromBytes(
+                gbaHeader("POKEMON FIRE", "BPRE"), unboundSha, profiles, name, unboundLength
+            )
+            assertNoVanillaTrust(result)
+            assertTrue(name, RomHackProfile.isUnsupportedPlaceholder(result.profile))
+            assertNull(result.detectedProfile)
+            assertEquals(ProfileMatchMethod.BASE_GAME_FALLBACK, result.matchMethod)
+            assertTrue(result.reason, result.reason.contains("FireRed-based hack"))
+        }
+        // Unknown length is not retail size, and the Emerald base game is gated the same way.
+        assertNoVanillaTrust(
+            RomHackDetector.detectCompatibilityFromBytes(gbaHeader("POKEMON FIRE", "BPRE"), unboundSha, profiles, "rom.gba")
+        )
+        assertNoVanillaTrust(
+            RomHackDetector.detectCompatibilityFromBytes(gbaHeader("POKEMON EMER", "BPEE"), unboundSha, profiles, "rom.gba", unboundLength)
+        )
+    }
+
+    @Test
+    fun unboundFilenameSelectsTheUnboundProfileUnverified() {
+        val result = RomHackDetector.detectCompatibilityFromBytes(
+            gbaHeader("POKEMON FIRE", "BPRE"), unboundSha, loadBundledProfiles(), "Pokemon Unbound v2.1.1.1.gba", unboundLength
+        )
+        assertEquals("unbound", result.profile.id)
+        assertEquals(ProfileMatchMethod.FILENAME_KEYWORD, result.matchMethod)
+        assertNoVanillaTrust(result)
+    }
+
+    @Test
+    fun retailSizeFireRedHeaderAndExactHashKeepTheirVanillaResults() {
+        val profiles = loadBundledProfiles()
+        val header = gbaHeader("POKEMON FIRE", "BPRE")
+        val recognized = RomHackDetector.detectCompatibilityFromBytes(
+            header, unboundSha, profiles, "rom.gba", RomHackDetector.RETAIL_ROM_SIZE
+        )
+        assertEquals("vanilla_firered", recognized.profile.id)
+        assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, recognized.status)
+        assertEquals(ProfileMatchMethod.HEADER_TITLE, recognized.matchMethod)
+        assertFalse(recognized.mayReadLiveMemory)
+
+        // The size gate never touches step 1: an exact hash is VERIFIED even with no known length.
+        val exactSha = profiles.single { it.id == "vanilla_firered" }.sha256Hashes.first()
+        for (length in listOf(RomHackDetector.RETAIL_ROM_SIZE, null)) {
+            val exact = RomHackDetector.detectCompatibilityFromBytes(header, exactSha, profiles, "rom.gba", length)
+            assertEquals("vanilla_firered", exact.profile.id)
+            assertEquals(RomCompatibilityStatus.VERIFIED, exact.status)
+            assertTrue(exact.mayReadLiveMemory)
+        }
     }
 
     @Test

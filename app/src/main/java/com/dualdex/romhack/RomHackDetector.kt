@@ -14,6 +14,9 @@ enum class ProfileMatchMethod {
 
 object RomHackDetector {
 
+    /** Size of a retail FireRed/LeafGreen/Emerald cartridge image (16 MiB). */
+    const val RETAIL_ROM_SIZE: Long = 16L * 1024 * 1024
+
     /**
      * Structural inspection of a ROM that decides the runtime compatibility status.
      *
@@ -23,6 +26,10 @@ object RomHackDetector {
      * trust: memory layouts differ between builds of the same hack, so bytes are the only evidence
      * DualDex accepts. Anything else is [RomCompatibilityStatus.UNSUPPORTED] and is never mapped
      * onto a FireRed profile.
+     *
+     * Filename, header and base-game heuristics may select a `vanilla_*` profile only for a retail-size
+     * ([RETAIL_ROM_SIZE]) image: an expanded BPRE/BPEE ROM is a hack built on that base game, so it
+     * is recognized without a profile rather than presented as the vanilla game.
      */
     fun detectCompatibility(
         romFile: File,
@@ -56,16 +63,24 @@ object RomHackDetector {
             headerBytes,
             sha256,
             profiles,
-            preferredTitle ?: romFile.name
+            preferredTitle ?: romFile.name,
+            romLength = romFile.length()
         )
     }
 
+    /**
+     * [romLength] is the real size of the whole ROM in bytes, as reported by its storage; null
+     * means unknown and is treated as not retail-size (no vanilla profile by header or base game).
+     */
     fun detectCompatibilityFromBytes(
         headerBytes: ByteArray,
         sha256: String = "",
         profiles: List<RomHackProfile>,
-        fileName: String = ""
+        fileName: String = "",
+        romLength: Long? = null
     ): RomCompatibility {
+        val retailSize = romLength == RETAIL_ROM_SIZE
+
         // Extract 12-byte ROM title at offset 0xA0 (160)
         val titleStr = if (headerBytes.size >= 172) {
             val titleBytes = headerBytes.sliceArray(160 until 172)
@@ -98,8 +113,10 @@ object RomHackDetector {
 
         // 2. Filename / preferred title keywords (e.g. "Heart and Soul", "Ghost Grey").
         //    Recognition only: an unknown build of a known hack must not inherit its layout trust.
+        //    Steps 2-4 never present a non-retail-size ROM as a vanilla game.
         if (fileName.isNotBlank()) {
             for (p in profiles) {
+                if (!retailSize && isVanillaProfile(p)) continue
                 val matches = p.headerTitles.any { ht -> keywordMatches(fileName, ht) } ||
                     (p.name.isNotBlank() && keywordMatches(fileName, p.name))
                 if (matches) {
@@ -117,6 +134,7 @@ object RomHackDetector {
         //    compared here: every FireRed hack ships as BPRE, so a code says only "FireRed-based"
         //    (step 4), never which hack.
         for (p in profiles) {
+            if (!retailSize && isVanillaProfile(p)) continue
             if (p.headerTitles.any { ht -> keywordMatches(titleStr, ht) }) {
                 return RomCompatibility.recognizedUnverified(
                     profile = p,
@@ -136,6 +154,17 @@ object RomHackDetector {
                 profiles.firstOrNull { it.id == "vanilla_emerald" }
             else -> null
         }
+        if (baseGameProfile != null && !retailSize) {
+            // An expanded image of a base game is a hack of it: no hack profile, no vanilla layout.
+            return RomCompatibility.recognizedUnverified(
+                profile = null,
+                sha256 = sha256,
+                matchMethod = ProfileMatchMethod.BASE_GAME_FALLBACK,
+                reason = "ROM header matches the ${baseGameProfile.baseGame} base game, but the ROM is not " +
+                    "retail-size (${romLength ?: "unknown"} bytes); treated as a ${baseGameProfile.baseGame}-based hack with no profile",
+                baseGameProfileName = baseGameProfile.name
+            )
+        }
         if (baseGameProfile != null) {
             return RomCompatibility.recognizedUnverified(
                 profile = baseGameProfile,
@@ -151,6 +180,8 @@ object RomHackDetector {
             matchMethod = ProfileMatchMethod.DEFAULT_FALLBACK
         )
     }
+
+    private fun isVanillaProfile(p: RomHackProfile): Boolean = p.id.startsWith("vanilla_")
 
     private val GAME_CODE = Regex("^B[A-Z0-9]{2}[A-Z]$")
     private const val MIN_SUBSTRING_KEYWORD = 6
@@ -193,9 +224,10 @@ object RomHackDetector {
         headerBytes: ByteArray,
         sha256: String = "",
         profiles: List<RomHackProfile>,
-        fileName: String = ""
+        fileName: String = "",
+        romLength: Long? = null
     ): RomHackProfile {
-        return detectCompatibilityFromBytes(headerBytes, sha256, profiles, fileName).profile
+        return detectCompatibilityFromBytes(headerBytes, sha256, profiles, fileName, romLength).profile
     }
 
     @Deprecated("Use detectCompatibilityFromBytes; compatibility status, not a profile, is the trust decision")
@@ -203,8 +235,9 @@ object RomHackDetector {
         headerBytes: ByteArray,
         sha256: String = "",
         profiles: List<RomHackProfile>,
-        fileName: String = ""
-    ): RomCompatibility = detectCompatibilityFromBytes(headerBytes, sha256, profiles, fileName)
+        fileName: String = "",
+        romLength: Long? = null
+    ): RomCompatibility = detectCompatibilityFromBytes(headerBytes, sha256, profiles, fileName, romLength)
 
     fun calculateSha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")

@@ -128,7 +128,9 @@ class Issue153QuickWinsTest {
 
     @Test
     fun unknownBpreIsFireRedBaseNotGhostGrey() {
-        val r = RomHackDetector.detectCompatibilityFromBytes(header("MYHACK", "BPRE"), "ab", profiles, "myhack.gba")
+        val r = RomHackDetector.detectCompatibilityFromBytes(
+            header("MYHACK", "BPRE"), "ab", profiles, "myhack.gba", RomHackDetector.RETAIL_ROM_SIZE
+        )
         assertEquals("vanilla_firered", r.profile.id)
         assertEquals(ProfileMatchMethod.BASE_GAME_FALLBACK, r.matchMethod)
     }

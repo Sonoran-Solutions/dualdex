@@ -1,6 +1,7 @@
 package com.dualdex.pokemon
 
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
+import com.dualdex.pokemon.unbound.UnboundDataPack
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.SpeciesOverride
 
@@ -267,6 +268,7 @@ object GameDataPackRegistry {
         val basePack: GameDataPack = if (!customPackId.isNullOrBlank()) {
             when (customPackId.lowercase()) {
                 "hns_2_0_5", "heart_and_soul", "hns" -> HeartAndSoul205DataPack
+                "unbound_exact" -> UnboundDataPack
                 "modern", "modern_cfru", "cfru" -> ModernDataPack
                 "gen3_vanilla", "vanilla" -> Gen3VanillaDataPack
                 else -> Gen3VanillaDataPack

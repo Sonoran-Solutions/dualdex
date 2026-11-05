@@ -152,7 +152,8 @@ class RomCompatibilityTest {
         val resultTitle = RomHackDetector.detectCompatibilityFromBytes(
             headerBytes = headerWithTitle,
             sha256 = unknownSha,
-            profiles = testProfiles
+            profiles = testProfiles,
+            romLength = RomHackDetector.RETAIL_ROM_SIZE
         )
         assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, resultTitle.status)
         assertFalse(resultTitle.isVerified)
@@ -165,7 +166,8 @@ class RomCompatibilityTest {
         val resultCode = RomHackDetector.detectCompatibilityFromBytes(
             headerBytes = headerWithCodeOnly,
             sha256 = unknownSha,
-            profiles = testProfiles
+            profiles = testProfiles,
+            romLength = RomHackDetector.RETAIL_ROM_SIZE
         )
         assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, resultCode.status)
         assertFalse(resultCode.isVerified)

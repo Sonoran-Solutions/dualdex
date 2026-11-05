@@ -9,6 +9,7 @@
 #                    # H&S tracker selftests +
 #                    # QuickJS calculator suite + H&S differential damage oracle
 #                    # (committed corpus, ROM-free) + data-pack generator tests
+#                    # + Unbound species-table integrity (ROM-free)
 #                    # + H&S census source-reader tests + Kotlin unit tests
 #                    # (which include the committed issue #84 census artifact check)
 #   ./ci.sh fixture-test # ROM-free production replay + isolated ROWE raw decoder + identity adapter
@@ -172,6 +173,16 @@ hns_map_data_check() {
   # git repositories and pin the fail-closed contract (wrong revision, modified or deleted read
   # source, non-git directory) with no upstream checkout, ROM or network.
   python3 -m unittest discover -s tools/hns-map-data -p 'test_hns_route.py' -t tools/hns-map-data -v
+}
+
+# Unbound exact-ROM species table (issue #26). Mandatory and ROM-free: `--verify` reads only the
+# committed generated Kotlin table, checks its ROM/table pins, structure, form-class counts and
+# mapping digest, and requires it to be byte-for-byte generator output. Regeneration needs the
+# owner's private ROM and is a developer-only command (tools/unbound-data-pack/README.md).
+unbound_data_pack_check() {
+  echo "== Unbound generated species table integrity =="
+  python3 tools/unbound-data-pack/generate_unbound_species.py --verify
+  (cd tools/unbound-data-pack && python3 -m unittest test_generate_unbound_species -v)
 }
 
 # Vanilla Gen III golden-fixture verification. Mandatory and self-contained:
@@ -700,14 +711,14 @@ gradle_release() {
 # regen_upstream_headers directly), the command vocabulary must not run.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 case "${1:-all}" in
-  test)         native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test ;;
+  test)         native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; unbound_data_pack_check; hns_generator_test; gradle_test ;;
   coverage-test) python3 tools/ci/check_hns_coverage_release.py; ./gradlew testDebugUnitTest --tests "com.dualdex.coverage.HnsCoverageTest" --tests "com.dualdex.battle.BattleConsoleTest.battleCoverage*" ;;
   fixture-test) fixture_test ;;
   rowe-test)    rowe_raw_test ;;
   rowe-sanitize) rowe_raw_test -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all ;;
   source-check) source_check ;;
   build)        gradle_build ;;
-  all)          native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; hns_generator_test; gradle_test; gradle_build ;;
+  all)          native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; unbound_data_pack_check; hns_generator_test; gradle_test; gradle_build ;;
   release)      gradle_release ;;
   *)            echo "usage: $0 [test|fixture-test|rowe-test|rowe-sanitize|coverage-test|source-check|build|all|release]" >&2; exit 2 ;;
 esac

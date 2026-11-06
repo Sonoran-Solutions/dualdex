@@ -234,3 +234,9 @@ a full copied table. `unbound_observe.py` performs no RAM writes, loads a privat
 save (the original is never written) and never confirms an in-game save; `--initial-state` replaces
 `--battery-save` for an mGBA state. Private directories must be outside any Git checkout. Overworld
 and menu screen hashes vary between runs (animated scenes); summary-screen evidence is what binds.
+
+`unbound_location.py` ([location evidence](../../docs/UNBOUND_LOCATION_EVIDENCE.md)) decodes the
+exact-ROM SaveBlock1, map-header (XOR group table) and map-name paths, emitting numbers and hashes
+only (`--static-only`), and with `--core --battery-save --movie
+unbound-location-grotto-warp.movie --private-dir` records SaveBlock1 warp fields, `gMapHeader` and
+the resolved ROM header across two map transitions. Same no-write, private-directory rules.

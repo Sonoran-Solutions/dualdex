@@ -9,15 +9,15 @@ package com.dualdex.pokemon.unbound
 internal object UnboundNameTables {
     const val ROM_SHA256: String = "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
     const val CONTRACT_SHA256: String = "a2d190c2691572af72407b73ac1db5cac7407d2c0e26ec4463482d7ac998c446"
-    const val GENERATOR_SHA256: String = "efeca319c915815c74d8270728d333ad01166163362dd0bdece4a94864621d39"
+    const val GENERATOR_SHA256: String = "5bf3f4b9de42b11886207e3cf0b9d409326911007c12fc3963b0122c5cfe6871"
     const val READER_SHA256: String = "6ed55b1960911da9f96f770ee66b587789bb8e1bb65cfca53e2b84015153a72f"
     const val DECODER_SHA256: String = "58375f2c59206b2c59c202f921159f89ad7d3706ad9c7b38ed01e0f4091aa832"
     const val MOVE_TABLE_SHA256: String = "bda7540376436fad2225ef9943780b342ec903fd59a3219143a8c52456e7c3f1"
-    const val MOVE_CATALOGUE_SHA256: String = "c9c010f5a31e80e68a47ae295245217279ac65c4fde3e0f299eb5bfc1f0165b1"
+    const val MOVE_CATALOGUE_SHA256: String = "621cb36cffe050fdd17b6e31b8880d0b5c34faa3dbd74d418354396d3b46d139"
     const val ABILITY_TABLE_SHA256: String = "cea2dd9cf7a94caca02343f6ee8d1e1adee5795ba3215ca92b1d52843f251904"
-    const val ABILITY_CATALOGUE_SHA256: String = "7600deaa344f014870443ba0ad37fce738c0584d2c391755f52114b463626b61"
+    const val ABILITY_CATALOGUE_SHA256: String = "b4c71f1868051e855b907da304365cc4d3dcbf8a616bdaab05371a832e25f56c"
     const val ITEM_TABLE_SHA256: String = "95016c36d620f7c592f4d33011fc373a8206fef0c6eb4a08806f076615b7ed18"
-    const val ITEM_CATALOGUE_SHA256: String = "5b896566d19c38ca8c20db25506c394798206ff8d3bfaca2c9f63e20c1c8ec40"
+    const val ITEM_CATALOGUE_SHA256: String = "d54cb2887aa6b8e1ae445f9e058d06cbe121cc317507e78f64f41fe128eb973f"
 
     const val MOVE_DIGEST: String = "80daa86ef8508e8e9034987c78aec4487399b716e66dbbd418f37542567cc542"
     val MOVE: IntArray = intArrayOf(
@@ -104,9 +104,9 @@ internal object UnboundNameTables {
         /* 288 */ 0, 0, 0, 0, 0,
     )
 
-    const val ITEM_DIGEST: String = "e572ba41eadd3b730df762868134c9f1e43e612b9c4a8add0f6478cddc850825"
+    const val ITEM_DIGEST: String = "a5019d5c423b3dfd7795c622c9caf64eabc6ce74d516e9db9a7ac71f9cf7dad0"
     val ITEM: IntArray = intArrayOf(
-        /* 0 */ 0, 4, 3, 2, 1, 23, 7, 9, 8, 13, 11, 14, 5, 28, 43, 45,
+        /* 0 */ 0, 4, 3, 2, 0, 23, 7, 9, 8, 13, 11, 14, 5, 28, 43, 45,
         /* 16 */ 46, 47, 0, 32, 31, 30, 29, 48, 33, 34, 35, 36, 37, 38, 39, 40,
         /* 32 */ 41, 42, 49, 50, 51, 52, 59, 109, 110, 111, 112, 113, 53, 54, 0, 0,
         /* 48 */ 148, 149, 150, 151, 25, 27, 0, 479, 446, 445, 487, 0, 10, 6, 12, 65,
@@ -123,7 +123,7 @@ internal object UnboundNameTables {
         /* 224 */ 394, 393, 496, 0, 142, 136, 492, 493, 233, 232, 230, 477, 480, 474, 482, 486,
         /* 240 */ 449, 0, 448, 450, 420, 421, 422, 423, 424, 419, 491, 155, 411, 408, 406, 412,
         /* 256 */ 407, 410, 409, 707, 718, 712, 709, 710, 711, 727, 0, 0, 705, 0, 0, 736,
-        /* 272 */ 0, 1, 732, 728, 290, 291, 0, 734, 743, 0, 0, 0, 0, 738, 168, 169,
+        /* 272 */ 0, 0, 732, 728, 290, 291, 0, 734, 743, 0, 0, 0, 0, 738, 168, 169,
         /* 288 */ 735, 582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592, 593, 594, 595, 596,
         /* 304 */ 597, 598, 599, 600, 601, 602, 603, 604, 605, 606, 607, 608, 609, 610, 611, 612,
         /* 320 */ 613, 614, 615, 616, 617, 618, 619, 620, 621, 622, 623, 624, 625, 626, 627, 628,

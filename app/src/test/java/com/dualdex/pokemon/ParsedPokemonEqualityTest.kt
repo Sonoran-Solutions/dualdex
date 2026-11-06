@@ -6,6 +6,37 @@ import org.junit.Test
 
 class ParsedPokemonEqualityTest {
 
+    @Test
+    fun unknownAbilitySlotNeverResolvesSlotZero() {
+        val declared = DeclaredAbility.Declared(1, "Synthetic ability")
+        val pack = object : GameDataPack by Gen3VanillaDataPack {
+            override fun getDeclaredAbilityForSlot(id: Int, slot: Int): DeclaredAbility {
+                assertEquals(0, slot)
+                return declared
+            }
+        }
+        assertEquals(declared, baseMon.declaredAbility(pack))
+        val unknown = baseMon.copy(abilitySlotKnown = false)
+        assertEquals(DeclaredAbility.Absent, unknown.declaredAbility(pack))
+        assertNotEquals(baseMon, unknown)
+        assertNotEquals(baseMon.hashCode(), unknown.hashCode())
+    }
+
+    @Test
+    fun nativeConstructorDescriptorMatchesKotlin() {
+        val source = sequenceOf(java.io.File("src/main/cpp/dualdex_jni.c"), java.io.File("app/src/main/cpp/dualdex_jni.c"))
+            .first { it.isFile }.readText()
+        val signature = Regex("#define PARSED_POKEMON_SIG \"([^\"]+)\"").find(source)!!.groupValues[1]
+        val constructor = ParsedPokemon::class.java.constructors.single { it.parameterTypes.last() == Boolean::class.javaPrimitiveType }
+        fun descriptor(type: Class<*>): String = when (type) {
+            Boolean::class.javaPrimitiveType -> "Z"
+            Int::class.javaPrimitiveType -> "I"
+            Long::class.javaPrimitiveType -> "J"
+            else -> if (type.isArray) type.name else "L${type.name.replace('.', '/')};"
+        }
+        assertEquals("(" + constructor.parameterTypes.joinToString("") { descriptor(it) } + ")V", signature)
+    }
+
     private val baseMon = ParsedPokemon(
         isValid = true,
         isEmpty = false,

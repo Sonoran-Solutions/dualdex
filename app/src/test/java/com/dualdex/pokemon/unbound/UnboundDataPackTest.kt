@@ -18,7 +18,7 @@ import org.junit.Test
 class UnboundDataPackTest {
 
     private val pack = GameDataPackRegistry.getForProfile(
-        engine = "CFRU", hasPhysSpecSplit = true, customPackId = "unbound_exact"
+        engine = "CFRU", hasPhysSpecSplit = true, customPackId = "unbound_exact", romSha256 = UnboundSpeciesTable.ROM_SHA256
     )
 
     private fun name(id: Int) = pack.resolveSpecies(id).name

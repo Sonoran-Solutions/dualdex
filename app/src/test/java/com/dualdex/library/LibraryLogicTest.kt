@@ -11,6 +11,17 @@ import org.junit.rules.TemporaryFolder
 import java.io.File
 
 class LibraryLogicTest {
+
+    @Test fun scanCacheRejectsLegacyAndOldVersionEntries() {
+        val file = File(tmp.root, "old-cache.json")
+        val entry = """{"p1":{"size":10,"mtime":100,"sha256":"aa","status":"VERIFIED","profile":"FireRed"}}"""
+        file.writeText(entry)
+        assertNull(RomScanCache(file).lookup("p1", 10, 100))
+        file.writeText("""{"version":${RomScanCache.FORMAT_VERSION - 1},"entries":$entry}""")
+        assertNull(RomScanCache(file).lookup("p1", 10, 100))
+        file.writeText("""{"version":${RomScanCache.FORMAT_VERSION},"entries":$entry}""")
+        assertEquals("FireRed", RomScanCache(file).lookup("p1", 10, 100)?.profileName)
+    }
     @get:Rule val tmp = TemporaryFolder()
 
     // --- updater ---

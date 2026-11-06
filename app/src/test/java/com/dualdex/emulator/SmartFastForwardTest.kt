@@ -8,6 +8,25 @@ import org.junit.Test
 
 /** Synthetic IWRAM fixtures only; no ROM data. */
 class SmartFastForwardTest {
+
+    @Test
+    fun profileMemoryRequiresTrustedMatchingLoadedRom() {
+        val sha = "a1".repeat(32)
+        val trusted = com.dualdex.romhack.RuntimeRomTrust(
+            matchMethod = com.dualdex.romhack.ProfileMatchMethod.EXACT_SHA256,
+            detectedSha256 = sha, activeRomSha256 = sha,
+            profileVerified = true, memoryLayoutVerified = true, profileSha256Hashes = listOf(sha)
+        )
+        assertTrue(SmartFastForward.mayReadProfileMemory(trusted, sha))
+        assertTrue(SmartFastForward.mayReadProfileMemory(trusted, sha.uppercase()))
+        assertFalse(SmartFastForward.mayReadProfileMemory(trusted, "b2".repeat(32)))
+        assertFalse(SmartFastForward.mayReadProfileMemory(trusted, ""))
+        assertFalse(SmartFastForward.mayReadProfileMemory(trusted.copy(profileVerified = false), sha))
+        assertFalse(SmartFastForward.mayReadProfileMemory(trusted.copy(memoryLayoutVerified = false), sha))
+        assertFalse(SmartFastForward.mayReadProfileMemory(trusted.copy(activeRomSha256 = null), sha))
+        assertFalse(SmartFastForward.mayReadProfileMemory(trusted.copy(matchMethod = com.dualdex.romhack.ProfileMatchMethod.BASE_GAME_FALLBACK), sha))
+        assertFalse(SmartFastForward.mayReadProfileMemory(com.dualdex.romhack.RuntimeRomTrust(), sha))
+    }
     private val field = 0x08085A31
     private val battle = 0x08011101
     private val bag = 0x081A0005

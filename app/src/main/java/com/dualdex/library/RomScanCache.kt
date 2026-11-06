@@ -25,8 +25,10 @@ class RomScanCache(private val file: File) {
         runCatching {
             if (file.exists()) {
                 val json = JSONObject(file.readText())
-                for (key in json.keys()) {
-                    val o = json.getJSONObject(key)
+                if (json.optInt("version") != FORMAT_VERSION) return@runCatching
+                val cached = json.getJSONObject("entries")
+                for (key in cached.keys()) {
+                    val o = cached.getJSONObject(key)
                     val status = runCatching { RomCompatibilityStatus.valueOf(o.getString("status")) }.getOrNull() ?: continue
                     entries[key] = ScanVerdict(key, o.getLong("size"), o.getLong("mtime"), o.getString("sha256"), status, o.optString("profile"))
                 }
@@ -50,11 +52,12 @@ class RomScanCache(private val file: File) {
         }
         file.parentFile?.mkdirs()
         val tmp = File(file.parentFile, file.name + ".tmp")
-        tmp.writeText(json.toString())
+        tmp.writeText(JSONObject().put("version", FORMAT_VERSION).put("entries", json).toString())
         if (!tmp.renameTo(file)) { file.delete(); tmp.renameTo(file) }
     }
 
     companion object {
+        const val FORMAT_VERSION = 1
         const val MAX_DEPTH = 3
         private val ROM_EXTENSIONS = setOf("gba", "bin", "agb")
         fun isRomName(name: String) = name.substringAfterLast('.', "").lowercase() in ROM_EXTENSIONS

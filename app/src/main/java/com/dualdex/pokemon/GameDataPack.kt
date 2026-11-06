@@ -261,7 +261,8 @@ private object UnverifiedDataPack : GameDataPack {
     override fun getMove(id: Int): MoveInfo? = null
     override fun getSpeciesByName(name: String): SpeciesInfo? = null
     override fun getMoveByName(name: String): MoveInfo? = null
-    override fun getEffectiveness(attackType: PokemonType, defType: PokemonType) = 1.0
+    override fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double =
+        TypeChart.getEffectiveness(attackType, defType, steelResistsGhostDark = false).toDouble()
 }
 
 object GameDataPackRegistry {

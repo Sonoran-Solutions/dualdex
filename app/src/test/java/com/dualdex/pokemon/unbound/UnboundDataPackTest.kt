@@ -97,13 +97,21 @@ class UnboundDataPackTest {
     @Test
     fun unboundHeldItemsUseMappedIdentityInsteadOfSameNumberTables() {
         assertFalse(usesExpansionItems(9))
-        assertEquals("Master Ball", resolveHeldItem(1, 9).name) // expansion ID 1 is Poke Ball
-        assertEquals("Leftovers", resolveHeldItem(200, 9).name) // expansion ID 200 is Harbor Mail
-        assertEquals(1, resolveHeldItem(1, 9).id)
-        assertEquals("Item #102", resolveHeldItem(102, 9).name) // mismatched record ID
-        assertEquals("Item #729", resolveHeldItem(729, 9).name)
-        assertEquals("None", resolveHeldItem(0, 9).name)
-        assertEquals("Poke Ball", resolveHeldItem(1, 8).name)
-        assertEquals("Master Ball", resolveHeldItem(1, 2).name)
+        assertEquals("Master Ball", resolveHeldItem(1, 9, pack).name) // expansion ID 1 is Poke Ball
+        assertEquals("Leftovers", resolveHeldItem(200, 9, pack).name) // expansion ID 200 is Harbor Mail
+        assertEquals(1, resolveHeldItem(1, 9, pack).id)
+        assertEquals("Item #102", resolveHeldItem(102, 9, pack).name) // mismatched record ID
+        assertEquals("Item #729", resolveHeldItem(729, 9, pack).name)
+        assertEquals("None", resolveHeldItem(0, 9, pack).name)
+        assertEquals("Poke Ball", resolveHeldItem(1, 8, pack).name)
+        assertEquals("Master Ball", resolveHeldItem(1, 2, pack).name)
+    }
+
+    @Test
+    fun unboundHeldItemsStayPlaceholdersWithoutTheExactRomPack() {
+        val unverified = GameDataPackRegistry.getForProfile(engine = "CFRU", hasPhysSpecSplit = true, customPackId = "unbound_exact")
+        assertEquals("Item #1", resolveHeldItem(1, 9, unverified).name)
+        assertEquals("Item #200", resolveHeldItem(200, 9, unverified).name)
+        assertEquals("None", resolveHeldItem(0, 9, unverified).name)
     }
 }

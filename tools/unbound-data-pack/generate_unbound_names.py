@@ -36,12 +36,23 @@ def catalogues():
     return result
 
 
+def duplicate_name_ids(records):
+    """Exclude every verified nonreserved row sharing a normalized ROM name."""
+    by_name = defaultdict(list)
+    for i, row in enumerate(records):
+        name = normalized(row['name']) if row.get('name') else ''
+        if i > 0 and row['status'] == 'VERIFIED' and name:
+            by_name[name].append(i)
+    return {i for ids in by_name.values() if len(ids) > 1 for i in ids}
+
+
 def match_names(records, catalogue, excluded=()):
     """Unique exact normalized match only; 0 means absent/unmapped in all domains."""
     by_name = defaultdict(set)
     for app_id, name in catalogue:
         if app_id > 0 and normalized(name):
             by_name[normalized(name)].add(app_id)
+    excluded = set(excluded) | duplicate_name_ids(records)
     result = []
     for i, row in enumerate(records):
         candidates = by_name.get(normalized(row['name']), set()) if row.get('name') else set()
@@ -86,7 +97,22 @@ def digest(rows):
     return sha(''.join(f'{i}|{value}\n' for i, value in enumerate(rows)).encode('ascii'))
 
 
-def provenance(contract):
+def catalogue_digest(rows, catalogue):
+    """Pin only used target IDs/names; each name must still be unique globally."""
+    by_id = {i: normalized(name) for i, name in catalogue}
+    by_name = defaultdict(set)
+    for i, name in by_id.items():
+        if i > 0:
+            by_name[name].add(i)
+    used = sorted(set(rows) - {0})
+    for i in used:
+        require(i in by_id, f'missing catalogue target ID {i}')
+        require(by_id[i] and len(by_name[by_id[i]]) == 1,
+                f'ambiguous catalogue target ID {i}')
+    return sha(''.join(f'{i}|{by_id[i]}\n' for i in used).encode('ascii'))
+
+
+def provenance(contract, tables, catalogues):
     result = {'ROM_SHA256': species.PINNED_ROM_SHA256,
               'CONTRACT_SHA256': sha(CONTRACT.read_bytes()),
               'GENERATOR_SHA256': sha(Path(__file__).read_bytes()),
@@ -94,7 +120,7 @@ def provenance(contract):
               'DECODER_SHA256': sha((ROOT / 'tools/rom-evidence/rowe_text.py').read_bytes())}
     for key, label in TABLES.items():
         result[key + '_TABLE_SHA256'] = contract['tables'][label]['sha256']
-        result[key + '_CATALOGUE_SHA256'] = sha(SOURCES[key].read_bytes())
+        result[key + '_CATALOGUE_SHA256'] = catalogue_digest(tables[key], catalogues[key])
     return result
 
 
@@ -135,7 +161,8 @@ def verify(text, contract, catalogues):
             require(all(rows[i] == 0 for i in contract['tables']['items']['record_id_mismatch_ids']),
                     'mismatched item record mapped')
         tables[key] = rows
-    require(text == render(tables, provenance(contract)), 'artifact digests/provenance/output mismatch')
+    require(text == render(tables, provenance(contract, tables, catalogues)),
+            'artifact digests/provenance/output mismatch')
     return tables
 
 
@@ -163,7 +190,7 @@ def main():
         else:
             require(args.rom is not None, '--rom is required')
             tables = derive(read_local(args.rom, species.ROM_SIZE), contract, cats)
-            args.output.write_text(render(tables, provenance(contract)))
+            args.output.write_text(render(tables, provenance(contract, tables, cats)))
         coverage(tables)
         return 0
     except (OSError, ValueError, KeyError, TypeError) as error:

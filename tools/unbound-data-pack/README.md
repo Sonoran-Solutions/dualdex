@@ -50,7 +50,11 @@ Matching uses the evidence reader's normalization (case, accents, punctuation an
 spacing), with exactly one matching app ID required. No aliases, abbreviation expansion,
 spelling corrections or fuzzy matches. Reserved ID 0, invalid text, missing/ambiguous
 matches and **all** `record_id_mismatch_ids` remain unmapped. There are no mismatch
-exceptions. Mapping proves display identity only, not move values, item effects or
+exceptions. Every verified nonreserved ROM row sharing a normalized name with another
+such row is also excluded, even if its twin is already excluded for a record-ID mismatch.
+Duplicate-name exclusions in this ROM: move IDs 821–922, ability IDs 153 and 154,
+and item IDs 4 and 273. All remain unmapped; no duplicate is chosen as canonical.
+Mapping proves display identity only, not move values, item effects or
 ability mechanics. Numeric ability lookups return `Absent` on a miss; species-slot
 ability declarations remain `Absent`, because name tables do not prove slot assignments
 or species-dependent effective-name overrides. Returned entries retain Unbound IDs.
@@ -66,7 +70,14 @@ python3 tools/unbound-data-pack/generate_unbound_names.py --rom /private/unbound
 ```
 
 The ROM-free check binds the artifact to the evidence contract, generator, table reader,
-text decoder and bundled catalogue hashes and requires byte-for-byte generated formatting.
+text decoder and used catalogue targets and requires byte-for-byte generated formatting.
+Each `*_CATALOGUE_SHA256` hashes only the distinct nonzero target rows used by that
+mapping: ASCII `target_id|NORMALIZED_NAME\n`, sorted by numeric target ID. Verification
+requires every used ID to exist with the same normalized name and that name to remain
+unique among eligible positive catalogue IDs. Unrelated catalogue rows, additions and
+nonidentity edits do not change the digest or require private-ROM regeneration; an
+addition that makes a used name ambiguous fails verification. Normalization-equivalent
+name edits and catalogue row reordering are harmless.
 The mapping digest detects table edits; only private-ROM verification can re-derive the
 name matches. `ci.sh` runs both generators' ROM-free checks and all synthetic tests.
 
@@ -76,7 +87,7 @@ Coverage includes reserved ID 0 in the unmapped count. Unmapped IDs below are nu
 | --- | ---: | ---: | ---: |
 | move | 688 | 235 | 923 |
 | ability | 259 | 34 | 293 |
-| item | 529 | 200 | 729 |
+| item | 527 | 202 | 729 |
 
 Unmapped move IDs:
 
@@ -93,10 +104,32 @@ Unmapped ability IDs:
 Unmapped item IDs:
 
 ```text
-0, 18, 46, 47, 54, 59, 72, 87, 89, 90, 91, 92, 102, 105, 113, 115, 116, 117, 119, 120, 175, 186, 227, 241, 266, 267, 269, 270, 272, 278, 281, 282, 283, 284, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 352, 355, 356, 359, 360, 363, 366, 367, 368, 369, 370, 373, 374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390, 391, 392, 393, 394, 395, 396, 397, 398, 399, 400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 434, 435, 436, 437, 438, 439, 440, 441, 442, 443, 444, 445, 447, 448, 449, 452, 454, 455, 456, 458, 462, 463, 465, 475, 479, 484, 489, 490, 492, 513, 517, 520, 527, 528, 529, 530, 531, 561, 562, 565, 570, 578, 584, 588, 604, 608, 609, 610, 611, 612, 613, 614, 615, 619, 621, 638, 639, 640, 641, 649, 650, 652, 655, 656, 659, 660, 661, 662, 675, 679, 684, 687, 688, 690, 696, 699, 707, 708, 725, 727, 728
+0, 4, 18, 46, 47, 54, 59, 72, 87, 89, 90, 91, 92, 102, 105, 113, 115, 116, 117, 119, 120, 175, 186, 227, 241, 266, 267, 269, 270, 272, 273, 278, 281, 282, 283, 284, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 352, 355, 356, 359, 360, 363, 366, 367, 368, 369, 370, 373, 374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390, 391, 392, 393, 394, 395, 396, 397, 398, 399, 400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 434, 435, 436, 437, 438, 439, 440, 441, 442, 443, 444, 445, 447, 448, 449, 452, 454, 455, 456, 458, 462, 463, 465, 475, 479, 484, 489, 490, 492, 513, 517, 520, 527, 528, 529, 530, 531, 561, 562, 565, 570, 578, 584, 588, 604, 608, 609, 610, 611, 612, 613, 614, 615, 619, 621, 638, 639, 640, 641, 649, 650, 652, 655, 656, 659, 660, 661, 662, 675, 679, 684, 687, 688, 690, 696, 699, 707, 708, 725, 727, 728
 ```
 
-## N1 validation handoff (2026-11-06)
+## F1 review-fix validation (2026-11-06)
+
+Tested the working-tree changes based on `e1b283516d9f1ca1568322547501e6573495210f`;
+no commit created. Regenerated `UnboundNameTables.kt` from the pinned private ROM.
+With `TMPDIR` set to the run's `tmp/f1-catalogue`, all four requested commands passed:
+
+```bash
+python3 tools/unbound-data-pack/generate_unbound_names.py --rom /home/dq/dualdex-private/unbound/unbound-candidate.gba
+python3 tools/unbound-data-pack/generate_unbound_names.py --verify
+(cd tools/unbound-data-pack && python3 -m unittest -v)
+python3 tools/unbound-data-pack/generate_unbound_species.py --verify
+```
+
+Each command ran under `timeout --kill-after=5 120` and `ulimit -f 4096` with bounded
+file output; combined execution was under one second. Python 3 stdlib tests: 19 passed,
+0 failed (12 names tests, 7 species tests). Regression cases cover unrelated parsed-row,
+addition and nonidentity edits; renamed/missing/ambiguous targets in all three catalogues;
+canonical normalized target digests; and ROM-side duplicate exclusions. Numeric-only logs:
+`/tmp/f1-names-generation.log`, `/tmp/f1-names-verify.log`, `/tmp/f1-names-tests.log`,
+`/tmp/f1-species-verify.log`. `git diff --check` passed. Subsequent README-only changes
+are inert. The coordinator owns the combined `./ci.sh all` gate; no Gradle job was run.
+
+## N1 validation handoff (2026-11-06, historical)
 
 Tested working-tree implementation based on `ff51c01d38d650d8917fcd45c8061971ddd8a798`;
 no commit created. The final README-only handoff update does not affect these inputs.

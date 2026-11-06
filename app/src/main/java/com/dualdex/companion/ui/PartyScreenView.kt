@@ -9,6 +9,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.pokemon.ItemDatabase
+import com.dualdex.pokemon.unbound.UnboundDataPack
 import com.dualdex.romhack.RomCompatibilityMessages
 import com.dualdex.romhack.RuntimeRomTrust
 import com.dualdex.pokemon.ParsedPokemon
@@ -486,16 +487,15 @@ class PartyScreenView(
 
 /**
  * Vanilla Emerald (1), FireRed (2) and Ghost Grey (6) keep the Gen III item table. Unbound (9) is not
- * pokeemerald-expansion either; [resolveHeldItem] keeps it off both tables.
+ * pokeemerald-expansion either; [resolveHeldItem] uses its exact identity mapping.
  */
 internal fun usesExpansionItems(gameId: Int): Boolean = gameId !in setOf(1, 2, 6, UNBOUND_GAME_ID)
 
 private const val UNBOUND_GAME_ID = 9
 
 /**
- * Unbound (9) uses the CFRU item domain, which neither bundled table describes, so its held items
- * stay an ID placeholder instead of a same-numbered Gen III or expansion name.
+ * Both party screens use the exact Unbound pack for CFRU held-item identities.
  */
 internal fun resolveHeldItem(itemId: Int, gameId: Int): ItemDatabase.ItemInfo =
-    if (gameId == UNBOUND_GAME_ID && itemId > 0) ItemDatabase.ItemInfo(itemId, "Item #$itemId")
+    if (gameId == UNBOUND_GAME_ID) UnboundDataPack.getItem(itemId)
     else ItemDatabase.get(itemId, isExpansion = usesExpansionItems(gameId))

@@ -234,3 +234,16 @@ a full copied table. `unbound_observe.py` performs no RAM writes, loads a privat
 save (the original is never written) and never confirms an in-game save; `--initial-state` replaces
 `--battery-save` for an mGBA state. Private directories must be outside any Git checkout. Overworld
 and menu screen hashes vary between runs (animated scenes); summary-screen evidence is what binds.
+
+Party-record semantics (ability, shiny, nature, checksum; findings in
+[party semantics](../../docs/UNBOUND_PARTY_SEMANTICS_EVIDENCE.md)):
+
+```bash
+python3 tools/rom-evidence/unbound_semantics.py --rom /private/unbound.gba \
+  --battle-report /private/unbound-battle-run.json > /private/unbound-semantics.json
+```
+
+`unbound_semantics.py` rechecks pinned exact-ROM spans and pool literals, decodes the shiny
+compare immediate, the checksum BL/literal census and the script `callasm` sites of the routine
+that writes it, then compares the ability rule with `gBattleMons` bytes from an `unbound_observe.py`
+battle report and with the committed party manifest. It prints numbers, hashes and booleans only.

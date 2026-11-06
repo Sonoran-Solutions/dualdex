@@ -18,9 +18,9 @@ static jmethodID g_parsed_pokemon_ctor = NULL;
 static jclass g_player_location_cls = NULL;
 static jmethodID g_player_location_ctor = NULL;
 
-// Trailing "IZZII" carries hiddenNature, natureModified, gigantamaxFactor, shinyState and
-// shinyModifier, which were appended to com.dualdex.pokemon.ParsedPokemon for H&S 2.0.5.
-#define PARSED_POKEMON_SIG "(ZZJIILjava/lang/String;Ljava/lang/String;IIIILjava/lang/String;ZIZIJIIIIIIIIIIII[I[IIIIIIIIJIZZII)V"
+// Trailing "IZZIIZ" carries hiddenNature, natureModified, gigantamaxFactor, shinyState,
+// shinyModifier and abilitySlotKnown, in ParsedPokemon constructor order.
+#define PARSED_POKEMON_SIG "(ZZJIILjava/lang/String;Ljava/lang/String;IIIILjava/lang/String;ZIZIJIIIIIIIIIIII[I[IIIIIIIIJIZZIIZ)V"
 #define PLAYER_LOCATION_SIG "(IIIIIIIIIZZ)V"
 
 static void init_class_cache(JNIEnv* env) {
@@ -131,7 +131,7 @@ static jobject create_parsed_pokemon_object(JNIEnv* env, const ParsedPokemon* p)
         (jint)p->nature,
         j_nature_name,
         (jboolean)p->is_shiny,
-        (jint)p->ability_slot,
+        (jint)(p->ability_slot_known ? p->ability_slot : -1),
         (jboolean)p->is_egg,
         (jint)p->friendship,
         (jlong)p->experience,
@@ -161,7 +161,8 @@ static jobject create_parsed_pokemon_object(JNIEnv* env, const ParsedPokemon* p)
         (jboolean)p->nature_modified,
         (jboolean)p->gigantamax_factor,
         (jint)p->shiny_state,
-        (jint)p->shiny_modifier
+        (jint)p->shiny_modifier,
+        (jboolean)p->ability_slot_known
     );
 
     if (!obj) {

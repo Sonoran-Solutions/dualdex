@@ -189,7 +189,9 @@ class CompanionViewModel(
     }
 
     val activeGameDataPack: com.dualdex.pokemon.GameDataPack
-        get() = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(_activeProfile.value)
+        get() = synchronized(observationSessionLock) {
+            com.dualdex.pokemon.GameDataPackRegistry.getForProfile(_activeProfile.value, _activeRomIdentity.value?.sha256)
+        }
 
     private val _playerLocation = MutableStateFlow<PlayerLocation?>(null)
     val playerLocation: StateFlow<PlayerLocation?> = _playerLocation.asStateFlow()

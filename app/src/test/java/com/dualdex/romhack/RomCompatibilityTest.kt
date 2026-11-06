@@ -17,6 +17,39 @@ import org.junit.Test
 
 class RomCompatibilityTest {
 
+    @Test
+    fun profilelessExpandedHackUsesLibraryWordingOnLoadedSurfaces() {
+        for (base in listOf("Pokemon FireRed", "Pokemon Emerald")) {
+            val result = RomCompatibility.recognizedUnverified(
+                null, "unverified", ProfileMatchMethod.BASE_GAME_FALLBACK, "Expanded hack", base
+            )
+            assertEquals(RomCompatibilityMessages.badge(result.status),
+                RomCompatibilityMessages.profileLabel(result.profile, result.status))
+            assertEquals("Unverified version", RomCompatibilityMessages.profileLabel(result.profile, result.status))
+            assertFalse(result.mayReadLiveMemory)
+        }
+        val unsupported = RomCompatibility.unsupported("unknown")
+        assertEquals("Unsupported ROM", RomCompatibilityMessages.profileLabel(unsupported.profile, unsupported.status))
+        assertEquals(fireRedProfile.name, RomCompatibilityMessages.profileLabel(fireRedProfile, RomCompatibilityStatus.VERIFIED))
+    }
+
+    @Test
+    fun activeDataPackUsesLoadedIdentityRatherThanProfileHashes() {
+        val vm = CompanionViewModel()
+        val sha = com.dualdex.pokemon.unbound.UnboundSpeciesTable.ROM_SHA256
+        val profile = fireRedProfile.copy(gameDataPackId = "unbound_exact")
+        val compat = RomCompatibility.recognizedUnverified(profile, sha, ProfileMatchMethod.HEADER_TITLE, "unverified")
+        vm.setRomSession(compat, RomIdentity(sha, "Renamed hack"))
+        assertSame(com.dualdex.pokemon.unbound.UnboundDataPack, vm.activeGameDataPack)
+        assertFalse(vm.runtimeRomTrust.value.mayReadLiveMemory)
+        vm.setRomSession(compat, RomIdentity("0".repeat(64), "Other hack"))
+        assertNull(vm.activeGameDataPack.getSpecies(277))
+        assertFalse(vm.activeGameDataPack.allowGlobalFallback)
+        vm.clearRomSession()
+        vm.setProfile(profile)
+        assertNull(vm.activeGameDataPack.getSpecies(277))
+    }
+
     private val fireRedSha = "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000"
     private val emeraldSha = "aaaabbbbccccddddeeeeffff0000111122223333444455556666777788889999"
     private val radicalRedSha = "feedfacecafebeef0123456789abcdef0123456789abcdef0123456789abcdef"

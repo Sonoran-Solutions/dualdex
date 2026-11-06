@@ -20,6 +20,7 @@ import com.dualdex.companion.CompanionNavigation
 import com.dualdex.companion.CompanionTab
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
+import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RomCompatibilityMessages
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -386,7 +387,8 @@ class CompanionScreenView(
         val trust = viewModel.runtimeRomTrust.value
         if (identity != null) {
             val displayName = identity.displayName.trim().ifBlank { "Game" }
-            val profileName = viewModel.activeProfile.value.name.trim()
+            val profile = viewModel.activeProfile.value
+            val profileName = RomCompatibilityMessages.profileLabel(profile, trust.status).trim()
             val baseLabel = if (
                 profileName.isNotBlank() &&
                 !ContextLabelFormatter.namesDescribeSameGame(displayName, profileName)
@@ -395,7 +397,7 @@ class CompanionScreenView(
             } else {
                 displayName
             }
-            profileLabel.text = if (trust.hasActiveRom && !trust.isVerified) {
+            profileLabel.text = if (trust.hasActiveRom && !trust.isVerified && profile.id != RomHackProfile.UNSUPPORTED.id) {
                 "$baseLabel [${RomCompatibilityMessages.badge(trust.status)}]"
             } else {
                 baseLabel

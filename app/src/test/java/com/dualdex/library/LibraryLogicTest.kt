@@ -1,6 +1,7 @@
 package com.dualdex.library
 
 import com.dualdex.romhack.RomCompatibilityStatus
+import com.dualdex.romhack.RomHackProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,11 +17,13 @@ class LibraryLogicTest {
         val file = File(tmp.root, "old-cache.json")
         val entry = """{"p1":{"size":10,"mtime":100,"sha256":"aa","status":"VERIFIED","profile":"FireRed"}}"""
         file.writeText(entry)
-        assertNull(RomScanCache(file).lookup("p1", 10, 100))
+        assertNull(RomScanCache(file, emptyList()).lookup("p1", 10, 100))
         file.writeText("""{"version":${RomScanCache.FORMAT_VERSION - 1},"entries":$entry}""")
-        assertNull(RomScanCache(file).lookup("p1", 10, 100))
+        assertNull(RomScanCache(file, emptyList()).lookup("p1", 10, 100))
         file.writeText("""{"version":${RomScanCache.FORMAT_VERSION},"entries":$entry}""")
-        assertEquals("FireRed", RomScanCache(file).lookup("p1", 10, 100)?.profileName)
+        assertNull(RomScanCache(file, emptyList()).lookup("p1", 10, 100))
+        file.writeText("""{"version":${RomScanCache.FORMAT_VERSION},"profileFingerprint":"${RomScanCache.fingerprint(emptyList())}","entries":$entry}""")
+        assertEquals("FireRed", RomScanCache(file, emptyList()).lookup("p1", 10, 100)?.profileName)
     }
     @get:Rule val tmp = TemporaryFolder()
 
@@ -80,17 +83,53 @@ class LibraryLogicTest {
 
     @Test fun scanCacheInvalidatesOnSizeOrMtimeAndPrunes() {
         val file = File(tmp.root, "cache.json")
-        RomScanCache(file).apply {
+        RomScanCache(file, emptyList()).apply {
             put(ScanVerdict("p1", 10, 100, "aa", RomCompatibilityStatus.VERIFIED, "Emerald"))
             put(ScanVerdict("p2", 10, 100, "bb", RomCompatibilityStatus.UNSUPPORTED, ""))
             retainAndSave(setOf("p1"))
         }
-        val reloaded = RomScanCache(file)
+        val reloaded = RomScanCache(file, emptyList())
         assertEquals("Emerald", reloaded.lookup("p1", 10, 100)?.profileName)
         assertNull(reloaded.lookup("p1", 11, 100))
         assertNull(reloaded.lookup("p1", 10, 101))
         assertNull(reloaded.lookup("p2", 10, 100))
         assertTrue(RomScanCache.isRomName("x.GBA") && !RomScanCache.isRomName("x.sav"))
+    }
+
+    @Test fun scanCacheTracksProfileIdentityHashesAndVerificationWithoutVersionBump() {
+        val file = File(tmp.root, "profile-cache.json")
+        val profile = RomHackProfile.DEFAULT_FIRERED.copy(id = "unbound", gameDataPackId = "unbound_exact")
+        val profiles = listOf(profile)
+        RomScanCache(file, profiles).apply {
+            put(ScanVerdict("p1", 10, 100, "aa", RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, "Unbound"))
+            retainAndSave(setOf("p1"))
+        }
+        assertEquals("Unbound", RomScanCache(file, profiles.map { it.copy() }).lookup("p1", 10, 100)?.profileName)
+        val changed = listOf(
+            profile.copy(id = "other"),
+            profile.copy(sha256Hashes = listOf("aa")),
+            profile.copy(isVerified = !profile.isVerified),
+            profile.copy(memoryLayoutVerified = !profile.memoryLayoutVerified),
+            profile.copy(battleStateReadVerified = !profile.battleStateReadVerified),
+            profile.copy(interactiveControlsVerified = !profile.interactiveControlsVerified),
+            profile.copy(gameDataPackId = "modern"),
+            profile.copy(name = "Renamed"),
+            profile.copy(headerTitles = listOf("NEW TITLE"))
+        )
+        for (revision in changed) {
+            assertNull("changed profile $revision", RomScanCache(file, listOf(revision)).lookup("p1", 10, 100))
+        }
+        assertNull(RomScanCache(file, emptyList()).lookup("p1", 10, 100))
+        assertNull(RomScanCache(file, profiles + profile.copy(id = "new")).lookup("p1", 10, 100))
+        assertEquals("Unbound", RomScanCache(file, profiles).lookup("p1", 10, 100)?.profileName)
+    }
+
+    @Test fun scanCacheFingerprintNormalizesHashCaseAndOrderButKeepsProfilePriority() {
+        val a = RomHackProfile.DEFAULT_FIRERED.copy(sha256Hashes = listOf("BB", "aa"))
+        val b = a.copy(id = "second")
+        assertEquals(RomScanCache.fingerprint(listOf(a)),
+            RomScanCache.fingerprint(listOf(a.copy(sha256Hashes = listOf("AA", "bb")))))
+        assertFalse(RomScanCache.fingerprint(listOf(a, b)) == RomScanCache.fingerprint(listOf(b, a)))
     }
 
     // --- ROM info ---

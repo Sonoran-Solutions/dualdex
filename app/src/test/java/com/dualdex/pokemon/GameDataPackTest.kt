@@ -35,6 +35,20 @@ class GameDataPackTest {
         assertFalse(blocked.allowGlobalFallback)
     }
 
+    @Test
+    fun unverifiedPackUsesSharedTypeChartWithoutIdentities() {
+        val pack = GameDataPackRegistry.getForProfile("CFRU", true, "unbound_exact")
+        for (attack in PokemonType.values()) {
+            for (defense in PokemonType.values()) {
+                assertEquals("$attack vs $defense",
+                    TypeChart.getEffectiveness(attack, defense, steelResistsGhostDark = false).toDouble(),
+                    pack.getEffectiveness(attack, defense), 0.0)
+            }
+        }
+        assertNull(pack.getSpecies(277))
+        assertNull(pack.getMove(434))
+    }
+
     private val ghostGreyJson = """
     {
       "id": "ghost_grey",

@@ -188,10 +188,17 @@ class CompanionViewModel(
         null
     }
 
-    val activeGameDataPack: com.dualdex.pokemon.GameDataPack
-        get() = synchronized(observationSessionLock) {
-            com.dualdex.pokemon.GameDataPackRegistry.getForProfile(_activeProfile.value, _activeRomIdentity.value?.sha256)
-        }
+    @Volatile
+    var activeGameDataPack: com.dualdex.pokemon.GameDataPack =
+        com.dualdex.pokemon.GameDataPackRegistry.getForProfile(_activeProfile.value, _activeRomIdentity.value?.sha256)
+        private set
+
+    /** Called under observationSessionLock whenever the profile or loaded identity changes. */
+    private fun publishGameDataPackLocked() {
+        activeGameDataPack = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(
+            _activeProfile.value, _activeRomIdentity.value?.sha256
+        )
+    }
 
     private val _playerLocation = MutableStateFlow<PlayerLocation?>(null)
     val playerLocation: StateFlow<PlayerLocation?> = _playerLocation.asStateFlow()
@@ -299,6 +306,7 @@ class CompanionViewModel(
             }
             // No compatibility evidence was supplied, so live memory stays disabled.
             _runtimeRomTrust.value = RuntimeRomTrust()
+            publishGameDataPackLocked()
             publishLocationStrategy()
             clearLiveMemoryObservationsLocked()
         }
@@ -314,6 +322,7 @@ class CompanionViewModel(
                 _activeProfile.value = RomHackProfile.UNSUPPORTED
                 _activeGameId.value = 0
             }
+            publishGameDataPackLocked()
             publishLocationStrategy()
             clearLiveMemoryObservationsLocked()
         }
@@ -336,6 +345,7 @@ class CompanionViewModel(
 
             // The strategy follows the newly published profile, and publishing it
             // drops observations taken under the previous one.
+            publishGameDataPackLocked()
             publishLocationStrategy()
 
             // A ROM that is not exactly verified never authorizes memory parsing.
@@ -359,6 +369,7 @@ class CompanionViewModel(
             _activeRomTitle.value = ""
             _activeProfile.value = RomHackProfile.UNSUPPORTED
             _activeGameId.value = 0
+            publishGameDataPackLocked()
             publishLocationStrategy()
         }
     }
@@ -370,6 +381,7 @@ class CompanionViewModel(
             _activeGameId.value = profile.gameId
             _activeRomTitle.value = profile.name
             _runtimeRomTrust.value = RuntimeRomTrust()
+            publishGameDataPackLocked()
             publishLocationStrategy()
             clearLiveMemoryObservationsLocked()
         }

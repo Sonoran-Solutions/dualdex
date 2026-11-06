@@ -12,6 +12,10 @@ from unittest.mock import Mock, patch
 import unbound_observe as u
 
 
+# Committed captures predate the explicit CFRU parse entry and retain their provenance.
+HISTORICAL_OBSERVER_SHA256 = '9f0f1803f45d0ff6d6bbbe7892d4e5918601d8c5342669a8a2a4b5250480c189'
+
+
 def invented_slot():
     raw = bytearray(100)
     struct.pack_into('<II', raw, 0, 0x12345678, 0x87654321)
@@ -122,7 +126,10 @@ class UnboundBattleTests(unittest.TestCase):
         self.assertEqual(evidence['inputs']['rom_sha256'], u.ROM_SHA256)
         self.assertEqual(evidence['inputs']['battery_sha256'], u.SAVE_SHA256)
         self.assertEqual(evidence['inputs']['core_sha256'], u.rowe.CORE_SHA256)
-        self.assertEqual(evidence['inputs']['observer_sha256'], u.rowe.digest(Path(u.__file__).read_bytes()))
+        self.assertEqual(evidence['inputs']['observer_sha256'], HISTORICAL_OBSERVER_SHA256)
+        history = json.loads((here/'adapter-pin-history.json').read_text())
+        pin = history[evidence['inputs']['adapter_source_revision']]
+        self.assertEqual(evidence['inputs']['adapter_binary_sha256'], pin['binary_sha256'])
         self.assertEqual(evidence['inputs']['movie_sha256'], u.rowe.digest(movie))
         self.assertEqual([t['label'] for t in evidence['timeline']], labels)
         self.assertEqual(evidence['addresses'], {k: hex(v) for k, v in u.BATTLE_SYMBOLS.items()})
@@ -224,13 +231,17 @@ class UnboundObserveTests(unittest.TestCase):
 
     def test_native_failure_never_publishes_partial_fields(self):
         host = Mock()
-        host.pokemon_parse_single.return_value = False
+        host.pokemon_parse_single_layout.return_value = False
         self.assertEqual(u.native_fields(host, invented_slot()), {'accepted': False})
+        host.pokemon_parse_single.assert_not_called()
         with self.assertRaises(ValueError): u.native_fields(host, bytes(99))
 
     def test_native_result_uses_declared_abi(self):
         host = Mock()
-        def parse(raw, party, pointer):
+        def parse(raw, party, layout, pointer):
+            self.assertIs(party, True)
+            self.assertEqual(layout, 2)  # PKMN_STORAGE_CFRU, not vanilla Gen 3
+            self.assertEqual(bytes(raw), invented_slot())
             out = C.cast(pointer, C.POINTER(u.Parsed)).contents
             out.species, out.held_item, out.level, out.current_hp = 777, 1023, 42, 30
             out.max_hp = 99
@@ -238,8 +249,13 @@ class UnboundObserveTests(unittest.TestCase):
             out.hp_iv, out.sp_defense_ev = 31, 255
             out.nickname, out.tid, out.is_shiny, out.shiny_value = b'GARY', 53340, False, 15
             return True
-        host.pokemon_parse_single.side_effect = parse
+        host.pokemon_parse_single_layout.side_effect = parse
         row = u.native_fields(host, invented_slot())
+        host.pokemon_parse_single_layout.assert_called_once()
+        self.assertEqual(host.pokemon_parse_single_layout.argtypes,
+                         [C.c_void_p, C.c_bool, C.c_int, C.POINTER(u.Parsed)])
+        self.assertIs(host.pokemon_parse_single_layout.restype, C.c_bool)
+        host.pokemon_parse_single.assert_not_called()
         self.assertEqual((row['species'], row['held_item'], row['moves']), (777, 1023, [1, 2, 3, 4]))
         self.assertEqual((row['hp'], row['stats']['max_hp'], row['ivs'][0], row['evs'][5]), (30, 99, 31, 255))
         self.assertEqual((row['nickname'], row['tid'], row['is_shiny'], row['shiny_value']),
@@ -281,15 +297,16 @@ class UnboundObserveTests(unittest.TestCase):
         self.assertEqual(evidence['inputs']['battery']['sha256'], u.SAVE_SHA256)
         self.assertEqual(evidence['inputs']['quicksave']['sha256'], u.STATE_SHA256)
         self.assertEqual(evidence['inputs']['core_sha256'], u.rowe.CORE_SHA256)
-        current_observer = u.rowe.digest(Path(u.__file__).read_bytes())
-        if evidence['inputs']['observer_sha256'] != current_observer:
-            self.assertEqual(evidence['inputs']['observer_sha256'],
-                             '0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a')
-            battle = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-battle.json').read_text())
-            self.assertEqual(evidence['revalidated'], dict(
-                observer_sha256=current_observer,
-                private_report_sha256=battle['regression_of_attempt3_route']['private_report_sha256'],
-                scope='battery route only; quicksave not rerun', evidence='unbound-runtime-battle.json'))
+        self.assertEqual(evidence['inputs']['observer_sha256'],
+                         '0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a')
+        history = json.loads((Path(u.__file__).parent/'adapter-pin-history.json').read_text())
+        pin = history[evidence['inputs']['adapter_source_revision']]
+        self.assertEqual(evidence['inputs']['adapter_binary_sha256'], pin['binary_sha256'])
+        battle = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-battle.json').read_text())
+        self.assertEqual(evidence['revalidated'], dict(
+            observer_sha256=HISTORICAL_OBSERVER_SHA256,
+            private_report_sha256=battle['regression_of_attempt3_route']['private_report_sha256'],
+            scope='battery route only; quicksave not rerun', evidence='unbound-runtime-battle.json'))
         self.assertTrue(evidence['battery_run']['all_observations_same_player_sha256'])
         natures = ('Hardy Lonely Brave Adamant Naughty Bold Docile Relaxed Impish Lax Timid Hasty Serious '
                    'Jolly Naive Modest Mild Quiet Bashful Rash Calm Gentle Sassy Careful Quirky').split()
@@ -412,13 +429,11 @@ class UnboundObserveTests(unittest.TestCase):
         self.assertEqual(evidence['static']['runtime_layout'], 'NOT_VERIFIED')
         self.assertEqual(evidence['static']['rom']['sha256'], u.ROM_SHA256)
         self.assertEqual(evidence['static']['player_stride_bytes'], 100)
-        current_observer = u.rowe.digest(Path(u.__file__).read_bytes())
-        if evidence['observer_sha256'] != current_observer:
-            self.assertEqual(evidence['observer_sha256'],
-                             '0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a')
-            self.assertEqual(evidence['static_provenance']['battle_evidence'], 'unbound-runtime-battle.json')
-            battle = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-battle.json').read_text())
-            self.assertEqual(battle['inputs']['observer_sha256'], current_observer)
+        self.assertEqual(evidence['observer_sha256'],
+                         '0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a')
+        self.assertEqual(evidence['static_provenance']['battle_evidence'], 'unbound-runtime-battle.json')
+        battle = json.loads((Path(u.__file__).parent/'evidence/unbound-runtime-battle.json').read_text())
+        self.assertEqual(battle['inputs']['observer_sha256'], HISTORICAL_OBSERVER_SHA256)
         self.assertEqual([s['sha256'] for s in evidence['static']['spans']], [s[2] for s in u.STATIC_SPANS])
 
     def test_private_output_guard_and_exclusive_directory(self):

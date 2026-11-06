@@ -240,3 +240,16 @@ exact-ROM SaveBlock1, map-header (XOR group table) and map-name paths, emitting 
 only (`--static-only`), and with `--core --battery-save --movie
 unbound-location-grotto-warp.movie --private-dir` records SaveBlock1 warp fields, `gMapHeader` and
 the resolved ROM header across two map transitions. Same no-write, private-directory rules.
+
+Party-record semantics (ability, shiny, nature, checksum; findings in
+[party semantics](../../docs/UNBOUND_PARTY_SEMANTICS_EVIDENCE.md)):
+
+```bash
+python3 tools/rom-evidence/unbound_semantics.py --rom /private/unbound.gba \
+  --battle-report /private/unbound-battle-run.json > /private/unbound-semantics.json
+```
+
+`unbound_semantics.py` rechecks pinned exact-ROM spans and pool literals, decodes the shiny
+compare immediate, the checksum BL/literal census and the script `callasm` sites of the routine
+that writes it, then compares the ability rule with `gBattleMons` bytes from an `unbound_observe.py`
+battle report and with the committed party manifest. It prints numbers, hashes and booleans only.

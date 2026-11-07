@@ -744,6 +744,7 @@ bool pokemon_read_challenge_settings_gba(
  * Returns true if in battle and stat stages read successfully into out_stages (7 signed ints: atk, def, spe, spa, spd, acc, eva).
  * Values are stages in range -6..+6.
  * Returns false for a NULL or GAME_UNKNOWN configuration.
+ * Unbound also returns false: this EWRAM-only API cannot read its gMain.inBattle gate.
  */
 bool pokemon_read_battle_stat_stages(
     const uint8_t* ewram,

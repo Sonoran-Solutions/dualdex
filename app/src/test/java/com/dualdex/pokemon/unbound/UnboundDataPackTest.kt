@@ -4,7 +4,6 @@ import com.dualdex.companion.ui.resolveHeldItem
 import com.dualdex.companion.ui.usesExpansionItems
 import com.dualdex.pokemon.DeclaredAbility
 import com.dualdex.pokemon.GameDataPackRegistry
-import com.dualdex.pokemon.hasMoveByName
 import com.dualdex.pokemon.hasSpeciesByName
 import com.dualdex.pokemon.resolveMove
 import com.dualdex.pokemon.resolveSpecies
@@ -18,7 +17,7 @@ import org.junit.Test
 class UnboundDataPackTest {
 
     private val pack = GameDataPackRegistry.getForProfile(
-        engine = "CFRU", hasPhysSpecSplit = true, customPackId = "unbound_exact"
+        engine = "CFRU", hasPhysSpecSplit = true, customPackId = "unbound_exact", romSha256 = UnboundSpeciesTable.ROM_SHA256
     )
 
     private fun name(id: Int) = pack.resolveSpecies(id).name
@@ -65,27 +64,54 @@ class UnboundDataPackTest {
     }
 
     @Test
-    fun cfruInternalMovesAboveGen3AreNeverSameNumberLookups() {
+    fun cfruMovesUseExactIdentityAndKeepInternalIds() {
         assertEquals("Psycho Boost", pack.resolveMove(354).name)
-        assertEquals("Unknown Move #434", pack.resolveMove(434).name) // internal Flare Blitz, not Draco Meteor
+        val move = pack.resolveMove(434)
+        assertEquals("Flare Blitz", move.name)
+        assertEquals(434, move.id)
+        assertEquals(434, pack.getMoveByName("Flare Blitz")?.id)
         assertEquals("Unknown Move #355", pack.resolveMove(355).name)
-        assertNull(pack.getMoveByName("Draco Meteor"))
-        assertFalse(pack.hasMoveByName("Draco Meteor"))
+        assertNull(pack.getMove(136)) // no spelling correction for a nonmatching ROM label
+        for (id in listOf(-1, 0, 923, 5000)) {
+            assertEquals("Unknown Move #$id", pack.resolveMove(id).name)
+        }
+        assertNull(pack.getMoveByName("not a bundled move"))
         assertEquals(354, pack.getMoveByName("Psycho Boost")?.id)
+        assertFalse(pack.isMoveAuthoritative(434))
     }
 
     @Test
-    fun abilitiesStayAbsent() {
+    fun numericAbilitiesUseMappedCatalogueIdentityOnly() {
+        assertEquals(DeclaredAbility.Declared(22, "Intimidate"), UnboundDataPack.getAbility(22))
+        assertEquals(DeclaredAbility.Declared(150, "Protean"), UnboundDataPack.getAbility(150))
+        for (id in listOf(-1, 0, 74, 77, 292, 293, 5000)) {
+            assertSame(DeclaredAbility.Absent, UnboundDataPack.getAbility(id))
+        }
+    }
+
+    @Test
+    fun speciesSlotDeclarationsStayAbsent() {
         assertSame(DeclaredAbility.Absent, pack.getDeclaredAbilityForSlot(277, 0))
     }
 
     @Test
-    fun unboundHeldItemsDoNotUseTheExpansionOrGen3Table() {
+    fun unboundHeldItemsUseMappedIdentityInsteadOfSameNumberTables() {
         assertFalse(usesExpansionItems(9))
-        assertEquals("Item #1", resolveHeldItem(1, 9).name)      // expansion: Poke Ball, Gen III: Master Ball
-        assertEquals("Item #200", resolveHeldItem(200, 9).name)  // expansion: Harbor Mail, Gen III: Leftovers
-        assertEquals("None", resolveHeldItem(0, 9).name)
-        assertEquals("Poke Ball", resolveHeldItem(1, 8).name)
-        assertEquals("Master Ball", resolveHeldItem(1, 2).name)
+        assertEquals("Master Ball", resolveHeldItem(1, 9, pack).name) // expansion ID 1 is Poke Ball
+        assertEquals("Leftovers", resolveHeldItem(200, 9, pack).name) // expansion ID 200 is Harbor Mail
+        assertEquals(1, resolveHeldItem(1, 9, pack).id)
+        assertEquals("Item #102", resolveHeldItem(102, 9, pack).name) // mismatched record ID
+        assertEquals("Item #729", resolveHeldItem(729, 9, pack).name)
+        assertEquals("None", resolveHeldItem(0, 9, pack).name)
+        assertEquals("Poke Ball", resolveHeldItem(1, 8, pack).name)
+        assertEquals("Master Ball", resolveHeldItem(1, 2, pack).name)
+    }
+
+    @Test
+    fun unboundHeldItemsStayPlaceholdersWithoutTheExactRomPack() {
+        val unverified = GameDataPackRegistry.getForProfile(engine = "CFRU", hasPhysSpecSplit = true, customPackId = "unbound_exact")
+        assertEquals("Item #1", resolveHeldItem(1, 9, unverified).name)
+        assertEquals("Item #200", resolveHeldItem(200, 9, unverified).name)
+        assertEquals("None", resolveHeldItem(0, 9, unverified).name)
     }
 }

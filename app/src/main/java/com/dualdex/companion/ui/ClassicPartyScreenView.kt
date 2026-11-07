@@ -517,7 +517,7 @@ class ClassicPartyScreenView(
         updateHpBar(holder.hpBar, mon.currentHp, mon.maxHp)
 
         val nature = NatureTable.get(mon.nature)
-        val item = resolveHeldItem(mon.heldItem, gameId)
+        val item = resolveHeldItem(mon.heldItem, gameId, pack)
         val isHns = !pack.allowGlobalFallback || pack.id.startsWith("hns")
         holder.nature.text = "Nature  ${nature.formattedDescription}"
         holder.heldItem.text = if (mon.heldItem <= 0) {

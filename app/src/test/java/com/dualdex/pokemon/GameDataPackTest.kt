@@ -12,6 +12,43 @@ import org.junit.Test
 
 class GameDataPackTest {
 
+    @Test
+    fun unboundPackRequiresLoadedShaAndRejectsOverlayBypasses() {
+        val sha = com.dualdex.pokemon.unbound.UnboundSpeciesTable.ROM_SHA256
+        val profile = RomHackProfile.DEFAULT_FIRERED.copy(gameDataPackId = "unbound_exact")
+        assertTrue(GameDataPackRegistry.getForProfile(profile, sha) === com.dualdex.pokemon.unbound.UnboundDataPack)
+        assertTrue(GameDataPackRegistry.getForProfile(profile, sha.uppercase()) === com.dualdex.pokemon.unbound.UnboundDataPack)
+        for (unknown in listOf(null, "", "0".repeat(64), sha.dropLast(1))) {
+            val pack = GameDataPackRegistry.getForProfile(profile, unknown)
+            assertFalse(pack.allowGlobalFallback)
+            assertNull(pack.getSpecies(277))
+            assertNull(pack.getMove(33))
+            assertNull(pack.getSpeciesByName("Treecko"))
+            assertNull(pack.getMoveByName("Tackle"))
+            assertEquals("Unknown Species #277", pack.resolveSpecies(277).name)
+            assertEquals("Unknown Move #33", pack.resolveMove(33).name)
+            assertEquals(DeclaredAbility.Absent, pack.getDeclaredAbilityForSlot(277, 0))
+        }
+        val overlay = ProfileLoader.parseProfile(ghostGreyJson).customSpecies
+        val blocked = GameDataPackRegistry.getForProfile("CFRU", true, "UNBOUND_EXACT", overlay)
+        assertNull(blocked.getSpecies(500))
+        assertFalse(blocked.allowGlobalFallback)
+    }
+
+    @Test
+    fun unverifiedPackUsesSharedTypeChartWithoutIdentities() {
+        val pack = GameDataPackRegistry.getForProfile("CFRU", true, "unbound_exact")
+        for (attack in PokemonType.values()) {
+            for (defense in PokemonType.values()) {
+                assertEquals("$attack vs $defense",
+                    TypeChart.getEffectiveness(attack, defense, steelResistsGhostDark = false).toDouble(),
+                    pack.getEffectiveness(attack, defense), 0.0)
+            }
+        }
+        assertNull(pack.getSpecies(277))
+        assertNull(pack.getMove(434))
+    }
+
     private val ghostGreyJson = """
     {
       "id": "ghost_grey",

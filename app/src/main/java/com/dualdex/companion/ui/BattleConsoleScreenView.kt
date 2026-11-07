@@ -389,7 +389,7 @@ class BattleConsoleScreenView(
             val defender = viewModel.enemyParty.value.getOrNull(viewModel.activeEnemyMemberIndex.value)
             val profile = viewModel.activeProfile.value
             if (defender != null && !defender.isEmpty && defender.isValid) {
-                val (t1, t2) = MoveEffectiveness.defenderTypesOf(defender, profile)
+                val (t1, t2) = MoveEffectiveness.defenderTypesOf(defender, profile, viewModel.activeGameDataPack)
                 if (t1 != null) {
                     typeMatchupsView.setTypes(t1, t2)
                 }
@@ -955,11 +955,11 @@ class BattleConsoleScreenView(
             liveBattleContainer.visibility = View.VISIBLE
 
             // Update Matchup
-            val attackerSummary = ParticipantSummaryBuilder.build(attacker, activePlayerIdx, profile, playerStages, runtimeTrust)
+            val attackerSummary = ParticipantSummaryBuilder.build(attacker, activePlayerIdx, profile, playerStages, runtimeTrust, viewModel.activeGameDataPack)
             bindCombatant(playerCombatantHolder, attackerSummary, attacker)
 
             if (defender != null) {
-                val opponentSummary = ParticipantSummaryBuilder.build(defender, activeEnemyIdx, profile, enemyStages, runtimeTrust)
+                val opponentSummary = ParticipantSummaryBuilder.build(defender, activeEnemyIdx, profile, enemyStages, runtimeTrust, viewModel.activeGameDataPack)
                 bindCombatant(enemyCombatantHolder, opponentSummary, defender)
             } else {
                 val emptyOpponent = BattleParticipantSummary.UNVERIFIED
@@ -1383,7 +1383,8 @@ class BattleConsoleScreenView(
             profile = profile,
             runtimeTrust = runtimeTrust,
             playerStages = playerStages,
-            enemyStages = enemyStages
+            enemyStages = enemyStages,
+            dataPack = viewModel.activeGameDataPack
         )
 
         addDetailRow(fieldStatusContainer, "Battle Status", if (inBattle) "Active Battle" else "Outside Battle")
@@ -1529,7 +1530,8 @@ class BattleConsoleScreenView(
                         calculator = damageCalculator,
                         attackerStages = playerStages,
                         defenderStages = enemyStages,
-                        hnsCalculationContext = hnsCalculationContext
+                        hnsCalculationContext = hnsCalculationContext,
+                        dataPack = dataPack
                     )
                 }
             }

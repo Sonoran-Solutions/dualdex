@@ -71,7 +71,9 @@ data class ParsedPokemon(
      */
     val shinyState: Int = if (isShiny) SHINY_YES else SHINY_NO,
     /** Raw `shinyModifier` bit; pokeemerald-expansion games only, otherwise 0. */
-    val shinyModifier: Int = 0
+    val shinyModifier: Int = 0,
+    /** False when the native layout cannot prove the stored ability slot. */
+    val abilitySlotKnown: Boolean = true
 ) {
     /** True when the shiny verdict is exactly known, false when it depends on unread settings. */
     val shinyIsKnown: Boolean get() = shinyState != SHINY_UNKNOWN
@@ -81,6 +83,9 @@ data class ParsedPokemon(
         const val SHINY_NO = 1
         const val SHINY_YES = 2
     }
+
+    fun declaredAbility(pack: GameDataPack): DeclaredAbility =
+        if (abilitySlotKnown) pack.getDeclaredAbilityForSlot(species, abilitySlot) else DeclaredAbility.Absent
 
     val totalEvs: Int get() = hpEv + attackEv + defenseEv + speedEv + spAttackEv + spDefenseEv
     val totalIvs: Int get() = hpIv + attackIv + defenseIv + speedIv + spAttackIv + spDefenseIv
@@ -105,6 +110,7 @@ data class ParsedPokemon(
         if (natureName != other.natureName) return false
         if (isShiny != other.isShiny) return false
         if (abilitySlot != other.abilitySlot) return false
+        if (abilitySlotKnown != other.abilitySlotKnown) return false
         if (isEgg != other.isEgg) return false
         if (friendship != other.friendship) return false
         if (experience != other.experience) return false
@@ -154,6 +160,7 @@ data class ParsedPokemon(
         result = 31 * result + natureName.hashCode()
         result = 31 * result + isShiny.hashCode()
         result = 31 * result + abilitySlot
+        result = 31 * result + abilitySlotKnown.hashCode()
         result = 31 * result + isEgg.hashCode()
         result = 31 * result + friendship
         result = 31 * result + experience.hashCode()

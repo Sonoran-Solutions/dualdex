@@ -326,7 +326,7 @@ class RomHackProfileTest {
     @Test
     fun bundledUnboundProfileSelectsTheExactRomDataPack() {
         val unbound = loadBundledProfiles().single { it.id == "unbound" }
-        assertSame(UnboundDataPack, GameDataPackRegistry.getForProfile(unbound))
+        assertSame(UnboundDataPack, GameDataPackRegistry.getForProfile(unbound, unboundSha))
     }
 
     // Real Unbound shape (docs/UNBOUND_RELEASE_EVIDENCE.md): FireRed header and code, 32 MiB.

@@ -249,10 +249,9 @@ class CrossPhaseContractTest(unittest.TestCase):
         self.assertEqual(new['rom'],prior['rom']);self.assertEqual(new['rom'],old['rom'])
         self.assertEqual(new['reference_core_sha256'],old['core_sha256'])
         self.assertEqual(new['adapter_sha256'],old['adapter']['binary_sha256'])
-        # The Phase 6F adapter is the pinned diagnostic adapter. Production native sources may
-        # move on (verify_adapter then refuses a rebuilt adapter until it is re-pinned), so the
-        # historical inputs are checked against the committed pin, not the working tree.
-        pin=json.loads((root/'adapter-pin.json').read_text())
+        # Phase 6F evidence stays bound to its historical adapter after a current re-pin.
+        history=json.loads((root/'adapter-pin-history.json').read_text())
+        pin=history[old['adapter']['source_revision']]
         self.assertEqual(old['adapter']['inputs'],pin['inputs'])
         self.assertEqual(old['adapter']['binary_sha256'],pin['binary_sha256'])
         for name,sha in old['tools'].items():

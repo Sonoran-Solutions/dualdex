@@ -223,10 +223,10 @@ class Parsed(C.Structure):
 
 def native_fields(host, data):
     require(len(data) == 100, 'native input must be exactly 100 bytes')
-    fn = host.pokemon_parse_single
-    fn.argtypes, fn.restype = [C.c_void_p, C.c_bool, C.POINTER(Parsed)], C.c_bool
+    fn = host.pokemon_parse_single_layout
+    fn.argtypes, fn.restype = [C.c_void_p, C.c_bool, C.c_int, C.POINTER(Parsed)], C.c_bool
     raw, out = (C.c_ubyte*100).from_buffer_copy(data), Parsed()
-    ok = bool(fn(raw, True, C.byref(out)))
+    ok = bool(fn(raw, True, 2, C.byref(out)))  # PKMN_STORAGE_CFRU
     # Failed parser output is never presented as a usable Pokemon.
     if not ok:
         return dict(accepted=False)

@@ -150,6 +150,10 @@ class SmartFastForward(
     }
 
     companion object {
+        /** Profile addresses and location reads must belong to the currently loaded ROM. */
+        fun mayReadProfileMemory(trust: com.dualdex.romhack.RuntimeRomTrust, romSha256: String): Boolean =
+            trust.mayReadLiveMemory && trust.activeRomSha256.equals(romSha256, ignoreCase = true)
+
         const val IWRAM_BASE = 0x03000000
         const val IWRAM_SIZE = 0x8000
         const val DISCOVERY_GAP = 16L

@@ -2,6 +2,7 @@ package com.dualdex.pokemon
 
 import com.dualdex.pokemon.hns.HeartAndSoul205DataPack
 import com.dualdex.pokemon.unbound.UnboundDataPack
+import com.dualdex.pokemon.unbound.UnboundSpeciesTable
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.SpeciesOverride
 
@@ -249,13 +250,29 @@ class ProfileOverlayDataPack(
     }
 }
 
+/** No ROM-specific identities may escape when an exact data pack's hash is unproven. */
+private object UnverifiedDataPack : GameDataPack {
+    override val id = "unverified"
+    override val generation = 3
+    override val hasFairyType = false
+    override val hasPhysicalSpecialSplit = false
+    override val allowGlobalFallback = false
+    override fun getSpecies(id: Int): SpeciesInfo? = null
+    override fun getMove(id: Int): MoveInfo? = null
+    override fun getSpeciesByName(name: String): SpeciesInfo? = null
+    override fun getMoveByName(name: String): MoveInfo? = null
+    override fun getEffectiveness(attackType: PokemonType, defType: PokemonType): Double =
+        TypeChart.getEffectiveness(attackType, defType, steelResistsGhostDark = false).toDouble()
+}
+
 object GameDataPackRegistry {
-    fun getForProfile(profile: RomHackProfile): GameDataPack {
+    fun getForProfile(profile: RomHackProfile, romSha256: String? = null): GameDataPack {
         return getForProfile(
             engine = profile.engine,
             hasPhysSpecSplit = profile.hasPhysSpecSplit,
             customPackId = profile.gameDataPackId,
-            customSpecies = profile.customSpecies
+            customSpecies = profile.customSpecies,
+            romSha256 = romSha256
         )
     }
 
@@ -263,8 +280,13 @@ object GameDataPackRegistry {
         engine: String,
         hasPhysSpecSplit: Boolean,
         customPackId: String? = null,
-        customSpecies: Map<Int, SpeciesOverride> = emptyMap()
+        customSpecies: Map<Int, SpeciesOverride> = emptyMap(),
+        romSha256: String? = null
     ): GameDataPack {
+        if (customPackId.equals("unbound_exact", ignoreCase = true) &&
+            !UnboundSpeciesTable.ROM_SHA256.equals(romSha256, ignoreCase = true)) {
+            return UnverifiedDataPack
+        }
         val basePack: GameDataPack = if (!customPackId.isNullOrBlank()) {
             when (customPackId.lowercase()) {
                 "hns_2_0_5", "heart_and_soul", "hns" -> HeartAndSoul205DataPack

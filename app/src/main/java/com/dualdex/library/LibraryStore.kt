@@ -40,7 +40,7 @@ class LibraryPrefs(context: Context) {
 object LibraryScanner {
     fun scan(context: Context, folder: Uri, profiles: List<RomHackProfile>): List<RomItem> {
         val root = DocumentFile.fromTreeUri(context, folder)?.takeIf { it.isDirectory } ?: return emptyList()
-        val cache = RomScanCache(File(context.filesDir, "library_scan_cache.json"))
+        val cache = RomScanCache(File(context.filesDir, "library_scan_cache.json"), profiles)
         val found = mutableListOf<DocumentFile>()
         collect(root, 0, found)
         val seen = mutableSetOf<String>()

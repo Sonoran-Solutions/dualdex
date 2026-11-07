@@ -126,6 +126,10 @@ object RomCompatibilityMessages {
     const val UNSUPPORTED_DETAIL: String =
         "This ROM can be played normally, but live companion features are unavailable."
 
+    /** A missing detected profile must use the same status wording as the library. */
+    fun profileLabel(profile: RomHackProfile, status: RomCompatibilityStatus): String =
+        if (profile.id == RomHackProfile.UNSUPPORTED.id) badge(status) else profile.name
+
     /** Short, single-line reason shown in a compact status surface. */
     fun badge(status: RomCompatibilityStatus): String = when (status) {
         RomCompatibilityStatus.VERIFIED -> VERIFIED_BADGE

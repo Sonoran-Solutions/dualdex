@@ -162,9 +162,10 @@ It never loads a Downloads or personal save by default.
 
 [adapter-pin.json](adapter-pin.json) checks the existing adapter's source/build inputs and
 expected binary before CDLL/core initialization. It intentionally refuses another compiler's
-output until separately reviewed; the pin is diagnostic only. It records the adapter that produced the
-committed evidence: after a production native-reader change the observers refuse a rebuilt adapter
-(source mismatch) until the pin is deliberately updated and the affected evidence is rerun. Count/data/count plus repeated
+output until separately reviewed; the pin is diagnostic only. After a production native-reader change,
+rebuild and deliberately re-pin the current adapter, verifying identical hashes from two absolute paths.
+Preserve the previous pin in [adapter-pin-history.json](adapter-pin-history.json), keyed by source revision;
+committed evidence remains bound to that historical adapter without being rewritten. Count/data/count plus repeated
 456-byte reads fail on any mismatch while stepping is paused. All six slot digests and excluded
 species are recorded as diagnostics; only counted slots are parsed as occupied. Counts >6 fail;
 a zero enemy count with nonzero excluded species does not authorize enemy scanning.
@@ -228,8 +229,34 @@ python3 tools/rom-evidence/unbound_species_map.py --rom /private/unbound.gba \
   --source-root /private/unbound-src > /tmp/unbound-species-map.json
 ```
 
+Trainer/double/faint/switch battles ([trainer battle evidence](../../docs/UNBOUND_BATTLE_TRAINER_EVIDENCE.md))
+use `unbound_battle_observe.py`. It takes the same arguments as `unbound_observe.py` and composes it.
+On top it records `gMain.inBattle`/`callback2`, `gAbsentBattlerFlags` and `gTrainerBattleOpponent_A`,
+decodes the CFRU `gBattleTypeFlags` bits, maps battlers through CFRU `LoadPartyRange`, and counts the
+enemy party by `0x0202402A`. Use it with `--movie tools/rom-evidence/unbound-battle-trainer-double.movie`.
+`--summary REPORT [--repeat REPORT2]` prints the numeric-only manifest.
+
 `unbound_data.py` emits counts, offsets, table hashes and selected representative rows only, never
 a full copied table. `unbound_observe.py` performs no RAM writes, loads a private copy of the battery
 save (the original is never written) and never confirms an in-game save; `--initial-state` replaces
 `--battery-save` for an mGBA state. Private directories must be outside any Git checkout. Overworld
 and menu screen hashes vary between runs (animated scenes); summary-screen evidence is what binds.
+
+`unbound_location.py` ([location evidence](../../docs/UNBOUND_LOCATION_EVIDENCE.md)) decodes the
+exact-ROM SaveBlock1, map-header (XOR group table) and map-name paths, emitting numbers and hashes
+only (`--static-only`), and with `--core --battery-save --movie
+unbound-location-grotto-warp.movie --private-dir` records SaveBlock1 warp fields, `gMapHeader` and
+the resolved ROM header across two map transitions. Same no-write, private-directory rules.
+
+Party-record semantics (ability, shiny, nature, checksum; findings in
+[party semantics](../../docs/UNBOUND_PARTY_SEMANTICS_EVIDENCE.md)):
+
+```bash
+python3 tools/rom-evidence/unbound_semantics.py --rom /private/unbound.gba \
+  --battle-report /private/unbound-battle-run.json > /private/unbound-semantics.json
+```
+
+`unbound_semantics.py` rechecks pinned exact-ROM spans and pool literals, decodes the shiny
+compare immediate, the checksum BL/literal census and the script `callasm` sites of the routine
+that writes it, then compares the ability rule with `gBattleMons` bytes from an `unbound_observe.py`
+battle report and with the committed party manifest. It prints numbers, hashes and booleans only.

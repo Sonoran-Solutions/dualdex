@@ -8,7 +8,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.pokemon.GameDataPack
 import com.dualdex.pokemon.ItemDatabase
+import com.dualdex.pokemon.unbound.UnboundDataPack
 import com.dualdex.romhack.RomCompatibilityMessages
 import com.dualdex.romhack.RuntimeRomTrust
 import com.dualdex.pokemon.ParsedPokemon
@@ -367,7 +369,7 @@ class PartyScreenView(
         holder.hpMeter.setValue(mon.currentHp, mon.maxHp, hpColor)
 
         val nature = NatureTable.get(mon.nature)
-        val item = resolveHeldItem(mon.heldItem, gameId)
+        val item = resolveHeldItem(mon.heldItem, gameId, pack)
         val isHns = !pack.allowGlobalFallback || pack.id.startsWith("hns")
         holder.nature.text = "Nature  ${nature.formattedDescription}"
         holder.heldItem.text = if (mon.heldItem <= 0) {
@@ -486,16 +488,18 @@ class PartyScreenView(
 
 /**
  * Vanilla Emerald (1), FireRed (2) and Ghost Grey (6) keep the Gen III item table. Unbound (9) is not
- * pokeemerald-expansion either; [resolveHeldItem] keeps it off both tables.
+ * pokeemerald-expansion either; [resolveHeldItem] uses its exact identity mapping.
  */
 internal fun usesExpansionItems(gameId: Int): Boolean = gameId !in setOf(1, 2, 6, UNBOUND_GAME_ID)
 
 private const val UNBOUND_GAME_ID = 9
 
 /**
- * Unbound (9) uses the CFRU item domain, which neither bundled table describes, so its held items
- * stay an ID placeholder instead of a same-numbered Gen III or expansion name.
+ * Both party screens resolve CFRU held items through the exact Unbound pack, which the registry only
+ * selects for the exact ROM hash; any other Unbound build keeps an ID placeholder.
  */
-internal fun resolveHeldItem(itemId: Int, gameId: Int): ItemDatabase.ItemInfo =
-    if (gameId == UNBOUND_GAME_ID && itemId > 0) ItemDatabase.ItemInfo(itemId, "Item #$itemId")
-    else ItemDatabase.get(itemId, isExpansion = usesExpansionItems(gameId))
+internal fun resolveHeldItem(itemId: Int, gameId: Int, pack: GameDataPack): ItemDatabase.ItemInfo = when {
+    gameId != UNBOUND_GAME_ID -> ItemDatabase.get(itemId, isExpansion = usesExpansionItems(gameId))
+    pack === UnboundDataPack || itemId <= 0 -> UnboundDataPack.getItem(itemId)
+    else -> ItemDatabase.ItemInfo(itemId, "Item #$itemId")
+}

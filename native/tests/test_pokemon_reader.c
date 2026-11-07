@@ -2171,7 +2171,8 @@ static void test_party_discovery_policy_assignments(void) {
     const GameMemoryConfig* radical_red = pokemon_get_game_config(GAME_RADICAL_RED);
     TEST_ASSERT(radical_red != NULL && radical_red->player_party_policy == PARTY_DISCOVERY_HEURISTIC,
                 "Radical Red must use PARTY_DISCOVERY_HEURISTIC");
-    TEST_ASSERT(radical_red->storage_layout == PKMN_STORAGE_CFRU, "Radical Red must use CFRU storage");
+    TEST_ASSERT(radical_red->storage_layout == PKMN_STORAGE_CFRU_UNVERIFIED,
+                "Radical Red must use CFRU storage without Unbound ability/shiny semantics");
 
     // Exact-ROM getters and runtime observations now establish Unbound's static party authority.
     const GameMemoryConfig* unbound = pokemon_get_game_config(GAME_UNBOUND);
@@ -3780,6 +3781,44 @@ static void test_vanilla_shiny_threshold_unchanged(void) {
     }
     g_tests_passed++;
     printf(ANSI_GREEN "  [PASS] test_vanilla_shiny_threshold_unchanged" ANSI_RESET "\n");
+}
+
+static void test_radical_red_ability_and_shiny_unknown(void) {
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_RADICAL_RED);
+    const uint16_t shiny_values[] = {0, 15, 16, 0xFFFF};
+    for (unsigned hidden = 0; hidden < 2; hidden++) {
+        for (unsigned i = 0; i < sizeof(shiny_values) / sizeof(shiny_values[0]); i++) {
+            RawGbaPokemon raw = {.pid = 3, .otid = 3 ^ shiny_values[i]};
+            SubstructGrowth g = {.species = 25};
+            SubstructAttacks a = {0}; SubstructEVs e = {0};
+            SubstructMisc m = {.iv_egg_ability = hidden << 31};
+            pack_cfru_fixed((uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
+                            raw.raw_substructures, &raw.checksum);
+            ParsedPokemon parsed;
+            TEST_ASSERT(pokemon_parse_single_layout((uint8_t*)&raw, false, cfg->storage_layout, &parsed),
+                        "Radical Red CFRU record must still parse");
+            TEST_ASSERT(!parsed.ability_slot_known && parsed.shiny_state == PKMN_SHINY_UNKNOWN && !parsed.is_shiny,
+                        "Unbound ability/shiny evidence must not apply to Radical Red");
+        }
+    }
+    g_tests_passed++;
+}
+
+static void test_saveblock_aslr_range_requires_full_word(void) {
+    static FakeGba gba;
+    fake_gba_init(&gba, true, true);
+    GameMemoryConfig cfg = *pokemon_get_game_config(GAME_UNBOUND);
+    write32_le_t(gba.iwram + 0x5008, cfg.save_block1_base_gba_address);
+    PlayerLocationRaw loc;
+    for (unsigned range = 0; range < 4; range++) {
+        cfg.save_block1_aslr_range = range;
+        TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, &cfg, &loc) && !loc.is_valid,
+                    "ASLR ranges smaller than one aligned word must fail closed");
+    }
+    cfg.save_block1_aslr_range = 4;
+    TEST_ASSERT(pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, &cfg, &loc),
+                "a one-word window must still accept the exact base");
+    g_tests_passed++;
 }
 
 static void test_unbound_location_verified_saveblock(void) {
@@ -7136,6 +7175,8 @@ static void test_hns_battle_menu_reader(void) {
 static void test_unbound_battle_config(void);
 static void test_unbound_battle_gate(void);
 static void test_unbound_battle_send_out(void);
+static void test_unbound_second_battle_stale_mons(void);
+static void test_unbound_battler_identity_mismatch(void);
 static void test_unbound_enemy_occupancy(void);
 static void test_unbound_double_replacement_and_shift(void);
 static void test_unbound_battle_invalid_shapes(void);
@@ -7200,6 +7241,8 @@ int main(void) {
     test_cfru_full_width_party_ids();
     test_cfru_ability_slots();
     test_cfru_shiny_threshold();
+    test_radical_red_ability_and_shiny_unknown();
+    test_saveblock_aslr_range_requires_full_word();
     test_vanilla_shiny_threshold_unchanged();
     test_unbound_location_verified_saveblock();
     test_cfru_location_never_guesses_saveblock();
@@ -7275,6 +7318,8 @@ int main(void) {
     test_unbound_battle_config();
     test_unbound_battle_gate();
     test_unbound_battle_send_out();
+    test_unbound_second_battle_stale_mons();
+    test_unbound_battler_identity_mismatch();
     test_unbound_enemy_occupancy();
     test_unbound_double_replacement_and_shift();
     test_unbound_battle_invalid_shapes();
@@ -7288,6 +7333,18 @@ int main(void) {
 
 // Unbound battle regressions: invented records only; literal pins come from
 // docs/UNBOUND_BATTLE_{TRAINER,LIFECYCLE}_EVIDENCE.md, never a captured RAM record.
+static void unbound_battle_set_mon(HnsBattleFixture* fx, uint8_t battler, uint16_t species, uint16_t hp) {
+    hns_battle_set_mon(fx, battler, species, hp);
+    const uint8_t* ewram = fx->gba->ewram;
+    const uint8_t side = ewram[fx->cfg->battler_positions_offset + battler] & 1;
+    const uint8_t* index = ewram + fx->cfg->battler_party_indexes_offset + battler * 2;
+    const uint16_t slot = index[0] | ((uint16_t)index[1] << 8);
+    const uint8_t* party = ewram + (side ? fx->cfg->enemy_party_offset : fx->cfg->player_party_offset) + slot * 100;
+    uint8_t* mon = fx->gba->ewram + fx->cfg->battle_mons_offset + battler * 0x58;
+    memcpy(mon + 0x48, party, 4);
+    memcpy(mon + 0x54, party + 4, 4);
+}
+
 static void unbound_battle_fixture(HnsBattleFixture* fx, FakeGba* gba, bool two_opponents) {
     fake_gba_init(gba, true, true);
     pokemon_reader_reset();
@@ -7315,7 +7372,7 @@ static void unbound_battle_fixture(HnsBattleFixture* fx, FakeGba* gba, bool two_
     for (uint8_t b = 0; b < (two_opponents ? 4 : 2); b++) {
         uint8_t slot = b == 3 ? 3 : b / 2;
         hns_battle_set_battler(fx, b, b, slot);
-        hns_battle_set_mon(fx, b, 1000 + (b & 1) * 10 + slot, 50 + b);
+        unbound_battle_set_mon(fx, b, 1000 + (b & 1) * 10 + slot, 50 + b);
         uint8_t* mon = gba->ewram + 0x23BE4 + b * 0x58;
         mon[0x18] = 20; // CFRU type3; deliberately outside the stat-stage domain.
         memset(mon + 0x19, 6, 7);
@@ -7335,7 +7392,7 @@ static uint8_t unbound_enemy(FakeGba* gba, PartySnapshot* snapshot) {
 static void test_unbound_battle_config(void) {
     const GameMemoryConfig* c = pokemon_get_game_config(GAME_UNBOUND);
     TEST_ASSERT(c->battle_mons_offset == 0x23BE4 && c->battle_mons_size == 0x58 &&
-                c->battle_mons_hp_offset == 0x28 && c->battle_mons_stat_stages_offset == 0x18,
+                c->battle_mons_hp_offset == 0x28 && c->battle_mons_stat_stages_offset == 0,
                 "Unbound battle mon ABI must match the exact candidate evidence");
     TEST_ASSERT(c->battlers_count_offset == 0x23BCC && c->battler_party_indexes_offset == 0x23BCE &&
                 c->battler_positions_offset == 0x23BD6 && c->battle_type_flags_offset == 0x22B4C &&
@@ -7400,6 +7457,71 @@ static void test_unbound_battle_send_out(void) {
     g_tests_passed++;
 }
 
+static void test_unbound_second_battle_stale_mons(void) {
+    static FakeGba gba;
+    HnsBattleFixture fx; PartySnapshot enemy, player; BattleStateRaw state;
+    unbound_battle_fixture(&fx, &gba, false);
+    TEST_ASSERT(unbound_lifecycle(&gba, &state) == BATTLE_LIFECYCLE_ACTIVE &&
+                unbound_enemy(&gba, &enemy) == 1 && enemy.members[0].current_hp == 51,
+                "first battle must publish its live HP");
+    hns_battle_set_in_battle(&fx, false);
+    TEST_ASSERT(unbound_lifecycle(&gba, &state) == BATTLE_LIFECYCLE_INACTIVE,
+                "battle teardown leaves the old battler bytes intact");
+
+    // Review PoC: the next enemy record is loaded before stale gBattleMons is replaced.
+    RawGbaPokemon raw = {.pid = 0xBEEF, .otid = 0x99999999};
+    SubstructGrowth g = {.species = 1200, .experience = 8000};
+    SubstructAttacks a = {.moves = {33}, .pp = {20}};
+    SubstructEVs e = {0}; SubstructMisc m = {0};
+    pack_cfru_fixed((uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
+                    raw.raw_substructures, &raw.checksum);
+    raw.level = 20; raw.current_hp = raw.max_hp = 100;
+    raw.attack = raw.defense = raw.speed = raw.sp_attack = raw.sp_defense = 30;
+    memcpy(gba.ewram + fx.cfg->enemy_party_offset, &raw, sizeof(raw));
+    hns_battle_set_in_battle(&fx, true);
+    TEST_ASSERT(unbound_lifecycle(&gba, &state) == BATTLE_LIFECYCLE_INITIALIZING,
+                "a later battle must reject the previous battlers even with nonzero species");
+    TEST_ASSERT(unbound_enemy(&gba, &enemy) == 0 && !enemy.members[0].is_valid && !enemy.active_battler_known,
+                "stale enemy HP must not be published in a reused snapshot");
+    TEST_ASSERT(pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                fx.cfg, &player) == 3 && player.members[0].current_hp == 70 && !player.active_battler_known,
+                "an enemy identity mismatch must also suppress the player's stale HP override");
+    TEST_ASSERT(pokemon_read_battle_presence_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), fx.cfg) == 2,
+                "second-battle send-out presence must remain unknown");
+
+    unbound_battle_set_mon(&fx, 1, 1200, 100);
+    TEST_ASSERT(unbound_lifecycle(&gba, &state) == BATTLE_LIFECYCLE_ACTIVE &&
+                unbound_enemy(&gba, &enemy) == 1 && enemy.members[0].species == 1200 &&
+                enemy.members[0].current_hp == 100 && enemy.active_battler_known,
+                "matching new battle records must restore ACTIVE and current enemy HP");
+    TEST_ASSERT(pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                fx.cfg, &player) == 3 && player.members[0].current_hp == 50 && player.active_battler_known,
+                "matching identities must restore live player HP");
+    g_tests_passed++;
+}
+
+static void test_unbound_battler_identity_mismatch(void) {
+    static FakeGba gba;
+    HnsBattleFixture fx; PartySnapshot enemy, player; BattleStateRaw state;
+    const unsigned fields[] = {0x48, 0x54};
+    for (uint8_t b = 0; b < 4; b++) {
+        for (unsigned f = 0; f < sizeof(fields) / sizeof(fields[0]); f++) {
+            unbound_battle_fixture(&fx, &gba, true);
+            gba.ewram[fx.cfg->battle_mons_offset + b * 0x58 + fields[f]] ^= 1;
+            TEST_ASSERT(unbound_lifecycle(&gba, &state) == BATTLE_LIFECYCLE_INITIALIZING &&
+                        unbound_enemy(&gba, &enemy) == 0,
+                        "either identity field on either flank/side must gate the entire battle");
+            TEST_ASSERT(pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
+                        fx.cfg, &player) == 3 && player.members[0].current_hp == 70 && player.members[1].current_hp == 70,
+                        "identity mismatch must suppress every player HP override in doubles");
+            gba.ewram[fx.cfg->absent_battler_flags_offset] = 1u << b;
+            TEST_ASSERT(unbound_lifecycle(&gba, &state) == BATTLE_LIFECYCLE_ACTIVE,
+                        "an absent battler's stale identity must not gate present battlers");
+        }
+    }
+    g_tests_passed++;
+}
+
 static void test_unbound_enemy_occupancy(void) {
     static FakeGba gba;
     HnsBattleFixture fx; PartySnapshot snap; ActiveEnemyInfo info;
@@ -7412,7 +7534,7 @@ static void test_unbound_enemy_occupancy(void) {
                 "zero enemy count still publishes the mapped wild opponent");
     gba.ewram[0x2402A] = 255;
     TEST_ASSERT(unbound_enemy(&gba, &snap) == 1, "enemy count is never an occupancy input");
-    hns_battle_set_mon(&fx, 1, 1010, 0);
+    unbound_battle_set_mon(&fx, 1, 1010, 0);
     TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
                 fx.cfg, &snap, &info) == ACTIVE_ENEMY_SLOT && info.fainted && snap.members[0].current_hp == 0,
                 "HP zero keeps a fainted battler present until replacement/absence");
@@ -7432,18 +7554,18 @@ static void test_unbound_double_replacement_and_shift(void) {
                 !snap.members[1].is_valid && !snap.members[2].is_valid && snap.active_enemy_ambiguous &&
                 snap.opponent_battlers == 2 && !snap.active_battler_known,
                 "two trainers keep physical enemy slots 0/3 and never select one arbitrarily");
-    hns_battle_set_mon(&fx, 1, 1010, 0);
+    unbound_battle_set_mon(&fx, 1, 1010, 0);
     TEST_ASSERT(unbound_enemy(&gba, &snap) == 4 && snap.members[0].current_hp == 0,
                 "fainted opponent remains mapped before its replacement");
-    hns_battle_set_battler(&fx, 1, 1, 1); hns_battle_set_mon(&fx, 1, 1011, 41);
-    hns_battle_set_battler(&fx, 3, 3, 5); hns_battle_set_mon(&fx, 3, 1015, 45);
+    hns_battle_set_battler(&fx, 1, 1, 1); unbound_battle_set_mon(&fx, 1, 1011, 41);
+    hns_battle_set_battler(&fx, 3, 3, 5); unbound_battle_set_mon(&fx, 3, 1015, 45);
     TEST_ASSERT(unbound_enemy(&gba, &snap) == 6 && snap.members[1].species == 1011 &&
                 snap.members[5].species == 1015 && snap.members[5].current_hp == 45 &&
                 !snap.members[0].is_valid && !snap.members[3].is_valid && !snap.members[4].is_valid,
                 "replacement follows A slot1/B slot5 without retaining old or reserve records");
     uint8_t party_before[300];
     memcpy(party_before, gba.ewram + 0x24284, sizeof(party_before));
-    hns_battle_set_battler(&fx, 0, 0, 2); hns_battle_set_mon(&fx, 0, 1002, 22);
+    hns_battle_set_battler(&fx, 0, 0, 2); unbound_battle_set_mon(&fx, 0, 1002, 22);
     TEST_ASSERT(pokemon_read_player_party_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
                 fx.cfg, &player) == 3 && player.members[2].species == 1002 && player.members[2].current_hp == 22 &&
                 player.members[1].current_hp == 52 && player.members[0].current_hp == 70 && !player.active_battler_known,
@@ -7451,7 +7573,7 @@ static void test_unbound_double_replacement_and_shift(void) {
     TEST_ASSERT(memcmp(party_before, gba.ewram + 0x24284, sizeof(party_before)) == 0,
                 "Shift/reader must not reorder or write player records");
     gba.ewram[0x23D70] = 2;
-    hns_battle_set_battler(&fx, 3, 3, 4); hns_battle_set_mon(&fx, 3, 1014, 44);
+    hns_battle_set_battler(&fx, 3, 3, 4); unbound_battle_set_mon(&fx, 3, 1014, 44);
     TEST_ASSERT(pokemon_resolve_active_enemy(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram),
                 fx.cfg, &snap, &info) == ACTIVE_ENEMY_SLOT && info.battler_index == 3 && info.party_slot == 4 &&
                 snap.count == 5 && !snap.members[1].is_valid && snap.members[4].current_hp == 44,

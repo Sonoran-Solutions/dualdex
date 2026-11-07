@@ -117,15 +117,17 @@ typedef enum {
  *   CFRU (Unbound / Radical Red)
  *     - zero checksum selects plaintext, fixed GAEM substructures.
  *     - species, item and move IDs use full 16-bit fields.
- *     - IV-word bit 31 is a hidden-ability flag, not vanilla ability slot 1.
- *       Ability selection and the shiny threshold remain unknown to this reader.
+ *     - Unbound: IV-word bit 31 selects hidden ability, otherwise PID parity selects
+ *       the normal slot; shiny XOR threshold is 16 (UNBOUND_PARTY_SEMANTICS_EVIDENCE.md).
+ *     - Other CFRU games use CFRU_UNVERIFIED: ability slot and shininess stay unknown.
  *
  * The distinction is explicit configuration rather than a guess from species ID or ROM name.
  */
 typedef enum {
     PKMN_STORAGE_VANILLA_GEN3 = 0,
     PKMN_STORAGE_EXPANSION    = 1,
-    PKMN_STORAGE_CFRU         = 2
+    PKMN_STORAGE_CFRU         = 2, // exact Unbound semantics; retain the diagnostic ABI value
+    PKMN_STORAGE_CFRU_UNVERIFIED = 3
 } PokemonStorageLayout;
 
 /**

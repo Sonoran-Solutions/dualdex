@@ -1202,14 +1202,29 @@ class BattleConsoleTest {
 
     @Test
     fun testVanillaDamageWithUnobservedStagesIsUnavailable() {
+        val attacker = createTestPokemon(species = 6) // Charizard
+        val defender = createTestPokemon(species = 9) // Blastoise
+        val firePunch = MoveDatabase.get(7)
+        // Positive control: the same inputs with observed stages do produce an estimate.
+        val observed = BattlePresentationBuilder.build(
+            moveInfo = firePunch,
+            currentPp = 15,
+            attacker = attacker,
+            defender = defender,
+            profile = RomHackProfile.DEFAULT_FIRERED,
+            attackerStages = StatStages(),
+            defenderStages = StatStages(),
+            calculator = stubCalculator
+        )
+        assertEquals(DamageConfidence.ESTIMATE, observed.damageConfidence)
         for ((playerStages, enemyStages) in listOf(
             null to StatStages(), StatStages() to null
         )) {
             val presentation = BattlePresentationBuilder.build(
-                moveInfo = MoveDatabase.get(53), // Flamethrower
-                currentPp = 10,
-                attacker = createTestPokemon(),
-                defender = createTestPokemon(species = 9),
+                moveInfo = firePunch,
+                currentPp = 15,
+                attacker = attacker,
+                defender = defender,
                 profile = RomHackProfile.DEFAULT_FIRERED,
                 attackerStages = playerStages,
                 defenderStages = enemyStages,

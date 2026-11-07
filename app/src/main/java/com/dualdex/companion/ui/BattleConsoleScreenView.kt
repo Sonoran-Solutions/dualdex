@@ -1107,7 +1107,9 @@ class BattleConsoleScreenView(
 
         // Active stat stages chips (e.g. +1 Atk, -1 Def)
         holder.statChipsRow.removeAllViews()
-        val chips = summary.statStages?.activeStageChips() ?: listOf("Stages" to null)
+        // An absent participant has no stages to be unknown about; a present one with unread stages shows "?".
+        val chips = summary.statStages?.activeStageChips()
+            ?: if (summary.isEmpty) emptyList() else listOf("Stages" to null)
         chips.forEach { (stat, stage) ->
             val sign = StatStages.formatStage(stage)
             val color = when {

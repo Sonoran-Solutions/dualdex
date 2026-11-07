@@ -917,10 +917,9 @@ class BattleConsoleScreenView(
             null
         }
         val defender: ParsedPokemon? = if (inBattle &&
-            (enemyResolution.hasResolvedSlot || chosenDoublesEnemy != null) &&
-            activeEnemyIdx in enemies.indices
+            (enemyResolution.hasResolvedSlot || chosenDoublesEnemy != null)
         ) {
-            enemies[activeEnemyIdx].takeIf { !it.isEmpty && it.isValid }
+            enemies.getOrNull(activeEnemyIdx)
         } else {
             null
         }
@@ -1029,7 +1028,7 @@ class BattleConsoleScreenView(
 
     // ponytail: nextSlot is always null until a profile has a runtime-verified
     // gBattleStruct->monToSwitchIntoId address; pass it here once the native read exists.
-    private fun bindFoeTeam(enemies: List<ParsedPokemon>, activeSlot: Int?) {
+    private fun bindFoeTeam(enemies: List<ParsedPokemon?>, activeSlot: Int?) {
         val slots = foeTeamTracker.build(enemies, activeSlot, nextSlot = null, battleSession = viewModel.battleSessionId)
         foeTeamRow.visibility = if (slots.isEmpty()) View.GONE else View.VISIBLE
         while (foeTeamRow.childCount < slots.size) {

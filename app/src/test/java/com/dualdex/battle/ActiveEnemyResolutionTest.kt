@@ -236,6 +236,102 @@ class ActiveEnemyResolutionTest {
     }
 
     @Test
+    fun sparseParty_resolvesPhysicalSlotThreeAndOmitsEmptyRosterEntries() {
+        val mon0 = mon(150)
+        val mon3 = mon(153)
+        val empty = mon(0).copy(isEmpty = true)
+        val coordinator = EnemyResolutionCoordinator(
+            ActiveEnemyResolution(state = ActiveEnemyState.SLOT, partySlot = 3),
+            arrayOf(mon0, empty, empty, mon3),
+            true
+        )
+        val vm = verifiedViewModel(coordinator)
+        vm.pollTick()
+        vm.pollTick()
+
+        assertEquals(listOf(mon0, null, null, mon3), vm.enemyParty.value)
+        assertEquals(3, vm.activeEnemyMemberIndex.value)
+        assertEquals(3, vm.activeEnemyResolution.value.partySlot)
+        assertEquals(mon3, vm.enemyParty.value.getOrNull(vm.activeEnemyMemberIndex.value))
+        assertNull(vm.enemyParty.value.getOrNull(-1))
+        assertNull(vm.enemyParty.value.getOrNull(4))
+
+        val roster = FoeTeamTracker().build(vm.enemyParty.value, 3, null, vm.battleSessionId)
+        assertEquals(listOf(0, 3), roster.map { it.slot })
+        assertEquals(listOf(null, mon3.species), roster.map { it.speciesId })
+        assertEquals(listOf(false, true), roster.map { it.active })
+    }
+
+    @Test
+    fun sparseParty_emptyOrInvalidActiveSlotNeverResolvesToANeighbour() {
+        for (missing in listOf(mon(0).copy(isEmpty = true), mon(151).copy(isValid = false))) {
+            val coordinator = EnemyResolutionCoordinator(
+                ActiveEnemyResolution(state = ActiveEnemyState.SLOT, partySlot = 1),
+                arrayOf(mon(150), missing, missing, mon(153)),
+                true
+            )
+            val vm = verifiedViewModel(coordinator)
+            vm.pollTick()
+            vm.pollTick()
+
+            assertNull(vm.enemyParty.value.getOrNull(1))
+            assertEquals(-1, vm.activeEnemyMemberIndex.value)
+            assertNull(vm.enemyParty.value.getOrNull(vm.activeEnemyMemberIndex.value))
+            assertEquals(ActiveEnemyState.UNKNOWN, vm.activeEnemyResolution.value.state)
+            assertNull(vm.activeEnemyResolution.value.partySlot)
+            val roster = FoeTeamTracker().build(vm.enemyParty.value, 1, 2, vm.battleSessionId)
+            assertEquals(listOf(0, 3), roster.map { it.slot })
+            assertTrue(roster.none { it.active || it.next || it.revealed })
+        }
+    }
+
+    @Test
+    fun contiguousParty_preservesEveryActiveIndexAndRosterSlot() {
+        val party = arrayOf(mon(150), mon(151), mon(152))
+        val coordinator = EnemyResolutionCoordinator(
+            ActiveEnemyResolution(state = ActiveEnemyState.SLOT, partySlot = 0), party, true
+        )
+        val vm = verifiedViewModel(coordinator)
+        vm.pollTick()
+        vm.pollTick()
+
+        for (slot in party.indices) {
+            coordinator.resolution = coordinator.resolution.copy(partySlot = slot)
+            vm.pollTick()
+            assertEquals(party.toList(), vm.enemyParty.value)
+            assertEquals(slot, vm.activeEnemyMemberIndex.value)
+            assertEquals(slot, vm.activeEnemyResolution.value.partySlot)
+            assertEquals(party[slot], vm.enemyParty.value.getOrNull(vm.activeEnemyMemberIndex.value))
+            val roster = FoeTeamTracker().build(vm.enemyParty.value, slot, null, vm.battleSessionId)
+            assertEquals(listOf(0, 1, 2), roster.map { it.slot })
+            assertEquals(slot, roster.single { it.active }.slot)
+        }
+    }
+
+    @Test
+    fun manualEnemyParty_preservesSlotsAndClearsWhenNoValidMembersRemain() {
+        val vm = CompanionViewModel()
+        val empty = mon(0).copy(isEmpty = true)
+        val invalid = mon(151).copy(isValid = false)
+        val mon3 = mon(153)
+        vm.updateEnemyParty(listOf(mon(150), empty, invalid, mon3))
+        vm.setActiveEnemyMemberIndex(3)
+
+        assertTrue(vm.isInBattle.value)
+        assertEquals(3, vm.activeEnemyMemberIndex.value)
+        assertEquals(3, vm.activeEnemyResolution.value.partySlot)
+        assertEquals(mon3, vm.enemyParty.value.getOrNull(3))
+        vm.setActiveEnemyMemberIndex(1)
+        assertNull(vm.enemyParty.value.getOrNull(vm.activeEnemyMemberIndex.value))
+
+        vm.updateEnemyParty(listOf(empty, invalid, null))
+        assertTrue(vm.enemyParty.value.isEmpty())
+        assertFalse(vm.isInBattle.value)
+        assertEquals(-1, vm.activeEnemyMemberIndex.value)
+        assertNull(vm.activeEnemyResolution.value.partySlot)
+    }
+
+    @Test
     fun unknownResolution_reportsNoActiveEnemyIndex() {
         val coordinator = EnemyResolutionCoordinator(
             resolution = ActiveEnemyResolution(),

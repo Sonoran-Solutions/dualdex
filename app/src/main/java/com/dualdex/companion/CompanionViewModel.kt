@@ -77,8 +77,9 @@ class CompanionViewModel(
     private val _playerParty = MutableStateFlow<List<ParsedPokemon>>(emptyList())
     val playerParty: StateFlow<List<ParsedPokemon>> = _playerParty.asStateFlow()
 
-    private val _enemyParty = MutableStateFlow<List<ParsedPokemon>>(emptyList())
-    val enemyParty: StateFlow<List<ParsedPokemon>> = _enemyParty.asStateFlow()
+    /** Indexed by native party slot; empty/invalid records stay null instead of shifting slots. */
+    private val _enemyParty = MutableStateFlow<List<ParsedPokemon?>>(emptyList())
+    val enemyParty: StateFlow<List<ParsedPokemon?>> = _enemyParty.asStateFlow()
 
     private val _selectedMemberIndex = MutableStateFlow(0)
     val selectedMemberIndex: StateFlow<Int> = _selectedMemberIndex.asStateFlow()
@@ -527,10 +528,7 @@ class CompanionViewModel(
             }
         } else {
             enemyPartyStabilizer.onValidRead()
-            val enemyList = enemyPartyRaw.filterNotNull().filter { !it.isEmpty && it.isValid }
-            if (enemyList != _enemyParty.value) {
-                _enemyParty.value = enemyList
-            }
+            publishEnemyPartySlots(enemyPartyRaw.asList())
         }
 
         val presence = if (battleStateReadable) {
@@ -559,7 +557,7 @@ class CompanionViewModel(
             // resolves, which is a temporary UNKNOWN rather than the previous enemy.
             val enemyResolution = coreCoordinator.resolveActiveEnemy(gameId)
             val resolvedSlot = enemyResolution.partySlot
-                ?.takeIf { !enemyResolution.isFainted && it in _enemyParty.value.indices }
+                ?.takeIf { !enemyResolution.isFainted && _enemyParty.value.getOrNull(it) != null }
                 ?: -1
             if (resolvedSlot != _activeEnemyMemberIndex.value) {
                 _activeEnemyMemberIndex.value = resolvedSlot
@@ -778,7 +776,7 @@ class CompanionViewModel(
 
     fun setActiveEnemyMemberIndex(index: Int) {
         // Manual selection (parity with the manual party editor). The authoritative resolution is
-        // marked SLOT so the UI treats an explicitly chosen enemy as chosen, not as tracked.
+        // marked SLOT; index is a physical party slot, including when preceding slots are empty.
         _activeEnemyMemberIndex.value = index
         _activeEnemyResolution.value = if (index in 0..5) {
             com.dualdex.battle.ActiveEnemyResolution(
@@ -823,9 +821,14 @@ class CompanionViewModel(
         _playerParty.value = party
     }
 
-    fun updateEnemyParty(party: List<ParsedPokemon>) {
-        _enemyParty.value = party
-        val inBattle = party.isNotEmpty()
+    private fun publishEnemyPartySlots(party: List<ParsedPokemon?>) {
+        val slots = party.map { mon -> mon?.takeIf { !it.isEmpty && it.isValid } }
+        _enemyParty.value = if (slots.any { it != null }) slots else emptyList()
+    }
+
+    fun updateEnemyParty(party: List<ParsedPokemon?>) {
+        publishEnemyPartySlots(party)
+        val inBattle = _enemyParty.value.isNotEmpty()
         updateCoverageBattlePresence(inBattle)
         if (!inBattle) {
             _activeEnemyMemberIndex.value = -1

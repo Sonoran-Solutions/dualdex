@@ -496,7 +496,7 @@ class RomCompatibilityTest {
         enemyPartyToReturn = arrayOf(createMon(150))
         vm.pollTick()
         assertEquals(1, vm.enemyParty.value.size)
-        assertEquals(150, vm.enemyParty.value[0].species)
+        assertEquals(150, vm.enemyParty.value[0]?.species)
 
         // Reader failure (returns null): stabilizer retains observed enemy for 1..4 ticks
         enemyPartyToReturn = null

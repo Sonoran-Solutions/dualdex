@@ -132,11 +132,12 @@ class CompanionViewModel(
     private val _runtimeRomTrust = MutableStateFlow(RuntimeRomTrust())
     val runtimeRomTrust: StateFlow<RuntimeRomTrust> = _runtimeRomTrust.asStateFlow()
 
-    private val _playerStatStages = MutableStateFlow(com.dualdex.battle.StatStages())
-    val playerStatStages: StateFlow<com.dualdex.battle.StatStages> = _playerStatStages.asStateFlow()
+    // null means no battle stat stages were observed, including outside a battle.
+    private val _playerStatStages = MutableStateFlow<com.dualdex.battle.StatStages?>(null)
+    val playerStatStages: StateFlow<com.dualdex.battle.StatStages?> = _playerStatStages.asStateFlow()
 
-    private val _enemyStatStages = MutableStateFlow(com.dualdex.battle.StatStages())
-    val enemyStatStages: StateFlow<com.dualdex.battle.StatStages> = _enemyStatStages.asStateFlow()
+    private val _enemyStatStages = MutableStateFlow<com.dualdex.battle.StatStages?>(null)
+    val enemyStatStages: StateFlow<com.dualdex.battle.StatStages?> = _enemyStatStages.asStateFlow()
 
     private val _battleUiSnapshot = MutableStateFlow(com.dualdex.battle.BattleUiSnapshot())
     val battleUiSnapshot: StateFlow<com.dualdex.battle.BattleUiSnapshot> = _battleUiSnapshot.asStateFlow()
@@ -590,8 +591,8 @@ class CompanionViewModel(
                 _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             }
             _activePlayerBattlerIndex.value = -1
-            _playerStatStages.value = com.dualdex.battle.StatStages()
-            _enemyStatStages.value = com.dualdex.battle.StatStages()
+            _playerStatStages.value = null
+            _enemyStatStages.value = null
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
             // Live battler ability/types die with the battle: nothing is retained
             // through teardown, and the reader cannot serve stale gBattleMons words.
@@ -730,8 +731,8 @@ class CompanionViewModel(
         if (_battlePresence.value != com.dualdex.battle.BattlePresence.UNKNOWN) {
             _battlePresence.value = com.dualdex.battle.BattlePresence.UNKNOWN
         }
-        if (!_playerStatStages.value.isNeutral) _playerStatStages.value = com.dualdex.battle.StatStages()
-        if (!_enemyStatStages.value.isNeutral) _enemyStatStages.value = com.dualdex.battle.StatStages()
+        _playerStatStages.value = null
+        _enemyStatStages.value = null
         if (_battleUiSnapshot.value != com.dualdex.battle.BattleUiSnapshot()) {
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
@@ -811,8 +812,8 @@ class CompanionViewModel(
             _activeEnemyMemberIndex.value = -1
             _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             _activePlayerBattlerIndex.value = -1
-            _playerStatStages.value = com.dualdex.battle.StatStages()
-            _enemyStatStages.value = com.dualdex.battle.StatStages()
+            _playerStatStages.value = null
+            _enemyStatStages.value = null
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
     }
@@ -834,8 +835,8 @@ class CompanionViewModel(
             _activeEnemyMemberIndex.value = -1
             _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             _activePlayerBattlerIndex.value = -1
-            _playerStatStages.value = com.dualdex.battle.StatStages()
-            _enemyStatStages.value = com.dualdex.battle.StatStages()
+            _playerStatStages.value = null
+            _enemyStatStages.value = null
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
     }

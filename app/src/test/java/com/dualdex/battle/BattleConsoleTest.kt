@@ -1110,7 +1110,7 @@ class BattleConsoleTest {
         assertEquals(0, defaultStages.atk)
 
         // Test clamping via fromRawArray
-        val clamped = StatStages.fromRawArray(intArrayOf(-10, 10, 0, -4, 3, 7, -8))
+        val clamped = requireNotNull(StatStages.fromRawArray(intArrayOf(-10, 10, 0, -4, 3, 7, -8)))
         assertEquals(-6, clamped.atk)
         assertEquals(6, clamped.def)
         assertEquals(0, clamped.spe)
@@ -1132,6 +1132,92 @@ class BattleConsoleTest {
         assertEquals(1.0, StatStages.accuracyMultiplier(0), 0.001)
         assertEquals(4.0 / 3.0, StatStages.accuracyMultiplier(1), 0.001)
         assertEquals(0.75, StatStages.accuracyMultiplier(-1), 0.001)
+    }
+
+    @Test
+    fun testUnobservedStagesAndMultipliersDisplayUnknown() {
+        assertNull(StatStages.fromRawArray(null))
+        assertNull(StatStages.fromRawArray(IntArray(6)))
+        assertEquals(StatStages(), StatStages.fromRawArray(IntArray(7)))
+        assertEquals("?", StatStages.formatStage(null))
+        assertEquals("?", StatStages.formatStageWithMultiplier(null))
+        assertEquals("?", StatStages.formatStageWithMultiplier(null, accuracy = true))
+        assertEquals(
+            "+1 (${String.format("%.2f", 1.5)}×)",
+            StatStages.formatStageWithMultiplier(1)
+        )
+        assertEquals(
+            "+1 (${String.format("%.2f", 4.0 / 3.0)}×)",
+            StatStages.formatStageWithMultiplier(1, accuracy = true)
+        )
+    }
+
+    @Test
+    fun testSpeedComparisonWithUnobservedStagesIsUnknownNotTie() {
+        for ((playerStages, enemyStages) in listOf(
+            null to StatStages(), StatStages() to null, null to null
+        )) {
+            val comparison = SpeedComparison.calculate(
+                playerBaseSpeed = 100, playerStages = playerStages,
+                enemyBaseSpeed = 100, enemyStages = enemyStages
+            )
+            assertNull(comparison.playerMovesFirst)
+            assertFalse(comparison.isSpeedTie)
+            assertFalse(comparison.isDefinitive)
+            assertEquals("Speed unknown", comparison.orderLabel)
+            if (playerStages == null) assertNull(comparison.playerEffectiveSpeed)
+            else assertEquals(100, comparison.playerEffectiveSpeed)
+            if (enemyStages == null) assertNull(comparison.enemyEffectiveSpeed)
+            else assertEquals(100, comparison.enemyEffectiveSpeed)
+        }
+        val priority = SpeedComparison.calculate(
+            playerBaseSpeed = 100, playerStages = null,
+            enemyBaseSpeed = 100, enemyStages = null, playerMovePriority = 1
+        )
+        assertEquals(true, priority.playerMovesFirst)
+        assertTrue(priority.isDefinitive)
+        assertNull(priority.playerEffectiveSpeed)
+        assertNull(priority.enemyEffectiveSpeed)
+    }
+
+    @Test
+    fun testUnknownStagesPropagateThroughSummariesAndFieldStatus() {
+        val attacker = createTestPokemon()
+        val defender = createTestPokemon(species = 9)
+        val summary = ParticipantSummaryBuilder.build(
+            attacker, 0, RomHackProfile.DEFAULT_FIRERED, statStages = null
+        )
+        assertNull(summary.statStages)
+        assertNull(summary.effectiveSpeed)
+        val field = FieldStatusBuilder.build(
+            inBattle = true, attacker = attacker, defender = defender,
+            playerStages = StatStages(), enemyStages = null
+        )
+        assertNull(field.opponent.statStages)
+        assertNull(field.opponent.effectiveSpeed)
+        val comparison = requireNotNull(field.speedComparison)
+        assertNull(comparison.playerMovesFirst)
+        assertFalse(comparison.isSpeedTie)
+    }
+
+    @Test
+    fun testVanillaDamageWithUnobservedStagesIsUnavailable() {
+        for ((playerStages, enemyStages) in listOf(
+            null to StatStages(), StatStages() to null
+        )) {
+            val presentation = BattlePresentationBuilder.build(
+                moveInfo = MoveDatabase.get(53), // Flamethrower
+                currentPp = 10,
+                attacker = createTestPokemon(),
+                defender = createTestPokemon(species = 9),
+                profile = RomHackProfile.DEFAULT_FIRERED,
+                attackerStages = playerStages,
+                defenderStages = enemyStages,
+                calculator = BattleDamageCalculator { error("Unread stages must not become neutral damage boosts") }
+            )
+            assertEquals(DamageConfidence.UNAVAILABLE, presentation.damageConfidence)
+            assertTrue(presentation.damageRange.isEmpty())
+        }
     }
 
     // 12. Speed comparison: stages, paralysis, tailwind, trick room, priority
@@ -1368,7 +1454,7 @@ class BattleConsoleTest {
         val mon = createTestPokemon(species = 6) // Speed = 100
         val summaryNeutral = ParticipantSummaryBuilder.build(mon, 0, RomHackProfile.DEFAULT_FIRERED)
         assertEquals(100, summaryNeutral.effectiveSpeed)
-        assertTrue(summaryNeutral.statStages.isNeutral)
+        assertTrue(requireNotNull(summaryNeutral.statStages).isNeutral)
 
         // With +2 speed stage: 100 * 2.0 = 200
         val summaryBoosted = ParticipantSummaryBuilder.build(
@@ -1376,8 +1462,8 @@ class BattleConsoleTest {
             statStages = StatStages(spe = 2, spa = 1)
         )
         assertEquals(200, summaryBoosted.effectiveSpeed)
-        assertEquals(2, summaryBoosted.statStages.spe)
-        assertEquals(1, summaryBoosted.statStages.spa)
+        assertEquals(2, requireNotNull(summaryBoosted.statStages).spe)
+        assertEquals(1, requireNotNull(summaryBoosted.statStages).spa)
 
         // Paralyzed with -1 speed stage: 100 * (2/3) * 0.25 = 16
         val monParalyzed = createTestPokemon(species = 6, statusCondition = 1L shl 6)

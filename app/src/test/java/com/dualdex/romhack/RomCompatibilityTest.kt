@@ -288,7 +288,7 @@ class RomCompatibilityTest {
         assertEquals(BattlePresence.UNKNOWN, vm.battlePresence.value)
         assertNull("Location must be cleared immediately", vm.playerLocation.value)
         assertNull("Resolved location must be cleared", vm.resolvedLocation.value)
-        assertTrue("Stat stages must be neutral", vm.playerStatStages.value.isNeutral)
+        assertNull("Stat stages must be unobserved", vm.playerStatStages.value)
         assertEquals(BattleUiSnapshot(), vm.battleUiSnapshot.value)
         assertFalse("Live memory polling must be disabled", vm.runtimeRomTrust.value.mayReadLiveMemory)
     }

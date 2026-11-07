@@ -429,6 +429,21 @@ static const GameMemoryConfig CONFIG_UNBOUND = {
     .player_party_count_offset = 0x24029,
     .enemy_party_offset = 0x2402C,
     .enemy_party_count_offset = 0x2402A,
+    // Exact-candidate globals: docs/UNBOUND_BATTLE_TRAINER_EVIDENCE.md, Production implications.
+    // The enemy count byte stays zero; only mapped opponent battlers establish occupancy.
+    .battle_mons_offset = 0x23BE4,
+    .battle_mons_size = 0x58,
+    .battle_mons_hp_offset = 0x28,
+    .battle_mons_stat_stages_offset = 0x18, // CFRU type3 here; stages are +1..+7 only.
+    .battlers_count_offset = 0x23BCC,
+    .battler_party_indexes_offset = 0x23BCE,
+    .battler_positions_offset = 0x23BD6,
+    .battle_type_flags_offset = 0x22B4C,
+    .battle_outcome_offset = 0x23E8A,
+    .absent_battler_flags_offset = 0x23D70,
+    .main_struct_gba_address = 0x030030F0,
+    .main_in_battle_byte_offset = 0x439,
+    .main_in_battle_bit = 1,
     // Exact-ROM getters and observed count/base/100-byte stride: UNBOUND_PARTY_LAYOUT_EVIDENCE.md.
     .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .storage_layout = PKMN_STORAGE_CFRU,
@@ -986,7 +1001,7 @@ static bool read_battle_globals(
         return true;
     }
 
-    if (out->battle_outcome != 0) {
+    if (out->battle_outcome != 0 && config->game_id != GAME_UNBOUND) {
         // An outcome is recorded as soon as the battle engine decides it, while teardown is still
         // in progress. Reporting ENDING keeps the previous opponent off screen during teardown.
         out->lifecycle = BATTLE_LIFECYCLE_ENDING;
@@ -1047,6 +1062,53 @@ static bool read_battle_globals(
             out->kind = BATTLE_KIND_UNKNOWN;
             return true;
         }
+    }
+
+    if (config->game_id == GAME_UNBOUND) {
+        // docs/UNBOUND_BATTLE_TRAINER_EVIDENCE.md: only wild single (0x4) and
+        // two-opponent trainer double (0x20000D) were captured. Single-opponent trainer,
+        // wild double, ordinary trainer double and in-game partner fail closed until captured.
+        // Other CFRU modes/bits are source-only too. Outcome is diagnostic; gMain.inBattle
+        // stays authoritative through the win/run screen and teardown (both evidence docs).
+        const bool two_opponents = out->battle_type_flags == 0x20000Du && out->battlers_count == 4;
+        if ((!two_opponents && !(out->battle_type_flags == 0x4u && out->battlers_count == 2)) ||
+            !out->absent_flags_readable ||
+            (out->absent_battler_flags >> out->battlers_count) != 0) {
+            return true; // UNKNOWN, never fall back to the H&S flag definitions.
+        }
+        uint8_t positions_seen = 0;
+        uint8_t slots_seen[2] = {0, 0};
+        for (uint8_t b = 0; b < out->battlers_count; b++) {
+            const uint8_t pos = out->position[b];
+            const uint8_t slot = (uint8_t)out->party_index[b];
+            const uint8_t side = pos & 1u;
+            if ((positions_seen & (1u << pos)) || (!two_opponents && pos > 1) ||
+                (slots_seen[side] & (1u << slot)) ||
+                (two_opponents && side && (pos == 1 ? slot >= 3 : slot < 3))) {
+                return true;
+            }
+            positions_seen |= (uint8_t)(1u << pos);
+            slots_seen[side] |= (uint8_t)(1u << slot);
+            if (out->absent_battler_flags & (1u << b)) continue;
+            const size_t mon = config->battle_mons_offset + (size_t)b * config->battle_mons_size;
+            if (!config->battle_mons_offset || config->battle_mons_size < 0x20 ||
+                mon + config->battle_mons_size > ewram_size) return true;
+            const uint16_t species = read16_le(ewram + mon);
+            if (species == 0) {
+                // Send-out has not filled gBattleMons yet, even though indexes/count are set.
+                out->lifecycle = BATTLE_LIFECYCLE_INITIALIZING;
+                return true;
+            }
+            if (species >= 2000) return true;
+            // UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md: +0x18 is type3 (observed 20),
+            // not an HP stage. Validate only Atk..Evasion at +0x19..+0x1F.
+            for (size_t s = 0x19; s < 0x20; s++) {
+                if (ewram[mon + s] > 12) return true;
+            }
+        }
+        out->lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+        out->kind = two_opponents ? BATTLE_KIND_MULTI_OR_PARTNER : BATTLE_KIND_WILD_SINGLE;
+        return true;
     }
 
     out->lifecycle = BATTLE_LIFECYCLE_ACTIVE;
@@ -1430,6 +1492,17 @@ static void sync_live_player_battle_mon(
     if (!config || !state || !out_snapshot) return;
     if (out_snapshot->count == 0) return;
 
+    if (config->game_id == GAME_UNBOUND && state->lifecycle == BATTLE_LIFECYCLE_ACTIVE) {
+        // A double has no single active player, but both HP readings follow their mapped slots.
+        for (uint8_t b = 0; b < state->battlers_count; b++) {
+            BattlerTacticalState tactical;
+            read_battler_tactical_state(ewram, ewram_size, config, state, b, &tactical);
+            if (!position_is_opponent_side(tactical.position)) {
+                apply_battle_mon_hp(ewram, ewram_size, config, b, &tactical, out_snapshot);
+            }
+        }
+    }
+
     PlayerBattlerResolution player;
     resolve_single_player_battler(ewram, ewram_size, config, state, &player);
 
@@ -1712,6 +1785,40 @@ uint8_t pokemon_read_player_party_gba(
                                        have_battle_state ? &battle_state : NULL, out_snapshot);
 }
 
+static uint8_t read_unbound_enemy_party(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    const BattleStateRaw* state,
+    PartySnapshot* out_snapshot
+) {
+    // UNBOUND_BATTLE_TRAINER_EVIDENCE.md: neither 0x24028 nor 0x2402A is an
+    // occupancy signal. Publish only mapped, present battlers, preserving physical slots.
+    // ponytail: reserve/bench records stay unavailable; add them only with occupancy evidence.
+    clear_battle_derived_cache();
+    if (!state || state->lifecycle != BATTLE_LIFECYCLE_ACTIVE) return 0;
+    if (!config->enemy_party_offset ||
+        config->enemy_party_offset + 6 * sizeof(RawGbaPokemon) > ewram_size) return 0;
+
+    PartySnapshot snapshot = {0};
+    snapshot.active_battler_slot = -1;
+    snapshot.active_battler_index = -1;
+    for (uint8_t b = 0; b < state->battlers_count; b++) {
+        BattlerTacticalState tactical;
+        read_battler_tactical_state(ewram, ewram_size, config, state, b, &tactical);
+        if (!tactical.present || !position_is_opponent_side(tactical.position)) continue;
+        const uint8_t slot = (uint8_t)tactical.party_index;
+        const uint8_t* raw = ewram + config->enemy_party_offset + slot * sizeof(RawGbaPokemon);
+        if (!parse_party_mon(raw, config->storage_layout, &snapshot.members[slot]) ||
+            tactical.hp > snapshot.members[slot].max_hp) return 0;
+        if (snapshot.count <= slot) snapshot.count = slot + 1;
+        apply_battle_mon_hp(ewram, ewram_size, config, b, &tactical, &snapshot);
+    }
+    sync_live_enemy_battle_mon(ewram, ewram_size, config, state, &snapshot);
+    *out_snapshot = snapshot;
+    return snapshot.count;
+}
+
 /**
  * Read the enemy party from the authoritative `gEnemyPartyCount` symbol.
  *
@@ -1942,6 +2049,10 @@ uint8_t pokemon_read_enemy_party_gba(
         return 0;
     }
 
+    if (config->game_id == GAME_UNBOUND) {
+        return read_unbound_enemy_party(ewram, ewram_size, config,
+                                       have_battle_state ? &battle_state : NULL, out_snapshot);
+    }
     if (config->enemy_party_count_offset != 0) {
         return read_authoritative_enemy_party(ewram, ewram_size, config,
                                               have_battle_state ? &battle_state : NULL, out_snapshot);
@@ -3422,6 +3533,9 @@ bool pokemon_read_battle_stat_stages(
     uint8_t battler_index,
     int8_t out_stages[7]
 ) {
+    // This EWRAM-only API cannot reach Unbound's authoritative IWRAM gate. The H&S
+    // runtime ABI reader also deliberately remains unavailable for CFRU (including type3).
+    if (config && config->game_id == GAME_UNBOUND) return false;
     if (!ewram || !config_is_usable(config) || config->battle_mons_offset == 0 ||
         config->battle_mons_offset + ((size_t)(battler_index + 1) * config->battle_mons_size) > ewram_size) {
         return false;
@@ -3460,6 +3574,11 @@ uint32_t pokemon_read_battle_ui_gba(
     DualDexGbaReadFn read, void* user, const uint8_t* ewram, size_t ewram_size,
     const GameMemoryConfig* config
 ) {
+    if (config && config->game_id == GAME_UNBOUND) {
+        // No captured controller/menu layout; even the party menu is still inBattle.
+        return pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, NULL) ==
+               BATTLE_LIFECYCLE_ACTIVE ? 5 : 0;
+    }
     if (config != pokemon_get_game_config(GAME_HEART_AND_SOUL)) {
         return pokemon_read_battle_ui_state(ewram, ewram_size, config);
     }
@@ -3511,6 +3630,7 @@ uint8_t pokemon_read_battle_ui_state(
     size_t ewram_size,
     const GameMemoryConfig* config
 ) {
+    if (config && config->game_id == GAME_UNBOUND) return 0; // IWRAM gate unavailable
     if (!ewram || !config_is_usable(config) || config->battle_mons_offset == 0 ||
         config->battle_mons_offset + config->battle_mons_size > ewram_size) {
         return 0; // UNKNOWN

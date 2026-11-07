@@ -218,6 +218,8 @@ typedef struct {
  */
 typedef struct {
     uint8_t       count;
+    // Unbound enemy snapshots preserve physical slots: count is the occupied slot bound,
+    // and unmapped slots below it remain zeroed (!is_valid), never compacted or inferred.
     ParsedPokemon members[6];
     // Active battler -> party slot, or -1 when unknown. -1 is the only "unknown" encoding:
     // there is deliberately no "0 means unknown" reading, because slot 0 is a real and

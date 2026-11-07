@@ -213,9 +213,16 @@ data class StatStages(
     }
 
     companion object {
-        fun formatStage(stage: Int): String = when {
+        fun formatStage(stage: Int?): String = when {
+            stage == null -> "?"
             stage > 0 -> "+$stage"
             else -> stage.toString()
+        }
+
+        fun formatStageWithMultiplier(stage: Int?, accuracy: Boolean = false): String {
+            if (stage == null) return "?"
+            val multiplier = if (accuracy) accuracyMultiplier(stage) else statMultiplier(stage)
+            return "${formatStage(stage)} (${String.format("%.2f", multiplier)}×)"
         }
 
         fun statMultiplier(stage: Int): Double = when {
@@ -228,8 +235,9 @@ data class StatStages(
             else -> 3.0 / (3.0 - stage)
         }
 
-        fun fromRawArray(raw: IntArray?): StatStages {
-            if (raw == null || raw.size < 7) return StatStages()
+        /** Missing or incomplete reads are unknown; only observed stages are clamped. */
+        fun fromRawArray(raw: IntArray?): StatStages? {
+            if (raw == null || raw.size < 7) return null
             return StatStages(
                 atk = raw[0].coerceIn(-6, 6),
                 def = raw[1].coerceIn(-6, 6),
@@ -270,8 +278,8 @@ data class SideEffects(
 )
 
 data class SpeedComparison(
-    val playerEffectiveSpeed: Int,
-    val enemyEffectiveSpeed: Int,
+    val playerEffectiveSpeed: Int?,
+    val enemyEffectiveSpeed: Int?,
     val playerMovesFirst: Boolean?,
     val isSpeedTie: Boolean,
     val explanation: String,
@@ -283,30 +291,36 @@ data class SpeedComparison(
             isDefinitive && playerMovesFirst == false -> "Moves Second"
             playerMovesFirst == true -> "Faster (known modifiers)"
             playerMovesFirst == false -> "Slower (known modifiers)"
-            else -> "Speed Tie (known modifiers)"
+            isSpeedTie -> "Speed Tie (known modifiers)"
+            else -> "Speed unknown"
         }
 
     companion object {
         fun calculate(
             playerBaseSpeed: Int,
-            playerStages: StatStages = StatStages(),
+            playerStages: StatStages? = StatStages(),
             playerParalyzed: Boolean = false,
             playerTailwind: Boolean = false,
             enemyBaseSpeed: Int,
-            enemyStages: StatStages = StatStages(),
+            enemyStages: StatStages? = StatStages(),
             enemyParalyzed: Boolean = false,
             enemyTailwind: Boolean = false,
             trickRoom: Boolean = false,
             playerMovePriority: Int = 0,
             enemyMovePriority: Int = 0
         ): SpeedComparison {
-            var pSpeed = (playerBaseSpeed * StatStages.statMultiplier(playerStages.spe)).toInt()
-            if (playerParalyzed) pSpeed = (pSpeed * 0.25).toInt().coerceAtLeast(1)
-            if (playerTailwind) pSpeed *= 2
-
-            var eSpeed = (enemyBaseSpeed * StatStages.statMultiplier(enemyStages.spe)).toInt()
-            if (enemyParalyzed) eSpeed = (eSpeed * 0.25).toInt().coerceAtLeast(1)
-            if (enemyTailwind) eSpeed *= 2
+            val pSpeed = playerStages?.let {
+                var speed = (playerBaseSpeed * StatStages.statMultiplier(it.spe)).toInt()
+                if (playerParalyzed) speed = (speed * 0.25).toInt().coerceAtLeast(1)
+                if (playerTailwind) speed *= 2
+                speed
+            }
+            val eSpeed = enemyStages?.let {
+                var speed = (enemyBaseSpeed * StatStages.statMultiplier(it.spe)).toInt()
+                if (enemyParalyzed) speed = (speed * 0.25).toInt().coerceAtLeast(1)
+                if (enemyTailwind) speed *= 2
+                speed
+            }
 
             if (playerMovePriority != enemyMovePriority) {
                 val playerFirst = playerMovePriority > enemyMovePriority
@@ -320,6 +334,16 @@ data class SpeedComparison(
                     explanation = if (playerFirst) "Move priority ($sign) moves first"
                     else "Opponent priority ($sign) moves first",
                     isDefinitive = true
+                )
+            }
+
+            if (pSpeed == null || eSpeed == null) {
+                return SpeedComparison(
+                    playerEffectiveSpeed = pSpeed,
+                    enemyEffectiveSpeed = eSpeed,
+                    playerMovesFirst = null,
+                    isSpeedTie = false,
+                    explanation = "Speed order unknown: stat stages not observed"
                 )
             }
 
@@ -764,8 +788,8 @@ data class BattleParticipantSummary(
     val isVerified: Boolean,
     val isMissing: Boolean,
     val confidence: DataConfidence = if (isVerified) DataConfidence.VERIFIED else DataConfidence.UNAVAILABLE,
-    val statStages: StatStages = StatStages(),
-    val effectiveSpeed: Int = 0
+    val statStages: StatStages? = StatStages(),
+    val effectiveSpeed: Int? = null
 ) {
     val hpDisplay: String get() = "$currentHp/$maxHp"
     val isEmpty: Boolean get() = isMissing && !isVerified
@@ -784,8 +808,8 @@ data class BattleParticipantSummary(
             isVerified = false,
             isMissing = true,
             confidence = DataConfidence.UNAVAILABLE,
-            statStages = StatStages(),
-            effectiveSpeed = 0
+            statStages = null,
+            effectiveSpeed = null
         )
     }
 }
@@ -817,7 +841,7 @@ object ParticipantSummaryBuilder {
         mon: ParsedPokemon?,
         slot: Int,
         profile: RomHackProfile,
-        statStages: StatStages = StatStages(),
+        statStages: StatStages? = StatStages(),
         runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null,
         dataPack: GameDataPack = GameDataPackRegistry.getForProfile(profile.engine, profile.hasPhysSpecSplit, profile.gameDataPackId)
     ): BattleParticipantSummary {
@@ -836,7 +860,7 @@ object ParticipantSummaryBuilder {
                 isMissing = mon == null,
                 confidence = DataConfidence.UNAVAILABLE,
                 statStages = statStages,
-                effectiveSpeed = 0
+                effectiveSpeed = null
             )
         }
         val custom = profile.customSpecies[mon.species]
@@ -891,8 +915,10 @@ object ParticipantSummaryBuilder {
         }
 
         val isParalyzed = (mon.statusCondition and (1L shl 6)) != 0L
-        var effSpeed = (mon.speed * StatStages.statMultiplier(statStages.spe)).toInt()
-        if (isParalyzed) effSpeed = (effSpeed * 0.25).toInt().coerceAtLeast(1)
+        val effSpeed = statStages?.let {
+            val speed = (mon.speed * StatStages.statMultiplier(it.spe)).toInt()
+            if (isParalyzed) (speed * 0.25).toInt().coerceAtLeast(1) else speed
+        }
 
         return BattleParticipantSummary(
             slot = slot,
@@ -928,8 +954,8 @@ object BattlePresentationBuilder {
         profile: RomHackProfile,
         runtimeTrust: com.dualdex.romhack.RuntimeRomTrust? = null,
         calculator: BattleDamageCalculator = DefaultBattleDamageCalculator,
-        attackerStages: StatStages = StatStages(),
-        defenderStages: StatStages = StatStages(),
+        attackerStages: StatStages? = StatStages(),
+        defenderStages: StatStages? = StatStages(),
         weather: WeatherType = WeatherType.NONE,
         defenderSide: SideEffects = SideEffects(),
         hnsCalculationContext: BattleHnsCalculationContext? = null,
@@ -1008,7 +1034,7 @@ object BattlePresentationBuilder {
             range = hnsDamage.range
             koChance = hnsDamage.koChanceText
             damageScope = hnsDamage.damageScope
-        } else if (canCalculate) {
+        } else if (canCalculate && attackerStages != null && defenderStages != null) {
             val request = buildDamageRequest(
                 attacker = attacker,
                 defender = defender,
@@ -1127,8 +1153,8 @@ object FieldStatusBuilder {
         defender: ParsedPokemon?,
         attackerSlot: Int = 0,
         profile: RomHackProfile = RomHackProfile.DEFAULT_FIRERED,
-        playerStages: StatStages = StatStages(),
-        enemyStages: StatStages = StatStages(),
+        playerStages: StatStages? = StatStages(),
+        enemyStages: StatStages? = StatStages(),
         weather: WeatherType = WeatherType.NONE,
         playerSide: SideEffects = SideEffects(),
         enemySide: SideEffects = SideEffects(),

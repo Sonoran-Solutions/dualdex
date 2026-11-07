@@ -3710,13 +3710,14 @@ static void test_cfru_full_width_party_ids(void) {
     printf(ANSI_GREEN "  [PASS] test_cfru_full_width_party_ids" ANSI_RESET "\n");
 }
 
-static void test_cfru_ability_and_shiny_are_unknown(void) {
-    printf("Running test_cfru_ability_and_shiny_are_unknown...\n");
-    const uint16_t shiny_values[] = {0, 7, 8, 15, 128, 0xFFFF};
-    for (size_t i = 0; i < sizeof(shiny_values) / sizeof(shiny_values[0]); i++) {
+// These replace the former unknown verdicts: UNBOUND_PARTY_SEMANTICS_EVIDENCE.md
+// verifies PID normal-slot selection, the hidden bit and the shiny threshold in the exact ROM.
+static void test_cfru_ability_slots(void) {
+    printf("Running test_cfru_ability_slots...\n");
+    for (uint32_t pid = 2; pid <= 3; pid++) {
         for (unsigned hidden = 0; hidden < 2; hidden++) {
             RawGbaPokemon raw;
-            build_vanilla_mon(&raw, 1, 1 ^ shiny_values[i], 25, 30, 90, 0);
+            build_vanilla_mon(&raw, pid, 2, 25, 30, 90, 0);
             SubstructGrowth g = {.species = 25};
             SubstructAttacks a = {0};
             SubstructEVs e = {0};
@@ -3725,15 +3726,138 @@ static void test_cfru_ability_and_shiny_are_unknown(void) {
                             raw.raw_substructures, &raw.checksum);
             ParsedPokemon parsed;
             TEST_ASSERT(pokemon_parse_single_layout((uint8_t*)&raw, true, PKMN_STORAGE_CFRU, &parsed),
-                        "CFRU ability/shiny fixture must parse");
-            TEST_ASSERT(!parsed.ability_slot_known && parsed.ability_slot == 0 && parsed.ability_num == 0,
-                        "CFRU hidden-ability bit must not be presented as vanilla slot 1");
-            TEST_ASSERT(parsed.shiny_value == shiny_values[i] && parsed.shiny_state == PKMN_SHINY_UNKNOWN && !parsed.is_shiny,
-                        "unverified CFRU shiny threshold must remain unknown, including shiny value 15");
+                        "CFRU ability fixture must parse");
+            uint8_t slot = hidden ? 2 : (pid & 1);
+            TEST_ASSERT(parsed.ability_slot_known && parsed.ability_slot == slot && parsed.ability_num == slot,
+                        "hidden bit overrides PID parity; otherwise even selects 0 and odd selects 1");
+            TEST_ASSERT(parsed.nature == pid % 25 && parsed.hidden_nature == parsed.nature && !parsed.nature_modified,
+                        "CFRU nature must remain PID modulo 25");
         }
     }
     g_tests_passed++;
-    printf(ANSI_GREEN "  [PASS] test_cfru_ability_and_shiny_are_unknown" ANSI_RESET "\n");
+    printf(ANSI_GREEN "  [PASS] test_cfru_ability_slots" ANSI_RESET "\n");
+}
+
+static void test_cfru_shiny_threshold(void) {
+    printf("Running test_cfru_shiny_threshold...\n");
+    const uint16_t shiny_values[] = {0, 7, 8, 15, 16, 128, 0xFFFF};
+    for (size_t i = 0; i < sizeof(shiny_values) / sizeof(shiny_values[0]); i++) {
+        RawGbaPokemon raw;
+        const uint32_t pid = 0x12345679;
+        const uint32_t sid = 0xABCD;
+        uint16_t tid = sid ^ (pid >> 16) ^ (pid & 0xFFFF) ^ shiny_values[i];
+        build_vanilla_mon(&raw, pid, (sid << 16) | tid, 25, 30, 90, 0);
+        SubstructGrowth g = {.species = 25};
+        SubstructAttacks a = {0};
+        SubstructEVs e = {0};
+        SubstructMisc m = {0};
+        pack_cfru_fixed((uint8_t*)&g, (uint8_t*)&a, (uint8_t*)&e, (uint8_t*)&m,
+                        raw.raw_substructures, &raw.checksum);
+        ParsedPokemon parsed;
+        TEST_ASSERT(pokemon_parse_single_layout((uint8_t*)&raw, true, PKMN_STORAGE_CFRU, &parsed),
+                    "CFRU shiny fixture must parse");
+        bool shiny = shiny_values[i] < 16;
+        TEST_ASSERT(parsed.shiny_value == shiny_values[i] && parsed.is_shiny == shiny &&
+                    parsed.shiny_state == (shiny ? PKMN_SHINY_YES : PKMN_SHINY_NO),
+                    "CFRU XOR 15 is shiny, XOR 16 is not; both verdicts are known");
+    }
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_cfru_shiny_threshold" ANSI_RESET "\n");
+}
+
+static void test_vanilla_shiny_threshold_unchanged(void) {
+    printf("Running test_vanilla_shiny_threshold_unchanged...\n");
+    const uint16_t shiny_values[] = {7, 8, 15, 16};
+    for (size_t i = 0; i < sizeof(shiny_values) / sizeof(shiny_values[0]); i++) {
+        RawGbaPokemon raw;
+        build_vanilla_mon(&raw, 3, 3 ^ shiny_values[i], 25, 30, 90, 0);
+        ParsedPokemon parsed;
+        TEST_ASSERT(pokemon_parse_single((uint8_t*)&raw, true, &parsed), "vanilla fixture must parse");
+        bool shiny = shiny_values[i] < 8;
+        TEST_ASSERT(parsed.shiny_value == shiny_values[i] && parsed.is_shiny == shiny &&
+                    parsed.shiny_state == (shiny ? PKMN_SHINY_YES : PKMN_SHINY_NO),
+                    "vanilla must retain the exact less-than-8 threshold");
+    }
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_vanilla_shiny_threshold_unchanged" ANSI_RESET "\n");
+}
+
+static void test_unbound_location_verified_saveblock(void) {
+    printf("Running test_unbound_location_verified_saveblock...\n");
+    pokemon_reader_reset();
+    static FakeGba gba;
+    fake_gba_init(&gba, true, true);
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_UNBOUND);
+    // Synthetic numeric fields from the verified layout, not a ROM or save capture.
+    write32_le_t(gba.iwram + 0x5008, 0x0202552C);
+    uint8_t* sb1 = gba.ewram + 0x2552C;
+    write16_le_t(sb1, 6);
+    write16_le_t(sb1 + 2, 10);
+    sb1[4] = 1; sb1[5] = 7; sb1[6] = 3;
+    write16_le_t(sb1 + 8, 0xFFFF);
+    write16_le_t(sb1 + 10, 0xFFFF);
+    sb1[0x24] = 3; sb1[0x25] = 105;
+    PlayerLocationRaw loc;
+    TEST_ASSERT(pokemon_read_player_location_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &loc),
+                "Unbound must follow 0x03005008 to 0x0202552C");
+    TEST_ASSERT(loc.is_valid && loc.map_group == 1 && loc.map_num == 7 && loc.warp_id == 3 &&
+                loc.x == -1 && loc.y == -1 && loc.local_x == 6 && loc.local_y == 10 &&
+                loc.escape_map_group == 3 && loc.escape_map_num == 105 && !loc.is_indoors,
+                "Unbound must use pos 0, location 4, escape 0x24 and no indoor heuristic");
+    sb1[4] = 56;
+    TEST_ASSERT(pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc) && loc.map_group == 56,
+                "Unbound must accept group 56");
+    sb1[4] = 57;
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, NULL, 0, cfg, &loc) && !loc.is_valid,
+                "Unbound must reject group 57");
+
+    // The default bound remains 35 for layouts with no wider domain declaration.
+    const GameMemoryConfig* vanilla = pokemon_get_game_config(GAME_EMERALD);
+    uint8_t* legacy = gba.ewram + vanilla->player_party_offset - 0x238;
+    legacy[4] = 35;
+    TEST_ASSERT(pokemon_read_player_location(gba.ewram, sizeof(gba.ewram), vanilla, &loc) && loc.map_group == 35,
+                "vanilla must still accept group 35");
+    legacy[4] = 36;
+    TEST_ASSERT(!pokemon_read_player_location(gba.ewram, sizeof(gba.ewram), vanilla, &loc),
+                "vanilla must still reject group 36");
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_unbound_location_verified_saveblock" ANSI_RESET "\n");
+}
+
+static void test_cfru_location_never_guesses_saveblock(void) {
+    printf("Running test_cfru_location_never_guesses_saveblock...\n");
+    pokemon_reader_reset();
+    static FakeGba gba;
+    fake_gba_init(&gba, true, true);
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_UNBOUND);
+    // Old guess is 0x0202404C inside the enemy party; both zero and nonzero decoys look valid.
+    PlayerLocationRaw loc;
+    const uint32_t pointers[] = {0, 0x02025528, 0x02025530, 0x0202404C, 0x03005008};
+    for (unsigned decoy = 0; decoy < 2; decoy++) {
+        gba.ewram[0x24050] = decoy ? 3 : 0;
+        gba.ewram[0x24051] = decoy ? 7 : 0;
+        for (size_t i = 0; i < sizeof(pointers) / sizeof(pointers[0]); i++) {
+            write32_le_t(gba.iwram + 0x5008, pointers[i]);
+            TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), cfg, &loc) && !loc.is_valid,
+                        "a differing Unbound pointer must fail, never return the legacy decoy");
+        }
+    }
+    write32_le_t(gba.iwram + 0x5008, 0x0202552C);
+    TEST_ASSERT(!pokemon_read_player_location(gba.ewram, sizeof(gba.ewram), cfg, &loc) && !loc.is_valid,
+                "Unbound without IWRAM access must fail closed");
+    DualDexGbaRegionTable ewram_only;
+    gba_memory_map_clear(&ewram_only);
+    gba_memory_map_add(&ewram_only, gba.ewram, 0x02000000u, sizeof(gba.ewram), 0xFF000000u, 0u, 0u, 0u);
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &ewram_only, gba.ewram, sizeof(gba.ewram), cfg, &loc),
+                "unreadable Unbound pointer must fail closed");
+    GameMemoryConfig no_pointer = *cfg;
+    no_pointer.save_block1_ptr_gba_address = 0;
+    TEST_ASSERT(!pokemon_read_player_location_gba(fake_gba_read, &gba.table, gba.ewram, sizeof(gba.ewram), &no_pointer, &loc),
+                "a CFRU config without a pointer must never use the legacy guess");
+    TEST_ASSERT(!pokemon_read_player_location(gba.ewram, sizeof(gba.ewram), pokemon_get_game_config(GAME_RADICAL_RED), &loc),
+                "other CFRU configs also require their own verified location path");
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_cfru_location_never_guesses_saveblock" ANSI_RESET "\n");
 }
 
 static void test_legacy_location_never_falls_back_to_ewram(void) {
@@ -7067,7 +7191,11 @@ int main(void) {
     test_unbound_cfru_fixed_substructures();
     test_non_cfru_requires_encrypted_checksum();
     test_cfru_full_width_party_ids();
-    test_cfru_ability_and_shiny_are_unknown();
+    test_cfru_ability_slots();
+    test_cfru_shiny_threshold();
+    test_vanilla_shiny_threshold_unchanged();
+    test_unbound_location_verified_saveblock();
+    test_cfru_location_never_guesses_saveblock();
     test_legacy_location_never_falls_back_to_ewram();
     test_battle_presence_and_unknown_ui_state();
     test_unknown_game_fails_closed();

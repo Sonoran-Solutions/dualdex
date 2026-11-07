@@ -165,6 +165,8 @@ typedef struct {
     const char* nature_name;    // e.g. "Adamant", "Modest"
     bool     is_shiny;
     uint8_t  ability_slot;      // 0 = Ability 1, 1 = Ability 2, 2 = Hidden; check ability_slot_known
+    // CFRU consumers apply base-stat fallbacks: empty Hidden -> pid & 1, then empty
+    // Ability 2 -> Ability 1. This selection does not include save-dependent randomization.
     bool     is_egg;
     uint8_t  friendship;
     uint32_t experience;

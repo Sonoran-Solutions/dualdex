@@ -432,6 +432,15 @@ static const GameMemoryConfig CONFIG_UNBOUND = {
     // Exact-ROM getters and observed count/base/100-byte stride: UNBOUND_PARTY_LAYOUT_EVIDENCE.md.
     .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .storage_layout = PKMN_STORAGE_CFRU,
+    // UNBOUND_LOCATION_EVIDENCE.md: fixed base; the pointer must match exactly.
+    .save_block1_ptr_gba_address = 0x03005008,
+    .save_block1_base_gba_address = 0x0202552C,
+    .save_block1_aslr_range = 4,
+    .save_block1_size = 0x3D68, // CFRU/FireRed extent for bounds only; not runtime-verified.
+    .save_block1_pos_offset = 0x00,
+    .save_block1_location_offset = 0x04,
+    .save_block1_escape_warp_offset = 0x24,
+    .location_max_map_group = 56,
     .has_evs = true,
     .has_ivs = true
 };
@@ -691,10 +700,13 @@ bool pokemon_parse_single_layout(
         out->hidden_nature = (uint8_t)((out->pid % 25) ^ hidden_nature_modifier);
         out->nature_modified = (hidden_nature_modifier != 0);
     } else if (storage_layout == PKMN_STORAGE_CFRU) {
-        // Bit 31 selects a hidden ability, not vanilla slot 1. Normal-slot selection and the
-        // shiny threshold are not verified, so keep both verdicts unknown (and is_shiny false).
-        out->ability_slot_known = false;
-        out->shiny_state = PKMN_SHINY_UNKNOWN;
+        // Exact-ROM rules: UNBOUND_PARTY_SEMANTICS_EVIDENCE.md. Consumers resolve empty
+        // ability slots against base stats; this reader reports the stored selection only.
+        out->ability_slot = (iv_word >> 31) ? 2 : (out->pid & 1);
+        out->ability_num = out->ability_slot;
+        out->ability_slot_known = true;
+        out->is_shiny = out->shiny_value < 16;
+        out->shiny_state = out->is_shiny ? PKMN_SHINY_YES : PKMN_SHINY_NO;
     } else {
         // Vanilla Gen 3: bit 31 of the IV word is the ability slot. Unchanged.
         out->ability_slot = (uint8_t)((iv_word >> 31) & 0x01);
@@ -2155,8 +2167,9 @@ static bool decode_location_fields(
     int16_t esc_group = (int16_t)(int8_t)escape[0];
     int16_t esc_num = (int16_t)(int8_t)escape[1];
 
-    // Basic validity sanity check: valid map groups are typically 0..35 and map nums 0..130
-    if (map_group < 0 || map_group > 35 || map_num < 0 || map_num > 130) {
+    // Preserve the legacy bound unless this layout declares a verified wider domain.
+    int16_t max_map_group = config->location_max_map_group ? config->location_max_map_group : 35;
+    if (map_group < 0 || map_group > max_map_group || map_num < 0 || map_num > 130) {
         return false;
     }
 
@@ -2169,7 +2182,8 @@ static bool decode_location_fields(
     out_location->local_y = pos_y;
     out_location->escape_map_group = esc_group;
     out_location->escape_map_num = esc_num;
-    out_location->is_indoors = (map_group != 0);
+    // CFRU map groups do not establish FireRed-style indoor/outdoor semantics.
+    out_location->is_indoors = config->storage_layout != PKMN_STORAGE_CFRU && map_group != 0;
     out_location->is_valid = true;
     return true;
 }
@@ -2204,6 +2218,9 @@ bool pokemon_read_player_location_gba(
         if (!read(user, base, sb1, span)) return false;
         return decode_location_fields(sb1, span, config, out_location);
     }
+
+    // CFRU needs its own verified SaveBlock1 path, never a guess inside the enemy party.
+    if (config->storage_layout == PKMN_STORAGE_CFRU) return false;
 
     // Legacy layouts: SaveBlock1 is located relative to the live party offset.
     if (!ewram || ewram_size == 0) return false;

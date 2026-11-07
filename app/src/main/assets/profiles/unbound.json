@@ -14,9 +14,9 @@
   "enemyPartyOffset": 33701932,
   "docsUrl": "https://pokemonunboundpokedex.com/borrius/",
   "headerTitles": ["UNBOUND", "POKEMON UNBOUND"],
-  "sha256Hashes": [],
-  "isVerified": false,
-  "memoryLayoutVerified": false,
+  "sha256Hashes": ["7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"],
+  "isVerified": true,
+  "memoryLayoutVerified": true,
   "battleUiVerified": false,
   "interactiveControlsVerified": false,
   "gameDataPackId": "unbound_exact"

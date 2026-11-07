@@ -755,6 +755,22 @@ bool pokemon_read_battle_stat_stages(
 );
 
 /**
+ * Read Atk..Evasion stages (-6..+6), using the IWRAM lifecycle gate for Unbound.
+ * Unbound requires an active battle, an in-range battler with valid species, and
+ * all seven raw stages in 0..12; failure leaves out_stages untouched.
+ * Other games delegate to pokemon_read_battle_stat_stages() unchanged.
+ */
+bool pokemon_read_battle_stat_stages_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    uint8_t battler_index,
+    int8_t out_stages[7]
+);
+
+/**
  * Which active battler a live observation is requested for.
  *
  * The resolution of the concrete battler index is never the caller's job: the reader reuses the

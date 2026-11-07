@@ -434,6 +434,8 @@ static const GameMemoryConfig CONFIG_UNBOUND = {
     .battle_mons_offset = 0x23BE4,
     .battle_mons_size = 0x58,
     .battle_mons_hp_offset = 0x28,
+    // docs/UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md: +0x18 is type3; stages 1..7 at +0x19..0x1F.
+    .battle_mons_stat_stages_offset = 0x18,
     .battlers_count_offset = 0x23BCC,
     .battler_party_indexes_offset = 0x23BCE,
     .battler_positions_offset = 0x23BD6,
@@ -3595,6 +3597,48 @@ bool pokemon_read_battle_stat_stages(
     for (int i = 0; i < 7; i++) {
         if (out_stages[i] < -6) out_stages[i] = -6;
         if (out_stages[i] > 6) out_stages[i] = 6;
+    }
+    return true;
+}
+
+bool pokemon_read_battle_stat_stages_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    uint8_t battler_index,
+    int8_t out_stages[7]
+) {
+    if (!config || config->game_id != GAME_UNBOUND) {
+        return pokemon_read_battle_stat_stages(ewram, ewram_size, config, battler_index, out_stages);
+    }
+
+    BattleStateRaw battle;
+    if (!out_stages ||
+        pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, &battle) !=
+            BATTLE_LIFECYCLE_ACTIVE ||
+        battler_index >= battle.battlers_count || battler_index >= DUALDEX_MAX_BATTLERS) {
+        return false;
+    }
+
+    const size_t mon = config->battle_mons_offset + (size_t)battler_index * config->battle_mons_size;
+    const size_t stages_offset = config->battle_mons_stat_stages_offset;
+    if (!config->battle_mons_offset || config->battle_mons_size < 2 ||
+        mon + config->battle_mons_size > ewram_size ||
+        !stages_offset || stages_offset + 8 > config->battle_mons_size) {
+        return false;
+    }
+    const uint16_t species = read16_le(ewram + mon);
+    if (species == 0 || species >= 2000) return false;
+
+    // Skip CFRU type3 at the base, and validate everything before publishing any stages.
+    const uint8_t* stages = ewram + mon + stages_offset + 1;
+    for (size_t i = 0; i < 7; i++) {
+        if (stages[i] > 12) return false;
+    }
+    for (size_t i = 0; i < 7; i++) {
+        out_stages[i] = (int8_t)((int)stages[i] - 6);
     }
     return true;
 }

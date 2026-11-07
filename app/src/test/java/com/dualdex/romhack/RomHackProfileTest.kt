@@ -331,6 +331,7 @@ class RomHackProfileTest {
 
     // Real Unbound shape (docs/UNBOUND_RELEASE_EVIDENCE.md): FireRed header and code, 32 MiB.
     private val unboundSha = "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+    private val unknownSha = "0".repeat(64)
     private val unboundLength = 33_554_432L
 
     private fun gbaHeader(title: String, code: String) = ByteArray(192).also {
@@ -348,12 +349,56 @@ class RomHackProfileTest {
     }
 
     @Test
+    fun exactUnboundHashVerifiesRegardlessOfFilenameCaseOrKnownLength() {
+        val profiles = loadBundledProfiles()
+        assertEquals(listOf(unboundSha), profiles.single { it.id == "unbound" }.sha256Hashes)
+        for (sha in listOf(unboundSha, unboundSha.uppercase())) {
+            for (name in listOf("rom.gba", "Pokemon Unbound.gba", "Pokemon FireRed.gba", "")) {
+                for (length in listOf(unboundLength, null)) {
+                    val result = RomHackDetector.detectCompatibilityFromBytes(
+                        gbaHeader("POKEMON FIRE", "BPRE"), sha, profiles, name, length
+                    )
+                    assertEquals("unbound", result.profile.id)
+                    assertEquals(RomCompatibilityStatus.VERIFIED, result.status)
+                    assertEquals(ProfileMatchMethod.EXACT_SHA256, result.matchMethod)
+                    assertTrue(result.mayReadLiveMemory)
+                    val trust = RuntimeRomTrust.from(result, sha)
+                    assertTrue(trust.mayReadLiveMemory)
+                    assertFalse(trust.mayReadBattleState)
+                    assertSame(UnboundDataPack, GameDataPackRegistry.getForProfile(result.profile, sha))
+                    assertNull(CalcCapabilityPolicy.capabilityFor(result.profile))
+                    assertFalse(result.profile.battleUiVerified)
+                    assertFalse(result.profile.interactiveControlsVerified)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun oneCharacterDifferentUnboundHashNeverInheritsTrustFromFilename() {
+        val sha = unboundSha.dropLast(1) + "0"
+        val profiles = loadBundledProfiles()
+        assertTrue(profiles.none { p -> p.sha256Hashes.any { it.equals(sha, ignoreCase = true) } })
+        for (length in listOf(unboundLength, null)) {
+            val result = RomHackDetector.detectCompatibilityFromBytes(
+                gbaHeader("POKEMON FIRE", "BPRE"), sha, profiles, "Pokemon Unbound.gba", length
+            )
+            assertEquals("unbound", result.profile.id)
+            assertEquals(ProfileMatchMethod.FILENAME_KEYWORD, result.matchMethod)
+            assertNoVanillaTrust(result)
+            val pack = GameDataPackRegistry.getForProfile(result.profile, sha)
+            assertFalse(pack.allowGlobalFallback)
+            assertNull(pack.getSpecies(277))
+        }
+    }
+
+    @Test
     fun expandedFireRedHeaderWithUnknownHashIsAFireRedBasedHackNotVanilla() {
         val profiles = loadBundledProfiles()
-        assertTrue(profiles.none { unboundSha in it.sha256Hashes })
+        assertTrue(profiles.none { unknownSha in it.sha256Hashes })
         for (name in listOf("rom.gba", "Pokemon FireRed.gba", "")) {
             val result = RomHackDetector.detectCompatibilityFromBytes(
-                gbaHeader("POKEMON FIRE", "BPRE"), unboundSha, profiles, name, unboundLength
+                gbaHeader("POKEMON FIRE", "BPRE"), unknownSha, profiles, name, unboundLength
             )
             assertNoVanillaTrust(result)
             assertTrue(name, RomHackProfile.isUnsupportedPlaceholder(result.profile))
@@ -363,17 +408,17 @@ class RomHackProfileTest {
         }
         // Unknown length is not retail size, and the Emerald base game is gated the same way.
         assertNoVanillaTrust(
-            RomHackDetector.detectCompatibilityFromBytes(gbaHeader("POKEMON FIRE", "BPRE"), unboundSha, profiles, "rom.gba")
+            RomHackDetector.detectCompatibilityFromBytes(gbaHeader("POKEMON FIRE", "BPRE"), unknownSha, profiles, "rom.gba")
         )
         assertNoVanillaTrust(
-            RomHackDetector.detectCompatibilityFromBytes(gbaHeader("POKEMON EMER", "BPEE"), unboundSha, profiles, "rom.gba", unboundLength)
+            RomHackDetector.detectCompatibilityFromBytes(gbaHeader("POKEMON EMER", "BPEE"), unknownSha, profiles, "rom.gba", unboundLength)
         )
     }
 
     @Test
     fun unboundFilenameSelectsTheUnboundProfileUnverified() {
         val result = RomHackDetector.detectCompatibilityFromBytes(
-            gbaHeader("POKEMON FIRE", "BPRE"), unboundSha, loadBundledProfiles(), "Pokemon Unbound v2.1.1.1.gba", unboundLength
+            gbaHeader("POKEMON FIRE", "BPRE"), unknownSha, loadBundledProfiles(), "Pokemon Unbound v2.1.1.1.gba", unboundLength
         )
         assertEquals("unbound", result.profile.id)
         assertEquals(ProfileMatchMethod.FILENAME_KEYWORD, result.matchMethod)
@@ -385,7 +430,7 @@ class RomHackProfileTest {
         val profiles = loadBundledProfiles()
         val header = gbaHeader("POKEMON FIRE", "BPRE")
         val recognized = RomHackDetector.detectCompatibilityFromBytes(
-            header, unboundSha, profiles, "rom.gba", RomHackDetector.RETAIL_ROM_SIZE
+            header, unknownSha, profiles, "rom.gba", RomHackDetector.RETAIL_ROM_SIZE
         )
         assertEquals("vanilla_firered", recognized.profile.id)
         assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, recognized.status)

@@ -696,7 +696,8 @@ Java_com_dualdex_emulator_LibretroHost_nativeReadBattleStatStages(JNIEnv* env, j
     if (!cfg) return NULL;
 
     int8_t stages[7];
-    bool ok = pokemon_read_battle_stat_stages(ewram, ewram_sz, cfg, (uint8_t)battler_index, stages);
+    bool ok = pokemon_read_battle_stat_stages_gba(dualdex_jni_gba_read, NULL, ewram, ewram_sz,
+                                                cfg, (uint8_t)battler_index, stages);
     if (!ok) return NULL;
 
     jintArray result = (*env)->NewIntArray(env, 7);

@@ -7180,6 +7180,10 @@ static void test_unbound_battler_identity_mismatch(void);
 static void test_unbound_enemy_occupancy(void);
 static void test_unbound_double_replacement_and_shift(void);
 static void test_unbound_battle_invalid_shapes(void);
+static void test_unbound_battle_stat_stages(void);
+static void test_unbound_battle_stat_stages_gate(void);
+static void test_unbound_battle_stat_stages_invalid(void);
+static void test_battle_stat_stages_gba_legacy(void);
 
 int main(void) {
     printf("===================================================\n");
@@ -7323,6 +7327,10 @@ int main(void) {
     test_unbound_enemy_occupancy();
     test_unbound_double_replacement_and_shift();
     test_unbound_battle_invalid_shapes();
+    test_unbound_battle_stat_stages();
+    test_unbound_battle_stat_stages_gate();
+    test_unbound_battle_stat_stages_invalid();
+    test_battle_stat_stages_gba_legacy();
 
     printf("===================================================\n");
     printf("Results: %d Passed, %d Failed\n", g_tests_passed, g_tests_failed);
@@ -7392,7 +7400,7 @@ static uint8_t unbound_enemy(FakeGba* gba, PartySnapshot* snapshot) {
 static void test_unbound_battle_config(void) {
     const GameMemoryConfig* c = pokemon_get_game_config(GAME_UNBOUND);
     TEST_ASSERT(c->battle_mons_offset == 0x23BE4 && c->battle_mons_size == 0x58 &&
-                c->battle_mons_hp_offset == 0x28 && c->battle_mons_stat_stages_offset == 0,
+                c->battle_mons_hp_offset == 0x28 && c->battle_mons_stat_stages_offset == 0x18,
                 "Unbound battle mon ABI must match the exact candidate evidence");
     TEST_ASSERT(c->battlers_count_offset == 0x23BCC && c->battler_party_indexes_offset == 0x23BCE &&
                 c->battler_positions_offset == 0x23BD6 && c->battle_type_flags_offset == 0x22B4C &&
@@ -7401,6 +7409,119 @@ static void test_unbound_battle_config(void) {
     TEST_ASSERT(c->main_struct_gba_address == 0x030030F0 && c->main_in_battle_byte_offset == 0x439 &&
                 c->main_in_battle_bit == 1 && c->enemy_party_offset == 0x2402C,
                 "Unbound lifecycle gate must use absolute IWRAM with the verified byte/bit");
+    g_tests_passed++;
+}
+
+static void test_unbound_battle_stat_stages(void) {
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    unbound_battle_fixture(&fx, &gba, false);
+    const uint8_t raw[2][7] = {{12, 0, 6, 7, 5, 8, 4}, {5, 6, 7, 8, 9, 10, 11}};
+    for (uint8_t b = 0; b < 2; b++) {
+        uint8_t* mon = gba.ewram + 0x23BE4 + b * 0x58;
+        memcpy(mon + 0x19, raw[b], 7);
+        int8_t out[7];
+        TEST_ASSERT(mon[0x18] == 0x14, "fixture must contain CFRU TYPE_BLANK, not an HP stage");
+        TEST_ASSERT(pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                    sizeof(gba.ewram), fx.cfg, b, out), "live Unbound battler stages must be readable");
+        for (size_t i = 0; i < 7; i++) {
+            TEST_ASSERT(out[i] == (int)raw[b][i] - 6, "all seven stage indexes must match CFRU layout");
+        }
+        mon[0x18] = 0xFF;
+        int8_t other_type[7];
+        TEST_ASSERT(pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                    sizeof(gba.ewram), fx.cfg, b, other_type) && memcmp(out, other_type, 7) == 0,
+                    "type3 must have no influence on stage output");
+        TEST_ASSERT(!pokemon_read_battle_stat_stages(gba.ewram, sizeof(gba.ewram), fx.cfg, b, out),
+                    "EWRAM-only reader must still reject an active Unbound battle");
+    }
+    BattlerRuntimeState runtime;
+    TEST_ASSERT(!pokemon_read_battler_runtime_state_gba(fake_gba_read, &gba.table, gba.ewram,
+                sizeof(gba.ewram), fx.cfg, BATTLER_ROLE_PLAYER, &runtime),
+                "declaring stage base must not enable the unsupported H&S runtime ABI for Unbound");
+    g_tests_passed++;
+}
+
+static void test_unbound_battle_stat_stages_gate(void) {
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    unbound_battle_fixture(&fx, &gba, false);
+    int8_t out[7];
+    hns_battle_set_in_battle(&fx, false);
+    TEST_ASSERT(!pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                sizeof(gba.ewram), fx.cfg, 1, out), "stale globals after teardown must not publish stages");
+    hns_battle_set_in_battle(&fx, true);
+    const uint8_t invalid_indexes[] = {2, 3, 4, 255};
+    for (size_t i = 0; i < sizeof(invalid_indexes); i++) {
+        TEST_ASSERT(!pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                    sizeof(gba.ewram), fx.cfg, invalid_indexes[i], out),
+                    "battler index must be below both the live count and four");
+    }
+    TEST_ASSERT(!pokemon_read_battle_stat_stages_gba(NULL, NULL, gba.ewram,
+                sizeof(gba.ewram), fx.cfg, 0, out), "missing IWRAM reader must fail closed");
+    TEST_ASSERT(!pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                0x23BE4 + 0x58, fx.cfg, 1, out), "truncated battler storage must fail closed");
+    gba.table.count = 0;
+    TEST_ASSERT(!pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                sizeof(gba.ewram), fx.cfg, 0, out), "unmapped IWRAM gate must fail closed");
+    g_tests_passed++;
+}
+
+static void test_unbound_battle_stat_stages_invalid(void) {
+    static FakeGba gba;
+    HnsBattleFixture fx;
+    const int8_t sentinel[7] = {42, 42, 42, 42, 42, 42, 42};
+    int8_t out[7];
+    const uint8_t invalid_stages[] = {13, 0xFF};
+    const uint16_t invalid_species[] = {0, 2000, 0xFFFF};
+    for (uint8_t b = 0; b < 2; b++) {
+        unbound_battle_fixture(&fx, &gba, false);
+        uint8_t* mon = gba.ewram + 0x23BE4 + b * 0x58;
+        // An absent battler is skipped by the lifecycle validator: the stage API must
+        // independently validate the requested record too.
+        gba.ewram[fx.cfg->absent_battler_flags_offset] = 1u << b;
+        for (size_t i = 0; i < 7; i++) {
+            for (size_t v = 0; v < sizeof(invalid_stages); v++) {
+                mon[0x19 + i] = invalid_stages[v];
+                memcpy(out, sentinel, sizeof(out));
+                TEST_ASSERT(!pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                            sizeof(gba.ewram), fx.cfg, b, out) && memcmp(out, sentinel, sizeof(out)) == 0,
+                            "any invalid stage must reject the whole read without clamping or partial output");
+            }
+            mon[0x19 + i] = 6;
+        }
+        for (size_t i = 0; i < sizeof(invalid_species) / sizeof(invalid_species[0]); i++) {
+            write16_le_t(mon, invalid_species[i]);
+            TEST_ASSERT(!pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                        sizeof(gba.ewram), fx.cfg, b, out), "empty or out-of-range species must be rejected");
+        }
+        gba.ewram[fx.cfg->absent_battler_flags_offset] = 0;
+        TEST_ASSERT(!pokemon_read_battle_stat_stages_gba(fake_gba_read, &gba.table, gba.ewram,
+                    sizeof(gba.ewram), fx.cfg, b, out), "invalid present battler must fail lifecycle validation");
+    }
+    g_tests_passed++;
+}
+
+static void test_battle_stat_stages_gba_legacy(void) {
+    static FakeGba gba;
+    fake_gba_init(&gba, false, true);
+    const GameMemoryConfig* cfg = pokemon_get_game_config(GAME_FIRERED);
+    const uint8_t raw[7] = {5, 0, 12, 13, 0xFF, 6, 7};
+    for (uint8_t b = 0; b < 2; b++) {
+        uint8_t* mon = gba.ewram + cfg->battle_mons_offset + b * cfg->battle_mons_size;
+        write16_le_t(mon, 25);
+        memcpy(mon + cfg->battle_mons_stat_stages_offset + 1, raw, 7);
+        int8_t old[7], via_gba[7];
+        TEST_ASSERT(pokemon_read_battle_stat_stages(gba.ewram, sizeof(gba.ewram), cfg, b, old) &&
+                    pokemon_read_battle_stat_stages_gba(NULL, NULL, gba.ewram, sizeof(gba.ewram),
+                                                      cfg, b, via_gba) &&
+                    memcmp(old, via_gba, sizeof(old)) == 0,
+                    "FireRed must delegate unchanged, including legacy clamping and no IWRAM requirement");
+        write16_le_t(mon, 0);
+        TEST_ASSERT(!pokemon_read_battle_stat_stages(gba.ewram, sizeof(gba.ewram), cfg, b, old) &&
+                    !pokemon_read_battle_stat_stages_gba(NULL, NULL, gba.ewram, sizeof(gba.ewram),
+                                                       cfg, b, via_gba), "legacy failure must also be unchanged");
+    }
     g_tests_passed++;
 }
 

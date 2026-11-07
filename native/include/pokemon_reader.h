@@ -316,14 +316,15 @@ typedef struct {
 
     // SaveBlock1 resolution. When `save_block1_ptr_gba_address` is non-zero the active base is
     // read from that absolute GBA address (IWRAM) on every call; a zero value selects the legacy
-    // "derive from the party offset" behaviour used by the vanilla games.
+    // "derive from the party offset" behaviour used by the vanilla games (never CFRU).
     uint32_t save_block1_ptr_gba_address;    // absolute GBA address, 0 = legacy derivation
     uint32_t save_block1_base_gba_address;   // absolute GBA address of the ASLR storage block
-    uint32_t save_block1_aslr_range;         // size of the randomized window, 0 = no window
+    uint32_t save_block1_aslr_range;         // aligned window in bytes; 4 = exact base, 0 = undeclared
     uint32_t save_block1_size;               // sizeof(struct SaveBlock1)
     uint32_t save_block1_pos_offset;         // struct-relative offset of SaveBlock1.pos
     uint32_t save_block1_location_offset;    // struct-relative offset of SaveBlock1.location
     uint32_t save_block1_escape_warp_offset; // struct-relative offset of SaveBlock1.escapeWarp
+    uint8_t  location_max_map_group;        // inclusive bound; 0 preserves the vanilla bound of 35
 
     // SaveBlock3 resolution (Heart & Soul 2.0.5 ChallengeSettings). Both fields are absolute
     // GBA addresses; a zero value means "this layout does not declare SaveBlock3" and the
@@ -666,7 +667,7 @@ typedef struct {
  * back to a cached party offset or a FireRed-style SaveBlock1 base for an unknown game.
  *
  * This entry point has no IWRAM access, so for a layout that resolves SaveBlock1 through an
- * IWRAM pointer (Heart & Soul 2.0.5) it always fails closed. Use
+ * IWRAM pointer (Heart & Soul 2.0.5 or Unbound) it always fails closed. Use
  * pokemon_read_player_location_gba() with a region-checked reader for those layouts.
  */
 bool pokemon_read_player_location(
@@ -686,7 +687,8 @@ bool pokemon_read_player_location(
  * expected EWRAM window, and then used for the location fields. Nothing is scanned or guessed:
  * an out-of-range, misaligned, truncated or unmapped pointer fails closed.
  *
- * When @p config declares no pointer address, behaviour is identical to
+ * CFRU configs without a declared pointer fail closed. For other configs without a pointer,
+ * behaviour is identical to
  * pokemon_read_player_location() and @p read is unused.
  *
  * @param read Bounds-checked absolute GBA address reader, or NULL when unavailable.
@@ -742,6 +744,7 @@ bool pokemon_read_challenge_settings_gba(
  * Returns true if in battle and stat stages read successfully into out_stages (7 signed ints: atk, def, spe, spa, spd, acc, eva).
  * Values are stages in range -6..+6.
  * Returns false for a NULL or GAME_UNKNOWN configuration.
+ * Unbound also returns false: this EWRAM-only API cannot read its gMain.inBattle gate.
  */
 bool pokemon_read_battle_stat_stages(
     const uint8_t* ewram,

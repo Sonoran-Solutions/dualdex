@@ -7,8 +7,16 @@ checkpoint `982224b`. Attempt 2 replaces the earlier unmeasured/blocked identity
 
 **VERIFIED:** the identities below were measured from both owner-supplied files,
 not copied from the task assertions. **NOT_VERIFIED:** official patch provenance,
-numeric release label, runtime layout, and production support. The SHA-256 guard
-is diagnostic only; no production profile or trusted-hash registration changed.
+numeric release label, runtime layout, and production support were not established by
+that static inspection.
+
+**2026-11-07 owner decision:** the exact candidate SHA-256 below is bound to `unbound`
+with `isVerified` and `memoryLayoutVerified` true, opening live memory reads for
+exactly those bytes. `patch_to_rom_identity` remains **UNVERIFIED**; this binding
+does not establish publisher-patch identity. `battleUiVerified` and
+`interactiveControlsVerified` remain false; the Unbound calculator remains refused.
+Owner save-state captures (single-trainer battle, wild double, player faint) and
+the Thor device check remain **OUTSTANDING**.
 
 ## Exact bytes
 
@@ -65,7 +73,7 @@ the archive; it is not assumed to be `2.1.1.1.ups`. The Battle Frontier demo, a
 translation, an audio/performance modification, or an unofficial mirror is not
 this prerequisite. Validate the patch format and input checksums, apply in memory
 to the measured base, and compare every candidate byte. Until then,
-`patch_to_rom_identity` remains **NOT_VERIFIED**. A publisher label alone cannot
+`patch_to_rom_identity` remains **UNVERIFIED**. A publisher label alone cannot
 bind this candidate to that release.
 
 ## Reproduction and validation

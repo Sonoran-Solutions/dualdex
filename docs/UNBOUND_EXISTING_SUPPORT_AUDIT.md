@@ -7,23 +7,22 @@ SHA-256 `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7`
 `unbound.json` flags, the header-title detection step, `isSupportedVanillaGen3`, the
 zero-checksum decode branch and `CONFIG_UNBOUND`. Items marked UNCONFIRMED were not traced.
 
-**Production status is unchanged: HOLD.** Nothing below is fixed by this research branch.
+**2026-11-07 owner decision:** the exact candidate SHA-256 above is now bound to
+`unbound` with `isVerified` and `memoryLayoutVerified` true. Publisher-patch identity
+(`patch_to_rom_identity`) remains **UNVERIFIED**. Owner save-state captures
+(single-trainer battle, wild double, player faint) and the Thor device check remain
+**OUTSTANDING**. The remaining audit sections below record the 2026-11-04 baseline,
+not a current implementation assessment.
 
-## What the app does today with this ROM
+## Current trust binding (2026-11-07)
 
-- **Profile selection is filename-driven**; the hash is in no profile.
-  - Filename containing "Unbound": profile `unbound`, `RECOGNIZED_UNVERIFIED` (`RomHackDetector.kt:99-114`).
-  - Any other filename: the header title matches `vanilla_firered` (`RomHackDetector.kt:119-128`),
-    so the ROM is presented as FireRed. `unbound.json` `headerTitles` (`UNBOUND`, `POKEMON UNBOUND`)
-    can never match the real header; `RomHackProfileTest.kt:300-306` tests an invented header.
-- **No live memory reads today**: `mayReadLiveMemory` requires VERIFIED via an exact SHA-256
-  (`RomCompatibility.kt:53-56`, `RuntimeRomTrust.kt:56-63`) plus the #204 BOUND/SHA binding.
-- **Latent fail-open**: `unbound.json` asserts `isVerified: true` and `memoryLayoutVerified: true`
-  with no evidence. Adding the hash alone would open party and location reads. `radical_red.json`
-  and `ghost_grey.json` share the pattern. Battle reads stay closed only because
-  `battleStateReadVerified` defaults to false.
-- `cfruOffsets`, `playerPartyOffset` and `enemyPartyOffset` are parsed (`ProfileLoader.kt:44-46`)
-  but never consumed; native layout is chosen by `gameId` only.
+- The exact SHA-256 selects `unbound` as VERIFIED via EXACT_SHA256 regardless of filename.
+  `RomCompatibility.mayReadLiveMemory` and matching `RuntimeRomTrust` allow live reads.
+- Other hashes never inherit trust from an Unbound filename or FireRed header; they remain
+  unverified. Non-retail-size BPRE/BPEE fallbacks do not select vanilla profiles.
+- `battleUiVerified` and `interactiveControlsVerified` remain false. Battle-state reads
+  remain closed (`battleStateReadVerified` defaults to false). The calculator remains
+  refused for `unbound` (no capability row).
 
 ## Native CFRU path
 
@@ -66,12 +65,12 @@ zero-checksum decode branch and `CONFIG_UNBOUND`. Items marked UNCONFIRMED were 
   an unversioned `docsUrl`; cover art searches by profile name for any non-UNSUPPORTED status
   (`LibraryStore.kt:83`).
 
-## Checklist state
+## Historical checklist state (2026-11-04)
 
 | #60 item | State |
 |---|---|
 | A layout, counts, save blocks | absent / risky (copied FireRed offsets, heuristic scan, wrong enemy count) |
-| A exact hash → VERIFIED | absent; latent fail-open through pre-asserted profile flags |
+| A exact hash → VERIFIED | bound on 2026-11-07 by owner decision; publisher-patch identity still UNVERIFIED |
 | A other hashes fail closed | exists generically (tested synthetically) |
 | B species/forms, items, abilities | absent / risky (same-number substitution, expansion item table, masks) |
 | C battle lifecycle | absent (closed) |
@@ -81,7 +80,7 @@ zero-checksum decode branch and `CONFIG_UNBOUND`. Items marked UNCONFIRMED were 
 | G cheats / Assistant / labelling | met / met / risky |
 | H hardware | absent |
 
-## Fixes to make before any Unbound hash is trusted (owner-approved production work)
+## Historical proposed fixes (2026-11-04; trust binding superseded above)
 
 1. Set `isVerified` / `memoryLayoutVerified` false in `unbound.json` (and review Radical Red,
    Ghost Grey); add a bundled-profile invariant test: verified flags require hashes and an

@@ -917,10 +917,9 @@ class BattleConsoleScreenView(
             null
         }
         val defender: ParsedPokemon? = if (inBattle &&
-            (enemyResolution.hasResolvedSlot || chosenDoublesEnemy != null) &&
-            activeEnemyIdx in enemies.indices
+            (enemyResolution.hasResolvedSlot || chosenDoublesEnemy != null)
         ) {
-            enemies[activeEnemyIdx].takeIf { !it.isEmpty && it.isValid }
+            enemies.getOrNull(activeEnemyIdx)
         } else {
             null
         }
@@ -982,7 +981,7 @@ class BattleConsoleScreenView(
                     speedComp.playerMovesFirst == false -> DualDexTheme.Color.warning
                     else -> DualDexTheme.Color.accent
                 })
-                speedBannerDetail.text = "Eff Spe: ${speedComp.playerEffectiveSpeed} vs ${speedComp.enemyEffectiveSpeed}"
+                speedBannerDetail.text = "Eff Spe: ${speedComp.playerEffectiveSpeed ?: "?"} vs ${speedComp.enemyEffectiveSpeed ?: "?"}"
                 speedBannerView.visibility = View.VISIBLE
             } else {
                 speedBannerView.visibility = View.GONE
@@ -1029,7 +1028,7 @@ class BattleConsoleScreenView(
 
     // ponytail: nextSlot is always null until a profile has a runtime-verified
     // gBattleStruct->monToSwitchIntoId address; pass it here once the native read exists.
-    private fun bindFoeTeam(enemies: List<ParsedPokemon>, activeSlot: Int?) {
+    private fun bindFoeTeam(enemies: List<ParsedPokemon?>, activeSlot: Int?) {
         val slots = foeTeamTracker.build(enemies, activeSlot, nextSlot = null, battleSession = viewModel.battleSessionId)
         foeTeamRow.visibility = if (slots.isEmpty()) View.GONE else View.VISIBLE
         while (foeTeamRow.childCount < slots.size) {
@@ -1108,10 +1107,16 @@ class BattleConsoleScreenView(
 
         // Active stat stages chips (e.g. +1 Atk, -1 Def)
         holder.statChipsRow.removeAllViews()
-        val chips = summary.statStages.activeStageChips()
+        // An absent participant has no stages to be unknown about; a present one with unread stages shows "?".
+        val chips = summary.statStages?.activeStageChips()
+            ?: if (summary.isEmpty) emptyList() else listOf("Stages" to null)
         chips.forEach { (stat, stage) ->
-            val sign = if (stage > 0) "+$stage" else "$stage"
-            val color = if (stage > 0) DualDexTheme.Color.success else DualDexTheme.Color.danger
+            val sign = StatStages.formatStage(stage)
+            val color = when {
+                stage == null -> DualDexTheme.Color.textSecondary
+                stage > 0 -> DualDexTheme.Color.success
+                else -> DualDexTheme.Color.danger
+            }
             holder.statChipsRow.addView(TextView(context).apply {
                 text = "$sign $stat"
                 setTextColor(color)
@@ -1343,30 +1348,29 @@ class BattleConsoleScreenView(
 
         // Update Stat Stages Table
         val stagesList = listOf(
-            playerStages.atk to enemyStages.atk,
-            playerStages.def to enemyStages.def,
-            playerStages.spe to enemyStages.spe,
-            playerStages.spa to enemyStages.spa,
-            playerStages.spd to enemyStages.spd,
-            playerStages.acc to enemyStages.acc,
-            playerStages.eva to enemyStages.eva
+            playerStages?.atk to enemyStages?.atk,
+            playerStages?.def to enemyStages?.def,
+            playerStages?.spe to enemyStages?.spe,
+            playerStages?.spa to enemyStages?.spa,
+            playerStages?.spd to enemyStages?.spd,
+            playerStages?.acc to enemyStages?.acc,
+            playerStages?.eva to enemyStages?.eva
         )
 
         stagesList.forEachIndexed { i, (pStage, eStage) ->
             val holder = statStageRows[i]
             val isAccEva = i >= 5
-            val pMult = if (isAccEva) StatStages.accuracyMultiplier(pStage) else StatStages.statMultiplier(pStage)
-            val eMult = if (isAccEva) StatStages.accuracyMultiplier(eStage) else StatStages.statMultiplier(eStage)
-
-            holder.playerValueView.text = "${StatStages.formatStage(pStage)} (${String.format("%.2f", pMult)}×)"
+            holder.playerValueView.text = StatStages.formatStageWithMultiplier(pStage, isAccEva)
             holder.playerValueView.setTextColor(when {
+                pStage == null -> DualDexTheme.Color.textSecondary
                 pStage > 0 -> DualDexTheme.Color.success
                 pStage < 0 -> DualDexTheme.Color.danger
                 else -> DualDexTheme.Color.textPrimary
             })
 
-            holder.enemyValueView.text = "${StatStages.formatStage(eStage)} (${String.format("%.2f", eMult)}×)"
+            holder.enemyValueView.text = StatStages.formatStageWithMultiplier(eStage, isAccEva)
             holder.enemyValueView.setTextColor(when {
+                eStage == null -> DualDexTheme.Color.textSecondary
                 eStage > 0 -> DualDexTheme.Color.success
                 eStage < 0 -> DualDexTheme.Color.danger
                 else -> DualDexTheme.Color.textPrimary
@@ -1482,8 +1486,8 @@ class BattleConsoleScreenView(
         defender: ParsedPokemon?,
         profile: RomHackProfile,
         runtimeTrust: com.dualdex.romhack.RuntimeRomTrust,
-        playerStages: StatStages,
-        enemyStages: StatStages,
+        playerStages: StatStages?,
+        enemyStages: StatStages?,
         hnsCalculationContext: BattleHnsCalculationContext
     ) {
         if (attacker == null || attacker.isEmpty) {

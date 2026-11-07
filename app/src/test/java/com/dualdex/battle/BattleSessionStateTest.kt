@@ -78,6 +78,30 @@ class BattleSessionStateTest {
     }
 
     @Test
+    fun stagesStartUnknownAndManualValuesAreClearedWhenBattleEnds() {
+        val vm = CompanionViewModel()
+        assertNull(vm.playerStatStages.value)
+        assertNull(vm.enemyStatStages.value)
+        vm.setIsInBattle(true)
+        val player = StatStages(atk = 2)
+        val enemy = StatStages()
+        vm.updatePlayerStatStages(player)
+        vm.updateEnemyStatStages(enemy)
+        assertEquals(player, vm.playerStatStages.value)
+        assertEquals(enemy, vm.enemyStatStages.value)
+
+        vm.setIsInBattle(false)
+        assertNull(vm.playerStatStages.value)
+        assertNull(vm.enemyStatStages.value)
+
+        vm.updatePlayerStatStages(player)
+        vm.updateEnemyStatStages(enemy)
+        vm.updateEnemyParty(emptyList())
+        assertNull(vm.playerStatStages.value)
+        assertNull(vm.enemyStatStages.value)
+    }
+
+    @Test
     fun newRomSessionClearsAllPreviousBattleObservations() {
         val vm = CompanionViewModel()
         vm.updateManualParty(listOf(mon(6), mon(35)))
@@ -114,8 +138,8 @@ class BattleSessionStateTest {
         assertEquals(-1, vm.activeEnemyMemberIndex.value)
         assertFalse(vm.isInBattle.value)
         assertEquals(BattlePresence.UNKNOWN, vm.battlePresence.value)
-        assertTrue(vm.playerStatStages.value.isNeutral)
-        assertTrue(vm.enemyStatStages.value.isNeutral)
+        assertNull(vm.playerStatStages.value)
+        assertNull(vm.enemyStatStages.value)
         assertEquals(BattleUiSnapshot(), vm.battleUiSnapshot.value)
         assertNull(vm.playerLocation.value)
         assertEquals(profileB, vm.activeProfile.value)

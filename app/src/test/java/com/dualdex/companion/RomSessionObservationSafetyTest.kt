@@ -9,6 +9,8 @@ import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.battle.*
+import com.dualdex.calculator.CalcInputField
+import com.dualdex.calculator.CalcParticipantPresenter
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.hns.*
 import org.junit.Assert.assertFalse
@@ -149,6 +151,8 @@ class RomSessionObservationSafetyTest {
         val calls = mutableListOf<Pair<String, Int>>()
         var valid = true
         var species = 25
+        var rawStages: IntArray? = IntArray(7) { 7 }
+        var battlePresence = 1
         var beforeExclusive: () -> Unit = {}
         var beforeParty: () -> Unit = {}
         var beforeBattle: () -> Unit = {}
@@ -174,7 +178,7 @@ class RomSessionObservationSafetyTest {
         }
         override fun readBattlePresence(gameId: Int): Int {
             record("presence", gameId)
-            return 1
+            return battlePresence
         }
         override fun getActiveBattlerSlot(gameId: Int): Int {
             record("slot", gameId)
@@ -184,9 +188,9 @@ class RomSessionObservationSafetyTest {
             record("resolution", gameId)
             return ActiveEnemyResolution(state = ActiveEnemyState.SLOT, partySlot = 0)
         }
-        override fun readBattleStatStages(gameId: Int, battlerIndex: Int): IntArray {
+        override fun readBattleStatStages(gameId: Int, battlerIndex: Int): IntArray? {
             record("stages", gameId)
-            return IntArray(7) { 7 }
+            return rawStages
         }
         override fun readBattleUiState(gameId: Int): Int {
             record("ui", gameId)
@@ -229,6 +233,66 @@ class RomSessionObservationSafetyTest {
         }
     }
 
+    @Test fun failedStageReadDuringBattleReplacesObservedStagesWithUnknown() {
+        val core = ObservationCore()
+        val vm = observedSession(core)
+        core.rawStages = null
+        vm.pollTick()
+
+        assertTrue(vm.isInBattle.value)
+        assertNull(vm.playerStatStages.value)
+        assertNull(vm.enemyStatStages.value)
+        val defender = CalcParticipantPresenter.defender(
+            observedOpponent = vm.enemyParty.value.single(),
+            chosenSpecies = "Mewtwo",
+            enemyStages = vm.enemyStatStages.value,
+            activeBattle = true
+        )
+        assertNull(defender.boosts)
+        assertTrue(CalcInputField.BOOSTS in defender.unknownFields)
+        val attacker = CalcParticipantPresenter.attacker(
+            party = vm.playerParty.value,
+            selectedIndex = 0,
+            speciesNameOf = { "Pikachu" },
+            playerStages = vm.playerStatStages.value,
+            activeBattle = true
+        )
+        assertNull(attacker.boosts)
+        assertTrue(CalcInputField.BOOSTS in attacker.unknownFields)
+    }
+
+    @Test fun successfulStageReadPublishesValuesAfterUnknownRead() {
+        val core = ObservationCore()
+        val vm = observedSession(core)
+        core.rawStages = null
+        vm.pollTick()
+        core.rawStages = intArrayOf(1, 0, -1, 0, 0, 0, 0)
+        vm.pollTick()
+
+        val expected = StatStages(atk = 1, spe = -1)
+        assertEquals(expected, vm.playerStatStages.value)
+        assertEquals(expected, vm.enemyStatStages.value)
+        val defender = CalcParticipantPresenter.defender(
+            observedOpponent = vm.enemyParty.value.single(),
+            chosenSpecies = "Mewtwo",
+            enemyStages = vm.enemyStatStages.value,
+            activeBattle = true
+        )
+        assertEquals(expected.toBoostStatBlock(), defender.boosts)
+        assertFalse(CalcInputField.BOOSTS in defender.unknownFields)
+    }
+
+    @Test fun leavingBattleClearsObservedStages() {
+        val core = ObservationCore()
+        val vm = observedSession(core)
+        core.battlePresence = 0
+        repeat(2) { vm.pollTick() }
+
+        assertFalse(vm.isInBattle.value)
+        assertNull(vm.playerStatStages.value)
+        assertNull(vm.enemyStatStages.value)
+    }
+
     private fun assertObserved(vm: CompanionViewModel) {
         assertFalse(vm.playerParty.value.isEmpty())
         assertFalse(vm.enemyParty.value.isEmpty())
@@ -239,8 +303,8 @@ class RomSessionObservationSafetyTest {
         assertNotNull(vm.challengeSettings.value)
         assertTrue(vm.isInBattle.value)
         assertTrue(vm.battleUiSnapshot.value.inputSafe)
-        assertFalse(vm.playerStatStages.value.isNeutral)
-        assertFalse(vm.enemyStatStages.value.isNeutral)
+        assertFalse(requireNotNull(vm.playerStatStages.value).isNeutral)
+        assertFalse(requireNotNull(vm.enemyStatStages.value).isNeutral)
     }
 
     private fun assertCleared(vm: CompanionViewModel) {
@@ -256,8 +320,8 @@ class RomSessionObservationSafetyTest {
         assertEquals(-1, vm.activePlayerBattlerIndex.value)
         assertEquals(-1, vm.activeEnemyMemberIndex.value)
         assertEquals(ActiveEnemyResolution(), vm.activeEnemyResolution.value)
-        assertTrue(vm.playerStatStages.value.isNeutral)
-        assertTrue(vm.enemyStatStages.value.isNeutral)
+        assertNull(vm.playerStatStages.value)
+        assertNull(vm.enemyStatStages.value)
         assertNull(vm.playerLocation.value)
         assertNull(vm.resolvedLocation.value)
         assertNull(vm.challengeSettings.value)

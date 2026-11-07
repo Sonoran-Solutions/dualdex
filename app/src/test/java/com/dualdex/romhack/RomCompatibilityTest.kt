@@ -288,7 +288,7 @@ class RomCompatibilityTest {
         assertEquals(BattlePresence.UNKNOWN, vm.battlePresence.value)
         assertNull("Location must be cleared immediately", vm.playerLocation.value)
         assertNull("Resolved location must be cleared", vm.resolvedLocation.value)
-        assertTrue("Stat stages must be neutral", vm.playerStatStages.value.isNeutral)
+        assertNull("Stat stages must be unobserved", vm.playerStatStages.value)
         assertEquals(BattleUiSnapshot(), vm.battleUiSnapshot.value)
         assertFalse("Live memory polling must be disabled", vm.runtimeRomTrust.value.mayReadLiveMemory)
     }
@@ -496,7 +496,7 @@ class RomCompatibilityTest {
         enemyPartyToReturn = arrayOf(createMon(150))
         vm.pollTick()
         assertEquals(1, vm.enemyParty.value.size)
-        assertEquals(150, vm.enemyParty.value[0].species)
+        assertEquals(150, vm.enemyParty.value[0]?.species)
 
         // Reader failure (returns null): stabilizer retains observed enemy for 1..4 ticks
         enemyPartyToReturn = null

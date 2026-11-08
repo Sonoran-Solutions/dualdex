@@ -1,5 +1,54 @@
 # Unbound exact-ROM identity table generators (issue #26)
 
+## Numeric map topology and runtime names (Option C, 2026-11-08)
+
+`generate_unbound_map_data.py` reuses `unbound_location.py`'s exact-ROM accessor
+inspection, structural map enumeration, header lookup and numeric name-table inspection.
+It refuses every ROM except the SHA-256 below before interpreting any offsets.
+It generates `UnboundMapTable.kt`: per-group counts, (group, num) -> section IDs,
+name-pointer-table address, section range, ROM/row/generator hashes. No ROM text is
+decoded or written by this generator.
+
+**VERIFIED** by generation from the exact private ROM: 57 groups, 645 maps,
+name pointers at `0x083F1CAC`, sections `0x58..0xC4` (109), row SHA-256
+`b1f061cac23143d81ec030b89dc04776219a1e2faac3f5ab3ba1bc8e86c4bfb4`.
+Spot checks: (1, 7) -> `0x80`, (3, 6) -> `0x93`.
+
+```bash
+python3 tools/unbound-data-pack/generate_unbound_map_data.py --rom /private/unbound-candidate.gba
+python3 tools/unbound-data-pack/generate_unbound_map_data.py --verify
+# Optional exact-ROM re-derivation as well as ROM-free checks:
+python3 tools/unbound-data-pack/generate_unbound_map_data.py --rom /private/unbound-candidate.gba --verify
+(cd tools/unbound-data-pack && python3 -m unittest -v)
+```
+
+`--verify` needs no ROM or private sources: it reconstructs the u8 (group, num,
+section) row hash from the Kotlin arrays, checks embedded pins and dimensions,
+and requires byte-for-byte output including the current generator hash.
+`ci.sh`'s `unbound_data_pack_check` runs this check and discovers the new tests.
+
+Runtime names stay in a session-local `UnboundMapNames` cache. The location poller's
+existing `RuntimeRomTrust.mayReadLiveMemory` and loaded-image identity gates apply,
+and extraction additionally requires this table's exact ROM SHA. One attempt per
+session reads 109 u32 pointers and at most 32 bytes per string (bounded by ROM end).
+Any failed read, pointer, terminator or glyph discards the complete cache; names
+then fall back to numeric section labels. ROM/session changes invalidate the cache.
+Unbound sections have no geometry (`presentable=false`, region unset).
+**VERIFIED by source inspection:** `MapScreenPresenter.headerState` keeps these
+sections and `MapScreenView.renderLiveHeader` displays their names; marker placement
+still requires geometry. **UNVERIFIED:** Kotlin tests/compilation (coordinator-owned)
+and the Thor ROM-region read device check (OUTSTANDING until the Thor is back).
+
+Local validation on the working tree based on `7e6fff18c8f5f814709b9a04a021b4bca1070b0d`:
+`generate_unbound_map_data.py --verify` passed; `python3 -m unittest -v` in this
+directory ran 25 tests, all OK (0.720 s); `bash -n ci.sh` and `git diff --check`
+passed. Generation and Python checks used the task's private scratch `TMPDIR`,
+120-second deadlines and 2 MiB file-output limits; no background jobs remain.
+Coordinator JVM classes: `com.dualdex.pokemon.unbound.UnboundLocationTest` and
+`com.dualdex.pokemon.unbound.UnboundMapNamesTest` (NOT_RUN here).
+
+## Species identities
+
 `generate_unbound_species.py` turns the owner's exact private Unbound ROM into the committed
 numeric table `app/src/main/java/com/dualdex/pokemon/unbound/UnboundSpeciesTable.kt`, which
 `UnboundDataPack` (pack id `unbound_exact`) reads. Python stdlib only.

@@ -183,6 +183,7 @@ unbound_data_pack_check() {
   echo "== Unbound generated species table integrity =="
   python3 tools/unbound-data-pack/generate_unbound_species.py --verify
   python3 tools/unbound-data-pack/generate_unbound_names.py --verify
+  python3 tools/unbound-data-pack/generate_unbound_map_data.py --verify
   (cd tools/unbound-data-pack && python3 -m unittest -v)
 }
 

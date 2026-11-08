@@ -1,4 +1,4 @@
-> Status (2026-11-07): slice step 1 (CONFIG_UNBOUND SaveBlock1 pointer and the group bound) is implemented in this branch; line references below are to the pre-change `1c16ced` sources. The choice of option is an owner decision.
+> Status (2026-11-08): owner approved Option C on 2026-11-08. Slice step 1 (CONFIG_UNBOUND SaveBlock1 pointer and group bound) is already on main. Numeric-table generation is VERIFIED against the exact ROM; Kotlin runtime tests remain NOT_RUN pending coordinator validation. The Thor device check of ROM-region reads is OUTSTANDING until the Thor is back. Historical line references below are to the pre-change `1c16ced` sources.
 
 # Design Study: Showing Unbound Map Names Without Committing Game Text
 

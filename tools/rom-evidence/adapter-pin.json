@@ -1,11 +1,11 @@
 {
-  "binary_sha256": "4affdeae9ca973c149b8e3c8a15ec264ad8f93a13218d62e02f60378f4b65576",
+  "binary_sha256": "2a2610cab5c41c4a48abd2feeb4843bfb569abe0d2e2aa9c822ee8922e1a0a4e",
   "build_command": "./tools/vanilla-runtime-probe/build.sh",
   "inputs": {
     "native/include/gba_memory_map.h": "2e7fd650ff0c391ff5c961b3e40702ff056f85dcf4a871d2db2abe297606ac6a",
     "native/include/libretro.h": "bd3398d29c3763d18617087020ff56b5450a48a63123403a4b674f8e79947acb",
     "native/include/libretro_host.h": "92fb2c236e268ecadc6af33587694454bec0010317baedfe6ed508d621bf6f36",
-    "native/include/pokemon_reader.h": "02d0a8a36f612108bb14d43abf38f12c2746ce2b8666cdb3279a4e3ab39e9cef",
+    "native/include/pokemon_reader.h": "16a51bcb80ca4f01b04c9fc2d186086b0a5692df4f762070d338d030f0bb5911",
     "native/include/pokemon_structs.h": "e10f851a6ad7a823d669a72e1907194026c8adfafa767edd362a160a3510fa82",
     "native/include/pokemon_text.h": "e14121bf33e967d5a565af1e0f4a87d787b9eff636e40ff81248f13da6ec8972",
     "native/src/gba_memory_map.c": "0ad396b2aca8591d4884895b5ceb6f3095d1d63be7598f6279655d12a65f4ec5",
@@ -14,11 +14,11 @@
     "native/src/hns_field_status_gen.h": "0db29a3d466d92723e49ef208fc1b8974a77cbd6b44bc65bcc6bc9fefc7c539d",
     "native/src/hns_live_battle_layout_gen.h": "3b36b499eb2b7c27b0040b4962e8d5d700fccf586cb29a4731a23d4646cc6d10",
     "native/src/libretro_host.c": "1414c9bd8a7fa9318fc6ba37f21e2f142639d43222790f338002560f53c79037",
-    "native/src/pokemon_reader.c": "f29d054f3030ff2e8017229a1b9a1b1f49a89d023b172948e22f9a2b053060cc",
+    "native/src/pokemon_reader.c": "525e0d1dfce71e28fb9f9fee138c08f034d96e978db9cad375b0558daf459378",
     "native/src/pokemon_text.c": "b65304a6210505ac909d7943ce9920fe78c8a89fcb88fe113b4f48da19466eed",
     "tools/vanilla-runtime-probe/build.sh": "ee265e83a9baa8a00eddf2c9dca94ab5c6153f3f74fbdeeba788126d03999667",
     "tools/vanilla-runtime-probe/probe_host.c": "402b75d6e5d027e5114fd049cbc6c6180a2d6091aa996f90c8a1197a864bf87e"
   },
   "schema_version": 1,
-  "source_revision": "fd140bff1314bb881b9c8547f35be5593c1aade8"
+  "source_revision": "7e6fff18c8f5f814709b9a04a021b4bca1070b0d"
 }

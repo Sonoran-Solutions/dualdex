@@ -11,6 +11,7 @@ import com.dualdex.pokemon.LocationUnavailableReason
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
+import com.dualdex.pokemon.unbound.UnboundMapNames
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
@@ -222,6 +223,7 @@ class CompanionViewModel(
      * selection: it is never changed by which region the user is browsing.
      */
     private val _locationStrategy = MutableStateFlow(LocationStrategy.UNVERIFIED)
+    private val unboundMapNames = UnboundMapNames()
     val locationStrategy: StateFlow<LocationStrategy> = _locationStrategy.asStateFlow()
 
     /**
@@ -299,6 +301,7 @@ class CompanionViewModel(
 
     fun setRomInfo(gameId: Int, romTitle: String, profile: RomHackProfile? = null) {
         synchronized(observationSessionLock) {
+            unboundMapNames.reset()
             observationSessionRevision++
             _activeGameId.value = gameId
             _activeRomTitle.value = romTitle
@@ -316,6 +319,7 @@ class CompanionViewModel(
 
     fun setRomIdentity(identity: RomIdentity?) {
         synchronized(observationSessionLock) {
+            unboundMapNames.reset()
             observationSessionRevision++
             _activeRomIdentity.value = identity
             _activeRomTitle.value = identity?.displayName.orEmpty()
@@ -336,6 +340,7 @@ class CompanionViewModel(
      */
     fun setRomSession(compatibility: RomCompatibility, identity: RomIdentity) {
         synchronized(observationSessionLock) {
+            unboundMapNames.reset()
             observationSessionRevision++
             clearLiveMemoryObservationsLocked()
 
@@ -363,6 +368,7 @@ class CompanionViewModel(
      */
     fun clearRomSession() {
         synchronized(observationSessionLock) {
+            unboundMapNames.reset()
             observationSessionRevision++
             clearLiveMemoryObservationsLocked()
             battlePresenceStabilizer.reset()
@@ -378,6 +384,7 @@ class CompanionViewModel(
 
     fun setProfile(profile: RomHackProfile) {
         synchronized(observationSessionLock) {
+            unboundMapNames.reset()
             observationSessionRevision++
             _activeProfile.value = profile
             _activeGameId.value = profile.gameId
@@ -478,6 +485,7 @@ class CompanionViewModel(
     /** Caller holds the core lock, then [observationSessionLock]. */
     private fun invalidateMismatchedLoadedSessionLocked(generation: Long) {
         if (lastObservedCoreGeneration != generation) {
+            unboundMapNames.reset()
             observationSessionRevision++
             clearLiveMemoryObservationsLocked()
             lastObservedCoreGeneration = generation
@@ -690,8 +698,11 @@ class CompanionViewModel(
      */
     private fun publishResolvedLocation(loc: PlayerLocation) {
         _playerLocation.value = loc
+        val names = if (_locationStrategy.value == LocationStrategy.UNBOUND) {
+            unboundMapNames.names(_runtimeRomTrust.value, coreCoordinator::readGbaMemory)
+        } else emptyMap()
         val resolution: LocationResolution =
-            RegionMapDatabase.resolveLocationDetailed(_locationStrategy.value, loc)
+            RegionMapDatabase.resolveLocationDetailed(_locationStrategy.value, loc, names)
         _resolvedLocation.value = resolution.section
         _locationUnavailableReason.value = resolution.reason
     }

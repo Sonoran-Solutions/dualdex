@@ -150,3 +150,18 @@ slot 1 as a shipping move record, regenerate expectations from the calculator, o
 promote these cases to exact-ROM proof. Add real table/runtime/binary correspondence
 as a separate authority and record any disagreements; investigate rather than
 rebaseline the source-backed vectors to match the implementation under test.
+
+## JS parity
+
+**VERIFIED:** `node tools/unbound-damage-oracle/test_js_parity.js` compares the isolated,
+dependency-free `calculateUnboundDamage` implementation in
+`tools/calc-bundler/unbound-cfru.js` with all **579 cases / 9,264 rolls** in the committed
+host-compiled-source corpus. Exact integer equality proves parity on that corpus
+domain only. Negative checks require unsupported operands and missing/extra fields
+to throw. The CI `test` and `all` targets run corpus integrity, Python tool tests,
+and JS parity in that order.
+
+**UNVERIFIED:** exact-ROM behavior, configuration and numeric type-chart correspondence.
+This remains **SOURCE_APPROXIMATE**, including the source-derived, ROM-unverified
+numeric chart. The module stays dark and is not wired into production; parity does
+not enable calculator support or establish shipping move/item table identities.

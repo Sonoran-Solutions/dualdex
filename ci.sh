@@ -9,6 +9,7 @@
 #                    # H&S tracker selftests +
 #                    # QuickJS calculator suite + H&S differential damage oracle
 #                    # (committed corpus, ROM-free) + data-pack generator tests
+#                    # + Unbound host damage oracle integrity and JS parity (ROM-free)
 #                    # + Unbound species-table integrity (ROM-free)
 #                    # + H&S census source-reader tests + Kotlin unit tests
 #                    # (which include the committed issue #84 census artifact check)
@@ -183,6 +184,7 @@ unbound_data_pack_check() {
   echo "== Unbound generated species table integrity =="
   python3 tools/unbound-data-pack/generate_unbound_species.py --verify
   python3 tools/unbound-data-pack/generate_unbound_names.py --verify
+  python3 tools/unbound-data-pack/generate_unbound_map_data.py --verify
   (cd tools/unbound-data-pack && python3 -m unittest -v)
 }
 
@@ -357,6 +359,13 @@ hns_damage_oracle_test() {
     -lm -ldl -lpthread \
     -o native/build/test_hns_damage_oracle
   ./native/build/test_hns_damage_oracle
+}
+
+unbound_damage_oracle_test() {
+  echo "== Unbound host damage oracle: integrity, tool tests and JS parity =="
+  python3 tools/unbound-damage-oracle/oracle.py
+  (cd tools/unbound-damage-oracle && python3 -m unittest discover -p 'test_*.py' -v)
+  node tools/unbound-damage-oracle/test_js_parity.js
 }
 
 gradle_test() {
@@ -712,14 +721,14 @@ gradle_release() {
 # regen_upstream_headers directly), the command vocabulary must not run.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 case "${1:-all}" in
-  test)         native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; unbound_data_pack_check; hns_generator_test; gradle_test ;;
+  test)         native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; unbound_damage_oracle_test; calc_goldens_check; hns_map_data_check; unbound_data_pack_check; hns_generator_test; gradle_test ;;
   coverage-test) python3 tools/ci/check_hns_coverage_release.py; ./gradlew testDebugUnitTest --tests "com.dualdex.coverage.HnsCoverageTest" --tests "com.dualdex.battle.BattleConsoleTest.battleCoverage*" ;;
   fixture-test) fixture_test ;;
   rowe-test)    rowe_raw_test ;;
   rowe-sanitize) rowe_raw_test -O1 -g -fno-omit-frame-pointer -fsanitize=address,undefined -fno-sanitize-recover=all ;;
   source-check) source_check ;;
   build)        gradle_build ;;
-  all)          native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; calc_goldens_check; hns_map_data_check; unbound_data_pack_check; hns_generator_test; gradle_test; gradle_build ;;
+  all)          native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; unbound_damage_oracle_test; calc_goldens_check; hns_map_data_check; unbound_data_pack_check; hns_generator_test; gradle_test; gradle_build ;;
   release)      gradle_release ;;
   *)            echo "usage: $0 [test|fixture-test|rowe-test|rowe-sanitize|coverage-test|source-check|build|all|release]" >&2; exit 2 ;;
 esac

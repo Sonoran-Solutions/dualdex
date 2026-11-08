@@ -1,0 +1,3285 @@
+{
+  "adapter_pin": {
+    "binary_sha256": "2a2610cab5c41c4a48abd2feeb4843bfb569abe0d2e2aa9c822ee8922e1a0a4e",
+    "build_command": "./tools/vanilla-runtime-probe/build.sh",
+    "inputs": {
+      "native/include/gba_memory_map.h": "2e7fd650ff0c391ff5c961b3e40702ff056f85dcf4a871d2db2abe297606ac6a",
+      "native/include/libretro.h": "bd3398d29c3763d18617087020ff56b5450a48a63123403a4b674f8e79947acb",
+      "native/include/libretro_host.h": "92fb2c236e268ecadc6af33587694454bec0010317baedfe6ed508d621bf6f36",
+      "native/include/pokemon_reader.h": "16a51bcb80ca4f01b04c9fc2d186086b0a5692df4f762070d338d030f0bb5911",
+      "native/include/pokemon_structs.h": "e10f851a6ad7a823d669a72e1907194026c8adfafa767edd362a160a3510fa82",
+      "native/include/pokemon_text.h": "e14121bf33e967d5a565af1e0f4a87d787b9eff636e40ff81248f13da6ec8972",
+      "native/src/gba_memory_map.c": "0ad396b2aca8591d4884895b5ceb6f3095d1d63be7598f6279655d12a65f4ec5",
+      "native/src/hns_battle_pokemon_layout_gen.h": "7f19c061d2eac32b0eb588a98da8f7408e819811b3b50d36aef9717ab90bc1a4",
+      "native/src/hns_challenge_settings_layout_gen.h": "e504b5e30aa01aa16347928f10fbd8f34b2608b36432a7b111b9dd97a18cc816",
+      "native/src/hns_field_status_gen.h": "0db29a3d466d92723e49ef208fc1b8974a77cbd6b44bc65bcc6bc9fefc7c539d",
+      "native/src/hns_live_battle_layout_gen.h": "3b36b499eb2b7c27b0040b4962e8d5d700fccf586cb29a4731a23d4646cc6d10",
+      "native/src/libretro_host.c": "1414c9bd8a7fa9318fc6ba37f21e2f142639d43222790f338002560f53c79037",
+      "native/src/pokemon_reader.c": "525e0d1dfce71e28fb9f9fee138c08f034d96e978db9cad375b0558daf459378",
+      "native/src/pokemon_text.c": "b65304a6210505ac909d7943ce9920fe78c8a89fcb88fe113b4f48da19466eed",
+      "tools/vanilla-runtime-probe/build.sh": "ee265e83a9baa8a00eddf2c9dca94ab5c6153f3f74fbdeeba788126d03999667",
+      "tools/vanilla-runtime-probe/probe_host.c": "402b75d6e5d027e5114fd049cbc6c6180a2d6091aa996f90c8a1197a864bf87e"
+    },
+    "schema_version": 1,
+    "source_revision": "7e6fff18c8f5f814709b9a04a021b4bca1070b0d"
+  },
+  "bootstrap_input": {
+    "bytes": 131072,
+    "crc32": "ca8c1edb",
+    "sha1": "dff1b77130264cb24cee8fc4cc8e028fa7436753",
+    "sha256": "a561cab2c9f4ecd32997d34a6f6b82ca592ec71f28d8713a16c9950e797e5236"
+  },
+  "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "helper_sha256": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+  "movie_sha256": "11801d3a99c7f42247c78336a1bd7c19c9990c0d3131bf0a8370027fb3b8fbfb",
+  "observations": [
+    {
+      "frame": 1882,
+      "gMapHeader_mapsec": "0x80",
+      "gMapHeader_sha256": "448e75099e1e0bd6156ad8379588edcf35d2249547775a77805d6bc11d1f12ae",
+      "label": "start_map",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 6,
+        "local_y": 10,
+        "map_group": 1,
+        "map_num": 7,
+        "warp_id": 0
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "5ad0acb98d1d70963c764aba2dddefe5d5b9b42610bff28e2a38a6fe33358e2d",
+      "rom_header": {
+        "address": "0x834f2d8",
+        "equals_gMapHeader": true,
+        "mapsec": "0x80",
+        "sha256": "448e75099e1e0bd6156ad8379588edcf35d2249547775a77805d6bc11d1f12ae"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 1,
+          "map_num": 7,
+          "warp_id": 0,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 6,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "cd4133886226512536273a0786acf7b2c32c25a40ff0cc2c75cd9cef5da684a4"
+    },
+    {
+      "frame": 1962,
+      "gMapHeader_mapsec": "0x80",
+      "gMapHeader_sha256": "448e75099e1e0bd6156ad8379588edcf35d2249547775a77805d6bc11d1f12ae",
+      "label": "walk_south_80",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 6,
+        "local_y": 16,
+        "map_group": 1,
+        "map_num": 7,
+        "warp_id": 0
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5",
+      "rom_header": {
+        "address": "0x834f2d8",
+        "equals_gMapHeader": true,
+        "mapsec": "0x80",
+        "sha256": "448e75099e1e0bd6156ad8379588edcf35d2249547775a77805d6bc11d1f12ae"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 1,
+          "map_num": 7,
+          "warp_id": 0,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 6,
+          "y": 16
+        }
+      },
+      "sb1_head_sha256": "0f0a8d8536c098debfdf6656425d5722036988c35b091de21b3adab4f3ce4ab5"
+    },
+    {
+      "frame": 1978,
+      "gMapHeader_mapsec": "0x80",
+      "gMapHeader_sha256": "448e75099e1e0bd6156ad8379588edcf35d2249547775a77805d6bc11d1f12ae",
+      "label": "walk_south_96",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 6,
+        "local_y": 16,
+        "map_group": 1,
+        "map_num": 7,
+        "warp_id": 0
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5",
+      "rom_header": {
+        "address": "0x834f2d8",
+        "equals_gMapHeader": true,
+        "mapsec": "0x80",
+        "sha256": "448e75099e1e0bd6156ad8379588edcf35d2249547775a77805d6bc11d1f12ae"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 1,
+          "map_num": 7,
+          "warp_id": 0,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 6,
+          "y": 16
+        }
+      },
+      "sb1_head_sha256": "0f0a8d8536c098debfdf6656425d5722036988c35b091de21b3adab4f3ce4ab5"
+    },
+    {
+      "frame": 1986,
+      "gMapHeader_mapsec": "0x80",
+      "gMapHeader_sha256": "448e75099e1e0bd6156ad8379588edcf35d2249547775a77805d6bc11d1f12ae",
+      "label": "warp_8",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 6,
+        "local_y": 16,
+        "map_group": 1,
+        "map_num": 7,
+        "warp_id": 0
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5",
+      "rom_header": {
+        "address": "0x834f2d8",
+        "equals_gMapHeader": true,
+        "mapsec": "0x80",
+        "sha256": "448e75099e1e0bd6156ad8379588edcf35d2249547775a77805d6bc11d1f12ae"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 1,
+          "map_num": 7,
+          "warp_id": 0,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 6,
+          "y": 16
+        }
+      },
+      "sb1_head_sha256": "0f0a8d8536c098debfdf6656425d5722036988c35b091de21b3adab4f3ce4ab5"
+    },
+    {
+      "frame": 2010,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "warp_32",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 46,
+        "local_y": 5,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 46,
+          "y": 5
+        }
+      },
+      "sb1_head_sha256": "7d969cb04611ac7da22611daf9c3034e84d4e0879d4837cc2504f99b33dfeb94"
+    },
+    {
+      "frame": 2042,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "warp_64",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 46,
+        "local_y": 5,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "150c7a19f127eff4c6cd46a257a73670f0083c74832aac6e9f04194219890848",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 46,
+          "y": 5
+        }
+      },
+      "sb1_head_sha256": "7d969cb04611ac7da22611daf9c3034e84d4e0879d4837cc2504f99b33dfeb94"
+    },
+    {
+      "frame": 2106,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "outside",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 46,
+        "local_y": 5,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "78cba0ef3f78ea1d4343fa89669d9301548175cc84f6a9676a6a95efe1b5cf07",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 46,
+          "y": 5
+        }
+      },
+      "sb1_head_sha256": "7d969cb04611ac7da22611daf9c3034e84d4e0879d4837cc2504f99b33dfeb94"
+    },
+    {
+      "frame": 2130,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "step_south",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 46,
+        "local_y": 6,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "28d59f60dd88358aaa1ef3ada3811f7fe9026ab9c518174b0cc70d4d8ce2c270",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 46,
+          "y": 6
+        }
+      },
+      "sb1_head_sha256": "0b24a03c1c20ca3f3372ac24e739ba1c23df4bb2817a81cda09b2f21bb8802e1"
+    },
+    {
+      "frame": 2221,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "surf_start",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 46,
+        "local_y": 7,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "e2be4244d59bfa8657810b97a971023ff56fd6984b5be846bdc1db2a6c28ad2b",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 46,
+          "y": 7
+        }
+      },
+      "sb1_head_sha256": "2957927ac7faf53535ddc6510c74a50d54c20c9a9634fda6818477e7a5532a30"
+    },
+    {
+      "frame": 2421,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "surf_s1",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 46,
+        "local_y": 27,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "cfdd7ba5caacdec282de4ddf8135b2a7afe748185b37a039ed3969d15051a830",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 46,
+          "y": 27
+        }
+      },
+      "sb1_head_sha256": "4ff9955a64b3f7733f8a60217e8b6d7e5af0228b624f005accb80bff89e62ce6"
+    },
+    {
+      "frame": 2437,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "surf_w1",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 45,
+        "local_y": 27,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "e5b8054b56afcfd129fb9bc3f9cc4cd3b1baf869f7157bcf78ba1a230dc19cfe",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 45,
+          "y": 27
+        }
+      },
+      "sb1_head_sha256": "b73e98556147d71dbbfe25bde6a3c1160ffcbb666d9b992d24f59df7f25113de"
+    },
+    {
+      "frame": 2497,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "surf_s2",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 45,
+        "local_y": 32,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "e6bd047ab5bcf2010e35d54ffa787c2d02f8bdb4afef911bec5c60b528fdbbca",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 45,
+          "y": 32
+        }
+      },
+      "sb1_head_sha256": "18846cde23e5b8cf91a8429b86cae745d78c9bdef4837a0812a77e5301c2584e"
+    },
+    {
+      "frame": 2717,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "land_w",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 23,
+        "local_y": 32,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "708abbb89038c30e2b2fdf1e675c7605c8337b7110809276decbf1034a7d7e4f",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 23,
+          "y": 32
+        }
+      },
+      "sb1_head_sha256": "aa66e65bc3abfcc621c298ba5b0af92359a39563b3fb5f542a5210a68f58db18"
+    },
+    {
+      "frame": 2773,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "isl_n1",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 23,
+        "local_y": 26,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "b0b21330beddadc88a5a590b0127e0bdc539a33bcbb1ffa9f1d4023637219ad2",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 23,
+          "y": 26
+        }
+      },
+      "sb1_head_sha256": "deade0132c293f152d19ec3190516b8496f5ff1b6b18d1afae5ca7712c791990"
+    },
+    {
+      "frame": 2893,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "isl_w1",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 15,
+        "local_y": 26,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "1c39ca961bf360ee0a46a13950f121e3f5c2dd799db84c25506bd6111aff1794",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 15,
+          "y": 26
+        }
+      },
+      "sb1_head_sha256": "406d0579c7540a9e05810814c639992185d47d3ba0c58a2561a9bc771cf9d005"
+    },
+    {
+      "frame": 3073,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "isl_n2",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 15,
+        "local_y": 17,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "3fc0e50f10813bd0a7a8a5cb84f391a48b8d7f661bbfea6c7a51d80e9e685099",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 15,
+          "y": 17
+        }
+      },
+      "sb1_head_sha256": "d1d5bab4e8dfa39a75a8b38abed5450be13da7e0b381f6fab671c1a314986b3b"
+    },
+    {
+      "frame": 3089,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "isl_s2",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 15,
+        "local_y": 18,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "b0558327f1d9df8f724163d39ec6188e73f5b1495350ae901ff427d732fb65c4",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 15,
+          "y": 18
+        }
+      },
+      "sb1_head_sha256": "28bb09d6882f246221e4b5a1c9eeb57da0b0dd0853156635f346f0eb8cd988ee"
+    },
+    {
+      "frame": 3129,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "isl_w2",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 12,
+        "local_y": 18,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "3872ddca3faa4c84f7c55402f520e07c86577c9815ddcb416541b368b4527105",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 12,
+          "y": 18
+        }
+      },
+      "sb1_head_sha256": "713ae13a25e0f2fc6174a9f8c4496a1ade7ea2e2de26bc0d1b8dd5d6f33432c3"
+    },
+    {
+      "frame": 3249,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "isl_nw",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 12,
+        "local_y": 7,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "d92d7eb5ac22c9eadc41f1fae92be924a9a0e6e6144e87b6ef16059a40475e4b",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 12,
+          "y": 7
+        }
+      },
+      "sb1_head_sha256": "24033366ddc3e4898864c05ae2006cea16f24c6142d21ccc421e8151f6173994"
+    },
+    {
+      "frame": 3297,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "cave_door",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 10,
+        "local_y": 8,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "18ac6fb4ba069317a30c37ce4ed47546a6e38870a06dd5d7a624cbb8708e563e",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 10,
+          "y": 8
+        }
+      },
+      "sb1_head_sha256": "e95dc490f37eb0f6f9cd63f7f0a2cda64f796ac32ce51aa7074faa02a312723e"
+    },
+    {
+      "frame": 3321,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "cave_on_tile",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 10,
+        "local_y": 7,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "ec9e39938378d32112648f6d90463c5916c0942c5e9e66b9440c566ac46588a9",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 10,
+          "y": 7
+        }
+      },
+      "sb1_head_sha256": "71631bc5659eb887537019ec0b5aedf5007f016b069ed2ff8774e135ba05fd19"
+    },
+    {
+      "frame": 3345,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "cave_8",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 6,
+        "is_valid": true,
+        "local_x": 10,
+        "local_y": 7,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "1710ee8216a372c1b60458c169c8830b8d468cc8ce8f387dcefa195a2fb68439",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 10,
+          "y": 7
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 10,
+          "y": 7
+        }
+      },
+      "sb1_head_sha256": "2a4b7e9cd8d9570a46ede584114f3f634a517fbb2076d1b8d01608ceba32927a"
+    },
+    {
+      "frame": 3369,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "cave_32",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 6,
+        "is_valid": true,
+        "local_x": 10,
+        "local_y": 7,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "1710ee8216a372c1b60458c169c8830b8d468cc8ce8f387dcefa195a2fb68439",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 10,
+          "y": 7
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 10,
+          "y": 7
+        }
+      },
+      "sb1_head_sha256": "2a4b7e9cd8d9570a46ede584114f3f634a517fbb2076d1b8d01608ceba32927a"
+    },
+    {
+      "frame": 3401,
+      "gMapHeader_mapsec": "0x9e",
+      "gMapHeader_sha256": "0f0fb9c2e0a7c169361a28225f6b21c23d9624644b5f71aaf6db8bb08c1aedf5",
+      "label": "cave_64",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "is_valid": false
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "8f28dd4c9dc26967113def115427e2f7dd74b3501d3d4d8288045c4aacf9a88c",
+      "rom_header": {
+        "address": "0x8350650",
+        "equals_gMapHeader": true,
+        "mapsec": "0x9e",
+        "sha256": "0f0fb9c2e0a7c169361a28225f6b21c23d9624644b5f71aaf6db8bb08c1aedf5"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 10,
+          "y": 7
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 56,
+          "map_num": 6,
+          "warp_id": 1,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 32,
+          "y": 23
+        }
+      },
+      "sb1_head_sha256": "eb78b6fe6689eaeda56ec67029bcda2a8912b2bf5fafa8442ae83f2620eb8e22"
+    },
+    {
+      "frame": 3461,
+      "gMapHeader_mapsec": "0x9e",
+      "gMapHeader_sha256": "0f0fb9c2e0a7c169361a28225f6b21c23d9624644b5f71aaf6db8bb08c1aedf5",
+      "label": "cave_124",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "is_valid": false
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "33fa81e7eca922a4dbbd80c695668dd739489bf3c086938b2c79f739ea58784a",
+      "rom_header": {
+        "address": "0x8350650",
+        "equals_gMapHeader": true,
+        "mapsec": "0x9e",
+        "sha256": "0f0fb9c2e0a7c169361a28225f6b21c23d9624644b5f71aaf6db8bb08c1aedf5"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 10,
+          "y": 7
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 56,
+          "map_num": 6,
+          "warp_id": 1,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 32,
+          "y": 23
+        }
+      },
+      "sb1_head_sha256": "eb78b6fe6689eaeda56ec67029bcda2a8912b2bf5fafa8442ae83f2620eb8e22"
+    },
+    {
+      "frame": 3895,
+      "gMapHeader_mapsec": "0x93",
+      "gMapHeader_sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394",
+      "label": "fly_map",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 12,
+        "local_y": 7,
+        "map_group": 3,
+        "map_num": 6,
+        "warp_id": 5
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "1d9d2ce58984f9bf24019ddc2f6596e741b2db59f31eb4ea1cfe2d5f7a63f48a",
+      "rom_header": {
+        "address": "0x834fb0c",
+        "equals_gMapHeader": true,
+        "mapsec": "0x93",
+        "sha256": "39999584b4336db69e74bf78ecd4671ff85aa845bec54ccc9efe0adeaeb13394"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": -1,
+          "x": 22,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "pos": {
+          "x": 12,
+          "y": 7
+        }
+      },
+      "sb1_head_sha256": "24033366ddc3e4898864c05ae2006cea16f24c6142d21ccc421e8151f6173994"
+    },
+    {
+      "frame": 4243,
+      "gMapHeader_mapsec": "0x77",
+      "gMapHeader_sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2",
+      "label": "fly_landing_200",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 14,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 105,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5",
+      "rom_header": {
+        "address": "0x8350714",
+        "equals_gMapHeader": true,
+        "mapsec": "0x77",
+        "sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "pos": {
+          "x": 14,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "7bda539e2844807085068288b4c7bc558481960edfee921bba65a883c892c7a5"
+    },
+    {
+      "frame": 4443,
+      "gMapHeader_mapsec": "0x77",
+      "gMapHeader_sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2",
+      "label": "fly_landing_400",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 14,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 105,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "f6fb06a8695e5d582cd65e1b6e01cd11410ad4a049c8fe52b0f270fb6915a025",
+      "rom_header": {
+        "address": "0x8350714",
+        "equals_gMapHeader": true,
+        "mapsec": "0x77",
+        "sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "pos": {
+          "x": 14,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "7bda539e2844807085068288b4c7bc558481960edfee921bba65a883c892c7a5"
+    },
+    {
+      "frame": 4547,
+      "gMapHeader_mapsec": "0x77",
+      "gMapHeader_sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2",
+      "label": "west_x3",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 3,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 105,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "4b1b82494333f3aee8d8e5d9e72376654a1eee29a08cb4d0dce4d2846a045d0e",
+      "rom_header": {
+        "address": "0x8350714",
+        "equals_gMapHeader": true,
+        "mapsec": "0x77",
+        "sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "pos": {
+          "x": 3,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "a1ed59c0883a921ae326bf604e8f6f62372ae405c8582098020302149aedbb58"
+    },
+    {
+      "frame": 4563,
+      "gMapHeader_mapsec": "0x77",
+      "gMapHeader_sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2",
+      "label": "west_x2",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 2,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 105,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "5b62a0ce62a9019ea08a804d1faa54feaba86ddcd6252badc7bab7f00681defe",
+      "rom_header": {
+        "address": "0x8350714",
+        "equals_gMapHeader": true,
+        "mapsec": "0x77",
+        "sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "pos": {
+          "x": 2,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "ff8535baf9fecb3a01540efc40d0c58f4e23dcf79479e349f06ded9411ecbe67"
+    },
+    {
+      "frame": 4579,
+      "gMapHeader_mapsec": "0x77",
+      "gMapHeader_sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2",
+      "label": "west_x1",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 1,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 105,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "7c04b71b27d38bcecfa57f6ba2a496d0d3ab6f95e648335b56c63846791553cb",
+      "rom_header": {
+        "address": "0x8350714",
+        "equals_gMapHeader": true,
+        "mapsec": "0x77",
+        "sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "pos": {
+          "x": 1,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "a40422d64004555a325ab97c579c6c395ee70e9007fd43d26f4a71790f4d59fc"
+    },
+    {
+      "frame": 4595,
+      "gMapHeader_mapsec": "0x77",
+      "gMapHeader_sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2",
+      "label": "edge_x0",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 0,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 105,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "bf484c44022fa93bd68c4ce1783ba8b6d46bc9cb7bd4162e807f5f0cfb70d7e0",
+      "rom_header": {
+        "address": "0x8350714",
+        "equals_gMapHeader": true,
+        "mapsec": "0x77",
+        "sha256": "e4af0ea91127ec6267d1f6cb98091c52d58c3d1c6c847e4bd47e712c834aeec2"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "pos": {
+          "x": 0,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "075a32ceeb8f246069aff45a381898e232240f748d29cc6d47dd79dfd409bf20"
+    },
+    {
+      "frame": 4603,
+      "gMapHeader_mapsec": "0x75",
+      "gMapHeader_sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16",
+      "label": "cross_step_8",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 117,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 104,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "74ab983148479427cd4ef999221c415cb365ebebc250f3e5ce9c252cf6c639b8",
+      "rom_header": {
+        "address": "0x8350730",
+        "equals_gMapHeader": true,
+        "mapsec": "0x75",
+        "sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 104,
+          "warp_id": -1,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 117,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "c381c262168d489af71a718bb6d53cc0de2fa5fd6dd6535f7a4bfcd77254de80"
+    },
+    {
+      "frame": 4611,
+      "gMapHeader_mapsec": "0x75",
+      "gMapHeader_sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16",
+      "label": "cross_step_16",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 117,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 104,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "02486d2e07c979ddc7edffa1d8c0cd737222e3000226b4a137d9f49bcd10afe9",
+      "rom_header": {
+        "address": "0x8350730",
+        "equals_gMapHeader": true,
+        "mapsec": "0x75",
+        "sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 104,
+          "warp_id": -1,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 117,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "c381c262168d489af71a718bb6d53cc0de2fa5fd6dd6535f7a4bfcd77254de80"
+    },
+    {
+      "frame": 4627,
+      "gMapHeader_mapsec": "0x75",
+      "gMapHeader_sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16",
+      "label": "cross_step_32",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 117,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 104,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "72323c3f49286ca46c0ce18eff9e5bd2d68388e1ab0a0c65a58b42c50ce4f3db",
+      "rom_header": {
+        "address": "0x8350730",
+        "equals_gMapHeader": true,
+        "mapsec": "0x75",
+        "sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 104,
+          "warp_id": -1,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 117,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "c381c262168d489af71a718bb6d53cc0de2fa5fd6dd6535f7a4bfcd77254de80"
+    },
+    {
+      "frame": 4659,
+      "gMapHeader_mapsec": "0x75",
+      "gMapHeader_sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16",
+      "label": "cross_step_64",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 117,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 104,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "69842978119eabe5cf5eec89b50962d44ba876a826e0d13e205302637908865f",
+      "rom_header": {
+        "address": "0x8350730",
+        "equals_gMapHeader": true,
+        "mapsec": "0x75",
+        "sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 104,
+          "warp_id": -1,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 117,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "c381c262168d489af71a718bb6d53cc0de2fa5fd6dd6535f7a4bfcd77254de80"
+    },
+    {
+      "frame": 4715,
+      "gMapHeader_mapsec": "0x75",
+      "gMapHeader_sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16",
+      "label": "cross_step_120",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 117,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 104,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "de380b9ded040ed2ee29a8cdfd1f4c83ffefa1dcce1bbe0067af26fefdc1acdd",
+      "rom_header": {
+        "address": "0x8350730",
+        "equals_gMapHeader": true,
+        "mapsec": "0x75",
+        "sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 104,
+          "warp_id": -1,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 117,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "c381c262168d489af71a718bb6d53cc0de2fa5fd6dd6535f7a4bfcd77254de80"
+    },
+    {
+      "frame": 4739,
+      "gMapHeader_mapsec": "0x75",
+      "gMapHeader_sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16",
+      "label": "neighbour_walk",
+      "native_legacy": {
+        "address": "0x202404c",
+        "decoded": {
+          "escape_map_group": 0,
+          "escape_map_num": 0,
+          "is_valid": true,
+          "local_x": 0,
+          "local_y": 0,
+          "map_group": 0,
+          "map_num": 0,
+          "warp_id": 0
+        }
+      },
+      "native_pointer_layout": {
+        "escape_map_group": 3,
+        "escape_map_num": 105,
+        "is_valid": true,
+        "local_x": 115,
+        "local_y": 10,
+        "map_group": 3,
+        "map_num": 104,
+        "warp_id": -1
+      },
+      "pointers": {
+        "gSaveBlock1Ptr": "0x202552c",
+        "gSaveBlock2Ptr": "0x2024588"
+      },
+      "rgb565_sha256": "0c1fc504b2703981c9d4962ccec39f3ec774d6b87bfc370c3643a10b27b0ff24",
+      "rom_header": {
+        "address": "0x8350730",
+        "equals_gMapHeader": true,
+        "mapsec": "0x75",
+        "sha256": "e8f863c73f6f44b19e07536e3b225494cd179bc52fb7d895e53103cb124b2b16"
+      },
+      "sb1": {
+        "continue_game_warp": {
+          "map_group": 1,
+          "map_num": 107,
+          "warp_id": 1,
+          "x": 0,
+          "y": 0
+        },
+        "dynamic_warp": {
+          "map_group": 3,
+          "map_num": 6,
+          "warp_id": 5,
+          "x": 46,
+          "y": 5
+        },
+        "escape_warp": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "last_heal_location": {
+          "map_group": 3,
+          "map_num": 105,
+          "warp_id": -1,
+          "x": 14,
+          "y": 10
+        },
+        "location": {
+          "map_group": 3,
+          "map_num": 104,
+          "warp_id": -1,
+          "x": -1,
+          "y": -1
+        },
+        "pos": {
+          "x": 115,
+          "y": 10
+        }
+      },
+      "sb1_head_sha256": "6b07ac220b6c2329c858e1662d0d116e317fad111fa359c525a9dd89491de1a4"
+    }
+  ],
+  "observer_sha256": "32c673bc543ac33b5fac475508f8b50aa82c4ee9024bbb3f97ba99f54eb77260",
+  "schema_version": 1,
+  "static": {
+    "gMapHeader_literal_references": {
+      "address": "0x2036dfc",
+      "first_access": {
+        "ldr": 73,
+        "ldrb": 77,
+        "ldrh": 3,
+        "str": 1
+      },
+      "nearby_stride_constants": {
+        "0x58": 0,
+        "0x64": 0
+      },
+      "pc_literal_loads": 170
+    },
+    "map_header_path": {
+      "formula": "header=*(u32*)((groups[g]^key)+4*num)",
+      "function": "0x8055238",
+      "group_pointer_xor_key": "0xb749de",
+      "group_stride": 4,
+      "header_pointer_xor": "NONE",
+      "hook": "0x9ed15d4",
+      "hook_sha256": "4de74f146bcb1886a5a325ce06cee96fd5a41cdc081af8652671dbba8587da0e",
+      "map_groups_table": "0x8b70498",
+      "map_stride": 4
+    },
+    "map_names": {
+      "count": 109,
+      "first_mapsec": "0x58",
+      "function": "0x80c4d78",
+      "last_mapsec": "0xc4",
+      "name_length_max": 16,
+      "name_length_min": 7,
+      "pointer_table_sha256": "c3fc0a35c99e10ae2e1f650c0234d77f4d69456a36ba6251f31209105302ee20",
+      "predicate_alternative_name_pointer": "0x83ef22e",
+      "stride": 4,
+      "table": "0x83f1cac",
+      "terminated_names_sha256": "0838c37ad706f2698e7b0b926ea1ce8180f9b895da436395604eed2f40ac43f1"
+    },
+    "map_table": {
+      "distinct_mapsecs": 92,
+      "groups": 57,
+      "maps": 645,
+      "maps_per_group": [
+        6,
+        123,
+        60,
+        109,
+        13,
+        7,
+        13,
+        12,
+        6,
+        8,
+        26,
+        12,
+        9,
+        2,
+        16,
+        4,
+        1,
+        2,
+        2,
+        1,
+        1,
+        2,
+        2,
+        3,
+        2,
+        3,
+        2,
+        1,
+        1,
+        1,
+        1,
+        7,
+        7,
+        20,
+        10,
+        7,
+        13,
+        5,
+        1,
+        1,
+        1,
+        2,
+        1,
+        8,
+        6,
+        7,
+        10,
+        4,
+        4,
+        16,
+        2,
+        2,
+        3,
+        12,
+        23,
+        9,
+        13
+      ],
+      "mapsec_max": "0xc4",
+      "mapsec_min": "0x58",
+      "max_map_num": 122,
+      "rows_encoding": "concatenated u8 (group, num, regionMapSectionId)",
+      "rows_sha256": "b1f061cac23143d81ec030b89dc04776219a1e2faac3f5ab3ba1bc8e86c4bfb4"
+    },
+    "mapsec_getters": {
+      "current": {
+        "function": "0x8056260",
+        "group_offset": "0x4",
+        "header_field_offset": "0x14",
+        "num_offset": "0x5"
+      },
+      "saved_warp": {
+        "function": "0x8056238",
+        "group_offset": "0x14",
+        "header_field_offset": "0x14",
+        "num_offset": "0x15"
+      }
+    },
+    "rom": {
+      "bytes": 33554432,
+      "crc32": "4b3d4957",
+      "sha1": "b4776b82a4c7915d0fadeaa27e013523f99dfd94",
+      "sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+    },
+    "save_blocks": {
+      "function": "0x804c058",
+      "gPokemonStoragePtr": "0x3005010",
+      "gSaveBlock1Ptr": "0x3005008",
+      "gSaveBlock2Ptr": "0x300500c",
+      "offset_register": "CONSTANT_ZERO",
+      "pokemon_storage": "0x2029314",
+      "save_block1": "0x202552c",
+      "save_block2": "0x2024588",
+      "sha256": "ba5ee39b04c93637499888a4df2077e2295968965ff8c40382e304446973de06"
+    },
+    "scope": "STATIC_SELECTED_PATHS_ONLY",
+    "status": "VERIFIED"
+  },
+  "status": "OBSERVED",
+  "tool_sha256": "7288e1d17a04d04861c3f3117f8fdf93bb53767b700d711377fd58138c464cc0"
+}

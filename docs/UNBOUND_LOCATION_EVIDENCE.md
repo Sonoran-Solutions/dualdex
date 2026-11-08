@@ -4,7 +4,9 @@ Evidence only. No production profile, reader, strategy or data-pack change. Exac
 SHA-256 `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7` (owner-stated v2.1.1.1;
 release label NOT_VERIFIED). Committed record: [`unbound-location.json`](../tools/rom-evidence/evidence/unbound-location.json)
 (numbers, addresses and SHA-256 only). Tool: [`unbound_location.py`](../tools/rom-evidence/unbound_location.py),
-tests: `test_unbound_location.py`, movie: `unbound-location-grotto-warp.movie`.
+tests: `test_unbound_location.py`, movies: `unbound-location-grotto-warp.movie` (warp route) and
+`unbound-location-route-crossing.movie` (map-connection crossing; committed record
+[`unbound-location-crossing.json`](../tools/rom-evidence/evidence/unbound-location-crossing.json)).
 
 ## Method
 
@@ -21,11 +23,22 @@ tests: `test_unbound_location.py`, movie: `unbound-location-grotto-warp.movie`.
   resolves the observed (group, num) through the ROM map table and compares that header with
   `gMapHeader`. No RAM writes, no cartridge flush, no in-game save. The private report is
   `/home/dq/dualdex-private/unbound/e3-location/final.json` (SHA-256 `7e017a54…b51a`). An earlier
-  run (`run3.json`) of the same route gave identical observations and screen hashes.
+  run (`run3.json`) of the same route gave identical observations and screen hashes. The crossing
+  route was replayed with the adapter re-pinned at `7e6fff1` (binary `2a2610ca…1a4e`; the earlier
+  pin `fd140bff` no longer matched `pokemon_reader.*` on `main`), same core and save; its private
+  report (SHA-256 `ee196fa4…8a9f`) stays in the owner's private directory.
 * **Route.** The movie runs Continue, then walks south out of the starting map through its exit
   warp. It steps south and back, then uses the A-button field script north of the arrival tile,
   which warps back into the starting map. That gives 13 observations and two map transitions,
   with observations at frames 8, 32 and 64 after the exit warp is triggered.
+* **Crossing route.** `unbound-location-route-crossing.movie` shares that prefix through the exit
+  warp, then: A on the water south of the arrival tile starts Surf (no prompt in this ROM); it surfs
+  around the enclosed clearing onto the plaza island of the same map (3, 6); a `save`/`restore`
+  detour walks into the arrow warp at (10, 7) (step on, press Up again) into map (56, 6); then Fly
+  from the party menu (offered without an HM) with the region-map cursor Left ×3, Down ×2 lands in
+  city (3, 105) at (14, 10), and holding Left along row 10 walks off the map edge across its west
+  connection (ROM connection table: direction 3, offset 0) into (3, 104). 38 observations, frames
+  1882 to 4739. Outdoor maps run at 8 frames per tile; the start map walks at 16.
 
 ## 1. SaveBlock1 location layout: VERIFIED
 
@@ -58,10 +71,35 @@ enters by warp id or by Continue, so a reader must not use them as the player po
 `gMapHeader` both changed between frames 1986 and 2010. Finer ordering inside the fade was not
 sampled.
 
-**NOT_VERIFIED:** a route-boundary (map connection) crossing was not exercised. A movie that
-crosses a connection from a known map is still needed. Other ROM literals of `0x0202552C` (at
+**Map-connection crossing: VERIFIED** (`unbound-location-route-crossing.movie`,
+[`unbound-location-crossing.json`](../tools/rom-evidence/evidence/unbound-location-crossing.json)).
+SB1 and SB2 pointers were unchanged at all 38 observations.
+
+| Observation | Frame | pos | location (group, num, warp, x, y) | `gMapHeader` mapsec = ROM header |
+|---|---|---|---|---|
+| cave_64 (arrow warp, 64 frames after Up) | 3401 | 32,23 | 56, 6, 1, −1, −1 | `0x9E` (`0x08350650`) |
+| fly_landing_200 | 4243 | 14,10 | 3, 105, −1, 14, 10 | `0x77` (`0x08350714`) |
+| edge_x0 (last tile of (3, 105)) | 4595 | 0,10 | 3, 105, −1, 14, 10 | `0x77` |
+| cross_step_8 (8 frames after the step west began) | 4603 | 117,10 | 3, 104, −1, −1, −1 | `0x75` (`0x08350730`) |
+| neighbour_walk | 4739 | 115,10 | 3, 104, −1, −1, −1 | `0x75` |
+
+Across the connection, `pos` is rebased by the neighbour's width (118: x −1 becomes 117),
+`location.mapGroup`/`mapNum` switch to (3, 104), `location.warpId`/`x`/`y` become −1, and
+`gMapHeader` already equals the (3, 104) ROM header 8 frames after the crossing step began (the
+last sample on (3, 105) is 8 frames earlier; nothing in between was sampled). Fly wrote `location`
+with warpId −1 and the landing tile as x,y and set `lastHealLocation` to the same (3, 105, −1, 14, 10);
+`escapeWarp` (3, 105, −1, 14, 10) and `dynamicWarp` (3, 6, 5, 46, 5) did not change through Fly or the
+crossing, while entering the cave set `escapeWarp` to (3, 6, −1, 10, 7) (undone by `restore`). The
+pointer-layout decode in `unbound_location.py` (offsets 0/4/0x24, still using the pre-#210 group
+bound 35) matched the observed (3, 105) and (3, 104) values at every observation and rejected (56, 6)
+as invalid; production `CONFIG_UNBOUND` on `main` sets `location_max_map_group = 56` and accepts it
+(`native/src/pokemon_reader.c`, native tests). The legacy
+address again decoded zeros as a valid (0, 0).
+
+**NOT_VERIFIED:** other ROM literals of `0x0202552C` (at
 `0x08000508`, `0x088BC1A4`, `0x088C0F34` and `0x093A1A00`/`31C8`/`3578`) were not individually
-decoded. The runtime evidence above covers only the warp, scripted-warp, battle and party routes.
+decoded. The runtime evidence above covers the warp, scripted-warp, arrow-warp, Fly, connection,
+battle and party routes.
 
 ## 2. (group, num) → map header → region-map section: VERIFIED
 
@@ -79,9 +117,10 @@ decoded. The runtime evidence above covers only the warp, scripted-warp, battle 
   645 maps**, with map numbers up to 122 (per-group counts and the row hash are in the JSON). This
   is an evidence bound, not a game-defined count.
 * `gMapHeader` is at **`0x02036DFC`** (CFRU `BPRE.ld`; 170 PC-literal loads in the exact ROM).
-  At all 13 observations its 0x1C bytes equal the ROM header resolved from SB1 `location`
-  through the XOR path (`0x0834F2D8` for (1, 7) and `0x0834FB0C` for (3, 6)), so the two mapsecs
-  agree.
+  At all 13 warp-route and all 38 crossing-route observations its 0x1C bytes equal the ROM header
+  resolved from SB1 `location` through the XOR path (`0x0834F2D8` for (1, 7), `0x0834FB0C` for
+  (3, 6), `0x08350650` for (56, 6), `0x08350714` for (3, 105) and `0x08350730` for (3, 104)), so the
+  two mapsecs agree.
 * Private cross-checks, with no text committed: the starting map's `0x80` equals the public CFRU
   `MAPSEC_HIDDEN_GROTTO` constant. The on-screen map-name popup after the exit warp equals the ROM
   name-table entry for `0x93`.
@@ -110,15 +149,17 @@ The design meaning of each section (town, route or dungeon) is also not establis
 
 * `CONFIG_UNBOUND` has no `save_block1_ptr_gba_address`, so `pokemon_read_player_location_gba`
   takes the legacy path. Because `game_id != GAME_FIRERED`, it computes `sb1 = 0x02024284 − 0x238`
-  = **`0x0202404C`**, which lies inside `gEnemyParty` (`0x0202402C`..). At all 13 observations
+  = **`0x0202404C`**, which lies inside `gEnemyParty` (`0x0202402C`..). At all 13 + 38 observations
   these bytes were zero, and the production bounds accepted them as a **valid location (0, 0) at
   pos (0, 0)**: a plausible but wrong answer rather than a failure. The FireRed `0x38` branch would
   give `0x0202424C`, which is not SaveBlock1 either.
 * The legacy *field offsets* (pos `+0x00`, location `+0x04`, escape `+0x24`) are correct for
   Unbound. The pointer-path offsets used by Heart & Soul (`+0x04`/`+0x08`/`+0x28`) are not.
 * Decoding SB1 `0x0202552C` with offsets 0/4/0x24 under the production bounds gave the observed
-  (1, 7) and (3, 6) at every observation. However, the bound `0 <= mapGroup <= 35` rejects
-  Unbound groups 36..56 (21 groups, 143 maps). `mapNum <= 130` holds (maximum 122).
+  (1, 7), (3, 6), (3, 105) and (3, 104) at every observation. The tool's mirror still applies the
+  pre-#210 bound `0 <= mapGroup <= 35`, so its (56, 6) decode is recorded as invalid; production
+  `CONFIG_UNBOUND` on `main` uses `location_max_map_group = 56` and accepts groups 36..56 (21 groups,
+  143 maps). `mapNum <= 130` holds (maximum 122).
 * `is_indoors = (mapGroup != 0)` and the app's FireRed strategy (group 3 → Kanto towns) have no
   meaning for Unbound. Group 3 holds Unbound maps such as (3, 6) with section `0x93`.
 
@@ -143,9 +184,8 @@ The design meaning of each section (town, route or dungeon) is also not establis
 4. **App strategy.** Add a separate `LocationStrategy` for the exact Unbound hash only. Other
    CFRU hacks (Radical Red, Ghost Grey) need their own evidence, and the XOR key and table address
    are ROM-specific.
-5. **Still needed before production:** a connection-crossing capture, a capture in a group ≥ 36
-   (to exercise the widened bound), and fixture-replay tests built from these numeric values.
-   Encounter tables are out of scope here.
+5. **Still needed before production:** fixture-replay tests built from these numeric values (the
+   connection-crossing and group-56 captures now exist). Encounter tables are out of scope here.
 
 ## Reproduce
 
@@ -158,4 +198,8 @@ python3 tools/rom-evidence/unbound_location.py --rom /private/unbound.gba \
   --core /private/mgba_libretro.so --battery-save /private/own-unbound.sav \
   --movie tools/rom-evidence/unbound-location-grotto-warp.movie \
   --private-dir /private/unbound-location-run --output /private/unbound-location.json
+python3 tools/rom-evidence/unbound_location.py --rom /private/unbound.gba \
+  --core /private/mgba_libretro.so --battery-save /private/own-unbound.sav \
+  --movie tools/rom-evidence/unbound-location-route-crossing.movie \
+  --private-dir /private/unbound-location-crossing-run --output /private/unbound-location-crossing.json
 ```

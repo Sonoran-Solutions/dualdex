@@ -166,6 +166,11 @@ class UnboundLocationCliTests(unittest.TestCase):
         commands = uo.parse_movie(movie)
         self.assertEqual(sum(c[0] == 'observe' for c in commands), 13)
         self.assertNotIn(('cartridge_save',), commands)
+        crossing = Path(ul.__file__).with_name('unbound-location-route-crossing.movie').read_text()
+        commands = uo.parse_movie(crossing)
+        self.assertEqual(sum(c[0] == 'observe' for c in commands), 38)
+        self.assertIn(('save',), commands)
+        self.assertNotIn(('cartridge_save',), commands)
 
 
 if __name__ == '__main__':

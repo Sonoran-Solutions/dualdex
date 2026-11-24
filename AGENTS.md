@@ -44,26 +44,20 @@ See the header comment in `ci.sh` for exactly which suites each target runs. `./
 
 ---
 
-## 2a. Validation policy (shared across Sonoran repositories)
+## 2a. Validation policy
 
-`ci.sh` stays the only command vocabulary; this section says which target to run and when a result can be reused.
-
-- **Select checks by affected behavior, not file count.** Inert docs/audits/evidence: review the diff, no `ci.sh` run. A localized change in one area: its focused target (`fixture-test`, `rowe-test`, `coverage-test`) during development. Calculator, native reader, profile JSON, generator, or shared Kotlin changes cross boundaries: `./ci.sh test`. A candidate for review needs one valid `./ci.sh all` on its tested revision.
-- **Discover commands by reading, not running.** The header of `ci.sh` lists what each target runs. Never run `./ci.sh all` to find out what it does. A Gradle filter that selects zero tests is not a pass.
-- **Reuse valid evidence.** Before running, check for an existing `./ci.sh` result or in-flight job on the same inputs (hosted CI on the same SHA counts). After a revision, rerun only what it invalidates (source, native code, profiles, generators and their inputs, fixtures, test code, Gradle/NDK/CMake versions, submodule commit, dirty tree). Doc-only revisions do not invalidate a prior `./ci.sh all`. Record the tested SHA separately from the current SHA; never report reused evidence as a fresh run. A PR, a new commit, a review request, or a different agent is not by itself a reason to rerun.
-- **One integration owner** (the agent opening or updating the PR) is responsible for the candidate's `./ci.sh all`; contributors on sub-tasks run focused targets; reviewers rerun only for a concrete concern.
-- **Supervise long jobs.** `./ci.sh test` and `build` get a finite deadline (30 min until a healthy duration is recorded here), bounded captured output (head/tail, not unlimited capture), and cleanup of Gradle daemons and emulator/core processes the job started; only task-owned processes, never `pkill -f`. Start heavy work only with ≥ 20 GiB free. One Gradle/NDK build per host at a time.
-- **No blind retries.** One bounded recovery retry per issue after a diagnosis; preserve failed attempts. Timeouts, crashes, and missing results are failed validation, never waived.
+Follow the global validation and job-supervision rules (and the `validation-supervision` skill) for risk-based check selection, evidence reuse, host-slot limits, and bounded supervision.
+Repo specifics: `ci.sh` is the only command vocabulary; the agent opening or updating the PR owns the candidate's `./ci.sh all` (hosted CI on the same SHA counts), and supervised jobs must clean up any Gradle daemons or emulator/core processes they start.
 
 Gates that remain explicit: human merge approval (section 1), release signing (section 4), the byte-for-byte generated-artifact checks in `./ci.sh test`, and calculator golden provenance (`docs/QUICKJS_CALCULATOR_TESTS.md`).
 
 | Behavior area | Verified command | Expected result | Normal duration | Broader-validation trigger |
 |---|---|---|---|---|
 | Docs, audits, evidence | diff review only | n/a | n/a | never for inert files |
-| Memory fixtures, ROWE decoder, identity adapter | `./ci.sh fixture-test` / `./ci.sh rowe-test` (`rowe-sanitize` for memory-safety concerns) | exit 0 | measure | profile JSON or `pokemon_reader.*` offsets changed → `./ci.sh test` |
-| H&S coverage and release proof | `./ci.sh coverage-test` | exit 0 | measure | coverage-affecting UI or battle console changes |
-| Everything (native, calculator, oracle, generators, Kotlin) | `./ci.sh test` | exit 0 | measure | any cross-boundary change; required once per candidate via `all` |
-| Candidate APK | `./ci.sh build` / `./ci.sh all` | `app-debug.apk` produced, exit 0 | measure | once per review candidate, by the integration owner |
+| Memory fixtures, ROWE decoder, identity adapter | `./ci.sh fixture-test` / `./ci.sh rowe-test` (`rowe-sanitize` for memory-safety concerns) | exit 0 | TBD (not yet baselined) | profile JSON or `pokemon_reader.*` offsets changed → `./ci.sh test` |
+| H&S coverage and release proof | `./ci.sh coverage-test` | exit 0 | TBD (not yet baselined) | coverage-affecting UI or battle console changes |
+| Everything (native, calculator, oracle, generators, Kotlin) | `./ci.sh test` | exit 0 | TBD (not yet baselined) | any cross-boundary change; required once per candidate via `all` |
+| Candidate APK | `./ci.sh build` / `./ci.sh all` | `app-debug.apk` produced, exit 0 | TBD (not yet baselined) | once per review candidate, by the integration owner |
 
 ---
 

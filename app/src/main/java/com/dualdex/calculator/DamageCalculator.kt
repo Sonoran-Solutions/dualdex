@@ -775,6 +775,7 @@ internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
         }
         put("field", fieldObj)
     }.toString()
+    }
 
 private fun putHnsHoldEffectDescriptor(
     target: JSONObject,

@@ -254,6 +254,10 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     }
     private var pendingCoverSha: String? = null
 
+    private val pickPatchLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        com.dualdex.library.PatchFlow.onPatchPicked(this, uri)
+    }
+
     /** True after a [FrontendLaunchActivity] hand-off: Back then returns to the frontend. */
     private val backToFrontend = object : androidx.activity.OnBackPressedCallback(false) {
         override fun handleOnBackPressed() { moveTaskToBack(true) }
@@ -327,6 +331,12 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 pendingCoverSha = sha
                 pickCoverLauncher.launch(arrayOf("image/*"))
             }
+            com.dualdex.library.PatchFlow.pickPatchRequest = {
+                runOnUiThread { pickPatchLauncher.launch(arrayOf("*/*")) }
+            }
+            viewModel.attachNuzlockeStore(
+                com.dualdex.nuzlocke.NuzlockeStore(File(filesDir, "nuzlocke"))
+            )
             com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = { initial ->
                 runOnUiThread { chooseShareSavesFolderLauncher.launch(initial) }
             }
@@ -339,6 +349,13 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             lifecycleScope.launch {
                 viewModel.activeRomIdentity.collect { id ->
                     emulatorView?.setSpeedMultiplier(settingsManager.romSpeed(id?.takeIf { it.isValid }?.storageKey))
+                }
+            }
+            lifecycleScope.launch {
+                com.dualdex.library.PatchFlow.status.collect { st ->
+                    if (st is com.dualdex.library.PatchFlow.Status.Saved) {
+                        st.linkedFolder?.let { scanRomsDirectory(it) }
+                    }
                 }
             }
 
@@ -863,6 +880,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     override fun onDestroy() {
         settingsManager.unregisterChangeListener(inputPrefsListener)
         currentCompanionScreenView?.release()
+        com.dualdex.library.PatchFlow.pickPatchRequest = null
         com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = null
         super.onDestroy()
         val owner = CoreOwner.process.release(this)

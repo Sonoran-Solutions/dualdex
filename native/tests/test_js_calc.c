@@ -4368,6 +4368,51 @@ static void check_hns_fixed_two_production_vectors(void) {
     jl_free(vectors); free(text);
 }
 
+static void check_unbound_cfru(void) {
+    /* SOURCE_APPROXIMATE: case 1 of tools/unbound-damage-oracle/corpus.json. */
+    static const int rolls[ROLL_COUNT] =
+        {56, 56, 57, 58, 58, 59, 60, 60, 61, 62, 62, 63, 64, 64, 65, 66};
+#define UNBOUND_REQUEST(FORMAT, CATEGORY, POWER) \
+    "{\"typeSystem\":\"unbound_cfru\",\"field\":{\"gameType\":\"" FORMAT "\"}," \
+    "\"display\":{\"attackerName\":\"Snorlax\",\"defenderName\":\"Chansey\",\"moveName\":\"Mega Punch\",\"defenderMaxHP\":220}," \
+    "\"unbound\":{\"attack\":123,\"attack_stage\":6,\"attacker_ability\":0,\"attacker_hold_effect\":0," \
+    "\"attacker_status\":0,\"attacker_type_1\":0,\"attacker_type_2\":0,\"category\":" CATEGORY "," \
+    "\"critical\":0,\"defender_ability\":0,\"defender_hold_effect\":0,\"defender_type_1\":0,\"defender_type_2\":0," \
+    "\"defense\":101,\"defense_stage\":6,\"level\":50,\"move_type\":0,\"power\":" POWER "," \
+    "\"screens\":0,\"sp_attack\":137,\"sp_attack_stage\":6,\"sp_defense\":119,\"sp_defense_stage\":6,\"weather\":0}}"
+    const calc_fixture fixtures[] = {
+        {
+            .name = "unbound_cfru_oracle_case_1",
+            .request = UNBOUND_REQUEST("Singles", "0", "80"),
+            .expect_success = 1, .expect_rolls = rolls, .expect_move_type = "Normal",
+            .expect_move_category = "Physical", .expect_move_power = 80, .expect_defender_hp = 220
+        },
+        {
+            .name = "unbound_cfru_doubles_refused",
+            .request = UNBOUND_REQUEST("Doubles", "0", "80"),
+            .expect_error_contains = "Singles"
+        },
+        {
+            .name = "unbound_cfru_status_refused",
+            .request = UNBOUND_REQUEST("Singles", "2", "80"),
+            .expect_error_contains = "category"
+        },
+        {
+            .name = "unbound_cfru_out_of_range_power_refused",
+            .request = UNBOUND_REQUEST("Singles", "0", "151"),
+            .expect_error_contains = "power"
+        },
+        {
+            .name = "unbound_cfru_no_generic_fallback",
+            .request = "{\"typeSystem\":\"unbound_cfru\",\"gen\":3,\"attacker\":{\"species\":\"Machamp\"},"
+                       "\"defender\":{\"species\":\"Snorlax\"},\"move\":{\"name\":\"Rock Slide\"}}",
+            .expect_error_contains = "Unbound CFRU"
+        }
+    };
+#undef UNBOUND_REQUEST
+    for (size_t i = 0; i < sizeof(fixtures) / sizeof(fixtures[0]); ++i) run_fixture(&fixtures[i]);
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -4387,6 +4432,9 @@ int main(void) {
 
     printf("-- battle-format (field.gameType) contract, Gen III mechanics, error paths --\n");
     for (int i = 0; i < FIXTURE_COUNT; i++) run_fixture(&FIXTURES[i]);
+
+    printf("-- Unbound CFRU ordinary-hit Singles and refusal paths --\n");
+    check_unbound_cfru();
 
     printf("-- equivalent singles inputs --\n");
     check_singles_equivalence();

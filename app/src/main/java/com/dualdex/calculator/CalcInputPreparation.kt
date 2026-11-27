@@ -68,7 +68,8 @@ data class CalcParticipantState(
     /** Where [itemId] came from. */
     val itemProvenance: CalcItemProvenance = CalcItemProvenance.MANUAL,
     /** True when an observed item ID was outside the exact H&S item domain. */
-    val itemOutOfDomain: Boolean = false
+    val itemOutOfDomain: Boolean = false,
+    val unbound: CalcUnboundParticipant? = null
 ) {
     companion object {
         /**
@@ -375,7 +376,17 @@ object CalcInputPreparation {
             abilityId = resolvedAbilityId,
             itemId = resolvedItemId,
             itemProvenance = itemProvenance,
-            itemOutOfDomain = itemOutOfDomain
+            itemOutOfDomain = itemOutOfDomain,
+            unbound = parsed.takeIf { it.isValid && !it.isEmpty && !it.isEgg }?.let {
+                CalcUnboundParticipant(
+                    speciesId = it.species,
+                    stats = CalcRawStats(it.attack, it.defense, it.speed, it.spAttack, it.spDefense),
+                    maxHp = it.maxHp,
+                    partyMoveIds = it.moves.toList(),
+                    partyHeldItemId = it.heldItem,
+                    partyStatus = it.statusCondition
+                )
+            }
         )
     }
 
@@ -454,7 +465,8 @@ object CalcInputPreparation {
         abilityId = abilityId,
         itemId = itemId,
         itemProvenance = itemProvenance,
-        itemOutOfDomain = itemOutOfDomain
+        itemOutOfDomain = itemOutOfDomain,
+        unbound = unbound
     )
 
     /**

@@ -52,7 +52,8 @@ data class CalcPokemonInput(
     /** Where [itemId] came from; only [CalcItemProvenance.BATTLE_EFFECTIVE] is current battle state. */
     val itemProvenance: CalcItemProvenance = CalcItemProvenance.MANUAL,
     /** True when an observed item ID was outside the exact H&S item domain. */
-    val itemOutOfDomain: Boolean = false
+    val itemOutOfDomain: Boolean = false,
+    val unbound: CalcUnboundParticipant? = null
 )
 
 data class StatBlock(
@@ -201,6 +202,17 @@ data class CalcRawStats(
     val speed: Int,
     val spAttack: Int,
     val spDefense: Int
+)
+
+/** Internal species identity and raw, pre-stage stats supplied by a participant's source. */
+data class CalcUnboundParticipant(
+    val speciesId: Int,
+    val stats: CalcRawStats,
+    val maxHp: Int,
+    val types: List<com.dualdex.pokemon.PokemonType>? = null,
+    val partyMoveIds: List<Int>? = null,
+    val partyHeldItemId: Int? = null,
+    val partyStatus: Long? = null
 )
 
 data class CalcBadgeBoosts(
@@ -475,7 +487,8 @@ data class DamageCalculationRequest(
      * not an active battle (Gap C4a R1). Boundary-owned: [CalcRequestBoundary] overwrites any
      * caller-supplied value from the exact-trusted runtime observation.
      */
-    val hnsLiveBattleState: CalcHnsLiveBattleState? = null
+    val hnsLiveBattleState: CalcHnsLiveBattleState? = null,
+    val unboundOperands: CalcUnboundOperands? = null
 )
 
 data class DamageCalculationResponse(

@@ -1,6 +1,7 @@
 package com.dualdex.companion.ui
 
 import android.content.Context
+import android.graphics.Typeface
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -8,6 +9,13 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.nuzlocke.AreaEncounter
+import com.dualdex.nuzlocke.EncounterOutcome
+import com.dualdex.nuzlocke.FallenMon
+import com.dualdex.nuzlocke.NuzlockeRunState
+import com.dualdex.nuzlocke.NuzlockeStore
+import com.dualdex.nuzlocke.areaKeyOf
+import com.dualdex.nuzlocke.monIdentityKey
 import com.dualdex.pokemon.GameDataPack
 import com.dualdex.pokemon.ItemDatabase
 import com.dualdex.pokemon.unbound.UnboundDataPack
@@ -19,6 +27,7 @@ import com.dualdex.pokemon.TypeChart
 import com.dualdex.pokemon.NatureTable
 import com.dualdex.pokemon.resolveMove
 import com.dualdex.pokemon.resolveSpecies
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -65,11 +74,39 @@ class PartyScreenView(
         val defenseContent: LinearLayout
     )
 
+    private data class NuzlockeStripKey(
+        val state: NuzlockeRunState?,
+        val areaKey: String?,
+        val areaName: String?,
+        val expanded: Boolean,
+        val resetConfirmPending: Boolean
+    )
+
     private val slotGrid: PartySlotGrid
+    private val nuzlockeContainer: LinearLayout
+    private val nuzlockeToggleBtn: TextView
+    private val nuzlockeAreaPill: TextView
+    private val nuzlockeFallenPill: TextView
+    private val nuzlockeExpandBtn: TextView
+    private val nuzlockePanel: LinearLayout
+    private val nuzlockeDupesBtn: TextView
+    private val nuzlockeLevelCapLabel: TextView
+    private val nuzlockeCapDecBtn: TextView
+    private val nuzlockeCapIncBtn: TextView
+    private val nuzlockeResetBtn: TextView
+    private val nuzlockeResetConfirmRow: LinearLayout
+    private val nuzlockeEncountersHeader: TextView
+    private val nuzlockeEncountersList: LinearLayout
+    private val nuzlockeGraveyardHeader: TextView
+    private val nuzlockeGraveyardList: LinearLayout
     private val detailContainer: LinearLayout
     private var detailHolder: DetailHolder? = null
     private var lastDetailEmptyKey: String? = null
     private var lastSelectedIdx = -1
+    private var nuzlockeExpanded = false
+    private var nuzlockeResetConfirmPending = false
+    private var lastNuzlockeRenderKey: NuzlockeStripKey? = null
+    private var lastNuzlockeRomSha: String? = null
     /** Selected detail page; survives live updates and switching party members. */
     private var detailPage = 0
     private var viewScope: CoroutineScope? = null
@@ -78,6 +115,11 @@ class PartyScreenView(
         orientation = VERTICAL
         setBackgroundColor(DualDexTheme.Color.background)
         val pad = context.dp(DualDexTheme.Spacing.compact)
+        val tight = context.dp(DualDexTheme.Spacing.tight)
+
+        runCatching { context.applicationContext?.filesDir ?: context.filesDir }
+            .getOrNull()
+            ?.let { dir -> viewModel.attachNuzlockeStore(NuzlockeStore(File(dir, "nuzlocke"))) }
 
         slotGrid = PartySlotGrid(context, ::onMemberSelected)
         addView(slotGrid, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
@@ -88,11 +130,173 @@ class PartyScreenView(
             isVerticalScrollBarEnabled = true
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f)
         }
-        detailContainer = LinearLayout(context).apply {
+        val scrollContent = LinearLayout(context).apply {
             orientation = VERTICAL
             setPadding(pad, 0, pad, context.dp(DualDexTheme.Spacing.section))
         }
-        verticalScroll.addView(detailContainer)
+
+        // Inline Nuzlocke status bar & collapsible log/graveyard (zero AlertDialog/PopupWindow).
+        nuzlockeContainer = LinearLayout(context).apply {
+            orientation = VERTICAL
+            background = DualDexComponents.surface(context, elevated = false)
+            setPadding(pad, tight, pad, tight)
+        }
+        val stripRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        nuzlockeToggleBtn = buildNuzlockePill(context, "Nuzlocke: OFF") {
+            val current = viewModel.nuzlockeState.value ?: return@buildNuzlockePill
+            nuzlockeResetConfirmPending = false
+            viewModel.setNuzlockeEnabled(!current.enabled)
+            refreshUI()
+        }
+        nuzlockeAreaPill = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.compact
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(pad, tight, pad, tight)
+        }
+        nuzlockeFallenPill = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.compact
+            typeface = DualDexTheme.Type.device
+            isSingleLine = true
+            setPadding(pad, tight, pad, tight)
+            background = DualDexComponents.roundedDrawable(
+                context, DualDexTheme.Color.elevatedSurface, DualDexTheme.Radius.pill, DualDexTheme.Color.border
+            )
+        }
+        nuzlockeExpandBtn = buildNuzlockePill(context, "Log ▾") {
+            nuzlockeExpanded = !nuzlockeExpanded
+            if (!nuzlockeExpanded) nuzlockeResetConfirmPending = false
+            updateNuzlockeStrip()
+        }
+        stripRow.addView(nuzlockeToggleBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        stripRow.addView(nuzlockeAreaPill, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply {
+            marginStart = tight
+        })
+        stripRow.addView(nuzlockeFallenPill, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = tight
+        })
+        stripRow.addView(nuzlockeExpandBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = tight
+        })
+        nuzlockeContainer.addView(stripRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+
+        nuzlockePanel = LinearLayout(context).apply {
+            orientation = VERTICAL
+            visibility = View.GONE
+            setPadding(0, pad, 0, tight)
+        }
+        nuzlockePanel.addView(DualDexComponents.divider(context), LayoutParams(LayoutParams.MATCH_PARENT, context.dp(1).coerceAtLeast(1)).apply {
+            bottomMargin = pad
+        })
+
+        val controlsRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        nuzlockeDupesBtn = buildNuzlockePill(context, "Dupes: ON") {
+            val current = viewModel.nuzlockeState.value ?: return@buildNuzlockePill
+            viewModel.setNuzlockeDupesClause(!current.dupesClause)
+            updateNuzlockeStrip()
+        }
+        nuzlockeCapDecBtn = buildNuzlockePill(context, "−") {
+            val current = viewModel.nuzlockeState.value ?: return@buildNuzlockePill
+            val next = when (val cap = current.levelCap) {
+                null -> null
+                in 1..5 -> null
+                else -> cap - 5
+            }
+            viewModel.setNuzlockeLevelCap(next)
+            updateNuzlockeStrip()
+        }.apply { contentDescription = "Decrease Nuzlocke level cap" }
+        nuzlockeLevelCapLabel = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.compact
+            typeface = DualDexTheme.Type.device
+            gravity = Gravity.CENTER
+            isSingleLine = true
+            setPadding(tight, 0, tight, 0)
+        }
+        nuzlockeCapIncBtn = buildNuzlockePill(context, "+") {
+            val current = viewModel.nuzlockeState.value ?: return@buildNuzlockePill
+            val next = ((current.levelCap ?: 0) + 5).coerceAtMost(100)
+            viewModel.setNuzlockeLevelCap(next)
+            updateNuzlockeStrip()
+        }.apply { contentDescription = "Increase Nuzlocke level cap" }
+        nuzlockeResetBtn = buildNuzlockePill(context, "Reset Run", DualDexButtonStyle.SECONDARY) {
+            nuzlockeResetConfirmPending = true
+            updateNuzlockeStrip()
+        }
+        controlsRow.addView(nuzlockeDupesBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        controlsRow.addView(nuzlockeCapDecBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = pad
+        })
+        controlsRow.addView(nuzlockeLevelCapLabel, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        controlsRow.addView(nuzlockeCapIncBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        controlsRow.addView(View(context), LayoutParams(0, 1, 1f))
+        controlsRow.addView(nuzlockeResetBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+        nuzlockePanel.addView(controlsRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+
+        nuzlockeResetConfirmRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE
+            background = DualDexComponents.surface(context, elevated = true)
+            setPadding(pad, tight, pad, tight)
+        }
+        nuzlockeResetConfirmRow.addView(TextView(context).apply {
+            text = "Clear encounters and graveyard?"
+            setTextColor(DualDexTheme.Color.warning)
+            textSize = DualDexTheme.Type.compact
+            typeface = Typeface.DEFAULT_BOLD
+        }, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        nuzlockeResetConfirmRow.addView(buildNuzlockePill(context, "Cancel", DualDexButtonStyle.SECONDARY) {
+            nuzlockeResetConfirmPending = false
+            updateNuzlockeStrip()
+        }, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = tight
+        })
+        nuzlockeResetConfirmRow.addView(buildNuzlockePill(context, "Confirm Reset", DualDexButtonStyle.DESTRUCTIVE) {
+            nuzlockeResetConfirmPending = false
+            viewModel.resetNuzlockeRun()
+            refreshUI()
+        }, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = tight
+        })
+        nuzlockePanel.addView(nuzlockeResetConfirmRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = pad
+        })
+
+        nuzlockeEncountersHeader = DualDexComponents.microLabel(context, "ENCOUNTERS")
+        nuzlockeEncountersList = LinearLayout(context).apply { orientation = VERTICAL }
+        nuzlockeGraveyardHeader = DualDexComponents.microLabel(context, "GRAVEYARD", DualDexTheme.Color.danger)
+        nuzlockeGraveyardList = LinearLayout(context).apply { orientation = VERTICAL }
+
+        nuzlockePanel.addView(nuzlockeEncountersHeader, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = pad
+            bottomMargin = tight
+        })
+        nuzlockePanel.addView(nuzlockeEncountersList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        nuzlockePanel.addView(nuzlockeGraveyardHeader, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = pad
+            bottomMargin = tight
+        })
+        nuzlockePanel.addView(nuzlockeGraveyardList, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        nuzlockeContainer.addView(nuzlockePanel, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+
+        scrollContent.addView(nuzlockeContainer, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = pad
+        })
+
+        detailContainer = LinearLayout(context).apply {
+            orientation = VERTICAL
+        }
+        scrollContent.addView(detailContainer, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        verticalScroll.addView(scrollContent)
         addView(verticalScroll)
 
         refreshUI()
@@ -105,6 +309,9 @@ class PartyScreenView(
             scope.launch { viewModel.playerParty.collectLatest { refreshUI() } }
             scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
             scope.launch { viewModel.runtimeRomTrust.collectLatest { refreshUI() } }
+            scope.launch { viewModel.nuzlockeState.collectLatest { refreshUI() } }
+            scope.launch { viewModel.playerLocation.collectLatest { updateNuzlockeStrip() } }
+            scope.launch { viewModel.resolvedLocation.collectLatest { updateNuzlockeStrip() } }
             scope.launch {
                 viewModel.activePlayerBattlerIndex.collectLatest { activeIndex ->
                     if (viewModel.isInBattle.value && activeIndex in viewModel.playerParty.value.indices) {
@@ -125,15 +332,19 @@ class PartyScreenView(
         val party = viewModel.playerParty.value
         val selected = viewModel.selectedMemberIndex.value.coerceIn(0, (party.size - 1).coerceAtLeast(0))
         updateSlots(party, selected)
+        updateNuzlockeStrip()
         updateDetail(party, selected, viewModel.activeGameId.value)
     }
 
     private fun updateSlots(party: List<ParsedPokemon>, selectedIdx: Int) {
         val pack = viewModel.activeGameDataPack
+        val nuzlocke = viewModel.nuzlockeState.value
+        val fallenKeys = if (nuzlocke?.enabled == true) nuzlocke.fallen.keys else emptySet()
         slotGrid.slots.forEachIndexed { index, slot ->
             val mon = party.getOrNull(index)
             slot.bind(mon?.let {
                 val species = pack.resolveSpecies(it.species)
+                val monKey = monIdentityKey(it)
                 PartySlotState(
                     name = it.nickname.ifBlank { species.name.ifBlank { "#${it.species}" } },
                     level = it.level,
@@ -144,9 +355,224 @@ class PartyScreenView(
                     shiny = it.isShiny,
                     isEgg = it.isEgg,
                     selected = index == selectedIdx,
+                    isFallenNuzlocke = monKey.isNotEmpty() && monKey in fallenKeys,
                 )
             })
         }
+    }
+
+    private fun updateNuzlockeStrip() {
+        val state = viewModel.nuzlockeState.value
+        if (state?.romSha256 != lastNuzlockeRomSha) {
+            lastNuzlockeRomSha = state?.romSha256
+            nuzlockeResetConfirmPending = false
+        }
+        val loc = viewModel.playerLocation.value?.takeIf { it.isValid }
+        val areaKey = loc?.let { areaKeyOf(it) }
+        val areaName = viewModel.resolvedLocation.value?.name?.takeIf { it.isNotBlank() }
+            ?: areaKey?.let { "Area $it" }
+
+        val renderKey = NuzlockeStripKey(
+            state = state,
+            areaKey = areaKey,
+            areaName = areaName,
+            expanded = nuzlockeExpanded,
+            resetConfirmPending = nuzlockeResetConfirmPending
+        )
+        if (renderKey == lastNuzlockeRenderKey) return
+        lastNuzlockeRenderKey = renderKey
+
+        if (state == null) {
+            nuzlockeToggleBtn.text = "Nuzlocke: —"
+            nuzlockeToggleBtn.isEnabled = false
+            nuzlockeToggleBtn.isSelected = false
+            nuzlockeAreaPill.visibility = View.GONE
+            nuzlockeFallenPill.visibility = View.GONE
+            nuzlockeExpandBtn.visibility = View.GONE
+            nuzlockePanel.visibility = View.GONE
+            return
+        }
+
+        nuzlockeToggleBtn.isEnabled = true
+        nuzlockeToggleBtn.isSelected = state.enabled
+        nuzlockeToggleBtn.text = if (state.enabled) "Nuzlocke: ON" else "Nuzlocke: OFF"
+        nuzlockeToggleBtn.setTextColor(
+            if (state.enabled) DualDexTheme.Color.accent else DualDexTheme.Color.textSecondary
+        )
+
+        if (!state.enabled) {
+            nuzlockeAreaPill.visibility = View.GONE
+            nuzlockeFallenPill.visibility = View.GONE
+            nuzlockeExpandBtn.visibility = View.GONE
+            nuzlockePanel.visibility = View.GONE
+            return
+        }
+
+        nuzlockeAreaPill.visibility = View.VISIBLE
+        nuzlockeFallenPill.visibility = View.VISIBLE
+        nuzlockeExpandBtn.visibility = View.VISIBLE
+
+        val areaEncounter = areaKey?.let { state.encounters[it] }
+        nuzlockeAreaPill.text = if (areaName != null) {
+            val statusLabel = areaEncounter?.outcome?.label ?: "Open"
+            "$areaName: $statusLabel"
+        } else {
+            "Area: —"
+        }
+        nuzlockeAreaPill.setTextColor(
+            when (areaEncounter?.outcome) {
+                EncounterOutcome.CAUGHT -> DualDexTheme.Color.success
+                EncounterOutcome.MISSED -> DualDexTheme.Color.danger
+                EncounterOutcome.MET -> DualDexTheme.Color.warning
+                EncounterOutcome.DUPES_SKIPPED, null -> DualDexTheme.Color.textPrimary
+            }
+        )
+
+        val fallenCount = state.fallen.size
+        nuzlockeFallenPill.text = "Fallen: $fallenCount"
+        nuzlockeFallenPill.setTextColor(
+            if (fallenCount > 0) DualDexTheme.Color.danger else DualDexTheme.Color.textSecondary
+        )
+        nuzlockeExpandBtn.text = if (nuzlockeExpanded) "Log ▴" else "Log ▾"
+        nuzlockePanel.visibility = if (nuzlockeExpanded) View.VISIBLE else View.GONE
+
+        if (!nuzlockeExpanded) return
+
+        nuzlockeDupesBtn.text = if (state.dupesClause) "Dupes: ON" else "Dupes: OFF"
+        nuzlockeDupesBtn.isSelected = state.dupesClause
+        nuzlockeLevelCapLabel.text = state.levelCap?.let { "Cap Lv$it" } ?: "Cap: Off"
+        nuzlockeCapDecBtn.isEnabled = state.levelCap != null
+        nuzlockeResetBtn.visibility = if (nuzlockeResetConfirmPending) View.GONE else View.VISIBLE
+        nuzlockeResetConfirmRow.visibility = if (nuzlockeResetConfirmPending) View.VISIBLE else View.GONE
+
+        rebuildEncountersList(state.encounters.values.toList())
+        rebuildGraveyardList(state.fallen.values.toList())
+    }
+
+    private fun rebuildEncountersList(encounters: List<AreaEncounter>) {
+        nuzlockeEncountersHeader.text = "ENCOUNTERS (${encounters.size})"
+        nuzlockeEncountersList.removeAllViews()
+        if (encounters.isEmpty()) {
+            nuzlockeEncountersList.addView(nuzlockeEmptyRow("No wild encounters recorded yet."))
+            return
+        }
+        val tight = context.dp(DualDexTheme.Spacing.tight)
+        for (enc in encounters.asReversed()) {
+            val row = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, tight, 0, tight)
+            }
+            val label = TextView(context).apply {
+                text = "${enc.areaName} · ${enc.speciesName} Lv.${enc.level}"
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.compact
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
+            }
+            val outcomeBtn = buildNuzlockePill(context, enc.outcome.label) {
+                viewModel.overrideNuzlockeEncounter(enc.areaKey, nextEncounterOutcome(enc.outcome))
+                updateNuzlockeStrip()
+            }.apply {
+                setTextColor(
+                    when (enc.outcome) {
+                        EncounterOutcome.CAUGHT -> DualDexTheme.Color.success
+                        EncounterOutcome.MISSED -> DualDexTheme.Color.danger
+                        EncounterOutcome.MET -> DualDexTheme.Color.warning
+                        EncounterOutcome.DUPES_SKIPPED -> DualDexTheme.Color.textSecondary
+                    }
+                )
+            }
+            row.addView(label, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(outcomeBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                marginStart = tight
+            })
+            nuzlockeEncountersList.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        }
+    }
+
+    private fun rebuildGraveyardList(fallen: List<FallenMon>) {
+        nuzlockeGraveyardHeader.text = "GRAVEYARD (${fallen.size})"
+        nuzlockeGraveyardList.removeAllViews()
+        if (fallen.isEmpty()) {
+            nuzlockeGraveyardList.addView(nuzlockeEmptyRow("No fallen Pokémon yet."))
+            return
+        }
+        val tight = context.dp(DualDexTheme.Spacing.tight)
+        for (mon in fallen.asReversed()) {
+            val row = LinearLayout(context).apply {
+                orientation = HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, tight, 0, tight)
+            }
+            val displayTitle = if (mon.nickname.equals(mon.speciesName, ignoreCase = true)) {
+                mon.speciesName
+            } else {
+                "${mon.nickname} (${mon.speciesName})"
+            }
+            val label = TextView(context).apply {
+                text = "$displayTitle Lv.${mon.level} · ${mon.areaName}"
+                setTextColor(DualDexTheme.Color.textPrimary)
+                textSize = DualDexTheme.Type.compact
+                isSingleLine = true
+                ellipsize = TextUtils.TruncateAt.END
+            }
+            val reviveBtn = buildNuzlockePill(context, "Revive") {
+                viewModel.reviveNuzlockeFallen(mon.monKey)
+                refreshUI()
+            }
+            row.addView(label, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(reviveBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                marginStart = tight
+            })
+            nuzlockeGraveyardList.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        }
+    }
+
+    private fun nuzlockeEmptyRow(message: String): TextView = TextView(context).apply {
+        text = message
+        setTextColor(DualDexTheme.Color.textSecondary)
+        textSize = DualDexTheme.Type.compact
+        setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.tight))
+    }
+
+    private fun buildNuzlockePill(
+        context: Context,
+        label: String,
+        style: DualDexButtonStyle = DualDexButtonStyle.SECONDARY,
+        onClick: () -> Unit
+    ): TextView = TextView(context).apply {
+        text = label
+        gravity = Gravity.CENTER
+        minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
+        minWidth = context.dp(DualDexTheme.Spacing.touchTarget)
+        setPadding(
+            context.dp(DualDexTheme.Spacing.compact),
+            context.dp(DualDexTheme.Spacing.tight),
+            context.dp(DualDexTheme.Spacing.compact),
+            context.dp(DualDexTheme.Spacing.tight)
+        )
+        textSize = DualDexTheme.Type.compact
+        typeface = Typeface.DEFAULT_BOLD
+        setTextColor(
+            when (style) {
+                DualDexButtonStyle.DESTRUCTIVE -> DualDexTheme.Color.onDanger
+                DualDexButtonStyle.PRIMARY -> DualDexTheme.Color.onAccent
+                DualDexButtonStyle.SECONDARY, DualDexButtonStyle.GHOST -> DualDexTheme.Color.textPrimary
+            }
+        )
+        background = DualDexComponents.controlBackground(context, style, selected = false)
+        isFocusable = true
+        isFocusableInTouchMode = false
+        isClickable = true
+        setOnClickListener { onClick() }
+    }
+
+    private fun nextEncounterOutcome(current: EncounterOutcome): EncounterOutcome = when (current) {
+        EncounterOutcome.MET -> EncounterOutcome.CAUGHT
+        EncounterOutcome.CAUGHT -> EncounterOutcome.MISSED
+        EncounterOutcome.MISSED -> EncounterOutcome.DUPES_SKIPPED
+        EncounterOutcome.DUPES_SKIPPED -> EncounterOutcome.CAUGHT
     }
 
     private fun onMemberSelected(index: Int) {

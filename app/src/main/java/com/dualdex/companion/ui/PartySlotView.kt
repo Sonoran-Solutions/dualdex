@@ -79,8 +79,11 @@ class PartySlotView(context: Context) : View(context) {
         isClickable = !empty
         isFocusable = !empty
         contentDescription = PartySlotModel.accessibilityLabel(index, newState)
-        // Re-evaluate on selection or frame changes (e.g. selected -> selected+fainted).
-        if (previous?.selected != newState?.selected || previous?.frame != newState?.frame) updateBob()
+        // Re-evaluate on selection, frame, or fallen changes (e.g. selected -> selected+fainted).
+        if (previous?.selected != newState?.selected ||
+            previous?.frame != newState?.frame ||
+            previous?.isFallenNuzlocke != newState?.isFallenNuzlocke
+        ) updateBob()
         render()
     }
 
@@ -108,7 +111,7 @@ class PartySlotView(context: Context) : View(context) {
 
     private fun shouldBob(): Boolean {
         val s = state ?: return false
-        return s.selected && s.frame != SlotFrame.SELECTED_FAINTED &&
+        return s.selected && s.frame != SlotFrame.SELECTED_FAINTED && !s.isFallenNuzlocke &&
             isAttachedToWindow && ValueAnimator.areAnimatorsEnabled()
     }
 
@@ -145,7 +148,12 @@ class PartySlotView(context: Context) : View(context) {
         if (s != null) {
             val open = s.selected
             val bob = if (bobUp) -1 else 0
-            drawBall(c, ox + 3, oy + 3 + bob, open)
+            if (s.isFallenNuzlocke && !s.isEgg) {
+                shape(c, ox + 1, oy + 1, w - 2, h - 2, INNER_CORNER, FALLEN_SCRIM, 0 until h - 2)
+                drawGravestone(c, ox + 3, oy + 4)
+            } else {
+                drawBall(c, ox + 3, oy + 3 + bob, open)
+            }
             if (s.isEgg) {
                 text(c, "Egg", ox + 4, oy + 16, TEXT, TEXT_SHADOW, w - 8)
             } else {
@@ -234,6 +242,15 @@ class PartySlotView(context: Context) : View(context) {
         }
     }
 
+    private fun drawGravestone(c: Canvas, x: Int, y: Int) {
+        GRAVESTONE.forEachIndexed { row, line ->
+            line.forEachIndexed { col, ch ->
+                val color = GRAVESTONE_COLORS[ch] ?: return@forEachIndexed
+                rect(c, x + col, y + row, 1, 1, color)
+            }
+        }
+    }
+
     private fun text(
         c: Canvas, value: String, x: Int, y: Int, color: Int, shadowColor: Int, maxWidth: Int,
         shadow: Boolean = true
@@ -316,6 +333,7 @@ class PartySlotView(context: Context) : View(context) {
         val HP_RED_HI = 0xFFFFA090.toInt()
         val STATUS_OUTLINE = 0xFF1A2430.toInt()
         val PRESS_OVERLAY = 0x30FFFFFF
+        val FALLEN_SCRIM = 0x340A1018
 
         /** Original 12×12 Poké Ball sprite. k outline, r/R red and highlight, w/g white and shade. */
         val BALL = listOf(
@@ -339,6 +357,28 @@ class PartySlotView(context: Context) : View(context) {
             'R' to 0xFFF8A0A0.toInt(),
             'w' to 0xFFF8F8F8.toInt(),
             'g' to 0xFFB8B8C8.toInt(),
+        )
+
+        /** Original 11×11 pixel-art gravestone icon for fallen Nuzlocke Pokémon. */
+        val GRAVESTONE = listOf(
+            "..kkkkkkk..",
+            ".khhhhsssk.",
+            "khhssssssdk",
+            "khsssdsssdk",
+            "khssdddssdk",
+            "khsssdsssdk",
+            "khsssdsssdk",
+            "khsssssssdk",
+            "kkkkkkkkkkk",
+            "kbbbbbbdddk",
+            "kkkkkkkkkkk",
+        )
+        val GRAVESTONE_COLORS = mapOf(
+            'k' to 0xFF1A1E24.toInt(),
+            'h' to 0xFFE4EAEF.toInt(),
+            's' to 0xFFAAB4BE.toInt(),
+            'd' to 0xFF5A6470.toInt(),
+            'b' to 0xFF7D8792.toInt(),
         )
     }
 }

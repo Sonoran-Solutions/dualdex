@@ -19,6 +19,7 @@ data class PartySlotState(
     val shiny: Boolean,
     val isEgg: Boolean,
     val selected: Boolean,
+    val isFallenNuzlocke: Boolean = false,
 ) {
     val frame: SlotFrame get() = PartySlotModel.frameFor(this)
 }
@@ -173,6 +174,7 @@ object PartySlotModel {
                 "FNT" -> append(", fainted")
                 else -> append(", status ${state.status}")
             }
+            if (state.isFallenNuzlocke) append(", fallen (Nuzlocke)")
             if (state.selected) append(", selected")
         }
     }

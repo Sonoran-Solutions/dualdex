@@ -45,6 +45,12 @@ add_library(
     "${NATIVE_ROOT}/quickjs/dtoa.c"
 )
 
+target_compile_definitions(
+    dualdex_native
+    PRIVATE
+    DUALDEX_WITH_RCHEEVOS
+)
+
 target_compile_options(
     dualdex_native
     PRIVATE

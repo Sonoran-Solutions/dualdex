@@ -4,6 +4,11 @@ import android.net.Uri
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.LoadedRomStatus
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.nuzlocke.EncounterOutcome
+import com.dualdex.nuzlocke.NuzlockeBattleKind
+import com.dualdex.nuzlocke.NuzlockeRunState
+import com.dualdex.nuzlocke.NuzlockeStore
+import com.dualdex.nuzlocke.NuzlockeTracker
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.LocationResolution
 import com.dualdex.pokemon.LocationStrategy
@@ -11,6 +16,7 @@ import com.dualdex.pokemon.LocationUnavailableReason
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
+import com.dualdex.pokemon.resolveSpecies
 import com.dualdex.pokemon.unbound.UnboundMapNames
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
@@ -58,7 +64,8 @@ enum class CompanionTab(val title: String) {
 
 class CompanionViewModel(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
-    var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance
+    var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance,
+    nuzlockeStore: NuzlockeStore? = null
 ) {
     /**
      * Session setters and observation publication share this monitor. Polling takes the core
@@ -262,6 +269,96 @@ class CompanionViewModel(
     private val _enemyBattlerState = MutableStateFlow<BattlerRuntimeObservation?>(null)
     val enemyBattlerState: StateFlow<BattlerRuntimeObservation?> = _enemyBattlerState.asStateFlow()
 
+    private val _nuzlockeState = MutableStateFlow<NuzlockeRunState?>(null)
+    val nuzlockeState: StateFlow<NuzlockeRunState?> = _nuzlockeState.asStateFlow()
+
+    private val nuzlockeIoLock = Any()
+    @Volatile private var nuzlockeStore: NuzlockeStore? = nuzlockeStore
+    private var nuzlockeTracker: NuzlockeTracker? = null
+    private var pendingNuzlockeSave: NuzlockeRunState? = null
+
+    /**
+     * Attaches a [NuzlockeStore] for per-ROM persistence. When [replace] is false, an already
+     * attached store (e.g., one injected by a test or host) is preserved. If a ROM identity is
+     * already active, its persisted state is loaded immediately.
+     */
+    fun attachNuzlockeStore(store: NuzlockeStore, replace: Boolean = false) {
+        synchronized(observationSessionLock) {
+            if (nuzlockeStore != null && !replace) return
+            nuzlockeStore = store
+            val sha = _activeRomIdentity.value?.sha256?.takeIf { it.isNotBlank() }
+            if (sha != null) {
+                reloadNuzlockeForRomLocked(sha)
+            }
+        }
+    }
+
+    private fun ensureNuzlockeForRomLocked(romSha256: String?) {
+        val normalized = romSha256?.trim()?.takeIf { it.isNotEmpty() }
+        if (normalized == null) {
+            clearNuzlockeSessionLocked()
+            return
+        }
+        val current = nuzlockeTracker
+        if (current != null && current.state.romSha256.equals(normalized, ignoreCase = true)) {
+            current.resetTransientState()
+            _nuzlockeState.value = current.state
+            return
+        }
+        reloadNuzlockeForRomLocked(normalized)
+    }
+
+    private fun reloadNuzlockeForRomLocked(romSha256: String) {
+        val loaded = nuzlockeStore?.load(romSha256) ?: NuzlockeRunState(romSha256 = romSha256)
+        val tracker = nuzlockeTracker
+        if (tracker == null) {
+            nuzlockeTracker = NuzlockeTracker(loaded)
+        } else {
+            tracker.loadState(loaded)
+        }
+        pendingNuzlockeSave = null
+        _nuzlockeState.value = loaded
+    }
+
+    private fun clearNuzlockeSessionLocked() {
+        nuzlockeTracker?.resetTransientState()
+        nuzlockeTracker = null
+        pendingNuzlockeSave = null
+        _nuzlockeState.value = null
+    }
+
+    private fun persistNuzlockeState(state: NuzlockeRunState?) {
+        val store = nuzlockeStore ?: return
+        if (state == null) return
+        synchronized(nuzlockeIoLock) {
+            store.save(state)
+        }
+    }
+
+    private fun mutateNuzlocke(action: (NuzlockeTracker) -> Boolean) {
+        val toSave = synchronized(observationSessionLock) {
+            val tracker = nuzlockeTracker ?: return
+            if (!action(tracker)) return
+            val updated = tracker.state
+            _nuzlockeState.value = updated
+            updated
+        }
+        persistNuzlockeState(toSave)
+    }
+
+    fun setNuzlockeEnabled(enabled: Boolean) = mutateNuzlocke { it.setEnabled(enabled) }
+
+    fun setNuzlockeDupesClause(enabled: Boolean) = mutateNuzlocke { it.setDupesClause(enabled) }
+
+    fun setNuzlockeLevelCap(levelCap: Int?) = mutateNuzlocke { it.setLevelCap(levelCap) }
+
+    fun overrideNuzlockeEncounter(areaKey: String, outcome: EncounterOutcome) =
+        mutateNuzlocke { it.overrideEncounterOutcome(areaKey, outcome) }
+
+    fun reviveNuzlockeFallen(monKey: String) = mutateNuzlocke { it.reviveFallen(monKey) }
+
+    fun resetNuzlockeRun() = mutateNuzlocke { it.resetRun() }
+
     private var pollingJob: Job? = null
     private var generationWatcherJob: Job? = null
     private val battlePresenceStabilizer = com.dualdex.battle.BattlePresenceStabilizer()
@@ -331,6 +428,7 @@ class CompanionViewModel(
             publishGameDataPackLocked()
             publishLocationStrategy()
             clearLiveMemoryObservationsLocked()
+            ensureNuzlockeForRomLocked(identity?.sha256)
         }
     }
 
@@ -354,6 +452,7 @@ class CompanionViewModel(
             // drops observations taken under the previous one.
             publishGameDataPackLocked()
             publishLocationStrategy()
+            ensureNuzlockeForRomLocked(identity.sha256)
 
             // A ROM that is not exactly verified never authorizes memory parsing.
             if (!_runtimeRomTrust.value.mayReadLiveMemory) {
@@ -379,6 +478,7 @@ class CompanionViewModel(
             _activeGameId.value = 0
             publishGameDataPackLocked()
             publishLocationStrategy()
+            clearNuzlockeSessionLocked()
         }
     }
 
@@ -477,6 +577,10 @@ class CompanionViewModel(
                     pollVerifiedRomMemory()
                 }
             }
+            val nuzlockeToPersist = synchronized(observationSessionLock) {
+                pendingNuzlockeSave.also { pendingNuzlockeSave = null }
+            }
+            persistNuzlockeState(nuzlockeToPersist)
         } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
             // No observation was admitted; retain only the stabilizer's same-session behavior.
         }
@@ -665,6 +769,67 @@ class CompanionViewModel(
             if (_playerBattlerState.value != null) _playerBattlerState.value = null
             if (_enemyBattlerState.value != null) _enemyBattlerState.value = null
         }
+
+        // Nuzlocke tracker: strictly fed from exact-verified live observations while enabled.
+        val tracker = nuzlockeTracker
+        if (tracker != null && tracker.state.enabled) {
+            val battleKind = inferNuzlockeBattleKind(
+                inBattle = inBattle,
+                battleStateReadable = battleStateReadable,
+                enemyParty = _enemyParty.value,
+                enemyResolution = _activeEnemyResolution.value,
+                presence = presence
+            )
+            val pack = activeGameDataPack
+            val changed = tracker.onObservation(
+                party = _playerParty.value,
+                enemyParty = _enemyParty.value,
+                activeEnemyIndex = _activeEnemyMemberIndex.value,
+                battleKind = battleKind,
+                inBattle = inBattle,
+                location = _playerLocation.value,
+                areaName = _resolvedLocation.value?.name,
+                speciesNameResolver = { speciesId ->
+                    pack.resolveSpecies(speciesId).name.ifBlank { "#$speciesId" }
+                }
+            )
+            if (changed) {
+                val updated = tracker.state
+                _nuzlockeState.value = updated
+                pendingNuzlockeSave = updated
+            }
+        }
+    }
+
+    private fun inferNuzlockeBattleKind(
+        inBattle: Boolean,
+        battleStateReadable: Boolean,
+        enemyParty: List<ParsedPokemon?>,
+        enemyResolution: com.dualdex.battle.ActiveEnemyResolution,
+        presence: com.dualdex.battle.BattlePresence
+    ): NuzlockeBattleKind {
+        if (!battleStateReadable) return NuzlockeBattleKind.UNKNOWN
+        if (!inBattle) {
+            return if (presence == com.dualdex.battle.BattlePresence.NOT_OBSERVED) {
+                NuzlockeBattleKind.NONE
+            } else {
+                NuzlockeBattleKind.UNKNOWN
+            }
+        }
+        if (enemyResolution.state == com.dualdex.battle.ActiveEnemyState.AMBIGUOUS ||
+            enemyResolution.opponentBattlers > 1
+        ) {
+            return NuzlockeBattleKind.DOUBLES
+        }
+        if (enemyResolution.state != com.dualdex.battle.ActiveEnemyState.SLOT) {
+            return NuzlockeBattleKind.UNKNOWN
+        }
+        val validEnemyCount = enemyParty.count { it != null && it.isValid && !it.isEmpty }
+        return when {
+            validEnemyCount >= 2 -> NuzlockeBattleKind.TRAINER_SINGLE
+            validEnemyCount == 1 -> NuzlockeBattleKind.WILD_SINGLE
+            else -> NuzlockeBattleKind.UNKNOWN
+        }
     }
 
     /** Reads one role's live battler state and publishes it with its catalogue identity. */
@@ -757,6 +922,7 @@ class CompanionViewModel(
         enemyPartyStabilizer.reset()
         playerLocationStabilizer.reset()
         battlePresenceStabilizer.reset()
+        nuzlockeTracker?.resetTransientState()
     }
 
     /** Set by the owning activity: synchronously stop / restart the emulator frame loop. */

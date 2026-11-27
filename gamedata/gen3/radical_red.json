@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "radical_red",
+  "base": "firered_rev0",
+  "cSymbol": "CONFIG_RADICAL_RED",
+  "gameId": "GAME_RADICAL_RED",
+  "gameName": "Pokemon Radical Red",
+  "evidence": [
+    "Values migrated unchanged from native/src/pokemon_reader.c CONFIG_RADICAL_RED at 3d0a0e4; no symbol or runtime evidence recorded.",
+    "app/src/main/assets/profiles/radical_red.json declares a CFRU FireRed hack with no exact hash."
+  ],
+  "notes": [
+    "CFRU hack without exact-ROM evidence: storage is PKMN_STORAGE_CFRU_UNVERIFIED (never the exact",
+    "Unbound semantics), no gBattleMons is declared and the enemy count keeps the legacy 0x24028 value."
+  ],
+  "fields": {
+    "enemy_party_count_offset": {"ewram": "0x24028"},
+    "battle_mons_offset": null,
+    "battle_mons_size": null,
+    "battle_mons_hp_offset": null,
+    "battle_mons_stat_stages_offset": null,
+    "player_party_policy": "PARTY_DISCOVERY_HEURISTIC",
+    "storage_layout": "PKMN_STORAGE_CFRU_UNVERIFIED"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "unbound",
+  "base": "firered_rev0",
+  "cSymbol": "CONFIG_UNBOUND",
+  "gameId": "GAME_UNBOUND",
+  "gameName": "Pokemon Unbound",
+  "evidence": [
+    "Party: exact-ROM getters and observed count/base/100-byte stride, docs/UNBOUND_PARTY_LAYOUT_EVIDENCE.md.",
+    "Battle globals: exact-candidate globals, docs/UNBOUND_BATTLE_TRAINER_EVIDENCE.md (Production implications).",
+    "Battle lifecycle and BattlePokemon layout: docs/UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md.",
+    "SaveBlock1: fixed base, the pointer must match exactly, docs/UNBOUND_LOCATION_EVIDENCE.md.",
+    "Exact ROM SHA-256 7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7 (app/src/main/assets/profiles/unbound.json)."
+  ],
+  "notes": [
+    "CFRU on FireRed: player party, party counts, BattlePokemon size (0x58), hp (+0x28) and statStages",
+    "(+0x18) are inherited unchanged from firered_rev0. Unbound's +0x18 is type3; stages 1..7 are at",
+    "+0x19..0x1F. The enemy count byte stays zero; only mapped opponent battlers establish occupancy."
+  ],
+  "fields": {
+    "battle_mons_offset": {"gba": "0x02023BE4"},
+    "battler_party_indexes_offset": {"gba": "0x02023BCE"},
+    "battlers_count_offset": {"gba": "0x02023BCC"},
+    "battle_type_flags_offset": {"gba": "0x02022B4C"},
+    "battle_outcome_offset": {"gba": "0x02023E8A"},
+    "battler_positions_offset": {"gba": "0x02023BD6"},
+    "absent_battler_flags_offset": {"gba": "0x02023D70"},
+    "main_struct_gba_address": {"gba": "0x030030F0"},
+    "main_in_battle_byte_offset": "0x439",
+    "main_in_battle_bit": 1,
+    "save_block1_ptr_gba_address": {"gba": "0x03005008"},
+    "save_block1_base_gba_address": {"gba": "0x0202552C"},
+    "save_block1_aslr_range": 4,
+    "save_block1_size": {"value": "0x3D68", "note": "CFRU/FireRed extent for bounds only; not runtime-verified."},
+    "save_block1_pos_offset": "0x00",
+    "save_block1_location_offset": "0x04",
+    "save_block1_escape_warp_offset": "0x24",
+    "location_max_map_group": 56,
+    "storage_layout": "PKMN_STORAGE_CFRU"
+  }
+}

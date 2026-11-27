@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "firered_rev0",
+  "cSymbol": "CONFIG_FIRERED",
+  "gameId": "GAME_FIRERED",
+  "gameName": "Pokemon FireRed",
+  "evidence": [
+    "pret/pokefirered src/pokemon.c + sym_ewram.txt: gPlayerPartyCount 0x02024029, gPlayerParty 0x02024284, gEnemyParty 0x0202402C.",
+    "pokefirered src/pokemon.c:59-60 declares gPlayerPartyCount then gEnemyPartyCount as the first two EWRAM objects.",
+    "PR #70 layout audit: docs/VANILLA_CALCULATOR_EVIDENCE.md section 7; tools/calc-goldens/audit_vanilla_layout.py.",
+    "audit_vanilla_layout.py check_revision_equivalence: Rev 0 and Rev 1 place every EWRAM/IWRAM symbol at identical addresses."
+  ],
+  "notes": [
+    "Root of the FireRed-engine family (LeafGreen, Ghost Grey, Radical Red, Unbound inherit from it).",
+    "The id names Rev 0 as the reference build; Rev 1 shares this RAM layout (see evidence) and the",
+    "shipped vanilla_firered profile accepts both exact hashes.",
+    "Policy audit: PARTY_DISCOVERY_AUTHORITATIVE_STATIC. Offset 0x24029 is the true gPlayerPartyCount",
+    "global (upstream orders gEnemyParty at 0x2402C before gPlayerParty at 0x24284), not padding."
+  ],
+  "fields": {
+    "player_party_offset": {"ewram": "0x24284"},
+    "player_party_count_offset": {"ewram": "0x24029"},
+    "enemy_party_offset": {"ewram": "0x2402C"},
+    "enemy_party_count_offset": {"ewram": "0x2402A", "note": "gEnemyPartyCount is the byte immediately after gPlayerPartyCount (src/pokemon.c:59-60); 0x24028 is the linker's .ALIGN(4) padding byte."},
+    "battle_mons_offset": {"ewram": "0x23F90"},
+    "battle_mons_size": 88,
+    "battle_mons_hp_offset": 40,
+    "battle_mons_stat_stages_offset": "0x18",
+    "player_party_policy": "PARTY_DISCOVERY_AUTHORITATIVE_STATIC",
+    "has_evs": true,
+    "has_ivs": true
+  }
+}

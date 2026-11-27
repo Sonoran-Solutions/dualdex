@@ -394,13 +394,14 @@ class SwitchAdvisorTest {
         )
 
         var delivered: List<SwitchRecommendation> = emptyList()
-        presenter.requestUpdate(this, input1) { delivered = it }
+        val scope = kotlinx.coroutines.CoroutineScope(Dispatchers.Unconfined)
+        presenter.requestUpdate(scope, input1) { delivered = it }
         assertEquals(1, evaluations.get())
         assertEquals(1, delivered.size)
 
         // Repeat identical 10 Hz poll 5 times: must hit cache and NOT re-invoke evaluator!
         repeat(5) {
-            val cached = presenter.requestUpdate(this, input1.copy(playerParty = listOf(active, bench))) {
+            val cached = presenter.requestUpdate(scope, input1.copy(playerParty = listOf(active, bench))) {
                 throw AssertionError("Cache hit should not relaunch evaluation")
             }
             assertEquals(1, cached.size)
@@ -409,7 +410,7 @@ class SwitchAdvisorTest {
 
         // Opponent takes damage -> cache key changes -> exactly one recomputation.
         val damagedOpponent = opponent.copy(currentHp = 80)
-        presenter.requestUpdate(this, input1.copy(opponent = damagedOpponent)) { delivered = it }
+        presenter.requestUpdate(scope, input1.copy(opponent = damagedOpponent)) { delivered = it }
         assertEquals(2, evaluations.get())
         assertNotNull(delivered.firstOrNull())
     }

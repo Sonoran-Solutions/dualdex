@@ -33,6 +33,9 @@ CHUNK = 4096
 MAX_BOOTS = 3
 MAX_RANGES = 256       # per region in the report; the counts stay exact
 MAX_JITTER = 10000
+# Every observation holds a full EWRAM+IWRAM dump (288 KiB) per boot until the comparison runs, so
+# the count is capped up front: 32 observations x 3 boots is about 27 MiB of buffered RAM.
+MAX_OBSERVATIONS = 32
 
 
 def check_ram_range(address, size, limit=CHUNK):
@@ -177,7 +180,14 @@ def parse_probe(text):
     return probe
 
 
+def check_observation_budget(commands):
+    """Refuse a movie with too many `observe` commands before any core is booted."""
+    count = sum(1 for command in commands if command[0] == 'observe')
+    require(count <= MAX_OBSERVATIONS, f'movie has {count} observations; at most {MAX_OBSERVATIONS} are allowed')
+
+
 def run_boots(args, rom, commands, probes):
+    check_observation_budget(commands)
     boots = []
     with tempfile.TemporaryDirectory(prefix='dualdex-rom-observe-') as temp:
         staged = Path(temp) / 'local.gba'
@@ -204,7 +214,9 @@ def main(argv=None):
     parser.add_argument('--probe', action='append', default=[], metavar='NAME=0xADDR:SIZE')
     args = parser.parse_args(argv)
     protected = [args.rom, args.core, args.movie, args.library, Path(__file__)]
-    if any(args.output.resolve() == p.resolve() for p in protected):
+    # `resolve()` catches symlinks; `samefile` additionally catches hard links to an input.
+    if any(args.output.resolve() == p.resolve() or
+           (args.output.exists() and p.exists() and os.path.samefile(args.output, p)) for p in protected):
         parser.error('output must not overwrite an input or tool')
     report = dict(schema_version=1, status='FAIL', verdict='NOT_A_SUPPORT_VERDICT')
     args.output.write_text(json.dumps(report) + '\n')  # invalidate any older success first

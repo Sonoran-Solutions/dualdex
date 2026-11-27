@@ -112,6 +112,28 @@ GBA_ADDRESS_FIELDS = {
     'run_turn_actions_func_ptr': ('rom',),
     'battle_main_cb1_func_ptr': ('rom',),
 }
+# Bytes the reader touches at each absolute address member. Region membership of the start
+# address alone is not enough: the whole [address, address + width) span must stay inside the one
+# region. The *_func_ptr members are code-pointer VALUES compared against reads, never read
+# themselves, so only their first byte must be inside ROM.
+GBA_ADDRESS_WIDTHS = {
+    'battle_current_move_gba_address': 2,
+    'battle_turn_action_number_gba_address': 1,
+    'battle_actions_by_turn_order_gba_address': 4,     # HNS_LIVE_MAX_BATTLERS_COUNT
+    'battle_battler_by_turn_order_gba_address': 4,     # HNS_LIVE_MAX_BATTLERS_COUNT
+    'battle_current_action_func_id_gba_address': 1,
+    'battle_battler_attacker_gba_address': 1,
+    'battle_battlers_count_gba_address': 1,
+    'battle_main_func_gba_address': 4,                 # a function pointer
+    'main_struct_gba_address': 1,                      # composite reads are checked per member
+    'save_block1_ptr_gba_address': 4,                  # a pointer
+    'save_block1_base_gba_address': 4,
+    'save_block3_ptr_gba_address': 4,                  # a pointer
+    'save_block3_base_gba_address': 4,
+    'action_selection_func_ptr': 1,
+    'run_turn_actions_func_ptr': 1,
+    'battle_main_cb1_func_ptr': 1,
+}
 STRUCT_OFFSET_FIELDS = {
     'battle_mons_hp_offset', 'battle_mons_stat_stages_offset', 'battle_mons_ability_offset',
     'battle_mons_types_offset', 'battle_mons_item_offset', 'battle_mons_attack_offset',
@@ -494,8 +516,12 @@ def parse_field(facts, where, name, raw):
         regions = GBA_ADDRESS_FIELDS[name]
         if number == 0:
             fail(where, 'address 0 means "undeclared" to the reader; use null to leave it undeclared')
-        if not any(in_region(number, region) for region in regions):
+        owner = [region for region in regions if in_region(number, region)]
+        if not owner:
             fail(where, f'0x{number:08X} is outside the allowed region(s) ' + '/'.join(r.upper() for r in regions))
+        width = GBA_ADDRESS_WIDTHS[name]
+        if not in_region(number + width - 1, owner[0]):
+            fail(where, f'0x{number:08X} + {width} bytes runs past the end of {owner[0].upper()}')
     elif kind == 'bit' and number >= MAX_BITS:
         fail(where, f'bit position {number} is implausibly large')
     elif kind == 'mask' and number == 0:
@@ -537,15 +563,19 @@ def resolve(facts, configs, config_id):
     chain = base_chain(configs, config_id)
     if raw['gameId'] not in facts.enums['GbaGameId'] or raw['gameId'] == 'GAME_UNKNOWN':
         fail(where, 'gameId must be a GbaGameId member other than GAME_UNKNOWN')
+    # Every key of every config in the chain is validated BEFORE `null` removes anything, so a
+    # misspelled member can never hide behind `"typo": null`.
+    for link in base_chain(configs, config_id):
+        for name in configs[link]['fields']:
+            field_where = f'{link}.json: fields.{name}'
+            kind = classify(name) if name in facts.types else None
+            if kind is None:
+                fail(field_where, 'unknown GameMemoryConfig member')
+            if kind == 'top':
+                fail(field_where, f'{name} is set through the top-level gameId/gameName keys')
     values = {}
     for name, (entry, origin) in merged_fields(configs, config_id).items():
-        field_where = f'{origin}.json: fields.{name}'
-        kind = classify(name) if name in facts.types else None
-        if kind is None:
-            fail(field_where, 'unknown GameMemoryConfig member')
-        if kind == 'top':
-            fail(field_where, f'{name} is set through the top-level gameId/gameName keys')
-        values[name] = parse_field(facts, field_where, name, entry)
+        values[name] = parse_field(facts, f'{origin}.json: fields.{name}', name, entry)
     for name in REQUIRED_FIELDS:
         if name not in values:
             fail(where, f'missing required field {name!r} (declare it or inherit it through base)')
@@ -640,6 +670,16 @@ def check_consistency(where, config):
     if get('party_state_ate_berry_bit') is not None and (
             party_state is None or get('party_state_ate_berry_bit') >= party_state * 8):
         problem('struct-bit-extent', 'party_state_ate_berry_bit does not fit inside party_state_entry_size')
+
+    # Composite reads at gMain + member offset must stay inside IWRAM (never waivable).
+    main = get('main_struct_gba_address')
+    if main is not None:
+        iwram_end = IWRAM_BASE + IWRAM_SIZE
+        for name, width in (('main_in_battle_byte_offset', 1), ('battle_main_cb1_offset', 4)):
+            offset = get(name)
+            if offset is not None and main + offset + width > iwram_end:
+                fail(where, f'main_struct_gba_address 0x{main:08X} + {name} 0x{offset:X} + {width} '
+                            f'bytes runs past the end of IWRAM (0x{iwram_end:08X})')
 
     # gMain.inBattle is one bit of one byte.
     if get('main_in_battle_bit') is not None and get('main_in_battle_bit') >= 8:
@@ -776,14 +816,15 @@ def main(argv=None):
         print(f'error: {error}', file=sys.stderr)
         return 2
     if args.write:
-        args.output.write_text(text, encoding='utf-8')
+        args.output.write_bytes(text.encode('utf-8'))
         print(f'wrote {args.output}')
         return 0
+    # Byte-for-byte: no newline translation, so a CRLF-only edit is stale too.
     try:
-        current = args.output.read_text(encoding='utf-8')
+        current = args.output.read_bytes()
     except OSError:
         current = None
-    if current != text:
+    if current != text.encode('utf-8'):
         print(f'error: {args.output} is stale or hand-edited; run '
               'python3 tools/gamedata/generate_gamedata.py --write', file=sys.stderr)
         return 1

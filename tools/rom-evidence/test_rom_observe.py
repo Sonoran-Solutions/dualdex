@@ -1,6 +1,7 @@
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -203,6 +204,45 @@ class CliTest(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     ro.main(argv[:-1] + [str(folder / 'rom')])
             self.assertEqual((folder / 'rom').read_bytes(), b'x')
+
+    def test_hard_linked_output_is_refused_before_any_write(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+            for target in ('rom', 'core', 'lib', 'm.movie'):
+                link = folder / f'link-{target}.json'
+                os.link(folder / target, link)
+                before = (folder / target).read_bytes()
+                argv = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                        '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                        '--output', str(link)]
+                with self.subTest(target=target), contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit):
+                        ro.main(argv)
+                    self.assertEqual((folder / target).read_bytes(), before)
+
+    def test_oversized_observation_count_is_refused_before_any_boot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            movie = ''.join(f'observe o{i}\n' for i in range(ro.MAX_OBSERVATIONS + 1))
+            (folder / 'm.movie').write_text(movie)
+            out = folder / 'out.json'
+            argv = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'), '--library', str(folder / 'lib'),
+                    '--movie', str(folder / 'm.movie'), '--output', str(out)]
+            with patch.object(ro.Session, 'open') as opened, contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(ro.main(argv), 1)
+            opened.assert_not_called()
+            report = json.loads(out.read_text())
+            self.assertEqual(report['status'], 'FAIL')
+            self.assertIn('observations', report['error'])
+            (folder / 'm.movie').write_text(movie.replace(f'observe o{ro.MAX_OBSERVATIONS}\n', ''))
+            hosts = iter([FakeHost(), FakeHost()])
+            with patch.object(ro.Session, 'open', side_effect=lambda *a: ro.Session(next(hosts))):
+                self.assertEqual(ro.main(argv), 0)
 
     def test_success_path_with_patched_session(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -89,6 +89,20 @@ class InheritanceTest(GamedataFixture):
         self.assertIsNone(ghost.get('battle_mons_offset'))
         self.assertNotIn('.battle_mons_offset', self.generate().split('CONFIG_GHOST_GREY = {')[1].split('};')[0])
 
+    def test_null_cannot_hide_an_unknown_member(self):
+        self.set_field('ghost_grey', 'nonexistent_member', None)
+        self.assert_rejected(r'ghost_grey\.json: fields\.nonexistent_member: unknown GameMemoryConfig member')
+        self.set_field('ghost_grey', 'nonexistent_member', 5)
+        self.assert_rejected(r'unknown GameMemoryConfig member')
+
+    def test_null_cannot_hide_an_unknown_member_in_a_base(self):
+        self.set_field('firered_rev0', 'nonexistent_member', None)
+        self.assert_rejected(r'firered_rev0\.json: fields\.nonexistent_member: unknown GameMemoryConfig member')
+
+    def test_null_cannot_hide_identity_members(self):
+        self.set_field('ghost_grey', 'game_name', None)
+        self.assert_rejected(r'set through the top-level gameId/gameName keys')
+
     def test_base_changes_propagate_through_multi_level_chain(self):
         self.edit('unbound', lambda data: data.__setitem__('base', 'leafgreen'))
         self.set_field('firered_rev0', 'player_party_offset', {'ewram': '0x24288'})
@@ -203,6 +217,36 @@ class AddressAndRangeTest(GamedataFixture):
     def test_rom_pointer_must_be_in_rom(self):
         self.set_field('unbound', 'action_selection_func_ptr', {'gba': '0x0A000001'})
         self.assert_rejected(r'0x0A000001 is outside the allowed region\(s\) ROM')
+
+    def test_pointer_read_must_fit_inside_its_region(self):
+        # A 4-byte pointer whose first byte is the last IWRAM byte reads past the region.
+        self.set_field('unbound', 'save_block1_ptr_gba_address', {'gba': '0x03007FFF'})
+        self.assert_rejected(r'0x03007FFF \+ 4 bytes runs past the end of IWRAM')
+        self.set_field('unbound', 'save_block1_ptr_gba_address', {'gba': '0x03007FFC'})
+        self.assertEqual(self.resolved('unbound').get('save_block1_ptr_gba_address'), 0x03007FFC)
+        self.set_field('unbound', 'save_block3_ptr_gba_address', {'gba': '0x03007FFD'})
+        self.assert_rejected(r'save_block3_ptr_gba_address: 0x03007FFD \+ 4 bytes runs past the end of IWRAM')
+
+    def test_multi_byte_span_must_fit_inside_ewram(self):
+        self.set_field('unbound', 'battle_current_move_gba_address', {'gba': '0x0203FFFF'})
+        self.assert_rejected(r'0x0203FFFF \+ 2 bytes runs past the end of EWRAM')
+
+    def test_main_struct_member_reads_must_fit_inside_iwram(self):
+        for name, offset in (('main_in_battle_byte_offset', 0x439), ('battle_main_cb1_offset', 0x439)):
+            with self.subTest(member=name):
+                config = 'heart_and_soul_2_0_5'
+                self.set_field(config, 'main_struct_gba_address', {'gba': '0x03007BF0'})
+                self.set_field(config, 'main_in_battle_byte_offset', 0x10)
+                self.set_field(config, 'battle_main_cb1_offset', 0x10)
+                self.set_field(config, name, offset)
+                self.assert_rejected(r'main_struct_gba_address 0x03007BF0 \+ ' + name + r' 0x439 \+ \d bytes '
+                                     r'runs past the end of IWRAM')
+        # The last byte of IWRAM is still readable for the one-byte inBattle member.
+        config = 'heart_and_soul_2_0_5'
+        self.set_field(config, 'battle_main_cb1_offset', None)
+        self.set_field(config, 'main_struct_gba_address', {'gba': '0x03007BC7'})
+        self.set_field(config, 'main_in_battle_byte_offset', 0x438)
+        self.assertEqual(self.resolved(config).get('main_in_battle_byte_offset'), 0x438)
 
     def test_zero_address_means_null(self):
         self.set_field('emerald', 'battle_mons_offset', {'ewram': '0x0'})
@@ -333,6 +377,18 @@ class CliTest(GamedataFixture):
         self.assertEqual(self.run_main('--write', *args)[0], 0)
         self.set_field('emerald', 'battle_mons_size', 90)                # source drift
         self.assertEqual(self.run_main('--check', *args)[0], 1)
+
+    def test_check_is_byte_exact_so_crlf_only_edits_are_stale(self):
+        output = Path(self.tmp.name) / 'gen.h'
+        args = ('--config-dir', str(self.dir), '--output', str(output))
+        self.assertEqual(self.run_main('--write', *args)[0], 0)
+        output.write_bytes(output.read_bytes().replace(b'\n', b'\r\n'))
+        code, err = self.run_main('--check', *args)
+        self.assertEqual(code, 1)
+        self.assertIn('stale or hand-edited', err)
+        self.assertEqual(self.run_main('--write', *args)[0], 0)
+        self.assertNotIn(b'\r', output.read_bytes())
+        self.assertEqual(self.run_main('--check', *args)[0], 0)
 
     def test_invalid_config_exits_2_and_never_writes(self):
         output = Path(self.tmp.name) / 'gen.h'

@@ -56,6 +56,9 @@ import sys
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PROFILE_DIR = os.path.join(REPO_ROOT, "app", "src", "main", "assets", "profiles")
 READER_C = os.path.join(REPO_ROOT, "native", "src", "pokemon_reader.c")
+# CONFIG_FIRERED / CONFIG_EMERALD are generated from gamedata/gen3/*.json into this header, which
+# pokemon_reader.c includes; READER_C is still searched so a hand-written config keeps working.
+READER_CONFIGS_GEN_H = os.path.join(REPO_ROOT, "native", "src", "gamedata_configs_gen.h")
 
 EWRAM_BASE = 0x02000000
 IWRAM_BASE = 0x03000000
@@ -331,18 +334,23 @@ def reader_config(name: str) -> dict[str, int]:
     """Read `CONFIG_<name>`'s numeric fields straight out of the production reader source.
 
     The audit must test the offsets the application actually compiles, not a copy of them, so the
-    values are scraped from `native/src/pokemon_reader.c` rather than restated here.
+    values are scraped from the generated `native/src/gamedata_configs_gen.h` (included by
+    `native/src/pokemon_reader.c`) or `pokemon_reader.c` itself, never restated here. The name must
+    resolve in exactly one of them: zero or two definitions would not compile, so both are refused.
     """
-    with open(READER_C, encoding="utf-8") as handle:
-        source = handle.read()
-
-    match = re.search(
+    pattern = re.compile(
         r"static const GameMemoryConfig CONFIG_" + re.escape(name) + r"\s*=\s*\{(.*?)\n\};",
-        source,
         re.S,
     )
-    if not match:
-        raise Failure(f"CONFIG_{name} not found in {READER_C}")
+    matches = []
+    for path in (READER_CONFIGS_GEN_H, READER_C):
+        with open(path, encoding="utf-8") as handle:
+            matches.extend((path, m) for m in pattern.finditer(handle.read()))
+    if not matches:
+        raise Failure(f"CONFIG_{name} not found in {READER_CONFIGS_GEN_H} or {READER_C}")
+    if len(matches) > 1:
+        raise Failure(f"CONFIG_{name} is defined more than once: {[p for p, _ in matches]}")
+    match = matches[0][1]
 
     body = match.group(1)
     fields: dict[str, int] = {}

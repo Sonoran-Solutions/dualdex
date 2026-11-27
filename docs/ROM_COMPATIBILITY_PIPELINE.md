@@ -48,7 +48,11 @@ Replays the movie (same bounded grammar as `rowe_observe.py`: `run`, `mash`, `sa
 `observe <label>`) in 2-3 fresh boots; boot *n* idles `n x --boot-jitter` frames first because the core
 is deterministic. At each `observe`, EWRAM and IWRAM are compared across boots and the report lists
 drifting address ranges (counts exact, ranges capped), per-boot SHA-256 and a `stable`/`drifting`
-verdict per `--probe`. RAM contents are never written. Run it from outside any Git checkout for private
+verdict per `--probe`. The JSON report contains only hashes, counts, address ranges and probe verdicts;
+RAM contents are never written to it. A movie `save` command writes a temporary in-session emulator state
+(inside a private temporary directory that is deleted when the run ends); that state is not part of the
+report and is never kept. A movie may contain at most 32 `observe` commands, because each one buffers a
+full EWRAM+IWRAM dump per boot until the comparison runs. Run it from outside any Git checkout for private
 outputs.
 
 - A candidate address that is **stable** across boots *and* movie labels is worth evidence; one that

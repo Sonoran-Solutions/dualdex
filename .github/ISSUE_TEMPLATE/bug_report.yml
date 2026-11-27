@@ -1,0 +1,64 @@
+name: Bug Report
+description: Report a crash, visual issue, calculator mismatch, or display/companion bug in DualDex.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > **Do NOT upload or link to ROM files, BIOS files, save files (`.sav`/`.srm`/`.ss*`), or any copyrighted game data.**
+        > Issues containing ROMs or links to copyrighted files will be removed. Use the **Copy Diagnostics** button in DualDex (`Settings -> About & Diagnostics -> Copy Diagnostics`) to share safe version, device, display, and SHA-256 metadata.
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: DualDex Diagnostics
+      description: Open DualDex -> Settings -> About & Diagnostics -> Copy Diagnostics, then paste the output below.
+      placeholder: |
+        ### DualDex Diagnostics
+        - **App:** DualDex ...
+        - **Android:** ...
+        - **Device:** ...
+        - **Displays:** ...
+        - **ROM SHA-256:** ...
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device Model & Display Setup
+      description: Handheld or phone model and whether you were using dual-screen or split-screen mode.
+      placeholder: "e.g., AYN Thor (dual-screen), AYANEO Pocket DS (dual-screen), Pixel 8 (split-screen)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What Happened?
+      description: Clear description of the bug and what you expected to happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro_steps
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to trigger the issue.
+      placeholder: |
+        1. Open DualDex on ...
+        2. Load ...
+        3. Navigate to ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional Context / Screenshots
+      description: Optional screenshots or notes (never attach ROMs or copyrighted files).
+    validations:
+      required: false

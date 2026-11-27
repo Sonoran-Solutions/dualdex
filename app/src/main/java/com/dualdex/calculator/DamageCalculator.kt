@@ -23,7 +23,8 @@ object DamageCalculator {
 
         try {
             val bundleJs = context.assets.open("calc_bundle.js").bufferedReader().use { it.readText() }
-            isInitialized = nativeInit(bundleJs)
+            val unboundAddonJs = context.assets.open("unbound_calc_bundle.js").bufferedReader().use { it.readText() }
+            isInitialized = nativeInit("$bundleJs\n;$unboundAddonJs")
             return isInitialized
         } catch (e: Exception) {
             e.printStackTrace()

@@ -394,16 +394,6 @@ class BattleConsoleScreenView(
         }
         switchAdvisorHeaderRow.addView(switchAdvisorToggleView)
         switchAdvisorHeaderRow.contentDescription = "Best Switch, expanded. Tap to collapse"
-        switchAdvisorHeaderRow.setOnClickListener {
-            isSwitchAdvisorExpanded = !isSwitchAdvisorExpanded
-            switchAdvisorToggleView.text = if (isSwitchAdvisorExpanded) "Hide ▴" else "Show ▾"
-            switchAdvisorCard.visibility = if (isSwitchAdvisorExpanded) View.VISIBLE else View.GONE
-            switchAdvisorHeaderRow.contentDescription = if (isSwitchAdvisorExpanded) {
-                "Best Switch, expanded. Tap to collapse"
-            } else {
-                "Best Switch, collapsed. Tap to expand"
-            }
-        }
         switchAdvisorSection.addView(switchAdvisorHeaderRow)
 
         switchAdvisorCard = LinearLayout(context).apply {
@@ -415,6 +405,16 @@ class BattleConsoleScreenView(
                 context.dp(DualDexTheme.Spacing.standard),
                 context.dp(DualDexTheme.Spacing.tight)
             )
+        }
+        switchAdvisorHeaderRow.setOnClickListener {
+            isSwitchAdvisorExpanded = !isSwitchAdvisorExpanded
+            switchAdvisorToggleView.text = if (isSwitchAdvisorExpanded) "Hide ▴" else "Show ▾"
+            switchAdvisorCard.visibility = if (isSwitchAdvisorExpanded) View.VISIBLE else View.GONE
+            switchAdvisorHeaderRow.contentDescription = if (isSwitchAdvisorExpanded) {
+                "Best Switch, expanded. Tap to collapse"
+            } else {
+                "Best Switch, collapsed. Tap to expand"
+            }
         }
         for (i in 0 until MAX_SWITCH_RECOMMENDATIONS) {
             val holder = createSwitchAdvisorRowHolder()

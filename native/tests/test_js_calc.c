@@ -58,6 +58,7 @@
 #define ANSI_RESET "\033[0m"
 
 #define BUNDLE_PATH "app/src/main/assets/calc_bundle.js"
+#define UNBOUND_ADDON_PATH "app/src/main/assets/unbound_calc_bundle.js"
 
 static int g_checks_passed = 0;
 static int g_checks_failed = 0;
@@ -1745,9 +1746,30 @@ static int load_bundle(void) {
                BUNDLE_PATH);
         return 1;
     }
-    printf("Initializing QuickJS with %s (%zu bytes)...\n", BUNDLE_PATH, strlen(bundle_js));
-    bool ok = js_calc_init(bundle_js);
+    char* addon_js = read_file_to_string(UNBOUND_ADDON_PATH);
+    if (!addon_js) {
+        printf(ANSI_RED "Failed to read %s - the shipped Unbound addon bundle must be present\n" ANSI_RESET,
+               UNBOUND_ADDON_PATH);
+        free(bundle_js);
+        return 1;
+    }
+    size_t base_len = strlen(bundle_js);
+    size_t addon_len = strlen(addon_js);
+    char* combined = (char*)malloc(base_len + addon_len + 3);
+    if (!combined) {
+        free(bundle_js);
+        free(addon_js);
+        return 1;
+    }
+    memcpy(combined, bundle_js, base_len);
+    combined[base_len] = '\n';
+    combined[base_len + 1] = ';';
+    memcpy(combined + base_len + 2, addon_js, addon_len + 1);
     free(bundle_js);
+    free(addon_js);
+    printf("Initializing QuickJS with %s + %s (%zu bytes)...\n", BUNDLE_PATH, UNBOUND_ADDON_PATH, base_len + addon_len + 2);
+    bool ok = js_calc_init(combined);
+    free(combined);
     if (!ok) {
         printf(ANSI_RED "js_calc_init failed: the shipped bundle did not evaluate\n" ANSI_RESET);
         return 1;

@@ -5,7 +5,6 @@ import hnsRepeatedStrikeContract from '../hns-move-mechanics/hns_repeated_strike
 import hnsMoveMetadata from '../hns-move-mechanics/hns_move_damage_metadata.json';
 import hnsSpeedContract from '../hns-move-mechanics/hns_speed_contract.json';
 import hnsGroupDDomains from '../hns-layout/group_d_domains.json';
-import { calculateUnboundDamage } from './unbound-cfru';
 
 // @smogon/calc compares field.gameType against the canonical capitalised
 // strings ('Singles'/'Doubles'); its own Field default is 'Singles'. DualDex
@@ -191,58 +190,11 @@ function createHnsGeneration(baseGen) {
   };
 }
 
-const CFRU_TYPE_NAMES = [
-  'Normal', 'Fighting', 'Flying', 'Poison', 'Ground', 'Rock', 'Bug', 'Ghost', 'Steel', null,
-  'Fire', 'Water', 'Grass', 'Electric', 'Psychic', 'Ice', 'Dragon', 'Dark',
-];
-CFRU_TYPE_NAMES[23] = 'Fairy';
-
-function hasExactlyFields(value, ...fields) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  const keys = Reflect.ownKeys(value);
-  return keys.length === fields.length && fields.every(field => keys.includes(field));
-}
-
-function calculateUnboundRequest(input) {
-  const { typeSystem, field, unbound, display } = input;
-  if (!hasExactlyFields(input, 'typeSystem', 'field', 'unbound', 'display') ||
-      !hasExactlyFields(field, 'gameType') || field.gameType !== 'Singles') {
-    throw new TypeError('Expected an Unbound CFRU Singles request');
-  }
-  if (!hasExactlyFields(display, 'attackerName', 'defenderName', 'moveName', 'defenderMaxHP') ||
-      !['attackerName', 'defenderName', 'moveName'].every(key =>
-        typeof display[key] === 'string' && display[key].trim().length > 0) ||
-      !Number.isInteger(display.defenderMaxHP) || display.defenderMaxHP < 1 || display.defenderMaxHP > 999) {
-    throw new TypeError('Invalid Unbound result metadata');
-  }
-  const damage = calculateUnboundDamage(unbound);
-  const minDamage = damage[0];
-  const maxDamage = damage[15];
-  return {
-    ...display,
-    success: true,
-    typeSystem,
-    damage,
-    range: [minDamage, maxDamage],
-    minDamage,
-    maxDamage,
-    movePower: unbound.power,
-    moveType: CFRU_TYPE_NAMES[unbound.move_type],
-    moveCategory: unbound.category === 0 ? 'Physical' : 'Special',
-    desc: `${display.attackerName} ${display.moveName} vs. ${display.defenderName}: ` +
-      `${minDamage}–${maxDamage} HP (${(100 * minDamage / display.defenderMaxHP).toFixed(1)}–` +
-      `${(100 * maxDamage / display.defenderMaxHP).toFixed(1)}%)`,
-  };
-}
-
 // Global API attached to globalThis for QuickJS / headless engine
 globalThis.DualDexCalc = {
   calculateDamage: function(inputJsonStr) {
     try {
       const input = typeof inputJsonStr === 'string' ? JSON.parse(inputJsonStr) : inputJsonStr;
-      if (input?.typeSystem === 'unbound_cfru') {
-        return JSON.stringify(calculateUnboundRequest(input));
-      }
       const genNum = input.gen || 3;
       const baseGen = Generations.get(genNum);
 

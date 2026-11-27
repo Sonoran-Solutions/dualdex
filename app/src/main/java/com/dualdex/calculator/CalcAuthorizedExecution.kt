@@ -12,8 +12,15 @@ object CalcAuthorizedExecution {
         if (request == null || !verdict.mayRunEngine) {
             return DamageCalculationResponse(success = false, error = "Calculation refused by capability policy")
         }
+        val isUnbound = verdict.ruleset == CalcRuleset.UNBOUND_CFRU
+        if (isUnbound != (request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM) ||
+            (isUnbound && (verdict.support != CalcSupport.ESTIMATED || request.unboundOperands == null))
+        ) return DamageCalculationResponse(success = false, error = "Unbound request was not authorized")
 
         val response = calculate(request)
+        if (isUnbound && response.success && !validUnboundRolls(response.range, response.minDamage, response.maxDamage)) {
+            return DamageCalculationResponse(success = false, error = "Invalid Unbound calculator result")
+        }
         if (response.success && !validRepeatedStrikeResponse(request, response)) {
             return DamageCalculationResponse(success = false, error = "Calculator did not confirm repeated-strike scope")
         }
@@ -80,3 +87,7 @@ object CalcAuthorizedExecution {
     private fun ceilDiv(numerator: Long, denominator: Long): Long =
         if (denominator == 0L) 0L else 1L + (numerator - 1L) / denominator
 }
+
+internal fun validUnboundRolls(rolls: List<Int>, min: Int, max: Int): Boolean =
+    rolls.size == 16 && rolls.first() == min && rolls.last() == max && rolls.first() >= 0 &&
+        (rolls.first() > 0 || rolls.last() == 0) && rolls.zipWithNext().all { (low, high) -> low <= high }

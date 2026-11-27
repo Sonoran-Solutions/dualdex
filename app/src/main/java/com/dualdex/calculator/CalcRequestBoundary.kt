@@ -1484,7 +1484,19 @@ object CalcRequestBoundary {
         enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
         activeBattle: Boolean = false
     ): CalcRequestOutcome {
-        val isExactHns = CalcCapabilityPolicy.capabilityFor(profile)?.ruleset == CalcRuleset.HNS_2_0_5
+        val ruleset = CalcCapabilityPolicy.capabilityFor(profile)?.ruleset
+        if (ruleset == CalcRuleset.UNBOUND_CFRU) {
+            val blockers = buildList {
+                if (activeBattle) add(CalcLimitation.UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE)
+                if (liveReadHint && !request.isFromLiveRead()) add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+            }
+            val verdict = CalcCapabilityPolicy.evaluate(
+                profile, trust, request.copy(preparationLimitations = request.preparationLimitations + blockers)
+            )
+            val authorized = verdict.request ?: return CalcRequestOutcome.Refused(verdict)
+            return CalcRequestOutcome.Ready(authorized, verdict)
+        }
+        val isExactHns = ruleset == CalcRuleset.HNS_2_0_5
         val readIsTrusted = CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)
         val reconciledAbilities = reconcileLiveBattlerAbilities(
             request = request,

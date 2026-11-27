@@ -70,8 +70,12 @@ internal fun parseCalcResponseJson(
     request: DamageCalculationRequest,
     resJsonStr: String
 ): DamageCalculationResponse {
-    val resObj = JSONObject(resJsonStr)
-    val success = resObj.optBoolean("success", false)
+    val isUnbound = request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM
+    val resObj = if (isUnbound) {
+        runCatching { JSONObject(resJsonStr) }.getOrNull()
+            ?: return DamageCalculationResponse(success = false, error = "Invalid Unbound calculator result")
+    } else JSONObject(resJsonStr)
+    val success = if (isUnbound) resObj.opt("success") == true else resObj.optBoolean("success", false)
     if (!success) {
         return DamageCalculationResponse(
             success = false,
@@ -79,10 +83,25 @@ internal fun parseCalcResponseJson(
         )
     }
 
-    val rangeArray = resObj.optJSONArray("range") ?: JSONArray()
+    val rangeArray = resObj.optJSONArray(if (isUnbound) "damage" else "range") ?: JSONArray()
     val rangeList = mutableListOf<Int>()
     for (i in 0 until rangeArray.length()) {
-        rangeList.add(rangeArray.getInt(i))
+        if (isUnbound) {
+            val roll = rangeArray.opt(i) as? Int
+                ?: return DamageCalculationResponse(success = false, error = "Invalid Unbound damage roll")
+            rangeList.add(roll)
+        } else {
+            rangeList.add(rangeArray.getInt(i))
+        }
+    }
+    if (isUnbound) {
+        val endpoints = resObj.optJSONArray("range")
+        val min = resObj.opt("minDamage") as? Int
+        val max = resObj.opt("maxDamage") as? Int
+        if (resObj.opt("typeSystem") != UnboundCalcInputs.TYPE_SYSTEM || min == null || max == null ||
+            endpoints == null || endpoints.length() != 2 || endpoints.opt(0) != min || endpoints.opt(1) != max ||
+            !validUnboundRolls(rangeList, min, max)
+        ) return DamageCalculationResponse(success = false, error = "Invalid Unbound calculator result")
     }
 
     val immunityCauses = mutableListOf<CalcImmunityCause>()
@@ -150,7 +169,10 @@ internal fun parseCalcResponseJson(
  * [DamageCalculator]'s `System.loadLibrary` initialiser.
  */
 internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
-    JSONObject().apply {
+    if (request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM) {
+        request.unboundOperands?.toJson()?.toString()
+            ?: JSONObject().put("typeSystem", UnboundCalcInputs.TYPE_SYSTEM).toString()
+    } else JSONObject().apply {
         val semiInvulnerablePreview = request.typeSystem == "hns_2_0_5" &&
             com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id in
             com.dualdex.pokemon.hns.Hns205MoveEffects.semiInvulnerablePreviewMoveIds

@@ -372,7 +372,10 @@ class SwitchAdvisorTest {
             dispatcher = Dispatchers.Unconfined,
             evaluatorOverride = {
                 evaluations.incrementAndGet()
-                { _, defender, _ -> SwitchDamageEstimate(60, 72, defender.maxHp, CalcSupport.VERIFIED) }
+                val evaluator: SwitchDamageEvaluator = { _, defender, _ ->
+                    SwitchDamageEstimate(60, 72, defender.maxHp, CalcSupport.VERIFIED)
+                }
+                evaluator
             }
         )
 

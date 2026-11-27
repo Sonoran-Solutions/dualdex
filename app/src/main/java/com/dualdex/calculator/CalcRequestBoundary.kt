@@ -1496,6 +1496,37 @@ object CalcRequestBoundary {
             val authorized = verdict.request ?: return CalcRequestOutcome.Refused(verdict)
             return CalcRequestOutcome.Ready(authorized, verdict)
         }
+        if (ruleset == CalcRuleset.EXPANSION_TIER_B || ruleset == CalcRuleset.CFRU_TIER_B) {
+            val readIsTrusted = CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)
+            val observedBattlersCount = authoritativeObservedBattlersCount(
+                playerBattlerState = playerBattlerState,
+                enemyBattlerState = enemyBattlerState,
+                isExactVerified = readIsTrusted
+            )
+            val hasAmbiguousObservation =
+                playerBattlerState?.state?.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.AMBIGUOUS ||
+                enemyBattlerState?.state?.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.AMBIGUOUS
+            val blockers = buildList {
+                if (request.field.gameType != CalcGameTypes.SINGLES ||
+                    hasAmbiguousObservation ||
+                    (observedBattlersCount != null && observedBattlersCount != 2) ||
+                    (activeBattle && observedBattlersCount != 2)
+                ) {
+                    add(CalcLimitation.FIELD_CONDITION_NOT_MODELLED)
+                }
+                if (liveReadHint && !request.isFromLiveRead()) add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+            }
+            val verdict = CalcCapabilityPolicy.evaluate(
+                profile,
+                trust,
+                request.copy(
+                    preparationLimitations = request.preparationLimitations +
+                        CalcLimitation.TIER_B_ESTIMATED_ENGINE + blockers
+                )
+            )
+            val authorized = verdict.request ?: return CalcRequestOutcome.Refused(verdict)
+            return CalcRequestOutcome.Ready(authorized, verdict)
+        }
         val isExactHns = ruleset == CalcRuleset.HNS_2_0_5
         val readIsTrusted = CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)
         val reconciledAbilities = reconcileLiveBattlerAbilities(

@@ -488,7 +488,8 @@ data class DamageCalculationRequest(
      * caller-supplied value from the exact-trusted runtime observation.
      */
     val hnsLiveBattleState: CalcHnsLiveBattleState? = null,
-    val unboundOperands: CalcUnboundOperands? = null
+    val unboundOperands: CalcUnboundOperands? = null,
+    val expansionTierBOperands: CalcExpansionTierBOperands? = null
 )
 
 data class DamageCalculationResponse(

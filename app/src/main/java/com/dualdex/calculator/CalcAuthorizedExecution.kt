@@ -13,13 +13,37 @@ object CalcAuthorizedExecution {
             return DamageCalculationResponse(success = false, error = "Calculation refused by capability policy")
         }
         val isUnbound = verdict.ruleset == CalcRuleset.UNBOUND_CFRU
-        if (isUnbound != (request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM) ||
-            (isUnbound && (verdict.support != CalcSupport.ESTIMATED || request.unboundOperands == null))
-        ) return DamageCalculationResponse(success = false, error = "Unbound request was not authorized")
+        val isCfru = isUnbound || verdict.ruleset == CalcRuleset.CFRU_TIER_B
+        val isExpansionTierB = verdict.ruleset == CalcRuleset.EXPANSION_TIER_B
+        val isTierB = verdict.ruleset == CalcRuleset.EXPANSION_TIER_B || verdict.ruleset == CalcRuleset.CFRU_TIER_B
+        if (isCfru != (request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM) ||
+            (isCfru && (verdict.support != CalcSupport.ESTIMATED || request.unboundOperands == null))
+        ) return DamageCalculationResponse(
+            success = false,
+            error = if (isUnbound) "Unbound request was not authorized" else "CFRU request was not authorized"
+        )
+        if (isExpansionTierB != (request.typeSystem == TierBCalcInputs.EXPANSION_TYPE_SYSTEM) ||
+            (isExpansionTierB && (verdict.support != CalcSupport.ESTIMATED || request.expansionTierBOperands == null))
+        ) return DamageCalculationResponse(success = false, error = "Expansion Tier-B request was not authorized")
+        if (isTierB && (verdict.support != CalcSupport.ESTIMATED ||
+                CalcLimitation.TIER_B_ESTIMATED_ENGINE !in verdict.limitations)
+        ) return DamageCalculationResponse(success = false, error = "Tier-B request must remain explicitly estimated")
 
         val response = calculate(request)
-        if (isUnbound && response.success && !validUnboundRolls(response.range, response.minDamage, response.maxDamage)) {
+        if (isUnbound && response.success &&
+            !validUnboundRolls(response.range, response.minDamage, response.maxDamage)
+        ) {
             return DamageCalculationResponse(success = false, error = "Invalid Unbound calculator result")
+        }
+        if (isTierB && response.success && (
+            !validUnboundRolls(response.range, response.minDamage, response.maxDamage) ||
+                !validTierBResponseMetadata(request, response)
+            )
+        ) {
+            return DamageCalculationResponse(
+                success = false,
+                error = if (isCfru) "Invalid Unbound calculator result" else "Invalid addon calculator result"
+            )
         }
         if (response.success && !validRepeatedStrikeResponse(request, response)) {
             return DamageCalculationResponse(success = false, error = "Calculator did not confirm repeated-strike scope")
@@ -91,3 +115,26 @@ object CalcAuthorizedExecution {
 internal fun validUnboundRolls(rolls: List<Int>, min: Int, max: Int): Boolean =
     rolls.size == 16 && rolls.first() == min && rolls.last() == max && rolls.first() >= 0 &&
         (rolls.first() > 0 || rolls.last() == 0) && rolls.zipWithNext().all { (low, high) -> low <= high }
+
+internal fun validTierBResponseMetadata(
+    request: DamageCalculationRequest,
+    response: DamageCalculationResponse
+): Boolean {
+    val expected = expectedAddonDisplayMetadata(request) ?: return false
+    if (response.attackerName.isBlank() || response.defenderName.isBlank() || response.moveName.isBlank()) {
+        return false
+    }
+    if (response.attackerName != expected.attackerName ||
+        response.defenderName != expected.defenderName ||
+        response.moveName != expected.moveName ||
+        response.defenderMaxHP != expected.defenderMaxHp
+    ) return false
+    if (request.typeSystem == TierBCalcInputs.EXPANSION_TYPE_SYSTEM) {
+        val eff = response.effectiveness ?: return false
+        if (!eff.isFinite()) return false
+        val consistent = (eff == 0.0 && response.range.all { it == 0 }) ||
+            (eff > 0.0 && response.range.all { it >= 1 })
+        if (!consistent) return false
+    }
+    return true
+}

@@ -9,6 +9,9 @@ import com.dualdex.battle.SwitchRecommendationSource
 import com.dualdex.pokemon.ModernDataPack
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.hns.BattlerRuntimeObservation
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeState
+import com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus
 import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.ProfileMatchMethod
 import com.dualdex.romhack.RomCompatibility
@@ -77,13 +80,35 @@ class CalcTierBCapabilityTest {
         move = CalcMoveInput("Moonblast")
     )
 
+    private fun battlerObservation(
+        status: HnsBattlerRuntimeStatus = HnsBattlerRuntimeStatus.OBSERVED,
+        battlersCount: Int = 2,
+        battlersCountReadable: Boolean = true
+    ): BattlerRuntimeObservation = BattlerRuntimeObservation(
+        state = HnsBattlerRuntimeState(
+            status = status,
+            battlersCount = battlersCount,
+            battlersCountReadable = battlersCountReadable
+        )
+    )
+
     private fun assertRefused(
         profile: RomHackProfile,
         input: DamageCalculationRequest,
         trust: RuntimeRomTrust? = if (profile.sha256Hashes.isNotEmpty()) exactTrust(profile) else null,
-        expectedReason: CalcLimitation? = null
+        expectedReason: CalcLimitation? = null,
+        playerBattlerState: BattlerRuntimeObservation? = null,
+        enemyBattlerState: BattlerRuntimeObservation? = null,
+        activeBattle: Boolean = false
     ) {
-        val outcome = CalcRequestBoundary.build(profile, trust, input)
+        val outcome = CalcRequestBoundary.build(
+            profile = profile,
+            trust = trust,
+            request = input,
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            activeBattle = activeBattle
+        )
         assertTrue("Expected refusal for $profile / $input, got $outcome", outcome is CalcRequestOutcome.Refused)
         val verdict = (outcome as CalcRequestOutcome.Refused).verdict
         assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
@@ -357,36 +382,251 @@ class CalcTierBCapabilityTest {
     }
 
     @Test
+    fun `active battles without confirmed Singles topology Doubles and invalid gameType fail closed`() {
+        val singlesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 2, battlersCountReadable = true)
+        val doublesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 4, battlersCountReadable = true)
+        val unreadObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 2, battlersCountReadable = false)
+        val invalidObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED_INVALID, battlersCount = 2, battlersCountReadable = true)
+        val ambiguousObs = battlerObservation(HnsBattlerRuntimeStatus.AMBIGUOUS, battlersCount = 4, battlersCountReadable = true)
+
+        for (profile in listOf(verifiedExpansionProfile, verifiedCfruProfile)) {
+            // Invalid, blank, lowercase, or Doubles field.gameType must always fail closed.
+            for (badGameType in listOf(CalcGameTypes.DOUBLES, "", "   ", "singles", "Triples")) {
+                assertRefused(
+                    profile,
+                    baselineRequest.copy(field = CalcFieldInput(gameType = badGameType)),
+                    expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+                )
+            }
+            // Active battle with no observations / unverified format fails closed.
+            assertRefused(
+                profile,
+                baselineRequest,
+                activeBattle = true,
+                expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+            )
+            // Single-sided observation, unreadable count, invalid status, ambiguous, torn read, or live Doubles fail closed.
+            assertRefused(
+                profile,
+                baselineRequest,
+                playerBattlerState = singlesObs,
+                enemyBattlerState = null,
+                activeBattle = true,
+                expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+            )
+            assertRefused(
+                profile,
+                baselineRequest,
+                playerBattlerState = unreadObs,
+                enemyBattlerState = unreadObs,
+                activeBattle = true,
+                expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+            )
+            assertRefused(
+                profile,
+                baselineRequest,
+                playerBattlerState = invalidObs,
+                enemyBattlerState = singlesObs,
+                activeBattle = true,
+                expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+            )
+            assertRefused(
+                profile,
+                baselineRequest,
+                playerBattlerState = ambiguousObs,
+                enemyBattlerState = ambiguousObs,
+                activeBattle = true,
+                expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+            )
+            assertRefused(
+                profile,
+                baselineRequest,
+                playerBattlerState = singlesObs,
+                enemyBattlerState = doublesObs,
+                activeBattle = true,
+                expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+            )
+            assertRefused(
+                profile,
+                baselineRequest,
+                playerBattlerState = doublesObs,
+                enemyBattlerState = doublesObs,
+                activeBattle = true,
+                expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+            )
+            // Confirmed Singles topology with contradicting Doubles gameType still fails closed.
+            assertRefused(
+                profile,
+                baselineRequest.copy(field = CalcFieldInput(gameType = CalcGameTypes.DOUBLES)),
+                playerBattlerState = singlesObs,
+                enemyBattlerState = singlesObs,
+                activeBattle = true,
+                expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+            )
+            // Confirmed Singles topology on an exact-verified ROM succeeds as ESTIMATED.
+            val outcome = CalcRequestBoundary.build(
+                profile = profile,
+                trust = exactTrust(profile),
+                request = baselineRequest,
+                playerBattlerState = singlesObs,
+                enemyBattlerState = singlesObs,
+                activeBattle = true
+            )
+            assertTrue("Expected Ready for confirmed Singles active battle on $profile, got $outcome", outcome is CalcRequestOutcome.Ready)
+            assertEquals(CalcSupport.ESTIMATED, (outcome as CalcRequestOutcome.Ready).verdict.support)
+        }
+    }
+
+    @Test
+    fun `multi-hit defense-swap and non-ordinary moves including Double Kick and Psyshock fail closed`() {
+        val refusedMoves = listOf(
+            "Double Kick",   // multi-hit
+            "Psyshock",      // targets Defense instead of SpD
+            "Psystrike",     // targets Defense instead of SpD
+            "Secret Sword",  // targets Defense instead of SpD
+            "Double Slap",   // multi-hit
+            "Bonemerang",    // multi-hit
+            "Eruption",      // HP-scaled power
+            "Seismic Toss",  // fixed level damage
+            "Double-Edge",   // recoil
+            "Gyro Ball",     // speed-scaled power
+            "Grass Knot",    // weight-scaled power
+            "Brick Break",   // screen-breaking before damage
+            "Foul Play",     // uses defender Attack
+            "Stored Power"   // boost-scaled power
+        )
+        for (profile in listOf(verifiedExpansionProfile, verifiedCfruProfile)) {
+            for (moveName in refusedMoves) {
+                assertNotNull("Fixture move $moveName must exist in ModernDataPack", ModernDataPack.getMoveByName(moveName))
+                assertRefused(
+                    profile,
+                    baselineRequest.copy(move = CalcMoveInput(moveName)),
+                    expectedReason = CalcLimitation.TIER_B_MOVE_NOT_MODELLED
+                )
+            }
+        }
+    }
+
+    @Test
     fun `Tier-B can never execute as VERIFIED or with malformed addon responses`() {
-        val ready = CalcRequestBoundary.build(
+        val expReady = CalcRequestBoundary.build(
             verifiedExpansionProfile,
             exactTrust(verifiedExpansionProfile),
             baselineRequest
         ) as CalcRequestOutcome.Ready
+        val expMaxHp = expReady.request.expansionTierBOperands!!.defenderMaxHp
 
-        val validJson = """{"success":true,"typeSystem":"expansion_tierb","minDamage":146,"maxDamage":174,
+        val validExpJson = """{"success":true,"typeSystem":"expansion_tierb",
+            "attackerName":"Sylveon","defenderName":"Dragonite","moveName":"Moonblast","defenderMaxHP":$expMaxHp,
+            "effectiveness":2.0,"minDamage":146,"maxDamage":174,
             "range":[146,174],"damage":[146,146,150,152,152,156,156,158,158,162,164,164,168,168,170,174]}"""
-        assertTrue(parseCalcResponseJson(ready.request, validJson).success)
-        assertFalse(parseCalcResponseJson(ready.request, validJson.replace("expansion_tierb", "unbound_cfru")).success)
-        assertFalse(parseCalcResponseJson(ready.request, validJson.replace("146,146", "146,145")).success)
+        assertTrue(parseCalcResponseJson(expReady.request, validExpJson).success)
         assertTrue(
-            CalcAuthorizedExecution.calculate(ready.verdict) { parseCalcResponseJson(it, validJson) }.success
+            CalcAuthorizedExecution.calculate(expReady.verdict) { parseCalcResponseJson(it, validExpJson) }.success
         )
+
+        // Immune Expansion Tier-B response: effectiveness == 0.0 paired with 16 zero rolls is valid.
+        val validImmuneExpJson = """{"success":true,"typeSystem":"expansion_tierb",
+            "attackerName":"Sylveon","defenderName":"Dragonite","moveName":"Moonblast","defenderMaxHP":$expMaxHp,
+            "effectiveness":0,"minDamage":0,"maxDamage":0,
+            "range":[0,0],"damage":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}"""
+        assertTrue(parseCalcResponseJson(expReady.request, validImmuneExpJson).success)
+
+        // Type system mismatch and non-monotonic rolls rejected.
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace("expansion_tierb", "unbound_cfru")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace("146,146", "146,145")).success)
+
+        // Metadata-free Expansion response rejected.
+        val metadataFreeExpJson = """{"success":true,"typeSystem":"expansion_tierb","effectiveness":2.0,
+            "minDamage":146,"maxDamage":174,
+            "range":[146,174],"damage":[146,146,150,152,152,156,156,158,158,162,164,164,168,168,170,174]}"""
+        assertFalse(parseCalcResponseJson(expReady.request, metadataFreeExpJson).success)
+
+        // Blank or mismatched display metadata and mismatched defenderMaxHP rejected.
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""attackerName":"Sylveon"""", """"attackerName":"   """")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""attackerName":"Sylveon"""", """"attackerName":"Pikachu"""")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""defenderName":"Dragonite"""", """"defenderName":"Snorlax"""")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""moveName":"Moonblast"""", """"moveName":"Tackle"""")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""defenderMaxHP":$expMaxHp""", """"defenderMaxHP":${expMaxHp + 1}""")).success)
+
+        // Effectiveness validation: missing, non-numeric, negative, 0 with nonzero rolls, and >0 with all-zero rolls rejected.
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""effectiveness":2.0,""", "")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""effectiveness":2.0""", """"effectiveness":null""")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""effectiveness":2.0""", """"effectiveness":"2.0"""")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""effectiveness":2.0""", """"effectiveness":-1.0""")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validExpJson.replace(""""effectiveness":2.0""", """"effectiveness":0""")).success)
+        assertFalse(parseCalcResponseJson(expReady.request, validImmuneExpJson.replace(""""effectiveness":0""", """"effectiveness":1.0""")).success)
+
+        // CFRU Tier-B strict display metadata validation: metadata-free and mismatched metadata rejected.
+        val cfruReady = CalcRequestBoundary.build(
+            verifiedCfruProfile,
+            exactTrust(verifiedCfruProfile),
+            baselineRequest
+        ) as CalcRequestOutcome.Ready
+        val cfruMaxHp = expectedAddonDisplayMetadata(cfruReady.request)!!.defenderMaxHp
+        val validCfruJson = """{"success":true,"typeSystem":"unbound_cfru",
+            "attackerName":"Sylveon","defenderName":"Dragonite","moveName":"Moonblast","defenderMaxHP":$cfruMaxHp,
+            "minDamage":146,"maxDamage":174,
+            "range":[146,174],"damage":[146,146,150,152,152,156,156,158,158,162,164,164,168,168,170,174]}"""
+        assertTrue(parseCalcResponseJson(cfruReady.request, validCfruJson).success)
+        assertTrue(
+            CalcAuthorizedExecution.calculate(cfruReady.verdict) { parseCalcResponseJson(it, validCfruJson) }.success
+        )
+        val metadataFreeCfruJson = """{"success":true,"typeSystem":"unbound_cfru","minDamage":146,"maxDamage":174,
+            "range":[146,174],"damage":[146,146,150,152,152,156,156,158,158,162,164,164,168,168,170,174]}"""
+        assertFalse(parseCalcResponseJson(cfruReady.request, metadataFreeCfruJson).success)
+        assertFalse(parseCalcResponseJson(cfruReady.request, validCfruJson.replace(""""defenderMaxHP":$cfruMaxHp""", """"defenderMaxHP":${cfruMaxHp + 1}""")).success)
+        assertFalse(parseCalcResponseJson(cfruReady.request, validCfruJson.replace(""""moveName":"Moonblast"""", """"moveName":"Tackle"""")).success)
+
+        // CalcAuthorizedExecution also rejects mismatched metadata even if a custom calculator bypasses parseCalcResponseJson.
+        assertFalse(
+            CalcAuthorizedExecution.calculate(expReady.verdict) {
+                DamageCalculationResponse(
+                    success = true,
+                    minDamage = 146,
+                    maxDamage = 174,
+                    range = listOf(146, 146, 150, 152, 152, 156, 156, 158, 158, 162, 164, 164, 168, 168, 170, 174),
+                    attackerName = "Sylveon",
+                    defenderName = "Dragonite",
+                    moveName = "Moonblast",
+                    defenderMaxHP = expMaxHp,
+                    effectiveness = 0.0
+                )
+            }.success
+        )
+
         // Attempting to raise Tier-B to VERIFIED or strip TIER_B_ESTIMATED_ENGINE fails closed.
         assertFalse(
-            CalcAuthorizedExecution.calculate(ready.verdict.copy(support = CalcSupport.VERIFIED)) {
+            CalcAuthorizedExecution.calculate(expReady.verdict.copy(support = CalcSupport.VERIFIED)) {
                 error("verified Tier-B result must never reach engine")
             }.success
         )
         assertFalse(
-            CalcAuthorizedExecution.calculate(ready.verdict.copy(limitations = emptyList())) {
+            CalcAuthorizedExecution.calculate(expReady.verdict.copy(limitations = emptyList())) {
                 error("Tier-B without TIER_B_ESTIMATED_ENGINE must never reach engine")
             }.success
         )
     }
 
     @Test
-    fun `SwitchAdvisorPresenter gets ESTIMATED calc-driven rankings on verified Tier-B hacks`() {
+    fun `Unbound malformed JSON preserves exact Unbound error message`() {
+        val unbound = bundledProfile("unbound")
+        val unboundReady = CalcRequestBoundary.build(
+            unbound,
+            exactTrust(unbound),
+            DamageCalculationRequest(
+                attacker = CalcPokemonInput("Charmander"),
+                defender = CalcPokemonInput("Bulbasaur"),
+                move = CalcMoveInput("Flamethrower")
+            )
+        ) as CalcRequestOutcome.Ready
+        val parsed = parseCalcResponseJson(unboundReady.request, "{not-valid-json")
+        assertFalse(parsed.success)
+        assertEquals("Invalid Unbound calculator result", parsed.error)
+    }
+
+    @Test
+    fun `SwitchAdvisorPresenter gets ESTIMATED calc-driven rankings on confirmed Singles Tier-B hacks and fails closed otherwise`() {
         fun partyMon(species: Int, name: String, moveId: Int) = ParsedPokemon(
             isValid = true, isEmpty = false, pid = species.toLong() * 100L, tid = 1, sid = 1,
             nickname = name, otName = "Player", species = species, heldItem = 0, level = 50,
@@ -402,6 +642,8 @@ class CalcTierBCapabilityTest {
         val active = partyMon(25, "Pikachu", 85) // Thunderbolt
         val bench = partyMon(9, "Blastoise", 57) // Surf
         val opponent = partyMon(6, "Charizard", 53) // Flamethrower
+        val singlesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 2, battlersCountReadable = true)
+        val doublesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 4, battlersCountReadable = true)
 
         for (profile in listOf(verifiedExpansionProfile, verifiedCfruProfile)) {
             val expectedTypeSystem = if (profile == verifiedExpansionProfile) {
@@ -413,16 +655,23 @@ class CalcTierBCapabilityTest {
             val stubCalc = BattleDamageCalculator { req ->
                 calls.incrementAndGet()
                 assertEquals(expectedTypeSystem, req.typeSystem)
+                val expected = expectedAddonDisplayMetadata(req)!!
                 val rolls = (0 until 16).map { 80 + it }
                 DamageCalculationResponse(
                     success = true,
                     minDamage = rolls.first(),
                     maxDamage = rolls.last(),
                     range = rolls,
-                    defenderMaxHP = 160
+                    attackerName = expected.attackerName,
+                    defenderName = expected.defenderName,
+                    moveName = expected.moveName,
+                    defenderMaxHP = expected.defenderMaxHp,
+                    effectiveness = if (req.typeSystem == TierBCalcInputs.EXPANSION_TYPE_SYSTEM) 1.0 else null
                 )
             }
             val presenter = SwitchAdvisorPresenter(calculator = stubCalc)
+
+            // Confirmed Singles live battle uses the Tier-B ESTIMATED calculator.
             val ranked = presenter.evaluateSync(
                 SwitchAdvisorInput(
                     playerParty = listOf(active, bench),
@@ -433,6 +682,8 @@ class CalcTierBCapabilityTest {
                     dataPack = ModernDataPack,
                     runtimeTrust = exactTrust(profile),
                     enemyStages = StatStages(),
+                    playerBattlerState = singlesObs,
+                    enemyBattlerState = singlesObs,
                     activeBattle = true
                 )
             )
@@ -440,6 +691,30 @@ class CalcTierBCapabilityTest {
             assertEquals(1, ranked.size)
             assertEquals(SwitchRecommendationSource.CALCULATOR, ranked[0].source)
             assertEquals(SwitchConfidenceTier.ESTIMATED, ranked[0].confidenceTier)
+
+            // Unverified active battle format (missing observations) and live Doubles fall back to TYPE_FALLBACK.
+            for ((playerObs, enemyObs) in listOf(null to null, doublesObs to doublesObs)) {
+                calls.set(0)
+                val fallback = presenter.evaluateSync(
+                    SwitchAdvisorInput(
+                        playerParty = listOf(active, bench),
+                        activePlayerSlot = 0,
+                        opponent = opponent,
+                        activeEnemySlot = 0,
+                        profile = profile,
+                        dataPack = ModernDataPack,
+                        runtimeTrust = exactTrust(profile),
+                        enemyStages = StatStages(),
+                        playerBattlerState = playerObs,
+                        enemyBattlerState = enemyObs,
+                        activeBattle = true
+                    )
+                )
+                assertEquals("Unverified/Doubles active battle must not invoke Tier-B calculator", 0, calls.get())
+                assertEquals(1, fallback.size)
+                assertEquals(SwitchRecommendationSource.TYPE_FALLBACK, fallback[0].source)
+                assertEquals(SwitchConfidenceTier.TYPE_FALLBACK, fallback[0].confidenceTier)
+            }
         }
     }
 

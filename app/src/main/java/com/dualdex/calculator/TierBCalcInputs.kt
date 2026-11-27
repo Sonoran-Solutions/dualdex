@@ -78,6 +78,32 @@ internal object TierBCalcInputs {
     private const val EXPANSION_MAX_POWER = 250
     private const val CFRU_MAX_POWER = 150
 
+    /**
+     * Strictly reviewed ordinary single-hit fixed-power move IDs (superset of
+     * [UnboundCalcInputs]'s reviewed ordinary-hit set across all 18 modern types).
+     *
+     * Excludes multi-hit moves (e.g. Double Kick, Double Slap, Bonemerang), defense-swap moves
+     * (Psyshock, Psystrike, Secret Sword), attack-swap moves (Foul Play, Body Press), fixed/level/
+     * OHKO damage, weight/speed/HP/stat-scaled or variable-power moves, recoil/explosion/drain,
+     * screen-breaking moves (Brick Break), always-crit moves, and dynamic/dual-type overrides.
+     */
+    private val ordinaryHitMoveIds: Set<Int> = setOf(
+        1, 2, 5, 7, 8, 9, 10, 15, 17, 21, 22, 25,
+        29, 33, 40, 44, 51, 52, 53, 55, 56, 57, 58, 59,
+        60, 61, 62, 63, 64, 65, 70, 75, 84, 85, 87, 88,
+        93, 94, 98, 122, 124, 126, 127, 129, 152, 157, 161, 163,
+        172, 177, 181, 183, 185, 188, 189, 196, 209, 211, 221, 223,
+        224, 225, 231, 232, 238, 242, 245, 246, 247, 249, 257, 276,
+        295, 296, 299, 304, 305, 309, 310, 314, 315, 317, 318, 324,
+        325, 326, 330, 332, 337, 341, 342, 345, 348, 351, 352, 354,
+        359, 370, 395, 396, 398, 399, 400, 401, 402, 403, 404, 405,
+        406, 408, 410, 411, 412, 414, 416, 418, 420, 421, 422, 423,
+        424, 425, 426, 427, 428, 430, 434, 435, 436, 437, 438, 439,
+        440, 441, 442, 443, 444, 453, 454, 460, 466, 482, 488, 490,
+        503, 522, 529, 534, 539, 555, 556, 572, 574, 583, 584, 585,
+        586, 595, 605
+    )
+
     /** Exact 18 modern types (excludes Stellar and any unknown/custom type). */
     private val modernTypes: Set<PokemonType> = setOf(
         PokemonType.NORMAL, PokemonType.FIGHTING, PokemonType.FLYING, PokemonType.POISON,
@@ -264,9 +290,9 @@ internal object TierBCalcInputs {
         val move = pack.getMoveByName(request.move.name)
             ?: return refuse(CalcLimitation.MOVE_NOT_IN_PINNED_DATA)
 
-        // Status moves, zero-power moves, variable-power sentinel (power == 1), and moves above
-        // the engine's supported fixed-power bound are strictly refused.
-        if (move.category == MoveCategory.STATUS || move.power !in 2..maxPower) {
+        // Strictly gate on the reviewed ordinary single-hit allowlist; status, zero-power,
+        // variable-power, multi-hit, defense-swap, recoil, and unreviewed moves fail closed.
+        if (move.id !in ordinaryHitMoveIds || move.category == MoveCategory.STATUS || move.power !in 2..maxPower) {
             return refuse(CalcLimitation.TIER_B_MOVE_NOT_MODELLED)
         }
         if (move.type !in modernTypes) {

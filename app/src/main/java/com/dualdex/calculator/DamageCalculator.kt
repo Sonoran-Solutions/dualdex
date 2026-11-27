@@ -67,6 +67,27 @@ object DamageCalculator {
     }
 }
 
+internal data class AddonDisplayMetadata(
+    val attackerName: String,
+    val defenderName: String,
+    val moveName: String,
+    val defenderMaxHp: Int
+)
+
+internal fun expectedAddonDisplayMetadata(request: DamageCalculationRequest): AddonDisplayMetadata? = when (request.typeSystem) {
+    TierBCalcInputs.EXPANSION_TYPE_SYSTEM -> request.expansionTierBOperands?.let {
+        AddonDisplayMetadata(it.attackerName, it.defenderName, it.moveName, it.defenderMaxHp)
+    }
+    UnboundCalcInputs.TYPE_SYSTEM -> request.unboundOperands?.toJson()?.optJSONObject("display")?.let { display ->
+        val atk = (display.opt("attackerName") as? String)?.takeIf { it.isNotBlank() } ?: return null
+        val def = (display.opt("defenderName") as? String)?.takeIf { it.isNotBlank() } ?: return null
+        val mov = (display.opt("moveName") as? String)?.takeIf { it.isNotBlank() } ?: return null
+        val maxHp = (display.opt("defenderMaxHP") as? Int)?.takeIf { it in 1..999 } ?: return null
+        AddonDisplayMetadata(atk, def, mov, maxHp)
+    }
+    else -> null
+}
+
 /** Parses the engine response without loading JNI, shared by production and JVM regressions. */
 internal fun parseCalcResponseJson(
     request: DamageCalculationRequest,
@@ -75,9 +96,13 @@ internal fun parseCalcResponseJson(
     val isUnbound = request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM
     val isExpansionTierB = request.typeSystem == TierBCalcInputs.EXPANSION_TYPE_SYSTEM
     val isAddon = isUnbound || isExpansionTierB
+    val isTierB = isExpansionTierB ||
+        (isUnbound && CalcLimitation.TIER_B_ESTIMATED_ENGINE in request.preparationLimitations)
+    val invalidResultError = if (isUnbound) "Invalid Unbound calculator result" else "Invalid addon calculator result"
+    val invalidRollError = if (isUnbound) "Invalid Unbound damage roll" else "Invalid addon damage roll"
     val resObj = if (isAddon) {
         runCatching { JSONObject(resJsonStr) }.getOrNull()
-            ?: return DamageCalculationResponse(success = false, error = "Invalid addon calculator result")
+            ?: return DamageCalculationResponse(success = false, error = invalidResultError)
     } else JSONObject(resJsonStr)
     val success = if (isAddon) resObj.opt("success") == true else resObj.optBoolean("success", false)
     if (!success) {
@@ -92,12 +117,13 @@ internal fun parseCalcResponseJson(
     for (i in 0 until rangeArray.length()) {
         if (isAddon) {
             val roll = rangeArray.opt(i) as? Int
-                ?: return DamageCalculationResponse(success = false, error = "Invalid addon damage roll")
+                ?: return DamageCalculationResponse(success = false, error = invalidRollError)
             rangeList.add(roll)
         } else {
             rangeList.add(rangeArray.getInt(i))
         }
     }
+    var validatedExpansionEffectiveness: Double? = null
     if (isAddon) {
         val endpoints = resObj.optJSONArray("range")
         val min = resObj.opt("minDamage") as? Int
@@ -105,7 +131,40 @@ internal fun parseCalcResponseJson(
         if (resObj.opt("typeSystem") != request.typeSystem || min == null || max == null ||
             endpoints == null || endpoints.length() != 2 || endpoints.opt(0) != min || endpoints.opt(1) != max ||
             !validUnboundRolls(rangeList, min, max)
-        ) return DamageCalculationResponse(success = false, error = "Invalid addon calculator result")
+        ) return DamageCalculationResponse(success = false, error = invalidResultError)
+
+        val hasAnyDisplayField = resObj.has("attackerName") || resObj.has("defenderName") ||
+            resObj.has("moveName") || resObj.has("defenderMaxHP")
+        if (isTierB || hasAnyDisplayField) {
+            val expected = expectedAddonDisplayMetadata(request)
+                ?: return DamageCalculationResponse(success = false, error = invalidResultError)
+            val attackerName = (resObj.opt("attackerName") as? String)?.takeIf { it.isNotBlank() }
+            val defenderName = (resObj.opt("defenderName") as? String)?.takeIf { it.isNotBlank() }
+            val moveName = (resObj.opt("moveName") as? String)?.takeIf { it.isNotBlank() }
+            val defenderMaxHp = resObj.opt("defenderMaxHP") as? Int
+            if (isTierB) {
+                if (attackerName != expected.attackerName ||
+                    defenderName != expected.defenderName ||
+                    moveName != expected.moveName ||
+                    defenderMaxHp != expected.defenderMaxHp
+                ) return DamageCalculationResponse(success = false, error = invalidResultError)
+            } else {
+                if ((resObj.has("attackerName") && attackerName != expected.attackerName) ||
+                    (resObj.has("defenderName") && defenderName != expected.defenderName) ||
+                    (resObj.has("moveName") && moveName != expected.moveName) ||
+                    (resObj.has("defenderMaxHP") && defenderMaxHp != expected.defenderMaxHp)
+                ) return DamageCalculationResponse(success = false, error = invalidResultError)
+            }
+        }
+
+        if (isExpansionTierB) {
+            val effectiveness = (resObj.opt("effectiveness") as? Number)?.toDouble()
+            if (effectiveness == null || !effectiveness.isFinite() ||
+                !((effectiveness == 0.0 && rangeList.all { it == 0 }) ||
+                    (effectiveness > 0.0 && rangeList.all { it >= 1 }))
+            ) return DamageCalculationResponse(success = false, error = invalidResultError)
+            validatedExpansionEffectiveness = effectiveness
+        }
     }
 
     val immunityCauses = mutableListOf<CalcImmunityCause>()
@@ -145,7 +204,8 @@ internal fun parseCalcResponseJson(
         defenderName = resObj.optString("defenderName", ""),
         defenderMaxHP = resObj.optInt("defenderMaxHP", 0),
         koChanceText = resObj.optString("koChanceText", ""),
-        effectiveness = if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null,
+        effectiveness = if (isExpansionTierB) validatedExpansionEffectiveness
+            else if (resObj.has("effectiveness")) resObj.optDouble("effectiveness") else null,
         immunityCauses = immunityCauses,
         engineEcho = if (resObj.has("attackerAbility") || resObj.has("defenderAbility") ||
             resObj.has("attackerItem") || resObj.has("defenderItem")

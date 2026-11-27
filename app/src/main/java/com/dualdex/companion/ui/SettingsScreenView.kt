@@ -1,9 +1,15 @@
 package com.dualdex.companion.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Typeface
+import android.hardware.display.DisplayManager
+import android.os.Build
 import android.text.TextUtils
+import android.util.DisplayMetrics
+import android.view.Display
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -12,6 +18,11 @@ import android.widget.TextView
 import android.widget.Toast
 import com.dualdex.BuildInfo
 import com.dualdex.BuildInfoFormatter
+import com.dualdex.CompanionCapabilitiesSummary
+import com.dualdex.DiagnosticsFormatter
+import com.dualdex.DiagnosticsSnapshot
+import com.dualdex.DisplayDescriptor
+import com.dualdex.battle.BattleInteractionPolicy
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
@@ -69,6 +80,83 @@ class SettingsScreenView(
             val success = try { action() } catch (e: Exception) { false }
             withContext(Dispatchers.Main) { Toast.makeText(context, if (success) ok else failed, Toast.LENGTH_SHORT).show() }
         }
+    }
+
+    private fun collectDisplayDescriptors(): List<DisplayDescriptor> {
+        val dm = ((context.applicationContext ?: context).getSystemService(Context.DISPLAY_SERVICE)) as? DisplayManager
+            ?: return emptyList()
+        val presentationDisplays = try {
+            dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+        val presentationIds = presentationDisplays.map { it.displayId }.toSet()
+        val displaysById = LinkedHashMap<Int, Display>()
+        val rawAllDisplays = try {
+            dm.displays ?: emptyArray()
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+        for (d in rawAllDisplays) {
+            displaysById[d.displayId] = d
+        }
+        for (d in presentationDisplays) {
+            displaysById.putIfAbsent(d.displayId, d)
+        }
+        return displaysById.values.map { display ->
+            val mode = runCatching { display.mode }.getOrNull()
+            val (widthPx, heightPx) = if (mode != null && mode.physicalWidth > 0 && mode.physicalHeight > 0) {
+                mode.physicalWidth to mode.physicalHeight
+            } else {
+                val metrics = DisplayMetrics()
+                @Suppress("DEPRECATION")
+                runCatching { display.getRealMetrics(metrics) }
+                metrics.widthPixels to metrics.heightPixels
+            }
+            DisplayDescriptor(
+                displayId = display.displayId,
+                isPresentationCategory = display.displayId in presentationIds,
+                isDefaultDisplay = display.displayId == Display.DEFAULT_DISPLAY,
+                widthPx = widthPx,
+                heightPx = heightPx
+            )
+        }
+    }
+
+    private fun buildDiagnosticsSnapshot(): DiagnosticsSnapshot {
+        val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid }
+        val trust = viewModel.runtimeRomTrust.value
+        val profile = viewModel.activeProfile.value
+        val hasActiveRom = identity != null
+
+        return DiagnosticsSnapshot(
+            versionName = BuildInfo.versionName,
+            versionCode = BuildInfo.versionCode,
+            buildType = BuildInfo.buildType,
+            androidRelease = Build.VERSION.RELEASE ?: "unknown",
+            androidSdkInt = Build.VERSION.SDK_INT,
+            deviceManufacturer = Build.MANUFACTURER ?: "unknown",
+            deviceModel = Build.MODEL ?: "unknown",
+            cpuAbi = Build.SUPPORTED_ABIS?.firstOrNull().orEmpty().ifBlank { "unknown" },
+            displays = collectDisplayDescriptors(),
+            activeRomSha256 = identity?.sha256,
+            activeProfileId = if (hasActiveRom) profile.id else null,
+            activeProfileName = if (hasActiveRom) profile.name else null,
+            compatibilityStatus = if (hasActiveRom) trust.activeStatus else null,
+            exactRuntimeVerified = hasActiveRom && trust.exactRuntimeVerified,
+            engine = if (hasActiveRom) profile.engine else null,
+            baseGame = if (hasActiveRom) profile.baseGame else null,
+            capabilities = CompanionCapabilitiesSummary(
+                liveMemoryRead = trust.mayReadLiveMemory,
+                battleStateRead = trust.mayReadBattleState,
+                interactiveBattleControls = BattleInteractionPolicy.isInteractiveVerified(profile, trust) &&
+                    viewModel.isInteractiveBattleControlsEnabled.value,
+                battleAutoOpen = viewModel.isBattleAutoOpenEnabled.value,
+                smartFastForward = settingsManager.isSmartFastForwardEnabled,
+                moveTileDamage = viewModel.isMoveTileDamageShown.value,
+                moveTileEffectiveness = viewModel.isMoveTileEffectivenessShown.value
+            )
+        )
     }
 
     override fun onAttachedToWindow() {
@@ -601,6 +689,48 @@ class SettingsScreenView(
                 setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
             }
             addView(diagnosticsTv)
+
+            val copyDiagnosticsFeedbackTv = TextView(context).apply {
+                text = ""
+                setTextColor(DualDexTheme.Color.accent)
+                textSize = DualDexTheme.Type.compact
+                visibility = View.GONE
+                setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, context.dp(DualDexTheme.Spacing.compact))
+            }
+
+            val copyDiagnosticsBtn = DualDexComponents.secondaryButton(context, "Copy Diagnostics") {
+                val report = DiagnosticsFormatter.format(buildDiagnosticsSnapshot())
+                val clipboard = ((context.applicationContext ?: context)
+                    .getSystemService(Context.CLIPBOARD_SERVICE)) as? ClipboardManager
+                val copied = try {
+                    if (clipboard != null) {
+                        clipboard.setPrimaryClip(ClipData.newPlainText("DualDex Diagnostics", report))
+                        true
+                    } else {
+                        false
+                    }
+                } catch (_: Throwable) {
+                    false
+                }
+                copyDiagnosticsFeedbackTv.text = if (copied) {
+                    "Copied to clipboard"
+                } else {
+                    "Could not copy to clipboard"
+                }
+                copyDiagnosticsFeedbackTv.setTextColor(
+                    if (copied) DualDexTheme.Color.accent else DualDexTheme.Color.danger
+                )
+                copyDiagnosticsFeedbackTv.visibility = View.VISIBLE
+            }
+            addView(
+                copyDiagnosticsBtn,
+                LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.touchTarget)).apply {
+                    topMargin = context.dp(DualDexTheme.Spacing.tight)
+                    bottomMargin = context.dp(DualDexTheme.Spacing.tight)
+                }
+            )
+            addView(copyDiagnosticsFeedbackTv)
+
             com.dualdex.coverage.HnsCoverageFactory.addSettingsActions(this)
 
             val noticesTv = TextView(context).apply {

@@ -1,0 +1,73 @@
+name: ROM Compatibility Request
+description: Request support or report an unverified/mismatched ROM version for a Pokémon GBA game or ROM hack.
+title: "[ROM Compatibility]: "
+labels: ["rom-compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > [!WARNING]
+        > **NEVER upload or link to ROM files, pre-patched ROMs, BIOSes, save files, or any copyrighted game data.**
+        > Only share the SHA-256 hash (via **Copy Diagnostics**) and links to official, legal patch/documentation pages (e.g., PokéCommunity, GitHub decomp/patch releases).
+
+  - type: input
+    id: hack_name
+    attributes:
+      label: Game or ROM Hack Name
+      placeholder: "e.g., Pokémon Heart & Soul, Pokémon Unbound, Pokémon Emerald"
+    validations:
+      required: true
+
+  - type: input
+    id: version_patch
+    attributes:
+      label: Exact Version / Patch Release
+      description: Exact release version, build number, or patch revision.
+      placeholder: "e.g., v2.0.5, v2.1.1.1, Rev 1.0 (USA)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: base_game
+    attributes:
+      label: Base Game
+      options:
+        - FireRed
+        - LeafGreen
+        - Ruby
+        - Sapphire
+        - Emerald
+        - Other / Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: DualDex Diagnostics (with SHA-256)
+      description: Load the ROM in DualDex, open Settings -> About & Diagnostics -> Copy Diagnostics, and paste the output here so we get the exact SHA-256 and profile status.
+      placeholder: |
+        ### DualDex Diagnostics
+        - **App:** DualDex ...
+        - **ROM SHA-256:** ...
+        - **Profile:** ...
+        - **Compatibility:** ...
+    validations:
+      required: true
+
+  - type: input
+    id: official_patch_link
+    attributes:
+      label: Official Patch / Documentation Link (Optional)
+      description: Link to the creator's official release or documentation page (patch files only, never pre-patched ROMs).
+      placeholder: "https://github.com/... or https://www.pokecommunity.com/..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Observed Behavior & Notes
+      description: Does the game boot and play in emulation? Which companion features (party, map, battle console, calculator) are missing or mismatched?
+    validations:
+      required: false

@@ -1,0 +1,37 @@
+name: Feature Request
+description: Suggest a new capability, handheld improvement, or companion UX enhancement for DualDex.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: What gameplay or handheld workflow problem does this feature solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe how you would like this feature to work in DualDex.
+    validations:
+      required: true
+
+  - type: input
+    id: target_device
+    attributes:
+      label: Target Device / Display Mode (Optional)
+      description: Which handheld(s) or display mode would benefit most?
+      placeholder: "e.g., AYN Thor, AYANEO Pocket DS, single-screen Android"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any mockups, edge cases, or alternatives you considered.
+    validations:
+      required: false

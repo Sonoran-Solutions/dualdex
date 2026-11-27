@@ -8,6 +8,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Display
 import android.view.Gravity
@@ -552,21 +553,84 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private fun currentHostDisplayId(): Int {
+        val hostDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching { display }.getOrNull()
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching { windowManager?.defaultDisplay }.getOrNull()
+        }
+        return hostDisplay?.displayId ?: Display.DEFAULT_DISPLAY
+    }
+
+    private fun readDisplaySizePx(display: Display): Pair<Int, Int> {
+        val mode = runCatching { display.mode }.getOrNull()
+        if (mode != null && mode.physicalWidth > 0 && mode.physicalHeight > 0) {
+            return mode.physicalWidth to mode.physicalHeight
+        }
+        val metrics = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        runCatching { display.getRealMetrics(metrics) }
+        return metrics.widthPixels to metrics.heightPixels
+    }
+
+    private fun resolveCompanionDisplay(dm: DisplayManager?): Display? {
+        if (dm == null) return null
+
+        val presentationDisplays = try {
+            dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+        val presentationIds = presentationDisplays.map { it.displayId }.toSet()
+
+        val displaysById = LinkedHashMap<Int, Display>()
+        val rawAllDisplays = try {
+            dm.displays ?: emptyArray()
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+        for (d in rawAllDisplays) {
+            displaysById[d.displayId] = d
+        }
+        for (d in presentationDisplays) {
+            displaysById.putIfAbsent(d.displayId, d)
+        }
+        if (displaysById.isEmpty()) return null
+
+        val descriptors = displaysById.values.map { d ->
+            val (widthPx, heightPx) = readDisplaySizePx(d)
+            DisplayDescriptor(
+                displayId = d.displayId,
+                isPresentationCategory = d.displayId in presentationIds,
+                isDefaultDisplay = d.displayId == Display.DEFAULT_DISPLAY,
+                widthPx = widthPx,
+                heightPx = heightPx
+            )
+        }
+
+        val selected = DisplaySelectionPolicy.selectCompanionDisplay(
+            hostDisplayId = currentHostDisplayId(),
+            allDisplays = descriptors
+        ) ?: return null
+
+        return displaysById[selected.displayId]
+    }
+
     private fun setupDisplays() {
         val dm = displayManager ?: run {
             setupSplitScreen()
             return
         }
 
-        val presentationDisplays = try {
-            dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-        } catch (e: Throwable) {
-            emptyArray()
-        }
+        val companionDisplay = resolveCompanionDisplay(dm)
 
-        if (presentationDisplays.isNotEmpty()) {
-            // Dual-screen mode (AYN Thor detected)
-            Log.i("DualDex", "AYN Thor dual-screen detected. Attaching CompanionPresentation to Display 1.")
+        if (companionDisplay != null) {
+            // Dual-screen mode (AYN Thor, AYANEO Pocket DS, or other multi-display handheld)
+            Log.i(
+                "DualDex",
+                "Dual-screen detected (host display=${currentHostDisplayId()}). Attaching CompanionPresentation to display ${companionDisplay.displayId}."
+            )
 
             val topRoot = FrameLayout(this).apply {
                 layoutParams = ViewGroup.LayoutParams(
@@ -603,11 +667,9 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 }
                 layoutParams = lp
                 setOnClickListener {
-                    val displays = try {
-                        displayManager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-                    } catch (e: Throwable) { emptyArray() }
-                    if (!displays.isNullOrEmpty()) {
-                        showPresentation(displays[0])
+                    val targetDisplay = resolveCompanionDisplay(displayManager)
+                    if (targetDisplay != null) {
+                        showPresentation(targetDisplay)
                         Toast.makeText(this@MainActivity, "Restored companion screen", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(this@MainActivity, "Secondary display not found", Toast.LENGTH_SHORT).show()
@@ -619,7 +681,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
             setContentView(topRoot)
 
-            showPresentation(presentationDisplays[0])
+            showPresentation(companionDisplay)
         } else {
             setupSplitScreen()
         }
@@ -753,10 +815,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     }
 
     override fun onDisplayChanged(displayId: Int) {
-        val presentationDisplays = try {
-            displayManager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-        } catch (e: Throwable) { emptyArray() }
-        if (!presentationDisplays.isNullOrEmpty()) {
+        if (resolveCompanionDisplay(displayManager) != null) {
             if (companionPresentation?.isShowing != true) {
                 runOnUiThread {
                     restoreBottomScreenBtn?.visibility = View.VISIBLE
@@ -786,10 +845,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         audioDriver.start()
         com.dualdex.library.AppUpdater.onHostResume(this)
 
-        val presentationDisplays = try {
-            displayManager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-        } catch (e: Throwable) { emptyArray() }
-        if (!presentationDisplays.isNullOrEmpty()) {
+        if (resolveCompanionDisplay(displayManager) != null) {
             if (companionPresentation?.isShowing != true) {
                 restoreBottomScreenBtn?.visibility = View.VISIBLE
             } else {

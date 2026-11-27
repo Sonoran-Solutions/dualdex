@@ -963,9 +963,8 @@ class RomSaveIntegrityTest {
         )
 
         val romABytes = ByteArray(1024) { 0x11.toByte() }
-        val hashA = RomIdentity.calculateSha256(romABytes)
         val fileA = File(testBaseDir, "rom_a.gba").apply { writeBytes(romABytes) }
-        val identityA = RomIdentity.create(hashA, "ROM A")
+        val identityA = RomIdentity.fromFile(fileA, "ROM A")
 
         val romBBytes = ByteArray(1024) { 0x22.toByte() }
         val hashB = RomIdentity.calculateSha256(romBBytes)
@@ -1176,9 +1175,8 @@ class RomSaveIntegrityTest {
         )
 
         val romABytes = ByteArray(1024) { 0x11.toByte() }
-        val hashA = RomIdentity.calculateSha256(romABytes)
         val fileA = File(testBaseDir, "rom_a.gba").apply { writeBytes(romABytes) }
-        val identityA = RomIdentity.create(hashA, "ROM A")
+        val identityA = RomIdentity.fromFile(fileA, "ROM A")
 
         // Start with ROM A active
         sessionManager.switchRomFile(fileA, emptyList(), "ROM A")
@@ -1633,9 +1631,8 @@ class RomSaveIntegrityTest {
 
         // Seed a game ROM A with an existing battery save
         val romABytes = ByteArray(1024) { 0x11.toByte() }
-        val hashA = RomIdentity.calculateSha256(romABytes)
         val fileA = File(testBaseDir, "rom_a.gba").apply { writeBytes(romABytes) }
-        val identityA = RomIdentity.create(hashA, "ROM A")
+        val identityA = RomIdentity.fromFile(fileA, "ROM A")
 
         val canonicalDirA = saveStateManager.getCanonicalRomDir(identityA)
         val saveFileA = File(canonicalDirA, "battery.sav").apply {

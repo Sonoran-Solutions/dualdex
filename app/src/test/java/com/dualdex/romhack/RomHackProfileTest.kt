@@ -94,7 +94,14 @@ class RomHackProfileTest {
             "ghost_grey" to GbaGame.GHOST_GREY,
             "radical_red" to GbaGame.RADICAL_RED,
             "heart_and_soul" to GbaGame.HEART_AND_SOUL,
-            "unbound" to GbaGame.UNBOUND
+            "unbound" to GbaGame.UNBOUND,
+            "emerald_imperium" to GbaGame.UNKNOWN,
+            "emerald_seaglass" to GbaGame.UNKNOWN,
+            "pokemon_lazarus" to GbaGame.UNKNOWN,
+            "gs_chronicles" to GbaGame.UNKNOWN,
+            "pokemon_odyssey" to GbaGame.UNKNOWN,
+            "emerald_legacy" to GbaGame.UNKNOWN,
+            "emerald_kaizo" to GbaGame.UNKNOWN
         )
         val profiles = loadBundledProfiles()
         val nativeIds = nativeGameIds()
@@ -106,6 +113,61 @@ class RomHackProfileTest {
         assertEquals(expectedGames.keys, profiles.map { it.id }.toSet())
         profiles.forEach { profile ->
             assertNativeGameId(profile, expectedGames.getValue(profile.id), nativeIds)
+        }
+    }
+
+    @Test
+    fun unverifiedProfileScaffoldsStayFailClosedAndNeverStealBaseGameRoms() {
+        val scaffoldIds = setOf(
+            "emerald_imperium",
+            "emerald_seaglass",
+            "pokemon_lazarus",
+            "gs_chronicles",
+            "pokemon_odyssey",
+            "emerald_legacy",
+            "emerald_kaizo"
+        )
+        val profiles = loadBundledProfiles()
+        val scaffolds = profiles.filter { it.id in scaffoldIds }
+        assertEquals(scaffoldIds, scaffolds.map { it.id }.toSet())
+
+        for (profile in scaffolds) {
+            assertFalse("${profile.id} must have isVerified=false", profile.isVerified)
+            assertFalse("${profile.id} must have memoryLayoutVerified=false", profile.memoryLayoutVerified)
+            assertFalse("${profile.id} must have battleStateReadVerified=false", profile.battleStateReadVerified)
+            assertTrue("${profile.id} must have empty sha256Hashes", profile.sha256Hashes.isEmpty())
+            assertEquals("${profile.id} must have gameId=0", 0, profile.gameId)
+            assertEquals("${profile.id} must use modern pack", "modern", profile.gameDataPackId)
+            assertTrue(
+                "${profile.id} must never list bare BPRE/BPEE in headerTitles",
+                profile.headerTitles.none { it.equals("BPRE", ignoreCase = true) || it.equals("BPEE", ignoreCase = true) }
+            )
+
+            val recognizedByFilename = RomHackDetector.detectCompatibilityFromBytes(
+                headerBytes = gbaHeader("POKEMON EMER", "BPEE"),
+                sha256 = unknownSha,
+                profiles = profiles,
+                fileName = "${profile.name}.gba",
+                romLength = unboundLength
+            )
+            assertEquals(profile.id, recognizedByFilename.profile.id)
+            assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, recognizedByFilename.status)
+            assertFalse(recognizedByFilename.isVerified)
+            assertFalse(recognizedByFilename.mayReadLiveMemory)
+            assertFalse(RuntimeRomTrust.from(recognizedByFilename, unknownSha).mayReadLiveMemory)
+        }
+
+        // Generic BPRE/BPEE headers with unknown filename must never match any scaffold.
+        for ((title, code) in listOf("POKEMON FIRE" to "BPRE", "POKEMON EMER" to "BPEE", "UNKNOWN HACK" to "BPEE")) {
+            val generic = RomHackDetector.detectCompatibilityFromBytes(
+                headerBytes = gbaHeader(title, code),
+                sha256 = unknownSha,
+                profiles = profiles,
+                fileName = "unknown_hack.gba",
+                romLength = unboundLength
+            )
+            assertFalse(generic.profile.id in scaffoldIds)
+            assertFalse(generic.mayReadLiveMemory)
         }
     }
 

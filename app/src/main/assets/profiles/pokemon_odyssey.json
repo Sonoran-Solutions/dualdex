@@ -1,0 +1,23 @@
+{
+  "id": "pokemon_odyssey",
+  "name": "Pokemon Odyssey",
+  "baseGame": "FireRed",
+  "gameId": 0,
+  "developer": "PacoScarso",
+  "engine": "CFRU",
+  "hasEvs": true,
+  "hasIvs": true,
+  "hasPhysSpecSplit": true,
+  "steelResistsGhostDark": false,
+  "cfruOffsets": true,
+  "playerPartyOffset": 0,
+  "enemyPartyOffset": 0,
+  "docsUrl": null,
+  "headerTitles": ["POKEMONODYSSEY", "POKEMON ODYSSEY", "ODYSSEY"],
+  "sha256Hashes": [],
+  "isVerified": false,
+  "memoryLayoutVerified": false,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "modern"
+}

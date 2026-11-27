@@ -340,7 +340,8 @@ open class RomSessionManager(
                             Log.i(TAG, "Restored existing battery save for ${newIdentity.storageKey}")
                         }
                         // #153: resume where the player left off (newest of auto-resume and manual states).
-                        if (settingsManager?.isBootResumeEnabled != false) {
+                        if (settingsManager?.isBootResumeEnabled != false &&
+                            coreCoordinator.raHardcorePolicy.mayAutoResumeState) {
                             saveStateManager.loadNewestResumeState(newIdentity)?.let {
                                 Log.i(TAG, "Resumed ${newIdentity.storageKey} from $it")
                             }

@@ -1338,6 +1338,10 @@ static jstring ra_text(JNIEnv* env, const char* text) {
     jbyteArray bytes = ra_bytes(env, text);
     if (!bytes) return NULL;
     jclass cls = (*env)->FindClass(env, "java/lang/String");
+    if (!cls) {
+        (*env)->DeleteLocalRef(env, bytes);
+        return NULL;
+    }
     jmethodID ctor = (*env)->GetMethodID(env, cls, "<init>", "([BLjava/lang/String;)V");
     jstring charset = (*env)->NewStringUTF(env, "UTF-8");
     jstring value = NULL;

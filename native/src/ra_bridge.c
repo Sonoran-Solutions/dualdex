@@ -46,7 +46,7 @@ static const rc_api_server_response_t cancelled_response = {
 };
 
 uint32_t ra_bridge_read_memory(const RaBridge* bridge, uint32_t address, uint8_t* out, uint32_t length) {
-    if (!bridge || !bridge->read || !out || !length) return 0;
+    if (!bridge || !bridge->read || !bridge->memory || !out || !length) return 0;
 
     for (uint32_t i = 0; i < bridge->memory->num_regions; i++) {
         const rc_memory_region_t* region = &bridge->memory->region[i];

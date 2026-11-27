@@ -131,6 +131,26 @@ native_test() {
     native/tests/test_pokemon_reader.c \
     -o native/build/test_runner
   ./native/build/test_runner
+  echo "== RetroAchievements native bridge tests (rcheevos, ROM-free) =="
+  mkdir -p native/build/ra_objs
+  (
+    cd native/build/ra_objs
+    "$cc" -O2 -std=c11 -D_GNU_SOURCE -DRC_CLIENT_SUPPORTS_HASH -Wno-unused-parameter -c \
+      -I ../../../native/rcheevos/include \
+      ../../../native/rcheevos/src/*.c \
+      ../../../native/rcheevos/src/rapi/*.c \
+      ../../../native/rcheevos/src/rcheevos/*.c \
+      ../../../native/rcheevos/src/rhash/*.c
+  )
+  "$cc" -O2 -std=c11 -D_GNU_SOURCE -Wall -Wextra -Werror \
+    -I native/include -I native/rcheevos/include \
+    native/src/gba_memory_map.c \
+    native/src/ra_bridge.c \
+    native/tests/test_ra_bridge.c \
+    native/build/ra_objs/*.o \
+    -lm -lpthread \
+    -o native/build/test_ra_bridge
+  ./native/build/test_ra_bridge
   echo "== ROM evidence tooling (synthetic, no ROM/core) =="
   python3 -m unittest discover -s tools/rom-evidence -v
 }

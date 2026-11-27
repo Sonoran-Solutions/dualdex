@@ -248,6 +248,7 @@ open class SaveStateManager(
      * `undo_load.state`, so an accidental load can be reverted with [undoLoad].
      */
     private fun loadStateFile(identity: RomIdentity, fileName: String, snapshotUndo: Boolean): Boolean {
+        if (!coreCoordinator.raHardcorePolicy.mayLoadSaveState) return false
         val canonicalFile = getCanonicalFile(identity, fileName)
         val expectedSize = nativeGetSaveStateSize()
         AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)

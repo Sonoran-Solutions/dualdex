@@ -396,9 +396,10 @@ class SaveStateScreenView(
 
     private fun renderBusyState() {
         val hasGame = getRomIdentity() != null
+        val mayLoad = viewModel.coreCoordinator.raHardcorePolicy.mayLoadSaveState
         qSaveBtn.isEnabled = !isBusy && hasGame
-        qLoadBtn.isEnabled = !isBusy && hasGame
-        undoLoadBtn.isEnabled = !isBusy && hasGame && hasUndo
+        qLoadBtn.isEnabled = !isBusy && hasGame && mayLoad
+        undoLoadBtn.isEnabled = !isBusy && hasGame && hasUndo && mayLoad
         shareFolderBtn.isEnabled = !isBusy
         loadSharedBtn.isEnabled = !isBusy && hasGame && settingsManager.shareSavesFolderUri != null
         importBtn.isEnabled = !isBusy && hasGame
@@ -630,10 +631,15 @@ class SaveStateScreenView(
         })
 
         if (slot.exists) {
-            isClickable = true
-            isFocusable = true
+            val mayLoad = viewModel.coreCoordinator.raHardcorePolicy.mayLoadSaveState
+            isClickable = mayLoad
+            isFocusable = mayLoad
             setOnClickListener {
                 if (isBusy) return@setOnClickListener
+                if (!viewModel.coreCoordinator.raHardcorePolicy.mayLoadSaveState) {
+                    Toast.makeText(context, "Save state loading is disabled in RetroAchievements Hardcore mode.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
                 performAsyncOperation("Slot ${slot.slotIndex} loaded (Undo Last Load reverts)", "Load failed!") {
                     saveStateManager.loadSlot(identity, slot.slotIndex, profile.name, profile.id)
                 }
@@ -734,6 +740,9 @@ class SaveStateScreenView(
             }
             scope.launch {
                 viewModel.activeProfile.collectLatest { refreshUI() }
+            }
+            scope.launch {
+                viewModel.coreCoordinator.raHardcoreChanges.collectLatest { refreshUI() }
             }
         }
         refreshUI()

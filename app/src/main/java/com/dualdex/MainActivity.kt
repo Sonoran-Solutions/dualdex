@@ -112,6 +112,10 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
     private fun quickStateShortcut(save: Boolean) {
         val identity = viewModel.activeRomIdentity.value?.takeIf { it.isValid } ?: return
+        if (!save && !LibretroCoreCoordinator.defaultInstance.raHardcorePolicy.mayLoadSaveState) {
+            Toast.makeText(this, "Save state loading is disabled in RetroAchievements Hardcore mode.", Toast.LENGTH_SHORT).show()
+            return
+        }
         CoroutineScope(Dispatchers.IO).launch {
             val ok = try {
                 if (save) saveStateManager.quickSave(identity) else saveStateManager.quickLoad(identity)
@@ -327,6 +331,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             // 5.5 Input defaults (#153): one-time AYN/Retroid A/B swap for untouched configs
             settingsManager.migrateSwapABDefault(Build.MANUFACTURER, Build.BRAND, Build.MODEL)
             settingsManager.registerChangeListener(inputPrefsListener)
+            // Arm RetroAchievements hardcore policy and saved-token sign-in before launch intents run.
+            com.dualdex.retroachievements.RetroAchievementsService.get(applicationContext)
             com.dualdex.library.CoverArt.pickRequest = { sha ->
                 pendingCoverSha = sha
                 pickCoverLauncher.launch(arrayOf("image/*"))

@@ -199,6 +199,10 @@ class CheatManager(
     /** Core and shared storage locks are already held, including during automatic ROM load. */
     private fun applyCheatsLocked(core: LibretroCoreCoordinator, identity: RomIdentity): CheatResult {
         if (!core.isCheatRom(identity)) return CheatResult.stale
+        if (!core.raHardcorePolicy.mayUseCheats) {
+            core.cheatReset()
+            return CheatResult(false, "Cheats are disabled in RetroAchievements Hardcore mode.")
+        }
         val cheats = readCheatsLocked(identity)
         core.cheatReset()
         var index = 0

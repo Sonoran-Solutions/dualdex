@@ -369,6 +369,11 @@ class CalcTabScreenView(
                 refreshUI()
             }
         }
+        scope.launch {
+            viewModel.pcBoxCalcAttacker.collectLatest {
+                refreshUI()
+            }
+        }
     }
 
     override fun onDetachedFromWindow() {
@@ -400,7 +405,8 @@ class CalcTabScreenView(
             }
         }
         val selectedIdx = viewModel.selectedMemberIndex.value
-        val attacker = if (party.isNotEmpty() && selectedIdx in party.indices) party[selectedIdx] else null
+        val boxedSlot = viewModel.pcBoxCalcAttacker.value?.takeIf { it.canSendToCalc }
+        val attacker = if (boxedSlot != null) boxedSlot.pokemon else if (party.isNotEmpty() && selectedIdx in party.indices) party[selectedIdx] else null
 
         val enemyParty = viewModel.enemyParty.value
         val inBattle = viewModel.isInBattle.value
@@ -425,9 +431,43 @@ class CalcTabScreenView(
 
         // 1. Populate party member chips for instant attacker switching directly in Calc
         partySelectorContainer.removeAllViews()
+        if (boxedSlot != null && boxedSlot.pokemon != null) {
+            val boxChip = LinearLayout(context).apply {
+                orientation = VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(18, 8, 18, 8)
+                background = GradientDrawable().apply {
+                    cornerRadius = 12f
+                    setColor(0xFF2E3A59.toInt())
+                    setStroke(2, 0xFF4A9EFF.toInt())
+                }
+                isClickable = true
+                isFocusable = true
+                setOnClickListener {
+                    viewModel.clearPcBoxCalcAttacker()
+                    refreshUI()
+                }
+            }
+            val boxSpecies = boxedSlot.nationalDex?.let { SpeciesDatabase.get(it).name } ?: "Species #${boxedSlot.pokemon.species}"
+            val boxLabel = if (boxedSlot.pokemon.nickname.isNotBlank()) boxedSlot.pokemon.nickname else boxSpecies
+            boxChip.addView(TextView(context).apply {
+                text = "PC: $boxLabel (Est. Lv.${boxedSlot.estimatedLevel ?: "?"})"
+                setTextColor(Color.WHITE)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+            })
+            boxChip.addView(TextView(context).apply {
+                text = "Tap to clear"
+                setTextColor(0xFF9AC8FF.toInt())
+                textSize = 10.5f
+            })
+            partySelectorContainer.addView(boxChip, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                setMargins(0, 0, 10, 0)
+            })
+        }
         if (party.isNotEmpty()) {
             party.forEachIndexed { idx, mon ->
-                val isSelected = (idx == selectedIdx)
+                val isSelected = (boxedSlot == null && idx == selectedIdx)
                 val chip = LinearLayout(context).apply {
                     orientation = VERTICAL
                     gravity = Gravity.CENTER
@@ -440,6 +480,7 @@ class CalcTabScreenView(
                     isClickable = true
                     isFocusable = true
                     setOnClickListener {
+                        viewModel.clearPcBoxCalcAttacker()
                         viewModel.selectMember(idx)
                         refreshUI()
                     }
@@ -489,13 +530,25 @@ class CalcTabScreenView(
             defenderStatView.text = "Target standard benchmark (Type above to search)"
         }
 
+        val atkSpeciesName = boxedSlot?.nationalDex?.let { SpeciesDatabase.get(it).name }
+            ?: attacker?.let { SpeciesDatabase.get(it.species).name }
         val atkName = attacker?.let {
-            if (it.nickname.isNotBlank()) "${it.nickname} (${SpeciesDatabase.get(it.species).name})" else SpeciesDatabase.get(it.species).name
+            val sp = atkSpeciesName ?: SpeciesDatabase.get(it.species).name
+            if (it.nickname.isNotBlank()) "${it.nickname} ($sp)" else sp
         } ?: "Salamence"
-        val atkLevel = attacker?.level ?: 50
+        val atkLevel = boxedSlot?.estimatedLevel ?: attacker?.level ?: 50
 
-        attackerHeaderView.text = "🔵 Attacker: $atkName (Lv. $atkLevel)"
-        if (attacker != null) {
+        attackerHeaderView.text = if (boxedSlot != null) {
+            "🔵 Attacker (PC Box): $atkName (Est. Lv. $atkLevel)"
+        } else {
+            "🔵 Attacker: $atkName (Lv. $atkLevel)"
+        }
+        if (attacker != null && boxedSlot != null) {
+            attackerStatView.text = "📦 PC Box Attacker (Hypothetical):\n" +
+                    "   IVs: HP ${attacker.hpIv} | Atk ${attacker.attackIv} | Def ${attacker.defenseIv} | SpA ${attacker.spAttackIv} | SpD ${attacker.spDefenseIv} | Spe ${attacker.speedIv}\n" +
+                    "   EVs: HP ${attacker.hpEv} | Atk ${attacker.attackEv} | Def ${attacker.defenseEv} | SpA ${attacker.spAttackEv} | SpD ${attacker.spDefenseEv} | Spe ${attacker.speedEv}\n" +
+                    "   Ability: ${boxedSlot.abilityName ?: "Unknown"} | Nature: ${attacker.natureName}"
+        } else if (attacker != null) {
             attackerStatView.text = "📊 Party Attacker Stats:\n" +
                     "   IVs: HP ${attacker.hpIv} | Atk ${attacker.attackIv} | Def ${attacker.defenseIv} | SpA ${attacker.spAttackIv} | SpD ${attacker.spDefenseIv} | Spe ${attacker.speedIv}\n" +
                     "   EVs: HP ${attacker.hpEv} | Atk ${attacker.attackEv} | Def ${attacker.defenseEv} | SpA ${attacker.spAttackEv} | SpD ${attacker.spDefenseEv} | Spe ${attacker.speedEv}\n" +
@@ -606,7 +659,15 @@ class CalcTabScreenView(
         // for a live Rain or Reflect; when those words were not observed the request fails closed.
         val isExpansionItems = activeProfile.hasPhysSpecSplit
         val isExactHns = CalcCapabilityPolicy.capabilityFor(activeProfile)?.ruleset == CalcRuleset.HNS_2_0_5
-        val attackerState = CalcParticipantPresenter.attacker(
+        val boxedSlot = viewModel.pcBoxCalcAttacker.value?.takeIf { it.canSendToCalc }
+        val attackerState = boxedSlot?.let { slot ->
+            val boxedSpecies = slot.nationalDex?.let { SpeciesDatabase.get(it).name } ?: return@let null
+            CalcParticipantPresenter.pcBoxAttacker(
+                slot = slot,
+                speciesName = boxedSpecies,
+                isExpansionItems = isExpansionItems
+            )
+        } ?: CalcParticipantPresenter.attacker(
             party = party,
             selectedIndex = selectedIdx,
             speciesNameOf = { SpeciesDatabase.get(it.species).name },

@@ -4,7 +4,10 @@ import android.os.SystemClock
 import android.util.Log
 import com.dualdex.battle.ActiveEnemyResolution
 import com.dualdex.pokemon.ParsedPokemon
+import com.dualdex.pokemon.PcBoxAvailability
+import com.dualdex.pokemon.PcBoxSnapshot
 import com.dualdex.pokemon.PlayerLocation
+import com.dualdex.pokemon.PokemonBridge
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -400,6 +403,14 @@ open class LibretroCoreCoordinator(
         null
     } catch (_: Exception) {
         null
+    }
+
+    open fun readPcBoxFromCore(gameId: Int, boxIndex: Int): PcBoxSnapshot = try {
+        executeExclusive(50L) { PokemonBridge.readPcBoxFromCore(gameId, boxIndex) }
+    } catch (_: LinkageError) {
+        PcBoxSnapshot.unavailable(PcBoxAvailability.UNREADABLE)
+    } catch (_: LockTimeoutException) {
+        PcBoxSnapshot.unavailable(PcBoxAvailability.UNREADABLE)
     }
 
     open fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = try {

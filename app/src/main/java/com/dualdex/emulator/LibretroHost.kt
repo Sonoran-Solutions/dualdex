@@ -26,6 +26,9 @@ object LibretroHost {
     external fun nativeSetTargetAudioSampleRate(rate: Int)
     external fun nativeGetOutputAudioSampleRate(): Int
     external fun nativeReadPartyFromCore(gameId: Int): Array<ParsedPokemon>?
+    external fun nativeReadPcBoxFromCore(
+        gameId: Int, boxIndex: Int, metadata: IntArray
+    ): Array<ParsedPokemon?>?
     external fun nativeReadEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>?
     external fun nativeGetActiveBattlerSlot(gameId: Int): Int
     external fun nativeGetActiveEnemyBattlerSlot(gameId: Int): Int

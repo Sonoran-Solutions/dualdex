@@ -513,6 +513,47 @@ static bool dualdex_jni_gba_read(void* user, uint32_t gba_address, uint8_t* out,
 }
 
 JNIEXPORT jobjectArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeReadPcBoxFromCore(
+    JNIEnv* env, jobject thiz, jint game_id, jint box_index, jintArray metadata
+) {
+    (void)thiz;
+    enum { HEADER_WORDS = 4, SLOT_WORDS = 3, WORDS = HEADER_WORDS + DUALDEX_PC_BOX_MAX_SLOTS * SLOT_WORDS };
+    if (!metadata || (*env)->GetArrayLength(env, metadata) != WORDS) return NULL;
+
+    PcBoxRawSnapshot snapshot;
+    const PcBoxAvailability availability = pokemon_read_pc_box_gba(
+        dualdex_jni_gba_read, NULL, (GbaGameId)game_id, box_index, &snapshot);
+    if (availability != PC_BOX_AVAILABLE) {
+        const jint status = availability;
+        (*env)->SetIntArrayRegion(env, metadata, 0, 1, &status);
+        return NULL;
+    }
+
+    init_class_cache(env);
+    if (!g_parsed_pokemon_cls || !g_parsed_pokemon_ctor) return NULL;
+    jobjectArray mons = (*env)->NewObjectArray(env, snapshot.slot_count, g_parsed_pokemon_cls, NULL);
+    if (!mons) return NULL;
+
+    jint words[WORDS] = { availability, snapshot.box_index, snapshot.box_count, snapshot.current_box };
+    for (uint8_t i = 0; i < snapshot.slot_count; i++) {
+        const PcBoxRawSlot* slot = &snapshot.slots[i];
+        if (!slot->mon.species) continue;
+        jobject mon = create_parsed_pokemon_object(env, &slot->mon);
+        if (!mon) return NULL;
+        (*env)->SetObjectArrayElement(env, mons, i, mon);
+        (*env)->DeleteLocalRef(env, mon);
+        if ((*env)->ExceptionCheck(env)) return NULL;
+
+        const int offset = HEADER_WORDS + i * SLOT_WORDS;
+        words[offset] = slot->national_dex;
+        words[offset + 1] = slot->ability_id;
+        words[offset + 2] = slot->growth_rate;
+    }
+    (*env)->SetIntArrayRegion(env, metadata, 0, WORDS, words);
+    return mons;
+}
+
+JNIEXPORT jobjectArray JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeReadPartyFromCore(JNIEnv* env, jobject thiz, jint game_id) {
     (void)thiz;
     init_class_cache(env);

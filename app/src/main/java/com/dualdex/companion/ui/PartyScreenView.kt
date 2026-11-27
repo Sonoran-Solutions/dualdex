@@ -83,6 +83,9 @@ class PartyScreenView(
     )
 
     private val slotGrid: PartySlotGrid
+    private val partyContent = LinearLayout(context).apply { orientation = VERTICAL }
+    private val pcBoxes = PcBoxScreenView(context, viewModel).apply { visibility = View.GONE }
+    private var showPcBoxes = false
     private val nuzlockeContainer: LinearLayout
     private val nuzlockeToggleBtn: TextView
     private val nuzlockeAreaPill: TextView
@@ -121,8 +124,25 @@ class PartyScreenView(
             .getOrNull()
             ?.let { dir -> viewModel.attachNuzlockeStore(NuzlockeStore(File(dir, "nuzlocke"))) }
 
+        addView(
+            DualDexComponents.segmentedControl(context, listOf("Party", "PC Boxes")) { index ->
+                val show = index == 1
+                if (show != showPcBoxes) {
+                    showPcBoxes = show
+                    partyContent.visibility = if (show) View.GONE else View.VISIBLE
+                    pcBoxes.visibility = if (show) View.VISIBLE else View.GONE
+                    if (show) pcBoxes.open()
+                }
+            },
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+                setMargins(pad, pad, pad, tight)
+            }
+        )
+        addView(partyContent, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
+        addView(pcBoxes, LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f))
+
         slotGrid = PartySlotGrid(context, ::onMemberSelected)
-        addView(slotGrid, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+        partyContent.addView(slotGrid, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
             setMargins(pad, pad, pad, pad)
         })
 
@@ -297,7 +317,7 @@ class PartyScreenView(
         }
         scrollContent.addView(detailContainer, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         verticalScroll.addView(scrollContent)
-        addView(verticalScroll)
+        partyContent.addView(verticalScroll)
 
         refreshUI()
     }
@@ -308,7 +328,13 @@ class PartyScreenView(
         viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob()).also { scope ->
             scope.launch { viewModel.playerParty.collectLatest { refreshUI() } }
             scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
-            scope.launch { viewModel.runtimeRomTrust.collectLatest { refreshUI() } }
+            scope.launch {
+                viewModel.runtimeRomTrust.collectLatest {
+                    refreshUI()
+                    pcBoxes.render(viewModel.pcBoxSnapshot.value)
+                }
+            }
+            scope.launch { viewModel.pcBoxSnapshot.collectLatest(pcBoxes::render) }
             scope.launch { viewModel.nuzlockeState.collectLatest { refreshUI() } }
             scope.launch { viewModel.playerLocation.collectLatest { updateNuzlockeStrip() } }
             scope.launch { viewModel.resolvedLocation.collectLatest { updateNuzlockeStrip() } }
@@ -320,6 +346,7 @@ class PartyScreenView(
                 }
             }
         }
+        if (showPcBoxes) pcBoxes.open()
     }
 
     override fun onDetachedFromWindow() {

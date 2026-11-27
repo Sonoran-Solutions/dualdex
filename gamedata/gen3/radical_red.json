@@ -10,10 +10,23 @@
     "app/src/main/assets/profiles/radical_red.json declares a CFRU FireRed hack with no exact hash."
   ],
   "notes": [
+    "PC storage layout is unverified for this build.",
     "CFRU hack without exact-ROM evidence: storage is PKMN_STORAGE_CFRU_UNVERIFIED (never the exact",
     "Unbound semantics), no gBattleMons is declared and the enemy count keeps the legacy 0x24028 value."
   ],
   "fields": {
+    "pokemon_storage_ptr_gba_address": null,
+    "pokemon_storage_base_gba_address": null,
+    "pokemon_storage_aslr_range": null,
+    "pokemon_storage_size": null,
+    "pc_box_current_offset": null,
+    "pc_box_mons_offset": null,
+    "pc_box_count": null,
+    "pc_box_slots": null,
+    "pc_box_mon_stride": null,
+    "pc_box_species_info_gba_address": null,
+    "pc_box_species_dex_gba_address": null,
+    "pc_box_rev1_rom_shift": null,
     "enemy_party_count_offset": {"ewram": "0x24028"},
     "battle_mons_offset": null,
     "battle_mons_size": null,

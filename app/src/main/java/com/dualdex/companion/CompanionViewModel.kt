@@ -13,6 +13,9 @@ import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.LocationResolution
 import com.dualdex.pokemon.LocationStrategy
 import com.dualdex.pokemon.LocationUnavailableReason
+import com.dualdex.pokemon.PcBoxAvailability
+import com.dualdex.pokemon.PcBoxSlot
+import com.dualdex.pokemon.PcBoxSnapshot
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
@@ -84,6 +87,13 @@ class CompanionViewModel(
 
     private val _playerParty = MutableStateFlow<List<ParsedPokemon>>(emptyList())
     val playerParty: StateFlow<List<ParsedPokemon>> = _playerParty.asStateFlow()
+
+    private val _pcBoxSnapshot = MutableStateFlow(PcBoxSnapshot.unavailable(PcBoxAvailability.IDLE))
+    val pcBoxSnapshot: StateFlow<PcBoxSnapshot> = _pcBoxSnapshot.asStateFlow()
+    private class PcBoxRequest(val coreGeneration: Long)
+    private var pcBoxRequest: PcBoxRequest? = null // guarded by observationSessionLock
+    private val _pcBoxCalcAttacker = MutableStateFlow<PcBoxSlot?>(null)
+    val pcBoxCalcAttacker: StateFlow<PcBoxSlot?> = _pcBoxCalcAttacker.asStateFlow()
 
     /** Indexed by native party slot; empty/invalid records stay null instead of shifting slots. */
     private val _enemyParty = MutableStateFlow<List<ParsedPokemon?>>(emptyList())
@@ -381,6 +391,66 @@ class CompanionViewModel(
         }
     }
 
+    /** Take a single observation after opening the viewer or requesting another box. */
+    fun refreshPcBox(boxIndex: Int = PcBoxSnapshot.CURRENT_BOX) {
+        val coordinator = coreCoordinator
+        val request = synchronized(observationSessionLock) {
+            if (!_runtimeRomTrust.value.mayReadLiveMemory || _activeRomIdentity.value == null) return
+            _pcBoxSnapshot.value = PcBoxSnapshot.unavailable(PcBoxAvailability.LOADING)
+            PcBoxRequest(coordinator.stateGeneration).also { pcBoxRequest = it }
+        }
+        scope.launch {
+            try {
+                coordinator.executeExclusive(50L) {
+                    synchronized(observationSessionLock) {
+                        if (pcBoxRequest !== request) return@executeExclusive
+                        if (coordinator !== coreCoordinator) {
+                            pcBoxRequest = null
+                            _pcBoxSnapshot.value = PcBoxSnapshot.unavailable(PcBoxAvailability.IDLE)
+                            return@executeExclusive
+                        }
+                        val loaded = coordinator.loadedRomSnapshotLocked()
+                        val identity = _activeRomIdentity.value
+                        val trust = _runtimeRomTrust.value
+                        invalidateMismatchedLoadedSessionLocked(loaded.coreGeneration)
+                        _pcBoxSnapshot.value = if (loaded.coreGeneration == request.coreGeneration &&
+                            loaded.status == LoadedRomStatus.BOUND && identity != null &&
+                            trust.mayReadLiveMemory && loaded.sha256.equals(identity.sha256, ignoreCase = true) &&
+                            loaded.sha256.equals(trust.activeRomSha256, ignoreCase = true)
+                        ) {
+                            coordinator.readPcBoxFromCore(_activeGameId.value, boxIndex)
+                        } else {
+                            PcBoxSnapshot.unavailable()
+                        }
+                        pcBoxRequest = null
+                    }
+                }
+            } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
+                synchronized(observationSessionLock) {
+                    if (pcBoxRequest === request) {
+                        pcBoxRequest = null
+                        _pcBoxSnapshot.value = PcBoxSnapshot.unavailable(PcBoxAvailability.UNREADABLE)
+                    }
+                }
+            }
+        }
+    }
+
+    fun sendPcBoxToCalc(snapshot: PcBoxSnapshot, slot: PcBoxSlot) {
+        synchronized(observationSessionLock) {
+            if (snapshot !== _pcBoxSnapshot.value || lastObservedCoreGeneration != coreCoordinator.stateGeneration ||
+                !_runtimeRomTrust.value.mayReadLiveMemory ||
+                snapshot.slots.getOrNull(slot.index) != slot || !slot.canSendToCalc
+            ) return
+            _pcBoxCalcAttacker.value = slot
+            selectTab(CompanionTab.CALC)
+        }
+    }
+
+    fun clearPcBoxCalcAttacker() {
+        _pcBoxCalcAttacker.value = null
+    }
+
     /**
      * Re-derive the active location strategy from the typed profile.
      *
@@ -504,7 +574,7 @@ class CompanionViewModel(
                 synchronized(observationSessionLock) {
                     if (lastObservedCoreGeneration != generation) {
                         observationSessionRevision++
-                        clearLiveMemoryObservationsLocked()
+                        clearLiveMemoryObservationsLocked(keepPcBoxRequestFor = generation)
                         lastObservedCoreGeneration = generation
                     }
                 }
@@ -561,7 +631,7 @@ class CompanionViewModel(
 
                     if (lastObservedCoreGeneration != loaded.coreGeneration) {
                         observationSessionRevision++
-                        clearLiveMemoryObservationsLocked()
+                        clearLiveMemoryObservationsLocked(keepPcBoxRequestFor = loaded.coreGeneration)
                         lastObservedCoreGeneration = loaded.coreGeneration
                     }
                     val token = SessionObservationToken(
@@ -591,7 +661,7 @@ class CompanionViewModel(
         if (lastObservedCoreGeneration != generation) {
             unboundMapNames.reset()
             observationSessionRevision++
-            clearLiveMemoryObservationsLocked()
+            clearLiveMemoryObservationsLocked(keepPcBoxRequestFor = generation)
             lastObservedCoreGeneration = generation
         }
     }
@@ -892,7 +962,12 @@ class CompanionViewModel(
         }
     }
 
-    private fun clearLiveMemoryObservationsLocked() {
+    private fun clearLiveMemoryObservationsLocked(keepPcBoxRequestFor: Long? = null) {
+        if (keepPcBoxRequestFor == null || pcBoxRequest?.coreGeneration != keepPcBoxRequestFor) {
+            pcBoxRequest = null
+            _pcBoxSnapshot.value = PcBoxSnapshot.unavailable(PcBoxAvailability.IDLE)
+        }
+        clearPcBoxCalcAttacker()
         _hnsBattlers.value = emptyList()
         _selectedHnsEnemyBattler.value = null
         if (_playerParty.value.isNotEmpty()) _playerParty.value = emptyList()

@@ -88,6 +88,20 @@ class BattleConsoleScreenView(
         val divider: View
     )
 
+    private class SwitchAdvisorRowHolder(
+        val root: LinearLayout,
+        val rankView: TextView,
+        val nameView: TextView,
+        val reasonView: TextView,
+        val confidenceBadge: TextView,
+        val offenseView: TextView,
+        val defenseBadge: TextView,
+        val divider: View
+    ) {
+        var confidenceTier: SwitchConfidenceTier? = null
+        var defenseTone: SwitchDefenseTone? = null
+    }
+
     private class StatStageRowHolder(
         val statNameView: TextView,
         val playerValueView: TextView,
@@ -127,6 +141,14 @@ class BattleConsoleScreenView(
     private var moveDetailsSlot: Int? = null
     private val partyRowHolders = ArrayList<PartyMemberRowHolder>(6)
     private val partyRowsContainer: LinearLayout
+    private val switchAdvisorSection: LinearLayout
+    private val switchAdvisorHeaderRow: LinearLayout
+    private val switchAdvisorHeaderBadge: TextView
+    private val switchAdvisorToggleView: TextView
+    private val switchAdvisorCard: LinearLayout
+    private val switchAdvisorRowHolders = ArrayList<SwitchAdvisorRowHolder>(MAX_SWITCH_RECOMMENDATIONS)
+    private var isSwitchAdvisorExpanded = true
+    private var lastHeaderConfidenceTier: SwitchConfidenceTier? = null
 
     // Details elements
     private val statStageRows = ArrayList<StatStageRowHolder>(7)
@@ -139,6 +161,8 @@ class BattleConsoleScreenView(
     private var viewScope: CoroutineScope? = null
     private var calculationJob: Job? = null
     private val damageCalculator: BattleDamageCalculator = CachingBattleDamageCalculator()
+    private val switchAdvisorPresenter = SwitchAdvisorPresenter(calculator = damageCalculator)
+    private var lastRenderedSwitchRecommendations: List<SwitchRecommendation>? = null
     private var lastMovePresentationKey: BattleMovePresentationCacheKey? = null
     private var latestMovePresentationKey: BattleMovePresentationCacheKey? = null
     /** Indexed by source move slot (null = empty slot); empty while a calculation is pending. */
@@ -322,6 +346,89 @@ class BattleConsoleScreenView(
             }
         }
         liveBattleContainer.addView(moveDetailsPanel, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = context.dp(DualDexTheme.Spacing.compact)
+        })
+
+        // Inline collapsible Best Switch Advisor Section (pre-allocated rows for zero 10 Hz churn)
+        switchAdvisorSection = LinearLayout(context).apply {
+            orientation = VERTICAL
+            visibility = View.GONE
+        }
+        switchAdvisorHeaderRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = context.dp(DualDexTheme.Spacing.touchTarget)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.tight)
+            )
+            background = DualDexComponents.controlBackground(context, DualDexButtonStyle.GHOST, selected = false)
+            isClickable = true
+            isFocusable = true
+            isFocusableInTouchMode = false
+        }
+        switchAdvisorHeaderRow.addView(
+            DualDexComponents.sectionTitle(context, "Best Switch"),
+            LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f)
+        )
+        switchAdvisorHeaderBadge = TextView(context).apply {
+            textSize = DualDexTheme.Type.compact
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(context.dp(6), context.dp(2), context.dp(6), context.dp(2))
+            visibility = View.GONE
+        }
+        switchAdvisorHeaderRow.addView(
+            switchAdvisorHeaderBadge,
+            LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                marginEnd = context.dp(DualDexTheme.Spacing.compact)
+            }
+        )
+        switchAdvisorToggleView = TextView(context).apply {
+            text = "Hide ▴"
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.compact
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        switchAdvisorHeaderRow.addView(switchAdvisorToggleView)
+        switchAdvisorHeaderRow.contentDescription = "Best Switch, expanded. Tap to collapse"
+        switchAdvisorHeaderRow.setOnClickListener {
+            isSwitchAdvisorExpanded = !isSwitchAdvisorExpanded
+            switchAdvisorToggleView.text = if (isSwitchAdvisorExpanded) "Hide ▴" else "Show ▾"
+            switchAdvisorCard.visibility = if (isSwitchAdvisorExpanded) View.VISIBLE else View.GONE
+            switchAdvisorHeaderRow.contentDescription = if (isSwitchAdvisorExpanded) {
+                "Best Switch, expanded. Tap to collapse"
+            } else {
+                "Best Switch, collapsed. Tap to expand"
+            }
+        }
+        switchAdvisorSection.addView(switchAdvisorHeaderRow)
+
+        switchAdvisorCard = LinearLayout(context).apply {
+            orientation = VERTICAL
+            background = DualDexComponents.surface(context)
+            setPadding(
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.tight),
+                context.dp(DualDexTheme.Spacing.standard),
+                context.dp(DualDexTheme.Spacing.tight)
+            )
+        }
+        for (i in 0 until MAX_SWITCH_RECOMMENDATIONS) {
+            val holder = createSwitchAdvisorRowHolder()
+            holder.root.visibility = View.GONE
+            holder.divider.visibility = View.GONE
+            switchAdvisorRowHolders += holder
+            switchAdvisorCard.addView(holder.root)
+            switchAdvisorCard.addView(holder.divider, LayoutParams(LayoutParams.MATCH_PARENT, context.dp(1)))
+        }
+        switchAdvisorSection.addView(switchAdvisorCard, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = context.dp(DualDexTheme.Spacing.tight)
+        })
+        liveBattleContainer.addView(switchAdvisorSection, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
+            topMargin = context.dp(DualDexTheme.Spacing.compact)
             bottomMargin = context.dp(DualDexTheme.Spacing.compact)
         })
 
@@ -735,6 +842,88 @@ class BattleConsoleScreenView(
         return PartyMemberRowHolder(root, nameView, levelView, hpBar, hpTextView, statusBadge, actionWidget, divider)
     }
 
+    private fun createSwitchAdvisorRowHolder(): SwitchAdvisorRowHolder {
+        val root = LinearLayout(context).apply {
+            orientation = VERTICAL
+            setPadding(0, context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact))
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        }
+
+        val topRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        }
+        val rankView = TextView(context).apply {
+            textSize = DualDexTheme.Type.compact
+            typeface = DualDexTheme.Type.device
+            setPadding(0, 0, context.dp(DualDexTheme.Spacing.compact), 0)
+        }
+        val nameView = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.body
+            typeface = Typeface.DEFAULT_BOLD
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        val reasonView = TextView(context).apply {
+            textSize = DualDexTheme.Type.compact
+            typeface = Typeface.DEFAULT_BOLD
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(context.dp(DualDexTheme.Spacing.compact), 0, context.dp(DualDexTheme.Spacing.compact), 0)
+        }
+        val confidenceBadge = TextView(context).apply {
+            textSize = DualDexTheme.Type.micro
+            typeface = DualDexTheme.Type.device
+            gravity = Gravity.CENTER
+            isSingleLine = true
+            setPadding(context.dp(5), context.dp(2), context.dp(5), context.dp(2))
+        }
+        topRow.addView(rankView)
+        topRow.addView(nameView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        topRow.addView(reasonView)
+        topRow.addView(confidenceBadge)
+        root.addView(topRow)
+
+        val detailRow = LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, context.dp(DualDexTheme.Spacing.tight), 0, 0)
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        }
+        val offenseView = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textSecondary)
+            textSize = DualDexTheme.Type.compact
+            isSingleLine = true
+            ellipsize = TextUtils.TruncateAt.END
+        }
+        val defenseBadge = TextView(context).apply {
+            textSize = DualDexTheme.Type.compact
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            isSingleLine = true
+            setPadding(context.dp(6), context.dp(1), context.dp(6), context.dp(1))
+        }
+        detailRow.addView(offenseView, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
+        detailRow.addView(defenseBadge, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+            marginStart = context.dp(DualDexTheme.Spacing.compact)
+        })
+        root.addView(detailRow)
+
+        val divider = DualDexComponents.divider(context)
+        return SwitchAdvisorRowHolder(
+            root = root,
+            rankView = rankView,
+            nameView = nameView,
+            reasonView = reasonView,
+            confidenceBadge = confidenceBadge,
+            offenseView = offenseView,
+            defenseBadge = defenseBadge,
+            divider = divider
+        )
+    }
+
     private fun buildDetailsSection(container: LinearLayout) {
         // Stat Stages Table
         container.addView(DualDexComponents.sectionTitle(context, "Stat Stages (-6 .. +6)"), LayoutParams(
@@ -857,6 +1046,7 @@ class BattleConsoleScreenView(
         super.onDetachedFromWindow()
         calculationJob?.cancel()
         calculationJob = null
+        switchAdvisorPresenter.cancel()
         actionFeedbackResetJob?.cancel()
         viewScope?.cancel()
         viewScope = null
@@ -940,6 +1130,9 @@ class BattleConsoleScreenView(
 
         if (!inBattle) foeTeamTracker.reset()
         if (!inBattle || attacker == null) {
+            switchAdvisorPresenter.clear()
+            lastRenderedSwitchRecommendations = null
+            switchAdvisorSection.visibility = View.GONE
             val (title, detail) = if (runtimeTrust.hasActiveRom && !runtimeTrust.mayReadLiveMemory) {
                 RomCompatibilityMessages.badge(runtimeTrust.status) to RomCompatibilityMessages.detail(runtimeTrust.status)
             } else {
@@ -1016,6 +1209,28 @@ class BattleConsoleScreenView(
 
             // Update Move Cards
             bindMoves(defender, uiSnap)
+
+            // Update inline Best Switch Advisor (active single battle with resolved opponent)
+            val isDoubles = viewModel.hnsBattlers.value.isNotEmpty() ||
+                enemyResolution.state == ActiveEnemyState.AMBIGUOUS ||
+                enemyResolution.opponentBattlers > 1 ||
+                playerBattlerState?.state?.battlersCount == 4 ||
+                enemyBattlerState?.state?.battlersCount == 4 ||
+                uiSnap.playerBattlerCount == 2
+            val singleBattleOpponent = if (!isDoubles && enemyResolution.hasResolvedSlot) defender else null
+            ensureSwitchRecommendations(
+                party = party,
+                activePlayerIdx = activePlayerIdx,
+                opponent = singleBattleOpponent,
+                activeEnemyIdx = activeEnemyIdx.takeIf { !isDoubles && enemyResolution.hasResolvedSlot },
+                profile = profile,
+                runtimeTrust = runtimeTrust,
+                enemyStages = enemyStages,
+                challengeSettings = challengeSettings,
+                playerBattlerState = playerBattlerState,
+                enemyBattlerState = enemyBattlerState,
+                inBattle = inBattle
+            )
 
             // Update Party Rows
             bindParty(party, activePlayerIdx, inBattle, uiSnap)
@@ -1551,9 +1766,151 @@ class BattleConsoleScreenView(
         }
     }
 
+    private fun ensureSwitchRecommendations(
+        party: List<ParsedPokemon>,
+        activePlayerIdx: Int,
+        opponent: ParsedPokemon?,
+        activeEnemyIdx: Int?,
+        profile: RomHackProfile,
+        runtimeTrust: com.dualdex.romhack.RuntimeRomTrust,
+        enemyStages: StatStages?,
+        challengeSettings: com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot?,
+        playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+        inBattle: Boolean
+    ) {
+        val input = SwitchAdvisorInput(
+            playerParty = party.toList(),
+            activePlayerSlot = activePlayerIdx,
+            opponent = opponent,
+            activeEnemySlot = activeEnemyIdx,
+            profile = profile,
+            dataPack = viewModel.activeGameDataPack,
+            runtimeTrust = runtimeTrust,
+            enemyStages = enemyStages,
+            challengeSettings = challengeSettings,
+            playerBattlerState = playerBattlerState,
+            enemyBattlerState = enemyBattlerState,
+            activeBattle = inBattle
+        )
+        if (!inBattle || opponent == null || !input.hasHealthyBench()) {
+            switchAdvisorPresenter.clear()
+            bindSwitchAdvisor(emptyList())
+            return
+        }
+        val scope = viewScope ?: CoroutineScope(Dispatchers.Main + SupervisorJob()).also { viewScope = it }
+        val current = switchAdvisorPresenter.requestUpdate(scope, input) { ranked ->
+            if (activeMode == BattleMode.BATTLE) {
+                bindSwitchAdvisor(ranked)
+            }
+        }
+        bindSwitchAdvisor(current)
+    }
+
+    private fun bindSwitchAdvisor(recommendations: List<SwitchRecommendation>) {
+        val top = recommendations.take(MAX_SWITCH_RECOMMENDATIONS)
+        if (top.isEmpty()) {
+            switchAdvisorSection.visibility = View.GONE
+            lastRenderedSwitchRecommendations = emptyList()
+            return
+        }
+
+        switchAdvisorSection.visibility = View.VISIBLE
+        switchAdvisorCard.visibility = if (isSwitchAdvisorExpanded) View.VISIBLE else View.GONE
+        if (lastRenderedSwitchRecommendations == top) {
+            return
+        }
+        lastRenderedSwitchRecommendations = top
+
+        val headerTier = when {
+            top.all { it.confidenceTier == SwitchConfidenceTier.VERIFIED } -> SwitchConfidenceTier.VERIFIED
+            top.any { it.source == SwitchRecommendationSource.CALCULATOR } -> SwitchConfidenceTier.ESTIMATED
+            else -> SwitchConfidenceTier.TYPE_FALLBACK
+        }
+        switchAdvisorHeaderBadge.text = headerTier.badgeLabel
+        switchAdvisorHeaderBadge.visibility = View.VISIBLE
+        if (lastHeaderConfidenceTier != headerTier) {
+            lastHeaderConfidenceTier = headerTier
+            val badgeColor = confidenceBadgeColor(headerTier)
+            switchAdvisorHeaderBadge.setTextColor(badgeColor)
+            switchAdvisorHeaderBadge.background = DualDexComponents.roundedDrawable(
+                context, DualDexTheme.Color.surfaceDisabled, DualDexTheme.Radius.pill, badgeColor
+            )
+        }
+
+        for (i in 0 until MAX_SWITCH_RECOMMENDATIONS) {
+            val holder = switchAdvisorRowHolders[i]
+            val rec = top.getOrNull(i)
+            if (rec == null) {
+                holder.root.visibility = View.GONE
+                holder.divider.visibility = View.GONE
+                continue
+            }
+
+            holder.root.visibility = View.VISIBLE
+            holder.divider.visibility = if (i < top.lastIndex) View.VISIBLE else View.GONE
+
+            holder.rankView.text = "#${i + 1}"
+            holder.rankView.setTextColor(if (i == 0) DualDexTheme.Color.accent else DualDexTheme.Color.textSecondary)
+            holder.nameView.text = rec.displayName
+
+            holder.reasonView.text = rec.reasonTag
+            holder.reasonView.setTextColor(reasonColor(rec))
+
+            holder.confidenceBadge.text = rec.confidenceTier.badgeLabel
+            if (holder.confidenceTier != rec.confidenceTier) {
+                holder.confidenceTier = rec.confidenceTier
+                val tierColor = confidenceBadgeColor(rec.confidenceTier)
+                holder.confidenceBadge.setTextColor(tierColor)
+                holder.confidenceBadge.background = DualDexComponents.roundedDrawable(
+                    context, DualDexTheme.Color.surfaceDisabled, DualDexTheme.Radius.pill, tierColor
+                )
+            }
+
+            holder.offenseView.text = rec.offenseSummary
+            holder.defenseBadge.text = rec.defenseBadge
+            if (holder.defenseTone != rec.defenseTone) {
+                holder.defenseTone = rec.defenseTone
+                val defColor = defenseToneColor(rec.defenseTone)
+                holder.defenseBadge.setTextColor(defColor)
+                holder.defenseBadge.background = DualDexComponents.roundedDrawable(
+                    context, DualDexTheme.Color.surfaceDisabled, DualDexTheme.Radius.control, defColor
+                )
+            }
+
+            holder.root.contentDescription =
+                "Switch rank ${i + 1}: ${rec.displayName}, ${rec.reasonTag}, " +
+                "offense ${rec.offenseSummary}, defense ${rec.defenseBadge}, " +
+                "confidence ${rec.confidenceTier.badgeLabel}"
+        }
+    }
+
+    private fun confidenceBadgeColor(tier: SwitchConfidenceTier): Int = when (tier) {
+        SwitchConfidenceTier.VERIFIED -> DualDexTheme.Color.success
+        SwitchConfidenceTier.ESTIMATED -> DualDexTheme.Color.accent
+        SwitchConfidenceTier.TYPE_FALLBACK -> DualDexTheme.Color.textSecondary
+    }
+
+    private fun defenseToneColor(tone: SwitchDefenseTone): Int = when (tone) {
+        SwitchDefenseTone.STRONG -> DualDexTheme.Color.success
+        SwitchDefenseTone.NEUTRAL -> DualDexTheme.Color.textSecondary
+        SwitchDefenseTone.WEAK -> DualDexTheme.Color.warning
+        SwitchDefenseTone.DANGER -> DualDexTheme.Color.danger
+    }
+
+    private fun reasonColor(rec: SwitchRecommendation): Int = when {
+        rec.reasonTag.contains("Risky") -> DualDexTheme.Color.warning
+        rec.reasonTag.contains("OHKO") || rec.reasonTag.contains("Immune") || rec.reasonTag.contains("Resists") ->
+            DualDexTheme.Color.success
+        rec.reasonTag.contains("2HKO") || rec.reasonTag.contains("Safe Pivot") || rec.reasonTag.contains("SE") ->
+            DualDexTheme.Color.accent
+        else -> DualDexTheme.Color.textSecondary
+    }
+
     private companion object {
         /** Tall enough for name, type/PP and damage lines; above the 48dp touch minimum. */
         const val MOVE_TILE_MIN_HEIGHT_DP = 64
         const val PLACEHOLDER_STYLE_KEY = "placeholder"
+        const val MAX_SWITCH_RECOMMENDATIONS = 3
     }
 }

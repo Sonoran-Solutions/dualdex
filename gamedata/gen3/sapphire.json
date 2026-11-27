@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "sapphire",
+  "base": "ruby",
+  "cSymbol": "CONFIG_SAPPHIRE",
+  "gameId": "GAME_SAPPHIRE",
+  "gameName": "Pokemon Sapphire",
+  "evidence": [
+    "Ruby and Sapphire share one engine build layout; values migrated unchanged from native/src/pokemon_reader.c CONFIG_SAPPHIRE at 3d0a0e4."
+  ],
+  "waivers": {
+    "party-count-inside-party": "Legacy unverified value preserved bit-for-bit: 0x246E4 is the last word of the 600-byte window starting at player_party_offset 0x24490. No Ruby/Sapphire symbol audit exists; resolve with symbol evidence before promoting this layout."
+  },
+  "fields": {}
+}

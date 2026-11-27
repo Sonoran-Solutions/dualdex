@@ -1,0 +1,23 @@
+{
+  "id": "emerald_imperium",
+  "name": "Pokemon Emerald Imperium",
+  "baseGame": "Emerald",
+  "gameId": 0,
+  "developer": "iriv24",
+  "engine": "pokeemerald-expansion",
+  "hasEvs": true,
+  "hasIvs": true,
+  "hasPhysSpecSplit": true,
+  "steelResistsGhostDark": false,
+  "cfruOffsets": false,
+  "playerPartyOffset": 0,
+  "enemyPartyOffset": 0,
+  "docsUrl": null,
+  "headerTitles": ["EMERALDIMPERIUM", "EMERALD IMPERIUM", "IMPERIUM"],
+  "sha256Hashes": [],
+  "isVerified": false,
+  "memoryLayoutVerified": false,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "modern"
+}

@@ -1,0 +1,23 @@
+{
+  "id": "emerald_kaizo",
+  "name": "Pokemon Emerald Kaizo",
+  "baseGame": "Emerald",
+  "gameId": 0,
+  "developer": "SinisterHoodedFigure",
+  "engine": "Vanilla",
+  "hasEvs": true,
+  "hasIvs": true,
+  "hasPhysSpecSplit": false,
+  "steelResistsGhostDark": true,
+  "cfruOffsets": false,
+  "playerPartyOffset": 0,
+  "enemyPartyOffset": 0,
+  "docsUrl": null,
+  "headerTitles": ["EMERALDKAIZO", "EMERALD KAIZO"],
+  "sha256Hashes": [],
+  "isVerified": false,
+  "memoryLayoutVerified": false,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "modern"
+}

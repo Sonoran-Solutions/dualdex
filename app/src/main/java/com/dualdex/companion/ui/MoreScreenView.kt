@@ -11,7 +11,8 @@ import com.dualdex.companion.CompanionTab
 /** Secondary companion destinations, kept out of the five-item primary navigation. */
 class MoreScreenView(
     context: Context,
-    private val onTabSelected: (CompanionTab) -> Unit
+    private val onTabSelected: (CompanionTab) -> Unit,
+    onAchievementsSelected: () -> Unit
 ) : ScrollView(context) {
     init {
         isVerticalScrollBarEnabled = true
@@ -44,6 +45,7 @@ class MoreScreenView(
         content.addView(row("Saves", "Battery saves, states, and recovery", CompanionTab.SAVES))
         content.addView(row("Docs", "Game documentation", CompanionTab.DOCS))
         content.addView(row("Cheats", "Manage game-specific cheats", CompanionTab.CHEATS))
+        content.addView(row("Achievements", "RetroAchievements progress, account, and Hardcore settings", onAchievementsSelected))
         content.addView(row("Settings", "Display, controls, and storage", CompanionTab.SETTINGS))
     }
 
@@ -69,8 +71,11 @@ class MoreScreenView(
         setPadding(0, 0, 0, context.dp(DualDexTheme.Spacing.compact))
     }
 
-    private fun row(title: String, subtitle: String, tab: CompanionTab): View =
-        DualDexComponents.menuRow(context, title, subtitle) { onTabSelected(tab) }.apply {
+    private fun row(title: String, subtitle: String, tab: CompanionTab) =
+        row(title, subtitle) { onTabSelected(tab) }
+
+    private fun row(title: String, subtitle: String, action: () -> Unit): View =
+        DualDexComponents.menuRow(context, title, subtitle, action).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT

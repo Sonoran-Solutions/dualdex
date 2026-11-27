@@ -12,6 +12,7 @@
     "BattlePokemon / live battle ABI: native/src/hns_battle_pokemon_layout_gen.h and hns_live_battle_layout_gen.h (generated from the pinned source)."
   ],
   "notes": [
+    "PC boxes stay disabled: the release pointer at 0x030041DC is corroborated, but currentBox, boxes and their dimensions are not verified for the exact release.",
     "Deliberately a root config (no base): every value is pinned from this exact build, and inheriting",
     "vanilla Emerald values would let an Emerald edit silently change an exact-build layout.",
     "",

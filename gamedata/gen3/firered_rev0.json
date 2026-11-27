@@ -5,6 +5,8 @@
   "gameId": "GAME_FIRERED",
   "gameName": "Pokemon FireRed",
   "evidence": [
+    "pret/pokefirered symbols branch: pokefirered.sym and pokefirered_rev1.sym pin PC RAM symbols and both ROM tables.",
+    "PC layout: include/pokemon_storage_system.h and include/pokemon.h (boxes aligned at +4); src/load_save.c SetSaveBlocksPointers uses aligned offsets 0..124.",
     "pret/pokefirered src/pokemon.c + sym_ewram.txt: gPlayerPartyCount 0x02024029, gPlayerParty 0x02024284, gEnemyParty 0x0202402C.",
     "pokefirered src/pokemon.c:59-60 declares gPlayerPartyCount then gEnemyPartyCount as the first two EWRAM objects.",
     "PR #70 layout audit: docs/VANILLA_CALCULATOR_EVIDENCE.md section 7; tools/calc-goldens/audit_vanilla_layout.py.",
@@ -18,6 +20,18 @@
     "global (upstream orders gEnemyParty at 0x2402C before gPlayerParty at 0x24284), not padding."
   ],
   "fields": {
+    "pokemon_storage_ptr_gba_address": {"gba": "0x03005010"},
+    "pokemon_storage_base_gba_address": {"gba": "0x02029314"},
+    "pokemon_storage_aslr_range": 128,
+    "pokemon_storage_size": "0x83D0",
+    "pc_box_current_offset": 0,
+    "pc_box_mons_offset": 4,
+    "pc_box_count": 14,
+    "pc_box_slots": 30,
+    "pc_box_mon_stride": 80,
+    "pc_box_species_info_gba_address": {"gba": "0x08254784"},
+    "pc_box_species_dex_gba_address": {"gba": "0x08251FEE"},
+    "pc_box_rev1_rom_shift": "0x70",
     "player_party_offset": {"ewram": "0x24284"},
     "player_party_count_offset": {"ewram": "0x24029"},
     "enemy_party_offset": {"ewram": "0x2402C"},

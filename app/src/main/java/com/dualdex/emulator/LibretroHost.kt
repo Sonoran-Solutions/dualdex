@@ -26,6 +26,9 @@ object LibretroHost {
     external fun nativeSetTargetAudioSampleRate(rate: Int)
     external fun nativeGetOutputAudioSampleRate(): Int
     external fun nativeReadPartyFromCore(gameId: Int): Array<ParsedPokemon>?
+    external fun nativeReadPcBoxFromCore(
+        gameId: Int, boxIndex: Int, metadata: IntArray
+    ): Array<ParsedPokemon?>?
     external fun nativeReadEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>?
     external fun nativeGetActiveBattlerSlot(gameId: Int): Int
     external fun nativeGetActiveEnemyBattlerSlot(gameId: Int): Int
@@ -70,4 +73,17 @@ object LibretroHost {
     external fun nativeReadGbaMemory(address: Int, out: ByteArray): Boolean
     external fun nativeGetMainStructAddress(gameId: Int): Int
     external fun nativeCleanup()
+
+    internal external fun nativeRaLogin(username: ByteArray, secret: ByteArray, useToken: Boolean): Boolean
+    internal external fun nativeRaLogout()
+    internal external fun nativeRaHardcore(enabled: Boolean)
+    internal external fun nativeRaLoadGame(md5: String)
+    internal external fun nativeRaIdle()
+    internal external fun nativeRaStatus(): IntArray
+    internal external fun nativeRaUser(): Array<ByteArray>?
+    internal external fun nativeRaNextRequest(): Array<ByteArray?>?
+    internal external fun nativeRaComplete(id: Long, status: Int, body: ByteArray)
+    internal external fun nativeRaGame(): Array<String?>?
+    internal external fun nativeRaAchievements(): Array<String?>?
+    internal external fun nativeRaNextUnlock(): Array<String?>?
 }

@@ -75,6 +75,10 @@ REGIONS = {
     'rom': (ROM_BASE, ROM_SIZE),
 }
 PARTY_BYTES = 6 * 100           # PARTY_SIZE x sizeof(struct Pokemon), every supported layout
+BOX_MON_BYTES = 80
+MAX_BOX_SLOTS = 30
+GEN3_SPECIES_COUNT = 412        # includes index 0 and excludes the egg sentinel
+GEN3_SPECIES_INFO_BYTES = 28
 NUM_BATTLE_STATS = 8            # statStages[] length
 MAX_BITS = 0x10000              # sanity bound for bit positions inside a compiled struct
 
@@ -108,6 +112,10 @@ GBA_ADDRESS_FIELDS = {
     'save_block1_base_gba_address': ('ewram',),
     'save_block3_ptr_gba_address': ('iwram',),
     'save_block3_base_gba_address': ('ewram',),
+    'pokemon_storage_ptr_gba_address': ('iwram',),
+    'pokemon_storage_base_gba_address': ('ewram',),
+    'pc_box_species_info_gba_address': ('rom',),
+    'pc_box_species_dex_gba_address': ('rom',),
     'action_selection_func_ptr': ('rom',),
     'run_turn_actions_func_ptr': ('rom',),
     'battle_main_cb1_func_ptr': ('rom',),
@@ -130,6 +138,10 @@ GBA_ADDRESS_WIDTHS = {
     'save_block1_base_gba_address': 4,
     'save_block3_ptr_gba_address': 4,                  # a pointer
     'save_block3_base_gba_address': 4,
+    'pokemon_storage_ptr_gba_address': 4,
+    'pokemon_storage_base_gba_address': 1,
+    'pc_box_species_info_gba_address': GEN3_SPECIES_COUNT * GEN3_SPECIES_INFO_BYTES,
+    'pc_box_species_dex_gba_address': (GEN3_SPECIES_COUNT - 1) * 2,
     'action_selection_func_ptr': 1,
     'run_turn_actions_func_ptr': 1,
     'battle_main_cb1_func_ptr': 1,
@@ -146,6 +158,7 @@ STRUCT_OFFSET_FIELDS = {
     'battle_main_cb1_offset', 'battle_gimmick_active_offset', 'battle_struct_party_state_offset',
     'main_in_battle_byte_offset', 'save_block1_pos_offset', 'save_block1_location_offset',
     'save_block1_escape_warp_offset',
+    'pc_box_current_offset', 'pc_box_mons_offset',
 }
 BYTES_FIELDS = {
     'battle_mons_size', 'battle_mons_ability_size', 'battle_mons_type_width',
@@ -154,12 +167,21 @@ BYTES_FIELDS = {
     'battle_mons_personality_size', 'side_statuses_stride', 'battler_state_size',
     'supreme_overlord_counter_stride', 'battle_gimmick_side_stride', 'party_state_entry_size',
     'party_state_side_stride', 'save_block1_aslr_range', 'save_block1_size',
+    'pokemon_storage_aslr_range', 'pokemon_storage_size', 'pc_box_mon_stride',
+    'pc_box_rev1_rom_shift',
 }
 COUNT_FIELDS = {
     'battle_mons_type_count', 'max_battlers_count', 'switch_in_events_count',
     'supreme_overlord_counter_count', 'battle_gimmick_party_count', 'battle_gimmick_count',
     'party_state_side_count', 'party_state_party_count', 'location_max_map_group',
+    'pc_box_count', 'pc_box_slots',
 }
+PC_STORAGE_FIELDS = (
+    'pokemon_storage_ptr_gba_address', 'pokemon_storage_base_gba_address',
+    'pokemon_storage_aslr_range', 'pokemon_storage_size', 'pc_box_current_offset',
+    'pc_box_mons_offset', 'pc_box_count', 'pc_box_slots', 'pc_box_mon_stride',
+)
+PC_SPECIES_FIELDS = ('pc_box_species_info_gba_address', 'pc_box_species_dex_gba_address')
 MASK_FIELDS = {'field_status_ion_deluge_mask', 'side_status_reflect_mask',
                'side_status_light_screen_mask'}
 VALUE_FIELDS = {'battle_gimmick_dynamax_value', 'battle_action_use_move_value',
@@ -581,6 +603,7 @@ def resolve(facts, configs, config_id):
             fail(where, f'missing required field {name!r} (declare it or inherit it through base)')
     resolved = Resolved(raw, chain, values)
     check_consistency(where, resolved)
+    check_pc_storage(where, resolved, raw['fields'])
     return resolved
 
 
@@ -711,6 +734,38 @@ def check_consistency(where, config):
     stale = sorted(set(config.waivers) - used)
     if stale:
         fail(where, 'waiver(s) for checks that pass; remove them: ' + ', '.join(stale))
+
+
+def check_pc_storage(where, config, own_fields):
+    if not any(name in config.values for name in (*PC_STORAGE_FIELDS, *PC_SPECIES_FIELDS,
+                                                   'pc_box_rev1_rom_shift')):
+        return
+    if 'pokemon_storage_ptr_gba_address' not in own_fields:
+        fail(where, 'PC storage must be explicitly declared for this build')
+    pointer, base, window, size, current, mons, count, slots, stride = (
+        config.get(name) for name in PC_STORAGE_FIELDS
+    )
+    if None in (pointer, base, window, size, current, mons, count, slots, stride):
+        fail(where, 'PC storage fields must be declared together')
+    if pointer % 4 or base % 4 or window < 4 or window % 4:
+        fail(where, 'PC storage pointer, base and ASLR window must be 4-byte aligned')
+    if stride != BOX_MON_BYTES:
+        fail(where, 'pc_box_mon_stride must be 80')
+    if not count or not 1 <= slots <= MAX_BOX_SLOTS:
+        fail(where, f'PC box dimensions must be positive with at most {MAX_BOX_SLOTS} slots')
+    if current >= mons or mons % 4 or mons + count * slots * stride > size:
+        fail(where, 'PC box dimensions and offsets must fit inside pokemon_storage_size')
+    if base + window - 4 + size > EWRAM_BASE + EWRAM_SIZE:
+        fail(where, 'PC storage base + ASLR shift + size runs past the end of EWRAM')
+    shift = config.get('pc_box_rev1_rom_shift') or 0
+    if shift and config.game_id != 'GAME_FIRERED':
+        fail(where, 'pc_box_rev1_rom_shift is only supported for FireRed')
+    for name in PC_SPECIES_FIELDS:
+        address = config.get(name)
+        if address is None or address % 2 or not in_region(
+            address + shift + GBA_ADDRESS_WIDTHS[name] - 1, 'rom'
+        ):
+            fail(where, f'{name} and its revision shift must fit inside ROM')
 
 
 def resolve_all(facts, configs):

@@ -1,4 +1,5 @@
 #include "libretro_host.h"
+#include "ra_bridge.h"
 #include "libretro.h"
 #include "gba_memory_map.h"
 #include "pokemon_reader.h"
@@ -36,6 +37,7 @@ static void (*p_retro_cheat_set)(unsigned, bool, const char*);
 
 static void* g_core_handle = NULL;
 static bool g_is_game_loaded = false;
+static RaBridge* g_ra;
 static uint32_t g_current_buttons = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
 static double g_target_fps = 59.7275;
@@ -137,6 +139,29 @@ bool libretro_host_read_gba_address(uint32_t address, void* out, size_t length) 
     pthread_mutex_unlock(&g_memory_map_mutex);
 
     return ok;
+}
+
+static bool read_ra_memory(void* user, uint32_t address, uint8_t* out, size_t length) {
+    (void)user;
+    return libretro_host_read_gba_address(address, out, length);
+}
+
+RaBridge* libretro_host_ra_client(bool create) {
+    if (create && !g_ra) g_ra = ra_bridge_create(read_ra_memory, NULL);
+    return g_ra;
+}
+
+void libretro_host_ra_logout(void) {
+    ra_bridge_destroy(g_ra);
+    g_ra = NULL;
+}
+
+void libretro_host_ra_set_hardcore(bool enabled) {
+    ra_bridge_set_hardcore(g_ra, enabled);
+    if (ra_bridge_take_reset_request(g_ra)) {
+        libretro_host_cheat_reset();
+        libretro_host_reset();
+    }
 }
 
 // Environment callback implementation
@@ -433,6 +458,7 @@ bool libretro_host_init(const char* core_lib_path) {
 }
 
 bool libretro_host_unload_rom(void) {
+    ra_bridge_unload_game(g_ra);
     if (!g_core_handle) return false;
     libretro_host_clear_audio();
     if (g_is_game_loaded && p_retro_unload_game) {
@@ -512,6 +538,7 @@ bool libretro_host_load_rom(const char* rom_file_path) {
 void libretro_host_step_frame(void) {
     if (g_core_handle && g_is_game_loaded && p_retro_run) {
         p_retro_run();
+        if (g_ra) ra_bridge_do_frame(g_ra);
     }
 }
 
@@ -616,6 +643,7 @@ bool libretro_host_save_state(const char* save_state_path) {
 }
 
 bool libretro_host_load_state(const char* save_state_path) {
+    if (ra_bridge_is_active(g_ra) && ra_bridge_is_hardcore(g_ra)) return false;
     if (!g_core_handle || !g_is_game_loaded || !save_state_path || !p_retro_unserialize) {
         return false;
     }
@@ -650,6 +678,7 @@ bool libretro_host_load_state(const char* save_state_path) {
     bool ok = false;
     if (rd == sz) {
         ok = p_retro_unserialize(buf, sz);
+        if (ok) ra_bridge_reset(g_ra);
     }
     free(buf);
     return ok;
@@ -709,6 +738,7 @@ void libretro_host_reset(void) {
         // if the core were to republish nothing, stale pointers must not survive.
         libretro_host_clear_memory_regions();
         p_retro_reset();
+        ra_bridge_reset(g_ra);
         libretro_host_clear_audio();
         pokemon_reader_reset();
     }
@@ -765,6 +795,7 @@ void libretro_host_cheat_reset(void) {
 }
 
 void libretro_host_cheat_set(unsigned index, bool enabled, const char* code) {
+    if (enabled && ra_bridge_is_active(g_ra) && ra_bridge_is_hardcore(g_ra)) return;
     if (p_retro_cheat_set && code) {
         p_retro_cheat_set(index, enabled, code);
     }

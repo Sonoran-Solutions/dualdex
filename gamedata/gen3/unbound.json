@@ -13,11 +13,24 @@
     "Exact ROM SHA-256 7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7 (app/src/main/assets/profiles/unbound.json)."
   ],
   "notes": [
+    "PC storage layout is unverified for this build.",
     "CFRU on FireRed: player party, party counts, BattlePokemon size (0x58), hp (+0x28) and statStages",
     "(+0x18) are inherited unchanged from firered_rev0. Unbound's +0x18 is type3; stages 1..7 are at",
     "+0x19..0x1F. The enemy count byte stays zero; only mapped opponent battlers establish occupancy."
   ],
   "fields": {
+    "pokemon_storage_ptr_gba_address": null,
+    "pokemon_storage_base_gba_address": null,
+    "pokemon_storage_aslr_range": null,
+    "pokemon_storage_size": null,
+    "pc_box_current_offset": null,
+    "pc_box_mons_offset": null,
+    "pc_box_count": null,
+    "pc_box_slots": null,
+    "pc_box_mon_stride": null,
+    "pc_box_species_info_gba_address": null,
+    "pc_box_species_dex_gba_address": null,
+    "pc_box_rev1_rom_shift": null,
     "battle_mons_offset": {"gba": "0x02023BE4"},
     "battler_party_indexes_offset": {"gba": "0x02023BCE"},
     "battlers_count_offset": {"gba": "0x02023BCC"},

@@ -118,6 +118,18 @@ open class SettingsManager(private val prefs: SharedPreferences) {
             prefs.edit().putBoolean(KEY_BOOT_RESUME, value).apply()
         }
 
+    var retroAchievementsHardcore: Boolean
+        get() = prefs.getBoolean("key_ra_hardcore", false)
+        set(value) { prefs.edit().putBoolean("key_ra_hardcore", value).apply() }
+
+    var retroAchievementsBanners: Boolean
+        get() = prefs.getBoolean("key_ra_banners", true)
+        set(value) { prefs.edit().putBoolean("key_ra_banners", value).apply() }
+
+    var retroAchievementsSound: Boolean
+        get() = prefs.getBoolean("key_ra_sound", false)
+        set(value) { prefs.edit().putBoolean("key_ra_sound", value).apply() }
+
     /** Smart fast-forward's learned field/battle callbacks, per ROM SHA-256. */
     fun smartFastForwardLearned(romSha256: String): String? = prefs.getString(KEY_SMART_FF_LEARNED + romSha256, null)
 

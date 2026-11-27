@@ -81,6 +81,13 @@ class CompanionViewModel(
 
     private val _selectedTab = MutableStateFlow(CompanionTab.HOME)
     val selectedTab: StateFlow<CompanionTab> = _selectedTab.asStateFlow()
+    private val _achievementsOpen = MutableStateFlow(false)
+    val achievementsOpen = _achievementsOpen.asStateFlow()
+
+    fun openAchievements() {
+        _achievementsOpen.value = true
+        _selectedTab.value = CompanionTab.MORE
+    }
 
     private val _scannedRoms = MutableStateFlow<List<RomItem>>(emptyList())
     val scannedRoms: StateFlow<List<RomItem>> = _scannedRoms.asStateFlow()
@@ -162,7 +169,7 @@ class CompanionViewModel(
 
     var battleInputAdapter: com.dualdex.battle.BattleInputAdapter = com.dualdex.battle.BattleInputAdapter(
         dispatcher = com.dualdex.battle.DefaultBattleInputDispatcher { coreCoordinator },
-        isPaused = { !coreCoordinator.emulationRunning },
+        isPaused = { !coreCoordinator.emulationRunning || !coreCoordinator.raHardcorePolicy.mayUseInteractiveBattleControls },
         frameReader = { coreCoordinator.completedFrames },
         stateReader = { readBattleUiSnapshot() }
     )
@@ -194,7 +201,8 @@ class CompanionViewModel(
                 com.dualdex.battle.BattleInteractionPolicy.evaluate(
                     profile = profile,
                     runtimeTrust = trust,
-                    userEnabled = _isInteractiveBattleControlsEnabled.value,
+                    userEnabled = _isInteractiveBattleControlsEnabled.value &&
+                        coreCoordinator.raHardcorePolicy.mayUseInteractiveBattleControls,
                     inBattle = _isInBattle.value,
                     uiState = raw.state,
                     selectedActionIndex = raw.selectedActionIndex,
@@ -378,6 +386,7 @@ class CompanionViewModel(
     private val playerLocationStabilizer = LiveObservationStabilizer()
 
     fun selectTab(tab: CompanionTab) {
+        _achievementsOpen.value = false
         _selectedTab.value = tab
     }
 

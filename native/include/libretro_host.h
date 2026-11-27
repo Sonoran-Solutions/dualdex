@@ -7,6 +7,8 @@
 
 #include "gba_memory_map.h"
 
+struct RaBridge;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -61,6 +63,11 @@ bool libretro_host_unload_rom(void);
  * Run a single frame of emulation (calls retro_run).
  */
 void libretro_host_step_frame(void);
+
+/* The coordinator lock serializes the RetroAchievements client with the core. */
+struct RaBridge* libretro_host_ra_client(bool create);
+void libretro_host_ra_logout(void);
+void libretro_host_ra_set_hardcore(bool enabled);
 
 /**
  * Get pointer to the most recent video frame buffer.

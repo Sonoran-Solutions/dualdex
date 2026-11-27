@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <android/log.h>
@@ -6,6 +7,7 @@
 #include "hns_live_battle_layout_gen.h"
 #include "pokemon_text.h"
 #include "libretro_host.h"
+#include "ra_bridge.h"
 #include "js_calc_engine.h"
 
 #define TAG "DualDex_JNI"
@@ -1319,4 +1321,271 @@ Java_com_dualdex_emulator_LibretroHost_nativeGetMainStructAddress(JNIEnv* env, j
     (void)thiz;
     const GameMemoryConfig* cfg = pokemon_get_game_config((GbaGameId)game_id);
     return cfg ? (jint)cfg->main_struct_gba_address : 0;
+}
+
+// RetroAchievements calls are serialized by LibretroCoreCoordinator.
+static jbyteArray ra_bytes(JNIEnv* env, const char* text) {
+    if (!text) return NULL;
+    jsize length = (jsize)strlen(text);
+    jbyteArray bytes = (*env)->NewByteArray(env, length);
+    if (bytes) (*env)->SetByteArrayRegion(env, bytes, 0, length, (const jbyte*)text);
+    return bytes;
+}
+
+/* RA API text is UTF-8. JNI NewStringUTF expects modified UTF-8. */
+static jstring ra_text(JNIEnv* env, const char* text) {
+    if (!text) return NULL;
+    jbyteArray bytes = ra_bytes(env, text);
+    if (!bytes) return NULL;
+    jclass cls = (*env)->FindClass(env, "java/lang/String");
+    jmethodID ctor = (*env)->GetMethodID(env, cls, "<init>", "([BLjava/lang/String;)V");
+    jstring charset = (*env)->NewStringUTF(env, "UTF-8");
+    jstring value = NULL;
+    if (ctor && charset) value = (*env)->NewObject(env, cls, ctor, bytes, charset);
+    (*env)->DeleteLocalRef(env, charset);
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, bytes);
+    return value;
+}
+
+static void ra_set_text(JNIEnv* env, jobjectArray array, jsize index, const char* value) {
+    jstring text = ra_text(env, value);
+    if (text) {
+        (*env)->SetObjectArrayElement(env, array, index, text);
+        (*env)->DeleteLocalRef(env, text);
+    }
+}
+
+static void ra_set_bytes(JNIEnv* env, jobjectArray array, jsize index, const char* value) {
+    jbyteArray bytes = ra_bytes(env, value);
+    if (bytes) {
+        (*env)->SetObjectArrayElement(env, array, index, bytes);
+        (*env)->DeleteLocalRef(env, bytes);
+    }
+}
+
+static char* ra_copy_bytes(JNIEnv* env, jbyteArray bytes, size_t* length) {
+    if (!bytes) return NULL;
+    *length = (size_t)(*env)->GetArrayLength(env, bytes);
+    char* copy = malloc(*length + 1);
+    if (copy) {
+        (*env)->GetByteArrayRegion(env, bytes, 0, (jsize)*length, (jbyte*)copy);
+        copy[*length] = '\0';
+    }
+    return copy;
+}
+
+static void ra_wipe_free(char* value, size_t length) {
+    if (value) {
+        volatile char* secret = value;
+        for (size_t i = 0; i < length; ++i) secret[i] = 0;
+        free(value);
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaLogin(JNIEnv* env, jobject thiz, jbyteArray username,
+                                                    jbyteArray secret, jboolean use_token) {
+    (void)thiz;
+    size_t name_length = 0, secret_length = 0;
+    char* name = ra_copy_bytes(env, username, &name_length);
+    char* credential = ra_copy_bytes(env, secret, &secret_length);
+    RaBridge* bridge = NULL;
+    if (name && credential && !memchr(name, 0, name_length) && !memchr(credential, 0, secret_length)) {
+        bridge = libretro_host_ra_client(true);
+        ra_bridge_begin_login(bridge, name, credential, use_token);
+    }
+    free(name);
+    ra_wipe_free(credential, secret_length);
+    return bridge != NULL;
+}
+
+JNIEXPORT void JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaLogout(JNIEnv* env, jobject thiz) {
+    (void)env;
+    (void)thiz;
+    libretro_host_ra_logout();
+}
+
+JNIEXPORT void JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaHardcore(JNIEnv* env, jobject thiz, jboolean enabled) {
+    (void)env;
+    (void)thiz;
+    libretro_host_ra_set_hardcore(enabled);
+}
+
+JNIEXPORT void JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaLoadGame(JNIEnv* env, jobject thiz, jstring md5) {
+    (void)thiz;
+    if (!md5) return;
+    const char* hash = (*env)->GetStringUTFChars(env, md5, NULL);
+    if (hash) {
+        ra_bridge_load_game(libretro_host_ra_client(false), hash);
+        (*env)->ReleaseStringUTFChars(env, md5, hash);
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaIdle(JNIEnv* env, jobject thiz) {
+    (void)env;
+    (void)thiz;
+    ra_bridge_idle(libretro_host_ra_client(false));
+}
+
+JNIEXPORT jintArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaStatus(JNIEnv* env, jobject thiz) {
+    (void)thiz;
+    RaBridge* bridge = libretro_host_ra_client(false);
+    const jint values[] = {
+        ra_bridge_login_status(bridge), ra_bridge_game_status(bridge),
+        ra_bridge_is_hardcore(bridge), ra_bridge_is_offline(bridge), ra_bridge_take_server_error(bridge)
+    };
+    jintArray status = (*env)->NewIntArray(env, 5);
+    if (status) (*env)->SetIntArrayRegion(env, status, 0, 5, values);
+    return status;
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaUser(JNIEnv* env, jobject thiz) {
+    (void)thiz;
+    const rc_client_user_t* user = ra_bridge_user(libretro_host_ra_client(false));
+    if (!user) return NULL;
+    jclass cls = (*env)->FindClass(env, "[B");
+    jobjectArray result = (*env)->NewObjectArray(env, 2, cls, NULL);
+    if (result) {
+        ra_set_bytes(env, result, 0, user->username);
+        ra_set_bytes(env, result, 1, user->token);
+    }
+    return result;
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaNextRequest(JNIEnv* env, jobject thiz) {
+    (void)thiz;
+    RaBridge* bridge = libretro_host_ra_client(false);
+    RaServerRequest request;
+    if (!ra_bridge_next_request(bridge, &request)) return NULL;
+    char id[24];
+    snprintf(id, sizeof(id), "%llu", (unsigned long long)request.id);
+    jclass cls = (*env)->FindClass(env, "[B");
+    jobjectArray result = (*env)->NewObjectArray(env, 4, cls, NULL);
+    if (result) {
+        ra_set_bytes(env, result, 0, id);
+        ra_set_bytes(env, result, 1, request.url);
+        ra_set_bytes(env, result, 2, request.post_data);
+        ra_set_bytes(env, result, 3, request.content_type);
+        if (!(*env)->ExceptionCheck(env)) ra_bridge_mark_dispatched(bridge, request.id);
+    }
+    return result;
+}
+
+JNIEXPORT void JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaComplete(JNIEnv* env, jobject thiz, jlong id,
+                                                       jint status, jbyteArray body) {
+    (void)thiz;
+    size_t length = 0;
+    char* response = ra_copy_bytes(env, body, &length);
+    if (response) {
+        ra_bridge_complete_request(libretro_host_ra_client(false), (uint64_t)id, status, response, length);
+        ra_wipe_free(response, length);
+    } else {
+        const char failure[] = "RetroAchievements response unavailable";
+        ra_bridge_complete_request(libretro_host_ra_client(false), (uint64_t)id,
+            RC_API_SERVER_RESPONSE_RETRYABLE_CLIENT_ERROR, failure, sizeof(failure) - 1);
+    }
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaGame(JNIEnv* env, jobject thiz) {
+    (void)thiz;
+    RaBridge* bridge = libretro_host_ra_client(false);
+    if (!ra_bridge_is_active(bridge)) return NULL;
+    char presence[512];
+    ra_bridge_rich_presence(bridge, presence, sizeof(presence));
+    rc_client_leaderboard_list_t* list = ra_bridge_leaderboards(bridge);
+    jsize size = 2;
+    if (list) {
+        for (uint32_t i = 0; i < list->num_buckets; ++i) {
+            const rc_client_leaderboard_bucket_t* bucket = &list->buckets[i];
+            if (bucket->bucket_type == RC_CLIENT_LEADERBOARD_BUCKET_ACTIVE)
+                size += (jsize)(2 * bucket->num_leaderboards);
+        }
+    }
+    jclass cls = (*env)->FindClass(env, "java/lang/String");
+    jobjectArray result = (*env)->NewObjectArray(env, size, cls, NULL);
+    if (result) {
+        ra_set_text(env, result, 0, ra_bridge_game_title(bridge));
+        ra_set_text(env, result, 1, presence);
+        jsize index = 2;
+        if (list) {
+            for (uint32_t i = 0; i < list->num_buckets; ++i) {
+                const rc_client_leaderboard_bucket_t* bucket = &list->buckets[i];
+                if (bucket->bucket_type != RC_CLIENT_LEADERBOARD_BUCKET_ACTIVE) continue;
+                for (uint32_t j = 0; j < bucket->num_leaderboards; ++j) {
+                    const rc_client_leaderboard_t* entry = bucket->leaderboards[j];
+                    ra_set_text(env, result, index++, entry->title);
+                    ra_set_text(env, result, index++, entry->tracker_value);
+                }
+            }
+        }
+    }
+    rc_client_destroy_leaderboard_list(list);
+    return result;
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaAchievements(JNIEnv* env, jobject thiz) {
+    (void)thiz;
+    RaBridge* bridge = libretro_host_ra_client(false);
+    rc_client_achievement_list_t* list = ra_bridge_achievements(bridge);
+    if (!list) return NULL;
+    enum { fields = 8 };
+    jsize size = 0;
+    for (uint32_t i = 0; i < list->num_buckets; ++i) size += (jsize)(fields * list->buckets[i].num_achievements);
+    jclass cls = (*env)->FindClass(env, "java/lang/String");
+    jobjectArray result = (*env)->NewObjectArray(env, size, cls, NULL);
+    if (result) {
+        jsize index = 0;
+        const uint8_t unlock = ra_bridge_is_hardcore(bridge)
+            ? RC_CLIENT_ACHIEVEMENT_UNLOCKED_HARDCORE : RC_CLIENT_ACHIEVEMENT_UNLOCKED_SOFTCORE;
+        for (uint32_t i = 0; i < list->num_buckets && !(*env)->ExceptionCheck(env); ++i) {
+            const rc_client_achievement_bucket_t* bucket = &list->buckets[i];
+            for (uint32_t j = 0; j < bucket->num_achievements && !(*env)->ExceptionCheck(env); ++j) {
+                const rc_client_achievement_t* achievement = bucket->achievements[j];
+                char id[12], points[12], percent[12], category[4];
+                snprintf(id, sizeof(id), "%u", achievement->id);
+                snprintf(points, sizeof(points), "%u", achievement->points);
+                snprintf(percent, sizeof(percent), "%.2f", (double)achievement->measured_percent);
+                snprintf(category, sizeof(category), "%u", achievement->category);
+                ra_set_text(env, result, index++, id);
+                ra_set_text(env, result, index++, achievement->title);
+                ra_set_text(env, result, index++, achievement->description);
+                ra_set_text(env, result, index++, points);
+                ra_set_text(env, result, index++, (achievement->unlocked & unlock) ? "1" : "0");
+                ra_set_text(env, result, index++, achievement->type == RC_CLIENT_ACHIEVEMENT_TYPE_MISSABLE ? "1" : "0");
+                ra_set_text(env, result, index++, achievement->measured_progress[0] ? percent : NULL);
+                ra_set_text(env, result, index++, category);
+            }
+        }
+    }
+    rc_client_destroy_achievement_list(list);
+    return result;
+}
+
+JNIEXPORT jobjectArray JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeRaNextUnlock(JNIEnv* env, jobject thiz) {
+    (void)thiz;
+    RaUnlockEvent event;
+    if (!ra_bridge_pop_unlock(libretro_host_ra_client(false), &event)) return NULL;
+    char id[12], points[12];
+    snprintf(id, sizeof(id), "%u", event.id);
+    snprintf(points, sizeof(points), "%u", event.points);
+    jclass cls = (*env)->FindClass(env, "java/lang/String");
+    jobjectArray result = (*env)->NewObjectArray(env, 3, cls, NULL);
+    if (result) {
+        ra_set_text(env, result, 0, id);
+        ra_set_text(env, result, 1, points);
+        ra_set_text(env, result, 2, event.title);
+    }
+    return result;
 }

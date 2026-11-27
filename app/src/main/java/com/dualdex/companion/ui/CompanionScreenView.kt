@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Typeface
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.text.TextUtils
 import android.util.Log
@@ -18,6 +20,8 @@ import androidx.core.content.ContextCompat
 import com.dualdex.R
 import com.dualdex.companion.CompanionNavigation
 import com.dualdex.companion.CompanionTab
+import com.dualdex.retroachievements.RaSessionState
+import com.dualdex.retroachievements.RetroAchievementsService
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.ShaderFilter
 import com.dualdex.romhack.RomHackProfile
@@ -27,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -119,7 +124,42 @@ class CompanionScreenView(
             onVisualStyleChanged = onVisualStyleChanged
         )
     }
-    private val moreView: MoreScreenView by lazy { MoreScreenView(context, ::navigateTo) }
+    private val retroAchievements = RetroAchievementsService.get(context)
+    private val achievementsViewHolder = lazy {
+        AchievementsScreenView(context, retroAchievements) { navigateTo(CompanionTab.MORE) }
+    }
+    private val moreView by lazy { MoreScreenView(context, ::navigateTo, viewModel::openAchievements) }
+    private val hardcoreCheatsNotice by lazy {
+        TextView(context).apply {
+            text = "Cheats are unavailable during Hardcore. Change the mode in More → Achievements."
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.body
+            val inset = context.dp(DualDexTheme.Spacing.section)
+            setPadding(inset, inset, inset, inset)
+        }
+    }
+    private val richPresenceView = TextView(context).apply {
+        textSize = DualDexTheme.Type.meta
+        setTextColor(DualDexTheme.Color.textSecondary)
+        maxLines = 2
+        ellipsize = TextUtils.TruncateAt.END
+        visibility = View.GONE
+        val inset = context.dp(DualDexTheme.Spacing.compact)
+        setPadding(inset, 0, inset, inset)
+    }
+    private val unlockBanner = TextView(context).apply {
+        textSize = DualDexTheme.Type.body
+        maxLines = 2
+        ellipsize = TextUtils.TruncateAt.END
+        setTextColor(DualDexTheme.Color.success)
+        setBackgroundColor(DualDexTheme.Color.elevatedSurface)
+        val inset = context.dp(DualDexTheme.Spacing.compact)
+        setPadding(inset, inset, inset, inset)
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        visibility = View.GONE
+    }
+    private var unlockTone: ToneGenerator? = null
+    private var achievementsOpen = false
 
     private var currentTab: CompanionTab = CompanionTab.HOME
     private var viewScope: CoroutineScope? = null
@@ -221,6 +261,8 @@ class CompanionScreenView(
         )
         contextBar.addView(statusArea, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
         addView(contextBar)
+        addView(unlockBanner)
+        addView(richPresenceView)
 
         updateTime()
         updateBattery(null)
@@ -279,11 +321,17 @@ class CompanionScreenView(
     }
 
     fun switchTab(tab: CompanionTab) {
-        if (currentTab == tab && contentContainer.childCount > 0) {
+        val showAchievements = tab == CompanionTab.MORE && viewModel.achievementsOpen.value
+        val showCheatNotice = tab == CompanionTab.CHEATS && !viewModel.coreCoordinator.raHardcorePolicy.mayUseCheats
+        val unchangedCheats = tab != CompanionTab.CHEATS ||
+            (contentContainer.getChildAt(0) === hardcoreCheatsNotice) == showCheatNotice
+        if (currentTab == tab && contentContainer.childCount > 0 &&
+            achievementsOpen == showAchievements && unchangedCheats) {
             updateNavigationSelection(tab)
             return
         }
         currentTab = tab
+        achievementsOpen = showAchievements
         contentContainer.removeAllViews()
         val activeView: View = when (tab) {
             CompanionTab.HOME -> homeView.apply {
@@ -302,10 +350,12 @@ class CompanionScreenView(
                 refreshUI()
             }
             CompanionTab.DOCS -> docsView.apply { refreshUI() }
-            CompanionTab.CHEATS -> cheatsView.apply { refreshUI() }
+            CompanionTab.CHEATS -> if (showCheatNotice) hardcoreCheatsNotice else cheatsView.apply { refreshUI() }
             CompanionTab.SAVES -> savesView.apply { refreshUI() }
             CompanionTab.SETTINGS -> settingsView
-            CompanionTab.MORE -> moreView
+            CompanionTab.MORE -> if (showAchievements) {
+                achievementsViewHolder.value.apply { render(retroAchievements.state.value) }
+            } else moreView
         }
         contentContainer.addView(activeView)
         // Feature views must never leave the shared clock/battery context strip hidden.
@@ -336,7 +386,7 @@ class CompanionScreenView(
                 CompanionTab.CALC -> calcView.refreshUI()
                 CompanionTab.BATTLE,
                 CompanionTab.TYPES -> battleView.refreshUI()
-                CompanionTab.CHEATS -> cheatsView.refreshUI()
+                CompanionTab.CHEATS -> if (viewModel.coreCoordinator.raHardcorePolicy.mayUseCheats) cheatsView.refreshUI()
                 CompanionTab.SAVES -> savesView.refreshUI()
                 else -> Unit
             }
@@ -365,10 +415,6 @@ class CompanionScreenView(
         if (tab == CompanionTab.BATTLE) {
             viewModel.selectTab(tab)
             CompanionNavigation.battleModeForGlobalDestination(tab)?.let(battleView::selectMode)
-        }
-        if (currentTab == tab) {
-            updateNavigationSelection(tab)
-            return
         }
         viewModel.selectTab(tab)
         switchTab(tab)
@@ -468,12 +514,36 @@ class CompanionScreenView(
         scope.launch { viewModel.activeProfile.collectLatest { notifyProfileChanged() } }
         scope.launch { viewModel.activeRomIdentity.collectLatest { notifyProfileChanged() } }
         scope.launch { viewModel.runtimeRomTrust.collectLatest { notifyProfileChanged() } }
+        scope.launch { viewModel.achievementsOpen.collectLatest { switchTab(viewModel.selectedTab.value) } }
+        scope.launch {
+            viewModel.coreCoordinator.raHardcoreChanges.collectLatest {
+                if (currentTab == CompanionTab.CHEATS) switchTab(currentTab)
+            }
+        }
+        scope.launch { retroAchievements.state.collectLatest(::renderRetroAchievements) }
+        scope.launch {
+            retroAchievements.unlockBanner.collectLatest { event ->
+                val state = retroAchievements.state.value
+                unlockBanner.visibility = if (event != null && state.showBanners) View.VISIBLE else View.GONE
+                if (event != null) {
+                    unlockBanner.text = "Achievement unlocked · ${event.title} (${event.points} pts)"
+                    if (state.playUnlockSound) {
+                        runCatching {
+                            val tone = unlockTone ?: ToneGenerator(AudioManager.STREAM_MUSIC, 50).also { unlockTone = it }
+                            tone.startTone(ToneGenerator.TONE_PROP_ACK, 180)
+                        }
+                    }
+                    delay(4000)
+                    retroAchievements.dismissBanner(event)
+                }
+            }
+        }
         var wasInBattle = false
         val autoOpenReturn = com.dualdex.companion.BattleAutoOpenReturn()
         scope.launch {
             viewModel.isInBattle.collectLatest { inBattle ->
                 notifyPartyUpdated()
-                if (inBattle && !wasInBattle && viewModel.isBattleAutoOpenEnabled.value && currentTab != CompanionTab.BATTLE) {
+                if (inBattle && !wasInBattle && !achievementsOpen && viewModel.isBattleAutoOpenEnabled.value && currentTab != CompanionTab.BATTLE) {
                     autoOpenReturn.onAutoOpened(currentTab)
                     navigateTo(CompanionTab.BATTLE)
                 } else if (!inBattle && wasInBattle) {
@@ -489,6 +559,13 @@ class CompanionScreenView(
         }
     }
 
+    private fun renderRetroAchievements(state: RaSessionState) {
+        richPresenceView.text = state.richPresence
+        richPresenceView.visibility = if (state.richPresence.isBlank()) View.GONE else View.VISIBLE
+        if (!state.showBanners) unlockBanner.visibility = View.GONE
+        if (achievementsOpen) achievementsViewHolder.value.render(state)
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         if (isReceiverRegistered) {
@@ -500,5 +577,7 @@ class CompanionScreenView(
         }
         viewScope?.cancel()
         viewScope = null
+        unlockTone?.release()
+        unlockTone = null
     }
 }

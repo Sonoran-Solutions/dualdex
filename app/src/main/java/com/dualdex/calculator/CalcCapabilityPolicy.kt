@@ -48,6 +48,18 @@ enum class CalcLimitation {
     /** Unbound CFRU arithmetic is source-approximate and covers ordinary single hits in Singles. */
     UNBOUND_CFRU_SOURCE_APPROXIMATE,
 
+    /** Tier-B engine estimate for ordinary single hits in Singles on verified Expansion/CFRU hacks. */
+    TIER_B_ESTIMATED_ENGINE,
+
+    /** Tier-B calculator authorization requires an exact SHA-256 verified ROM. */
+    TIER_B_ROM_NOT_EXACT_VERIFIED,
+
+    /** The move is outside the supported Tier-B ordinary-hit Singles schema. */
+    TIER_B_MOVE_NOT_MODELLED,
+
+    /** A supplied ability or held item is outside the supported Tier-B operand schema. */
+    TIER_B_MODIFIER_NOT_MODELLED,
+
     /** A party forecast uses catalogue typing and assumes neutral unobserved abilities. */
     UNBOUND_PARTY_OPERANDS_ASSUMED,
 
@@ -602,6 +614,7 @@ enum class CalcLimitation {
         get() = when (this) {
             UNBOUND_CFRU_SOURCE_APPROXIMATE,
             UNBOUND_PARTY_OPERANDS_ASSUMED,
+            TIER_B_ESTIMATED_ENGINE,
             ROM_NOT_EXACT_VERIFIED,
             BUILDS_NOT_HASH_VERIFIED,
             ABILITY_NOT_MODELLED,
@@ -617,6 +630,9 @@ enum class CalcLimitation {
             UNBOUND_MOVE_NOT_MODELLED,
             UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE,
             UNBOUND_MODIFIER_NOT_MODELLED,
+            TIER_B_ROM_NOT_EXACT_VERIFIED,
+            TIER_B_MOVE_NOT_MODELLED,
+            TIER_B_MODIFIER_NOT_MODELLED,
             CHALLENGE_SETTINGS_UNREADABLE,
             HELD_ITEM_DATA_NOT_AUTHORITATIVE,
             CATEGORY_SPLIT_TOGGLE_UNREADABLE,
@@ -777,7 +793,13 @@ enum class CalcRuleset {
     HNS_2_0_5,
 
     /** Source-approximate CFRU calculator for the pinned Pokémon Unbound candidate. */
-    UNBOUND_CFRU
+    UNBOUND_CFRU,
+
+    /** Tier-B estimated ordinary-hit Singles ruleset for verified pokeemerald-expansion hacks. */
+    EXPANSION_TIER_B,
+
+    /** Tier-B estimated ordinary-hit Singles ruleset for verified CFRU hacks. */
+    CFRU_TIER_B
 }
 
 /**
@@ -926,6 +948,14 @@ data class CalcCapabilityVerdict(
                 "the active Unbound battle's format and effective battler state are unavailable"
             CalcLimitation.UNBOUND_MODIFIER_NOT_MODELLED ->
                 "the ability or held item is outside the supported Unbound calculator inputs"
+            CalcLimitation.TIER_B_ESTIMATED_ENGINE ->
+                "Tier-B engine estimate for ordinary single hits in Singles (abilities, held items, and hack-specific overrides are not verified)"
+            CalcLimitation.TIER_B_ROM_NOT_EXACT_VERIFIED ->
+                "the running ROM must match a verified SHA-256 hash for Tier-B calculation"
+            CalcLimitation.TIER_B_MOVE_NOT_MODELLED ->
+                "the move is outside the supported Tier-B ordinary-hit Singles schema"
+            CalcLimitation.TIER_B_MODIFIER_NOT_MODELLED ->
+                "the ability or held item is outside the supported Tier-B calculator inputs"
             CalcLimitation.ROM_NOT_EXACT_VERIFIED ->
                 "the running ROM is not the exact verified build"
             CalcLimitation.BUILDS_NOT_HASH_VERIFIED ->
@@ -1327,6 +1357,45 @@ object CalcCapabilityPolicy {
             )
         }
 
+        // Tier-B modular ESTIMATED rulesets for verified pokeemerald-expansion and CFRU hacks
+        // that are not already owned by a bespoke ruleset or custom species overlay.
+        val isBespokeProfileId = profile.id.isBlank() ||
+            RomHackProfile.isUnsupportedPlaceholder(profile) ||
+            profile.id.equals("heart_and_soul", ignoreCase = true) ||
+            profile.id.equals("unbound", ignoreCase = true) ||
+            profile.id.startsWith("vanilla_", ignoreCase = true)
+        val isTierBCompatiblePack = packId == null || packId in setOf("modern", "modern_cfru", "cfru")
+        val cfruEngine = profile.engine.trim().equals("CFRU", ignoreCase = true)
+        if (!isBespokeProfileId &&
+            isTierBCompatiblePack &&
+            profile.isVerified &&
+            profile.memoryLayoutVerified &&
+            profile.sha256Hashes.isNotEmpty() &&
+            profile.hasPhysSpecSplit &&
+            profile.customSpecies.isEmpty()
+        ) {
+            if (expansionEngine) {
+                return CalcCapability(
+                    ruleset = CalcRuleset.EXPANSION_TIER_B,
+                    mechanicsGeneration = 8,
+                    contentSource = "modern_tier_b",
+                    ceiling = CalcSupport.ESTIMATED,
+                    alwaysLimitations = listOf(CalcLimitation.TIER_B_ESTIMATED_ENGINE),
+                    label = "${profile.name} (Expansion Tier-B)"
+                )
+            }
+            if (cfruEngine) {
+                return CalcCapability(
+                    ruleset = CalcRuleset.CFRU_TIER_B,
+                    mechanicsGeneration = 8,
+                    contentSource = "modern_tier_b",
+                    ceiling = CalcSupport.ESTIMATED,
+                    alwaysLimitations = listOf(CalcLimitation.TIER_B_ESTIMATED_ENGINE),
+                    label = "${profile.name} (CFRU Tier-B)"
+                )
+            }
+        }
+
         return null
     }
 
@@ -1370,9 +1439,59 @@ object CalcCapabilityPolicy {
                         moveOverride = null,
                         hnsRuntimeRules = null,
                         hnsLiveBattleState = null,
-                        unboundOperands = it
+                        unboundOperands = it,
+                        expansionTierBOperands = null
                     )
                 }
+            )
+        }
+
+        if (capability.ruleset == CalcRuleset.EXPANSION_TIER_B || capability.ruleset == CalcRuleset.CFRU_TIER_B) {
+            val limitations = LinkedHashSet(capability.alwaysLimitations)
+            limitations += request.preparationLimitations.filterNot {
+                it == CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN &&
+                    TierBCalcInputs.hasOnlyAssumedLiveAbilities(request)
+            }
+            val exact = profile.isVerified && profile.memoryLayoutVerified &&
+                profile.customSpecies.isEmpty() &&
+                isExactRuntimeVerified(profile, trust)
+            if (!exact) limitations += CalcLimitation.TIER_B_ROM_NOT_EXACT_VERIFIED
+            val authorizedRequest = if (limitations.any { it.blocksCalculation }) {
+                null
+            } else if (capability.ruleset == CalcRuleset.EXPANSION_TIER_B) {
+                TierBCalcInputs.prepareExpansion(profile, request, limitations)?.let { operands ->
+                    request.copy(
+                        gen = capability.mechanicsGeneration,
+                        typeSystem = TierBCalcInputs.EXPANSION_TYPE_SYSTEM,
+                        attackerOverride = null,
+                        defenderOverride = null,
+                        moveOverride = null,
+                        hnsRuntimeRules = null,
+                        hnsLiveBattleState = null,
+                        unboundOperands = null,
+                        expansionTierBOperands = operands
+                    )
+                }
+            } else {
+                TierBCalcInputs.prepareCfru(profile, request, limitations)?.let { operands ->
+                    request.copy(
+                        gen = capability.mechanicsGeneration,
+                        typeSystem = UnboundCalcInputs.TYPE_SYSTEM,
+                        attackerOverride = null,
+                        defenderOverride = null,
+                        moveOverride = null,
+                        hnsRuntimeRules = null,
+                        hnsLiveBattleState = null,
+                        unboundOperands = operands,
+                        expansionTierBOperands = null
+                    )
+                }
+            }
+            return CalcCapabilityVerdict(
+                support = if (authorizedRequest == null) CalcSupport.UNSUPPORTED else CalcSupport.ESTIMATED,
+                capability = capability,
+                limitations = limitations.toList(),
+                request = authorizedRequest
             )
         }
 
@@ -1585,7 +1704,12 @@ object CalcCapabilityPolicy {
         }
         val normalizedRequest = normaliseNames(
             capability.ruleset,
-            request.copy(gen = capability.mechanicsGeneration)
+            request.copy(
+                gen = capability.mechanicsGeneration,
+                typeSystem = if (capability.ruleset == CalcRuleset.VANILLA_GEN3) null else request.typeSystem,
+                unboundOperands = null,
+                expansionTierBOperands = null
+            )
         )
         val executionRequest = neutralizeIgnoredMechanics(normalizedRequest, ignoredMechanics)
         val support = when {
@@ -1747,6 +1871,7 @@ object CalcCapabilityPolicy {
         CalcRuleset.HNS_2_0_5 ->
             com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(ability).category.isSupportedForDamage
         CalcRuleset.UNBOUND_CFRU -> UnboundCalcInputs.abilityId(ability) != null
+        CalcRuleset.EXPANSION_TIER_B, CalcRuleset.CFRU_TIER_B -> TierBCalcInputs.isNeutralAbility(ability)
     }
 
     /**
@@ -1758,6 +1883,7 @@ object CalcCapabilityPolicy {
             abilityId in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX &&
                 com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(abilityId).category.isSupportedForDamage
         CalcRuleset.UNBOUND_CFRU -> UnboundCalcInputs.isSupportedAbilityId(abilityId)
+        CalcRuleset.EXPANSION_TIER_B, CalcRuleset.CFRU_TIER_B -> abilityId == 0
     }
 
     /**
@@ -1797,6 +1923,8 @@ object CalcCapabilityPolicy {
             if (canonicalItem(item) != null) null else CalcLimitation.ITEM_NOT_MODELLED
         CalcRuleset.UNBOUND_CFRU ->
             if (UnboundCalcInputs.isNoItem(item)) null else CalcLimitation.UNBOUND_MODIFIER_NOT_MODELLED
+        CalcRuleset.EXPANSION_TIER_B, CalcRuleset.CFRU_TIER_B ->
+            if (TierBCalcInputs.isNoItem(item)) null else CalcLimitation.TIER_B_MODIFIER_NOT_MODELLED
     }
 
     /**
@@ -2287,7 +2415,9 @@ object CalcCapabilityPolicy {
                 // authorized request. See that gate for the interaction audit.
                 item = com.dualdex.pokemon.hns.HnsItemRegistry.engineItemName(input.itemId)
             )
-            CalcRuleset.UNBOUND_CFRU -> input
+            CalcRuleset.UNBOUND_CFRU,
+            CalcRuleset.EXPANSION_TIER_B,
+            CalcRuleset.CFRU_TIER_B -> input
         }
         return request.copy(
             attacker = fix(request.attacker),

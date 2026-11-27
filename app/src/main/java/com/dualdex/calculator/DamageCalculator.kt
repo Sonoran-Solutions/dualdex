@@ -24,7 +24,8 @@ object DamageCalculator {
         try {
             val bundleJs = context.assets.open("calc_bundle.js").bufferedReader().use { it.readText() }
             val unboundAddonJs = context.assets.open("unbound_calc_bundle.js").bufferedReader().use { it.readText() }
-            isInitialized = nativeInit("$bundleJs\n;$unboundAddonJs")
+            val expansionTierBAddonJs = context.assets.open("expansion_tierb_calc_bundle.js").bufferedReader().use { it.readText() }
+            isInitialized = nativeInit("$bundleJs\n;$unboundAddonJs\n;$expansionTierBAddonJs")
             return isInitialized
         } catch (e: Exception) {
             e.printStackTrace()
@@ -72,11 +73,13 @@ internal fun parseCalcResponseJson(
     resJsonStr: String
 ): DamageCalculationResponse {
     val isUnbound = request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM
-    val resObj = if (isUnbound) {
+    val isExpansionTierB = request.typeSystem == TierBCalcInputs.EXPANSION_TYPE_SYSTEM
+    val isAddon = isUnbound || isExpansionTierB
+    val resObj = if (isAddon) {
         runCatching { JSONObject(resJsonStr) }.getOrNull()
-            ?: return DamageCalculationResponse(success = false, error = "Invalid Unbound calculator result")
+            ?: return DamageCalculationResponse(success = false, error = "Invalid addon calculator result")
     } else JSONObject(resJsonStr)
-    val success = if (isUnbound) resObj.opt("success") == true else resObj.optBoolean("success", false)
+    val success = if (isAddon) resObj.opt("success") == true else resObj.optBoolean("success", false)
     if (!success) {
         return DamageCalculationResponse(
             success = false,
@@ -84,25 +87,25 @@ internal fun parseCalcResponseJson(
         )
     }
 
-    val rangeArray = resObj.optJSONArray(if (isUnbound) "damage" else "range") ?: JSONArray()
+    val rangeArray = resObj.optJSONArray(if (isAddon) "damage" else "range") ?: JSONArray()
     val rangeList = mutableListOf<Int>()
     for (i in 0 until rangeArray.length()) {
-        if (isUnbound) {
+        if (isAddon) {
             val roll = rangeArray.opt(i) as? Int
-                ?: return DamageCalculationResponse(success = false, error = "Invalid Unbound damage roll")
+                ?: return DamageCalculationResponse(success = false, error = "Invalid addon damage roll")
             rangeList.add(roll)
         } else {
             rangeList.add(rangeArray.getInt(i))
         }
     }
-    if (isUnbound) {
+    if (isAddon) {
         val endpoints = resObj.optJSONArray("range")
         val min = resObj.opt("minDamage") as? Int
         val max = resObj.opt("maxDamage") as? Int
-        if (resObj.opt("typeSystem") != UnboundCalcInputs.TYPE_SYSTEM || min == null || max == null ||
+        if (resObj.opt("typeSystem") != request.typeSystem || min == null || max == null ||
             endpoints == null || endpoints.length() != 2 || endpoints.opt(0) != min || endpoints.opt(1) != max ||
             !validUnboundRolls(rangeList, min, max)
-        ) return DamageCalculationResponse(success = false, error = "Invalid Unbound calculator result")
+        ) return DamageCalculationResponse(success = false, error = "Invalid addon calculator result")
     }
 
     val immunityCauses = mutableListOf<CalcImmunityCause>()
@@ -170,10 +173,14 @@ internal fun parseCalcResponseJson(
  * [DamageCalculator]'s `System.loadLibrary` initialiser.
  */
 internal fun buildCalcRequestJson(request: DamageCalculationRequest): String =
-    if (request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM) {
-        request.unboundOperands?.toJson()?.toString()
-            ?: JSONObject().put("typeSystem", UnboundCalcInputs.TYPE_SYSTEM).toString()
-    } else JSONObject().apply {
+    when (request.typeSystem) {
+        UnboundCalcInputs.TYPE_SYSTEM ->
+            request.unboundOperands?.toJson()?.toString()
+                ?: JSONObject().put("typeSystem", UnboundCalcInputs.TYPE_SYSTEM).toString()
+        TierBCalcInputs.EXPANSION_TYPE_SYSTEM ->
+            request.expansionTierBOperands?.toJson()?.toString()
+                ?: JSONObject().put("typeSystem", TierBCalcInputs.EXPANSION_TYPE_SYSTEM).toString()
+        else -> JSONObject().apply {
         val semiInvulnerablePreview = request.typeSystem == "hns_2_0_5" &&
             com.dualdex.pokemon.hns.HeartAndSoul205DataPack.getMoveByName(request.move.name)?.id in
             com.dualdex.pokemon.hns.Hns205MoveEffects.semiInvulnerablePreviewMoveIds

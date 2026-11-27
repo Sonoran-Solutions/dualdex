@@ -12,14 +12,24 @@ object CalcAuthorizedExecution {
         if (request == null || !verdict.mayRunEngine) {
             return DamageCalculationResponse(success = false, error = "Calculation refused by capability policy")
         }
-        val isUnbound = verdict.ruleset == CalcRuleset.UNBOUND_CFRU
-        if (isUnbound != (request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM) ||
-            (isUnbound && (verdict.support != CalcSupport.ESTIMATED || request.unboundOperands == null))
-        ) return DamageCalculationResponse(success = false, error = "Unbound request was not authorized")
+        val isCfru = verdict.ruleset == CalcRuleset.UNBOUND_CFRU || verdict.ruleset == CalcRuleset.CFRU_TIER_B
+        val isExpansionTierB = verdict.ruleset == CalcRuleset.EXPANSION_TIER_B
+        val isTierB = verdict.ruleset == CalcRuleset.EXPANSION_TIER_B || verdict.ruleset == CalcRuleset.CFRU_TIER_B
+        if (isCfru != (request.typeSystem == UnboundCalcInputs.TYPE_SYSTEM) ||
+            (isCfru && (verdict.support != CalcSupport.ESTIMATED || request.unboundOperands == null))
+        ) return DamageCalculationResponse(success = false, error = "CFRU request was not authorized")
+        if (isExpansionTierB != (request.typeSystem == TierBCalcInputs.EXPANSION_TYPE_SYSTEM) ||
+            (isExpansionTierB && (verdict.support != CalcSupport.ESTIMATED || request.expansionTierBOperands == null))
+        ) return DamageCalculationResponse(success = false, error = "Expansion Tier-B request was not authorized")
+        if (isTierB && (verdict.support != CalcSupport.ESTIMATED ||
+                CalcLimitation.TIER_B_ESTIMATED_ENGINE !in verdict.limitations)
+        ) return DamageCalculationResponse(success = false, error = "Tier-B request must remain explicitly estimated")
 
         val response = calculate(request)
-        if (isUnbound && response.success && !validUnboundRolls(response.range, response.minDamage, response.maxDamage)) {
-            return DamageCalculationResponse(success = false, error = "Invalid Unbound calculator result")
+        if ((isCfru || isExpansionTierB) && response.success &&
+            !validUnboundRolls(response.range, response.minDamage, response.maxDamage)
+        ) {
+            return DamageCalculationResponse(success = false, error = "Invalid addon calculator result")
         }
         if (response.success && !validRepeatedStrikeResponse(request, response)) {
             return DamageCalculationResponse(success = false, error = "Calculator did not confirm repeated-strike scope")

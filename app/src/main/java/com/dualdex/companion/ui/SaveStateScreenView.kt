@@ -13,6 +13,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.emulator.PreservedAutoResume
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.SaveSlotInfo
 import com.dualdex.emulator.SaveStateManager
@@ -66,6 +67,7 @@ class SaveStateScreenView(
     private val preservedResumeBtnRow: LinearLayout
     private val resumePreservedBtn: TextView
     private val keepCurrentSessionBtn: TextView
+    private var displayedPreservedResume: Pair<RomIdentity, PreservedAutoResume>? = null
 
     // Quick Save Views
     private val quickSaveCard: LinearLayout
@@ -188,9 +190,9 @@ class SaveStateScreenView(
             preservedResumeBtnRow = LinearLayout(context).apply {
                 orientation = HORIZONTAL
                 resumePreservedBtn = DualDexComponents.primaryButton(context, "Resume Previous") {
-                    val identity = getRomIdentity() ?: return@primaryButton
+                    val (identity, expected) = displayedPreservedResume ?: return@primaryButton
                     performAsyncOperation("Previous session restored!", "Could not restore previous session!") {
-                        saveStateManager.restorePreservedAutoResume(identity)
+                        saveStateManager.restorePreservedAutoResume(identity, expected)
                     }
                 }
                 addView(resumePreservedBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f).apply {
@@ -198,9 +200,9 @@ class SaveStateScreenView(
                 })
 
                 keepCurrentSessionBtn = DualDexComponents.secondaryButton(context, "Keep Current") {
-                    val identity = getRomIdentity() ?: return@secondaryButton
+                    val (identity, expected) = displayedPreservedResume ?: return@secondaryButton
                     performAsyncOperation("Keeping current session", "No preserved auto-resume to clear") {
-                        saveStateManager.keepCurrentSessionOverPreservedAutoResume(identity)
+                        saveStateManager.keepCurrentSessionOverPreservedAutoResume(identity, expected)
                     }
                 }
                 addView(keepCurrentSessionBtn, LayoutParams(0, context.dp(DualDexTheme.Spacing.touchTarget), 1f))
@@ -444,9 +446,10 @@ class SaveStateScreenView(
         val hasGame = identity != null
         val mayLoad = viewModel.coreCoordinator.raHardcorePolicy.mayLoadSaveState
         val preserved = identity?.let { saveStateManager.preservedAutoResumeFor(it) }
-        if (preserved != null) {
+        if (identity != null && preserved != null) {
             preservedResumeCard.visibility = View.VISIBLE
             if (mayLoad) {
+                displayedPreservedResume = identity to preserved
                 preservedResumeStatusView.text =
                     "Boot auto-resume (${preserved.resumeFileName}) was skipped while checking RetroAchievements. " +
                         "Automatic saves will not overwrite it until you choose which session to keep."
@@ -454,6 +457,7 @@ class SaveStateScreenView(
                 resumePreservedBtn.isEnabled = !isBusy && hasGame
                 keepCurrentSessionBtn.isEnabled = !isBusy && hasGame
             } else {
+                displayedPreservedResume = null
                 preservedResumeStatusView.text =
                     "Boot auto-resume (${preserved.resumeFileName}) is protected while RetroAchievements Hardcore is active. " +
                         "Automatic pause and switch saves will not overwrite it."
@@ -462,6 +466,7 @@ class SaveStateScreenView(
                 keepCurrentSessionBtn.isEnabled = false
             }
         } else {
+            displayedPreservedResume = null
             preservedResumeCard.visibility = View.GONE
         }
         qSaveBtn.isEnabled = !isBusy && hasGame

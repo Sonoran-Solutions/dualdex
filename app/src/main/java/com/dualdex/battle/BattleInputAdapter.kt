@@ -89,19 +89,26 @@ class DefaultBattleInputDispatcher(
         }
         var pressStage = true
         return try {
-            ControllerInputRouter.sendAutomatedButton(buttonMask, durationMs, delayMs) { effectiveMask ->
+            ControllerInputRouter.sendAuthorizedAutomatedButton(
+                buttonMask = buttonMask,
+                durationMs = durationMs,
+                delayMs = delayMs,
+                expectedGeneration = expectedGeneration,
+                coordinator = core
+            ) { physicalMask, automatedMask ->
                 if (pressStage) {
                     pressStage = false
-                    if (effectiveMask != 0) {
-                        if (!writeAuthorizedPressMask(core, effectiveMask, expectedGeneration)) {
+                    if (automatedMask != 0) {
+                        if (!writeAuthorizedCombinedMask(core, physicalMask, automatedMask, expectedGeneration)) {
                             throw InputAuthorizationRejected()
                         }
                     } else {
-                        writeReleaseMask(core, 0)
+                        writeReleaseMask(core, physicalMask)
                     }
                 } else {
                     // Always permit button release so keys never stick if Hardcore engages mid-press.
-                    writeReleaseMask(core, effectiveMask)
+                    // automatedMask is 0 here; physicalMask preserves any held physical input.
+                    writeReleaseMask(core, physicalMask)
                 }
             }
         } catch (_: InputAuthorizationRejected) {
@@ -113,16 +120,17 @@ class DefaultBattleInputDispatcher(
         }
     }
 
-    private fun writeAuthorizedPressMask(
+    private fun writeAuthorizedCombinedMask(
         core: LibretroCoreCoordinator,
-        mask: Int,
+        physicalMask: Int,
+        automatedMask: Int,
         generation: Long
     ): Boolean {
         repeat(WRITE_ATTEMPTS) { attempt ->
             try {
                 return core.executeExclusive(PRESS_WRITE_TIMEOUT_MS) {
                     if (coordinator() !== core) false
-                    else core.setAuthorizedAutomatedInputLocked(mask, generation)
+                    else core.setCombinedInputLocked(physicalMask, automatedMask, generation)
                 }
             } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
                 val last = attempt + 1 == WRITE_ATTEMPTS
@@ -135,12 +143,12 @@ class DefaultBattleInputDispatcher(
         return false
     }
 
-    private fun writeReleaseMask(core: LibretroCoreCoordinator, mask: Int) {
+    private fun writeReleaseMask(core: LibretroCoreCoordinator, physicalMask: Int) {
         try {
             repeat(WRITE_ATTEMPTS) { attempt ->
                 try {
                     core.executeExclusive(RELEASE_WRITE_TIMEOUT_MS) {
-                        core.setInputButtons(mask)
+                        core.setInputButtons(physicalMask)
                     }
                     return
                 } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
@@ -152,8 +160,8 @@ class DefaultBattleInputDispatcher(
                 }
             }
         } catch (_: Exception) {
-            // A stalled core must never retain an automated press.
-            core.setInputButtons(0)
+            // A stalled core must never retain an automated press; physicalMask has zero automated bits.
+            core.setInputButtons(physicalMask)
         }
     }
 
@@ -334,6 +342,7 @@ class BattleInputAdapter(
     }
 
     suspend fun executeSelectMove(slot: Int, currentUi: BattleUiSnapshot): BattleInputResult {
+        val generation = dispatcher.stateGeneration
         val trace = MoveMacroTrace(frameReader)
         // A second tap is rejected, never queued against a snapshot from the previous turn.
         if (!actionMutex.tryLock()) {
@@ -341,7 +350,6 @@ class BattleInputAdapter(
             return BattleInputResult.Busy
         }
         try {
-            val generation = dispatcher.stateGeneration
             val stats = dispatcher.writeStats
             return withContext(macroDispatcher) {
                 withTimeoutOrNull(20_000L) {
@@ -528,9 +536,12 @@ class BattleInputAdapter(
         party: List<ParsedPokemon>,
         activeSlot: Int = 0
     ): BattleInputResult {
+        // Capture core state generation before waiting on actionMutex so a queued switch using
+        // a pre-switch party/menu snapshot cannot drive a replacement ROM or restored state.
+        val expectedGeneration = dispatcher.stateGeneration
         return actionMutex.withLock {
             try {
-                executeSwitchPokemonInternal(targetSlot, currentUi, party, activeSlot)
+                executeSwitchPokemonInternal(targetSlot, currentUi, party, activeSlot, expectedGeneration)
             } catch (abort: MoveMacroAbort) {
                 abort.result
             }
@@ -541,9 +552,9 @@ class BattleInputAdapter(
         targetSlot: Int,
         currentUi: BattleUiSnapshot,
         party: List<ParsedPokemon>,
-        activeSlot: Int
+        activeSlot: Int,
+        generation: Long
     ): BattleInputResult {
-        val generation = dispatcher.stateGeneration
         fun abort(result: BattleInputResult): Nothing = throw MoveMacroAbort(result)
         fun ensureAuthorized() {
             if (!dispatcher.isInteractiveAllowed) {
@@ -553,6 +564,7 @@ class BattleInputAdapter(
                 abort(BattleInputResult.Cancelled("Core state changed"))
             }
         }
+        ensureAuthorized()
         suspend fun sendStep(buttonMask: Int, durationMs: Long, delayMs: Long) {
             ensureAuthorized()
             val sent = dispatcher.sendAuthorizedButton(buttonMask, durationMs, delayMs, generation)
@@ -657,9 +669,11 @@ class BattleInputAdapter(
     }
 
     suspend fun cancel(): Boolean {
+        val generation = dispatcher.stateGeneration
         return actionMutex.withLock {
-            val generation = dispatcher.stateGeneration
-            if (!dispatcher.isInteractiveAllowed) return@withLock false
+            if (!dispatcher.isInteractiveAllowed || dispatcher.stateGeneration != generation) {
+                return@withLock false
+            }
             dispatcher.sendAuthorizedButton(
                 InputManager.BTN_B, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS, generation
             )

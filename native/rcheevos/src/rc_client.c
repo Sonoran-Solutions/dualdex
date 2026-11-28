@@ -4353,6 +4353,10 @@ rc_client_achievement_list_t* rc_client_create_achievement_list(rc_client_t* cli
   buckets_size = RC_ALIGN(num_buckets * sizeof(rc_client_achievement_bucket_t));
 
   list = (rc_client_achievement_list_info_t*)malloc(list_size + buckets_size + num_achievements * sizeof(rc_client_achievement_t*));
+  if (!list) {
+    rc_mutex_unlock(&client->state.mutex);
+    return NULL;
+  }
   list->public_.buckets = bucket_ptr = (rc_client_achievement_bucket_t*)((uint8_t*)list + list_size);
   achievement_ptr = (const rc_client_achievement_t**)((uint8_t*)bucket_ptr + buckets_size);
 
@@ -4440,6 +4444,8 @@ rc_client_achievement_list_t* rc_client_create_achievement_list(rc_client_t* cli
 void rc_client_destroy_achievement_list(rc_client_achievement_list_t* list)
 {
   rc_client_achievement_list_info_t* info = (rc_client_achievement_list_info_t*)list;
+  if (!info)
+    return;
   if (info->destroy_func)
     info->destroy_func(info);
   else
@@ -5074,6 +5080,10 @@ rc_client_leaderboard_list_t* rc_client_create_leaderboard_list(rc_client_t* cli
   buckets_size = RC_ALIGN(num_buckets * sizeof(rc_client_leaderboard_bucket_t));
 
   list = (rc_client_leaderboard_list_info_t*)malloc(list_size + buckets_size + num_leaderboards * sizeof(rc_client_leaderboard_t*));
+  if (!list) {
+    rc_mutex_unlock(&client->state.mutex);
+    return NULL;
+  }
   list->public_.buckets = bucket_ptr = (rc_client_leaderboard_bucket_t*)((uint8_t*)list + list_size);
   leaderboard_ptr = (const rc_client_leaderboard_t**)((uint8_t*)bucket_ptr + buckets_size);
 
@@ -5151,6 +5161,8 @@ rc_client_leaderboard_list_t* rc_client_create_leaderboard_list(rc_client_t* cli
 void rc_client_destroy_leaderboard_list(rc_client_leaderboard_list_t* list)
 {
   rc_client_leaderboard_list_info_t* info = (rc_client_leaderboard_list_info_t*)list;
+  if (!info)
+    return;
   if (info->destroy_func)
     info->destroy_func(info);
   else

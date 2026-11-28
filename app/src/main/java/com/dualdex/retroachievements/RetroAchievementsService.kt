@@ -16,11 +16,45 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 
+internal interface RaNativeBackend {
+    fun login(username: ByteArray, secret: ByteArray, useToken: Boolean): Boolean
+    fun logout()
+    fun setHardcore(enabled: Boolean)
+    fun loadGame(md5: String)
+    fun idle()
+    fun status(): IntArray
+    fun user(): Array<ByteArray>?
+    fun nextRequest(): Array<ByteArray?>?
+    fun complete(id: Long, status: Int, body: ByteArray)
+    fun game(): Array<String?>?
+    fun achievements(): Array<String?>?
+    fun nextUnlock(): Array<String?>?
+}
+
+private object DefaultRaNativeBackend : RaNativeBackend {
+    override fun login(username: ByteArray, secret: ByteArray, useToken: Boolean) =
+        LibretroHost.nativeRaLogin(username, secret, useToken)
+    override fun logout() = LibretroHost.nativeRaLogout()
+    override fun setHardcore(enabled: Boolean) = LibretroHost.nativeRaHardcore(enabled)
+    override fun loadGame(md5: String) = LibretroHost.nativeRaLoadGame(md5)
+    override fun idle() = LibretroHost.nativeRaIdle()
+    override fun status() = LibretroHost.nativeRaStatus()
+    override fun user() = LibretroHost.nativeRaUser()
+    override fun nextRequest() = LibretroHost.nativeRaNextRequest()
+    override fun complete(id: Long, status: Int, body: ByteArray) = LibretroHost.nativeRaComplete(id, status, body)
+    override fun game() = LibretroHost.nativeRaGame()
+    override fun achievements() = LibretroHost.nativeRaAchievements()
+    override fun nextUnlock() = LibretroHost.nativeRaNextUnlock()
+}
+
 /** One client for the shared core. UI state and HTTP never own or read emulated memory. */
-class RetroAchievementsService private constructor(
+class RetroAchievementsService internal constructor(
     private val core: LibretroCoreCoordinator,
     private val tokens: RaTokenStore,
-    private val settings: SettingsManager
+    private val settings: SettingsManager,
+    private val native: RaNativeBackend = DefaultRaNativeBackend,
+    private val httpExecute: (RaHttpRequest) -> RaHttpResponse = RaHttp::execute,
+    autoStart: Boolean = true
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val commands = Channel<Command>(Channel.UNLIMITED)
@@ -54,8 +88,10 @@ class RetroAchievementsService private constructor(
         val saved = tokens.read()
         core.armRaHardcore(saved != null && current.value.hardcoreRequested)
         if (saved != null) retrySignIn()
-        scope.launch { core.raRom.collect { commands.send(Command.Wake) } }
-        scope.launch { drive() }
+        if (autoStart) {
+            scope.launch { core.raRom.collect { commands.send(Command.Wake) } }
+            scope.launch { drive() }
+        }
     }
 
     fun signIn(username: String, password: ByteArray) {
@@ -133,16 +169,7 @@ class RetroAchievementsService private constructor(
             val wait = nextWait()
             val command = if (wait == null) commands.receive() else withTimeoutOrNull(wait) { commands.receive() }
             try {
-                when (command) {
-                    is Command.Login -> if (command.epoch == epoch) {
-                        startLogin(command)
-                    } else command.secret.fill(0)
-                    is Command.Logout -> if (command.epoch == epoch) stopNative()
-                    is Command.Mode -> changeMode(command.enabled)
-                    is Command.Response -> complete(command)
-                    Command.Wake -> Unit
-                    null -> resumeScheduledWork()
-                }
+                handleCommand(command)
                 if (nativeSession && activeEpoch == epoch) poll()
             } catch (_: LinkageError) {
                 unavailable = true
@@ -153,6 +180,27 @@ class RetroAchievementsService private constructor(
                 update { it.signedOut("RetroAchievements is unavailable in this build.") }
             }
         }
+    }
+
+    private suspend fun handleCommand(command: Command?) {
+        when (command) {
+            is Command.Login -> if (command.epoch == epoch) {
+                startLogin(command)
+            } else command.secret.fill(0)
+            is Command.Logout -> if (command.epoch == epoch) stopNative()
+            is Command.Mode -> changeMode(command.enabled)
+            is Command.Response -> complete(command)
+            Command.Wake -> Unit
+            null -> resumeScheduledWork()
+        }
+    }
+
+    internal suspend fun drainForTest() {
+        while (true) {
+            val command = commands.tryReceive().getOrNull() ?: break
+            handleCommand(command)
+        }
+        if (nativeSession && activeEpoch == epoch) poll()
     }
 
     private fun nextWait(): Long? {
@@ -172,7 +220,7 @@ class RetroAchievementsService private constructor(
             retryLoginAt = Long.MAX_VALUE
             if (!login.savedToken) retryLoginDelay = RETRY_DELAY
             if (unavailable || !withCore {
-                    LibretroHost.nativeRaLogin(login.name.encodeToByteArray(), login.secret, login.savedToken)
+                    native.login(login.name.encodeToByteArray(), login.secret, login.savedToken)
                 }
             ) {
                 loginFailed(login.savedToken, rejected = false)
@@ -189,7 +237,7 @@ class RetroAchievementsService private constructor(
         inFlight.clear()
         if (nativeSession || core.raHardcorePolicy.isHardcoreActive && !preservePolicy) withCore {
             if (!preservePolicy) core.setRaHardcoreLocked(false)
-            if (nativeSession) LibretroHost.nativeRaLogout()
+            if (nativeSession) native.logout()
         }
         nativeSession = false
         username = null
@@ -209,7 +257,12 @@ class RetroAchievementsService private constructor(
         if (unavailable) return
         withCore {
             if (!enabled || username != null && observedRom == core.raRom.value && gameStatus == RaGameStatus.ACTIVE) {
+                if (enabled) core.cheatReset()
                 core.setRaHardcoreLocked(enabled)
+                if (core.bridge != null) {
+                    native.setHardcore(enabled)
+                    if (enabled) core.resetCore()
+                }
                 snapshotAt = 0L
             }
         }
@@ -222,7 +275,7 @@ class RetroAchievementsService private constructor(
             inFlight.remove(command.id)
             withCore {
                 if (command.epoch == epoch) {
-                    LibretroHost.nativeRaComplete(command.id, command.response.status, command.response.body)
+                    native.complete(command.id, command.response.status, command.response.body)
                 }
             }
             snapshotAt = 0L
@@ -277,16 +330,29 @@ class RetroAchievementsService private constructor(
             if (username != null && rom != null &&
                 (gameStatus == RaGameStatus.NONE || retryGameAt <= now())) {
                 retryGameAt = Long.MAX_VALUE
-                LibretroHost.nativeRaHardcore(core.raHardcorePolicy.isHardcoreActive)
-                LibretroHost.nativeRaLoadGame(rom.md5)
+                native.setHardcore(core.raHardcorePolicy.isHardcoreActive)
+                native.loadGame(rom.md5)
             }
-            if (!core.emulationRunning || gameStatus != RaGameStatus.ACTIVE) LibretroHost.nativeRaIdle()
-            val status = LibretroHost.nativeRaStatus()
+            if (!core.emulationRunning || gameStatus != RaGameStatus.ACTIVE) native.idle()
+            var status = native.status()
             if (status[1] == NATIVE_NO_SET) core.setRaHardcoreLocked(false)
-            val credentials = if (status[0] == NATIVE_READY && username == null) LibretroHost.nativeRaUser() else null
+            // Reconcile a pending Hardcore preference once on every transition into RA_GAME_ACTIVE
+            // (e.g. Hardcore toggled during set lookup, or sign-in completed after ROM launch).
+            val enteredActive = gameStatus != RaGameStatus.ACTIVE && status[1] == NATIVE_ACTIVE
+            if (enteredActive && current.value.hardcoreRequested && !core.raHardcorePolicy.isHardcoreActive) {
+                core.cheatReset()
+                core.setRaHardcoreLocked(true)
+                if (core.bridge != null) {
+                    native.setHardcore(true)
+                    core.resetCore()
+                }
+                status = native.status()
+                snapshotAt = 0L
+            }
+            val credentials = if (status[0] == NATIVE_READY && username == null) native.user() else null
             val requests = buildList {
                 repeat(MAX_REQUESTS - inFlight.size) {
-                    val fields = LibretroHost.nativeRaNextRequest() ?: return@buildList
+                    val fields = native.nextRequest() ?: return@buildList
                     add(RaHttpRequest(
                         fields[0]!!.decodeToString().toLong(), fields[1]!!.decodeToString(),
                         fields[2], fields[3]?.decodeToString()
@@ -295,7 +361,7 @@ class RetroAchievementsService private constructor(
             }
             val banners = buildList {
                 while (true) {
-                    val unlock = LibretroHost.nativeRaNextUnlock() ?: break
+                    val unlock = native.nextUnlock() ?: break
                     add(RaUnlockBanner(unlock[0]!!.toLong(), unlock[2].orEmpty(), unlock[1]!!.toInt()))
                 }
             }
@@ -303,8 +369,8 @@ class RetroAchievementsService private constructor(
             if (snapshot) snapshotAt = now() + SNAPSHOT_INTERVAL
             Sample(
                 status, credentials, requests, banners,
-                if (snapshot) LibretroHost.nativeRaGame() else null,
-                if (snapshot) LibretroHost.nativeRaAchievements() else null,
+                if (snapshot) native.game() else null,
+                if (snapshot) native.achievements() else null,
                 core.raHardcorePolicy
             )
         } ?: return
@@ -384,7 +450,7 @@ class RetroAchievementsService private constructor(
         inFlight[request.id] = scope.launch(Dispatchers.IO) {
             val response = try {
                 if (epoch != requestEpoch) return@launch
-                RaHttp.execute(request)
+                httpExecute(request)
             } finally {
                 request.postData?.fill(0)
             }

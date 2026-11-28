@@ -68,6 +68,8 @@ void libretro_host_step_frame(void);
 struct RaBridge* libretro_host_ra_client(bool create);
 void libretro_host_ra_logout(void);
 void libretro_host_ra_set_hardcore(bool enabled);
+void libretro_host_set_ra_hardcore_protected(bool protected_session);
+bool libretro_host_is_ra_hardcore_protected(void);
 
 /**
  * Get pointer to the most recent video frame buffer.

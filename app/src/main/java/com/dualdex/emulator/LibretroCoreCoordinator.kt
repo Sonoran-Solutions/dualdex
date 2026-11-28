@@ -75,22 +75,47 @@ open class LibretroCoreCoordinator(
         raHardcoreArmed = armed
     }
 
+    private fun isPolicyProtected(policy: RaHardcorePolicy): Boolean =
+        !policy.mayLoadSaveState || !policy.mayUseCheats
+
+    internal open fun syncRaHardcoreProtectedNative(protectedSession: Boolean) {
+        if (bridge == null) {
+            try {
+                LibretroHost.nativeSetRaHardcoreProtected(protectedSession)
+            } catch (_: UnsatisfiedLinkError) {}
+        }
+    }
+
     internal fun setRaHardcoreLocked(active: Boolean) {
         check(lock.isHeldByCurrentThread)
-        if (raHardcorePolicy.isHardcoreActive == active) return
-        _raHardcore.value = RaHardcorePolicy(active)
-        if (active) {
-            // Cancel any outstanding injected press before a reset starts a protected run.
-            advanceGeneration()
-            if (bridge == null) LibretroHost.nativeSetInputButtons(0)
+        val changed = raHardcorePolicy.isHardcoreActive != active
+        val policy = RaHardcorePolicy(active)
+        if (changed) {
+            _raHardcore.value = policy
+            if (active) {
+                // Cancel any outstanding injected press before a reset starts a protected run.
+                advanceGeneration()
+                if (bridge == null) {
+                    try {
+                        LibretroHost.nativeSetInputButtons(0)
+                    } catch (_: UnsatisfiedLinkError) {}
+                }
+            }
         }
-        if (bridge == null) LibretroHost.nativeRaHardcore(active)
+        syncRaHardcoreProtectedNative(isPolicyProtected(policy))
+        if (changed && bridge == null) {
+            try {
+                LibretroHost.nativeRaHardcore(active)
+            } catch (_: UnsatisfiedLinkError) {}
+        }
     }
 
     private fun updateRaRom(md5: String? = null) {
         val rom = md5?.takeIf { it.length == 32 && it.all { c -> c in '0'..'9' || c in 'a'..'f' } }
             ?.let { RaRom(it, stateGeneration) }
-        _raHardcore.value = RaHardcorePolicy(raHardcoreArmed && rom != null)
+        val policy = RaHardcorePolicy(raHardcoreArmed && rom != null)
+        _raHardcore.value = policy
+        syncRaHardcoreProtectedNative(isPolicyProtected(policy))
         _raRom.value = rom
     }
 
@@ -360,7 +385,8 @@ open class LibretroCoreCoordinator(
     }
 
     fun cheatSet(index: Int, enabled: Boolean, code: String): Unit = executeExclusive {
-        if (enabled && !raHardcorePolicy.mayUseCheats) return@executeExclusive
+        // Reject every cheatSet (including enabled=false): packaged mGBA ignores the enabled flag.
+        if (!raHardcorePolicy.mayUseCheats) return@executeExclusive
         if (bridge != null) {
             bridge?.cheatSet(index, enabled, code)
         } else {
@@ -423,6 +449,24 @@ open class LibretroCoreCoordinator(
 
     open fun setInputButtons(buttonMask: Int) {
         LibretroHost.nativeSetInputButtons(buttonMask)
+    }
+
+    /**
+     * Writes an automated battle-console button mask under the core lock.
+     * Release (`buttonMask == 0`) is always permitted so buttons never stick; any non-zero press
+     * requires matching [expectedGeneration] and [RaHardcorePolicy.mayUseInteractiveBattleControls].
+     */
+    open fun setAuthorizedAutomatedInput(
+        buttonMask: Int,
+        expectedGeneration: Long,
+        timeoutMs: Long = 17L
+    ): Boolean = executeExclusive(timeoutMs) {
+        if (buttonMask != 0 &&
+            (!raHardcorePolicy.mayUseInteractiveBattleControls || stateGeneration != expectedGeneration)) {
+            return@executeExclusive false
+        }
+        setInputButtons(buttonMask)
+        true
     }
 
     fun setTargetAudioSampleRate(rate: Int) {

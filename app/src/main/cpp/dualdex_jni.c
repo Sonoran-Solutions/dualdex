@@ -1325,58 +1325,82 @@ Java_com_dualdex_emulator_LibretroHost_nativeGetMainStructAddress(JNIEnv* env, j
 
 // RetroAchievements calls are serialized by LibretroCoreCoordinator.
 static jbyteArray ra_bytes(JNIEnv* env, const char* text) {
-    if (!text) return NULL;
+    if (!text || (*env)->ExceptionCheck(env)) return NULL;
     jsize length = (jsize)strlen(text);
     jbyteArray bytes = (*env)->NewByteArray(env, length);
-    if (bytes) (*env)->SetByteArrayRegion(env, bytes, 0, length, (const jbyte*)text);
+    if (!bytes || (*env)->ExceptionCheck(env)) {
+        if (bytes) (*env)->DeleteLocalRef(env, bytes);
+        return NULL;
+    }
+    if (length > 0) {
+        (*env)->SetByteArrayRegion(env, bytes, 0, length, (const jbyte*)text);
+        if ((*env)->ExceptionCheck(env)) {
+            (*env)->DeleteLocalRef(env, bytes);
+            return NULL;
+        }
+    }
     return bytes;
 }
 
 /* RA API text is UTF-8. JNI NewStringUTF expects modified UTF-8. */
 static jstring ra_text(JNIEnv* env, const char* text) {
-    if (!text) return NULL;
+    if (!text || (*env)->ExceptionCheck(env)) return NULL;
     jbyteArray bytes = ra_bytes(env, text);
     if (!bytes) return NULL;
     jclass cls = (*env)->FindClass(env, "java/lang/String");
-    if (!cls) {
+    if (!cls || (*env)->ExceptionCheck(env)) {
+        if (cls) (*env)->DeleteLocalRef(env, cls);
         (*env)->DeleteLocalRef(env, bytes);
         return NULL;
     }
     jmethodID ctor = (*env)->GetMethodID(env, cls, "<init>", "([BLjava/lang/String;)V");
+    if (!ctor || (*env)->ExceptionCheck(env)) {
+        (*env)->DeleteLocalRef(env, cls);
+        (*env)->DeleteLocalRef(env, bytes);
+        return NULL;
+    }
     jstring charset = (*env)->NewStringUTF(env, "UTF-8");
-    jstring value = NULL;
-    if (ctor && charset) value = (*env)->NewObject(env, cls, ctor, bytes, charset);
+    if (!charset || (*env)->ExceptionCheck(env)) {
+        if (charset) (*env)->DeleteLocalRef(env, charset);
+        (*env)->DeleteLocalRef(env, cls);
+        (*env)->DeleteLocalRef(env, bytes);
+        return NULL;
+    }
+    jstring value = (*env)->NewObject(env, cls, ctor, bytes, charset);
     (*env)->DeleteLocalRef(env, charset);
     (*env)->DeleteLocalRef(env, cls);
     (*env)->DeleteLocalRef(env, bytes);
+    if (!value || (*env)->ExceptionCheck(env)) {
+        if (value) (*env)->DeleteLocalRef(env, value);
+        return NULL;
+    }
     return value;
 }
 
-static void ra_set_text(JNIEnv* env, jobjectArray array, jsize index, const char* value) {
+static bool ra_set_text(JNIEnv* env, jobjectArray array, jsize index, const char* value) {
+    if ((*env)->ExceptionCheck(env)) return false;
+    if (!value) return true;
     jstring text = ra_text(env, value);
-    if (text) {
-        (*env)->SetObjectArrayElement(env, array, index, text);
-        (*env)->DeleteLocalRef(env, text);
+    if (!text || (*env)->ExceptionCheck(env)) {
+        if (text) (*env)->DeleteLocalRef(env, text);
+        return false;
     }
+    (*env)->SetObjectArrayElement(env, array, index, text);
+    (*env)->DeleteLocalRef(env, text);
+    return !(*env)->ExceptionCheck(env);
 }
 
-static void ra_set_bytes(JNIEnv* env, jobjectArray array, jsize index, const char* value) {
+static bool ra_set_bytes(JNIEnv* env, jobjectArray array, jsize index, const char* value) {
+    if ((*env)->ExceptionCheck(env)) return false;
+    if (!value) return true;
     jbyteArray bytes = ra_bytes(env, value);
-    if (bytes) {
-        (*env)->SetObjectArrayElement(env, array, index, bytes);
-        (*env)->DeleteLocalRef(env, bytes);
+    if (!bytes || (*env)->ExceptionCheck(env)) {
+        if (bytes) (*env)->DeleteLocalRef(env, bytes);
+        return false;
     }
-}
-
-static char* ra_copy_bytes(JNIEnv* env, jbyteArray bytes, size_t* length) {
-    if (!bytes) return NULL;
-    *length = (size_t)(*env)->GetArrayLength(env, bytes);
-    char* copy = malloc(*length + 1);
-    if (copy) {
-        (*env)->GetByteArrayRegion(env, bytes, 0, (jsize)*length, (jbyte*)copy);
-        copy[*length] = '\0';
-    }
-    return copy;
+    (*env)->SetObjectArrayElement(env, array, index, bytes);
+    (*env)->DeleteLocalRef(env, bytes);
+    return !(*env)->ExceptionCheck(env);
 }
 
 static void ra_wipe_free(char* value, size_t length) {
@@ -1387,21 +1411,69 @@ static void ra_wipe_free(char* value, size_t length) {
     }
 }
 
+static char* ra_copy_bytes(JNIEnv* env, jbyteArray bytes, size_t* length) {
+    *length = 0;
+    if (!bytes || (*env)->ExceptionCheck(env)) return NULL;
+    jsize array_len = (*env)->GetArrayLength(env, bytes);
+    if (array_len < 0 || (*env)->ExceptionCheck(env)) return NULL;
+    *length = (size_t)array_len;
+    char* copy = malloc(*length + 1);
+    if (!copy) {
+        *length = 0;
+        return NULL;
+    }
+    if (array_len > 0) {
+        (*env)->GetByteArrayRegion(env, bytes, 0, array_len, (jbyte*)copy);
+        if ((*env)->ExceptionCheck(env)) {
+            ra_wipe_free(copy, *length);
+            *length = 0;
+            return NULL;
+        }
+    }
+    copy[*length] = '\0';
+    return copy;
+}
+
+static jobjectArray ra_new_object_array(JNIEnv* env, jsize size, const char* class_name) {
+    if ((*env)->ExceptionCheck(env)) return NULL;
+    jclass cls = (*env)->FindClass(env, class_name);
+    if (!cls || (*env)->ExceptionCheck(env)) {
+        if (cls) (*env)->DeleteLocalRef(env, cls);
+        return NULL;
+    }
+    jobjectArray array = (*env)->NewObjectArray(env, size, cls, NULL);
+    (*env)->DeleteLocalRef(env, cls);
+    if (!array || (*env)->ExceptionCheck(env)) {
+        if (array) (*env)->DeleteLocalRef(env, array);
+        return NULL;
+    }
+    return array;
+}
+
+JNIEXPORT void JNICALL
+Java_com_dualdex_emulator_LibretroHost_nativeSetRaHardcoreProtected(JNIEnv* env, jobject thiz,
+                                                                    jboolean protected_session) {
+    (void)env;
+    (void)thiz;
+    libretro_host_set_ra_hardcore_protected((bool)protected_session);
+}
+
 JNIEXPORT jboolean JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeRaLogin(JNIEnv* env, jobject thiz, jbyteArray username,
                                                     jbyteArray secret, jboolean use_token) {
     (void)thiz;
     size_t name_length = 0, secret_length = 0;
     char* name = ra_copy_bytes(env, username, &name_length);
-    char* credential = ra_copy_bytes(env, secret, &secret_length);
+    char* credential = (!(*env)->ExceptionCheck(env)) ? ra_copy_bytes(env, secret, &secret_length) : NULL;
     RaBridge* bridge = NULL;
-    if (name && credential && !memchr(name, 0, name_length) && !memchr(credential, 0, secret_length)) {
+    if (name && credential && !(*env)->ExceptionCheck(env) &&
+        !memchr(name, 0, name_length) && !memchr(credential, 0, secret_length)) {
         bridge = libretro_host_ra_client(true);
         ra_bridge_begin_login(bridge, name, credential, use_token);
     }
     free(name);
     ra_wipe_free(credential, secret_length);
-    return bridge != NULL;
+    return bridge != NULL ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL
@@ -1421,12 +1493,14 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaHardcore(JNIEnv* env, jobject thi
 JNIEXPORT void JNICALL
 Java_com_dualdex_emulator_LibretroHost_nativeRaLoadGame(JNIEnv* env, jobject thiz, jstring md5) {
     (void)thiz;
-    if (!md5) return;
+    if (!md5 || (*env)->ExceptionCheck(env)) return;
     const char* hash = (*env)->GetStringUTFChars(env, md5, NULL);
-    if (hash) {
-        ra_bridge_load_game(libretro_host_ra_client(false), hash);
-        (*env)->ReleaseStringUTFChars(env, md5, hash);
+    if (!hash || (*env)->ExceptionCheck(env)) {
+        if (hash) (*env)->ReleaseStringUTFChars(env, md5, hash);
+        return;
     }
+    ra_bridge_load_game(libretro_host_ra_client(false), hash);
+    (*env)->ReleaseStringUTFChars(env, md5, hash);
 }
 
 JNIEXPORT void JNICALL
@@ -1445,7 +1519,15 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaStatus(JNIEnv* env, jobject thiz)
         ra_bridge_is_hardcore(bridge), ra_bridge_is_offline(bridge), ra_bridge_take_server_error(bridge)
     };
     jintArray status = (*env)->NewIntArray(env, 5);
-    if (status) (*env)->SetIntArrayRegion(env, status, 0, 5, values);
+    if (!status || (*env)->ExceptionCheck(env)) {
+        if (status) (*env)->DeleteLocalRef(env, status);
+        return NULL;
+    }
+    (*env)->SetIntArrayRegion(env, status, 0, 5, values);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->DeleteLocalRef(env, status);
+        return NULL;
+    }
     return status;
 }
 
@@ -1454,11 +1536,12 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaUser(JNIEnv* env, jobject thiz) {
     (void)thiz;
     const rc_client_user_t* user = ra_bridge_user(libretro_host_ra_client(false));
     if (!user) return NULL;
-    jclass cls = (*env)->FindClass(env, "[B");
-    jobjectArray result = (*env)->NewObjectArray(env, 2, cls, NULL);
-    if (result) {
-        ra_set_bytes(env, result, 0, user->username);
-        ra_set_bytes(env, result, 1, user->token);
+    jobjectArray result = ra_new_object_array(env, 2, "[B");
+    if (!result) return NULL;
+    if (!ra_set_bytes(env, result, 0, user->username) ||
+        !ra_set_bytes(env, result, 1, user->token)) {
+        (*env)->DeleteLocalRef(env, result);
+        return NULL;
     }
     return result;
 }
@@ -1471,15 +1554,16 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaNextRequest(JNIEnv* env, jobject 
     if (!ra_bridge_next_request(bridge, &request)) return NULL;
     char id[24];
     snprintf(id, sizeof(id), "%llu", (unsigned long long)request.id);
-    jclass cls = (*env)->FindClass(env, "[B");
-    jobjectArray result = (*env)->NewObjectArray(env, 4, cls, NULL);
-    if (result) {
-        ra_set_bytes(env, result, 0, id);
-        ra_set_bytes(env, result, 1, request.url);
-        ra_set_bytes(env, result, 2, request.post_data);
-        ra_set_bytes(env, result, 3, request.content_type);
-        if (!(*env)->ExceptionCheck(env)) ra_bridge_mark_dispatched(bridge, request.id);
+    jobjectArray result = ra_new_object_array(env, 4, "[B");
+    if (!result) return NULL;
+    if (!ra_set_bytes(env, result, 0, id) ||
+        !ra_set_bytes(env, result, 1, request.url) ||
+        !ra_set_bytes(env, result, 2, request.post_data) ||
+        !ra_set_bytes(env, result, 3, request.content_type)) {
+        (*env)->DeleteLocalRef(env, result);
+        return NULL;
     }
+    ra_bridge_mark_dispatched(bridge, request.id);
     return result;
 }
 
@@ -1492,7 +1576,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaComplete(JNIEnv* env, jobject thi
     if (response) {
         ra_bridge_complete_request(libretro_host_ra_client(false), (uint64_t)id, status, response, length);
         ra_wipe_free(response, length);
-    } else {
+    } else if (!(*env)->ExceptionCheck(env)) {
         const char failure[] = "RetroAchievements response unavailable";
         ra_bridge_complete_request(libretro_host_ra_client(false), (uint64_t)id,
             RC_API_SERVER_RESPONSE_RETRYABLE_CLIENT_ERROR, failure, sizeof(failure) - 1);
@@ -1515,25 +1599,29 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaGame(JNIEnv* env, jobject thiz) {
                 size += (jsize)(2 * bucket->num_leaderboards);
         }
     }
-    jclass cls = (*env)->FindClass(env, "java/lang/String");
-    jobjectArray result = (*env)->NewObjectArray(env, size, cls, NULL);
-    if (result) {
-        ra_set_text(env, result, 0, ra_bridge_game_title(bridge));
-        ra_set_text(env, result, 1, presence);
+    jobjectArray result = ra_new_object_array(env, size, "java/lang/String");
+    bool ok = result != NULL;
+    if (ok) {
+        ok = ra_set_text(env, result, 0, ra_bridge_game_title(bridge)) &&
+             ra_set_text(env, result, 1, presence);
         jsize index = 2;
         if (list) {
-            for (uint32_t i = 0; i < list->num_buckets; ++i) {
+            for (uint32_t i = 0; ok && i < list->num_buckets; ++i) {
                 const rc_client_leaderboard_bucket_t* bucket = &list->buckets[i];
                 if (bucket->bucket_type != RC_CLIENT_LEADERBOARD_BUCKET_ACTIVE) continue;
-                for (uint32_t j = 0; j < bucket->num_leaderboards; ++j) {
+                for (uint32_t j = 0; ok && j < bucket->num_leaderboards; ++j) {
                     const rc_client_leaderboard_t* entry = bucket->leaderboards[j];
-                    ra_set_text(env, result, index++, entry->title);
-                    ra_set_text(env, result, index++, entry->tracker_value);
+                    ok = ra_set_text(env, result, index++, entry->title) &&
+                         ra_set_text(env, result, index++, entry->tracker_value);
                 }
             }
         }
     }
     rc_client_destroy_leaderboard_list(list);
+    if (!ok || (*env)->ExceptionCheck(env)) {
+        if (result) (*env)->DeleteLocalRef(env, result);
+        return NULL;
+    }
     return result;
 }
 
@@ -1546,33 +1634,37 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaAchievements(JNIEnv* env, jobject
     enum { fields = 8 };
     jsize size = 0;
     for (uint32_t i = 0; i < list->num_buckets; ++i) size += (jsize)(fields * list->buckets[i].num_achievements);
-    jclass cls = (*env)->FindClass(env, "java/lang/String");
-    jobjectArray result = (*env)->NewObjectArray(env, size, cls, NULL);
-    if (result) {
+    jobjectArray result = ra_new_object_array(env, size, "java/lang/String");
+    bool ok = result != NULL;
+    if (ok) {
         jsize index = 0;
         const uint8_t unlock = ra_bridge_is_hardcore(bridge)
             ? RC_CLIENT_ACHIEVEMENT_UNLOCKED_HARDCORE : RC_CLIENT_ACHIEVEMENT_UNLOCKED_SOFTCORE;
-        for (uint32_t i = 0; i < list->num_buckets && !(*env)->ExceptionCheck(env); ++i) {
+        for (uint32_t i = 0; ok && i < list->num_buckets; ++i) {
             const rc_client_achievement_bucket_t* bucket = &list->buckets[i];
-            for (uint32_t j = 0; j < bucket->num_achievements && !(*env)->ExceptionCheck(env); ++j) {
+            for (uint32_t j = 0; ok && j < bucket->num_achievements; ++j) {
                 const rc_client_achievement_t* achievement = bucket->achievements[j];
                 char id[12], points[12], percent[12], category[4];
                 snprintf(id, sizeof(id), "%u", achievement->id);
                 snprintf(points, sizeof(points), "%u", achievement->points);
                 snprintf(percent, sizeof(percent), "%.2f", (double)achievement->measured_percent);
                 snprintf(category, sizeof(category), "%u", achievement->category);
-                ra_set_text(env, result, index++, id);
-                ra_set_text(env, result, index++, achievement->title);
-                ra_set_text(env, result, index++, achievement->description);
-                ra_set_text(env, result, index++, points);
-                ra_set_text(env, result, index++, (achievement->unlocked & unlock) ? "1" : "0");
-                ra_set_text(env, result, index++, achievement->type == RC_CLIENT_ACHIEVEMENT_TYPE_MISSABLE ? "1" : "0");
-                ra_set_text(env, result, index++, achievement->measured_progress[0] ? percent : NULL);
-                ra_set_text(env, result, index++, category);
+                ok = ra_set_text(env, result, index++, id) &&
+                     ra_set_text(env, result, index++, achievement->title) &&
+                     ra_set_text(env, result, index++, achievement->description) &&
+                     ra_set_text(env, result, index++, points) &&
+                     ra_set_text(env, result, index++, (achievement->unlocked & unlock) ? "1" : "0") &&
+                     ra_set_text(env, result, index++, achievement->type == RC_CLIENT_ACHIEVEMENT_TYPE_MISSABLE ? "1" : "0") &&
+                     ra_set_text(env, result, index++, achievement->measured_progress[0] ? percent : NULL) &&
+                     ra_set_text(env, result, index++, category);
             }
         }
     }
     rc_client_destroy_achievement_list(list);
+    if (!ok || (*env)->ExceptionCheck(env)) {
+        if (result) (*env)->DeleteLocalRef(env, result);
+        return NULL;
+    }
     return result;
 }
 
@@ -1584,12 +1676,13 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaNextUnlock(JNIEnv* env, jobject t
     char id[12], points[12];
     snprintf(id, sizeof(id), "%u", event.id);
     snprintf(points, sizeof(points), "%u", event.points);
-    jclass cls = (*env)->FindClass(env, "java/lang/String");
-    jobjectArray result = (*env)->NewObjectArray(env, 3, cls, NULL);
-    if (result) {
-        ra_set_text(env, result, 0, id);
-        ra_set_text(env, result, 1, points);
-        ra_set_text(env, result, 2, event.title);
+    jobjectArray result = ra_new_object_array(env, 3, "java/lang/String");
+    if (!result) return NULL;
+    if (!ra_set_text(env, result, 0, id) ||
+        !ra_set_text(env, result, 1, points) ||
+        !ra_set_text(env, result, 2, event.title)) {
+        (*env)->DeleteLocalRef(env, result);
+        return NULL;
     }
     return result;
 }

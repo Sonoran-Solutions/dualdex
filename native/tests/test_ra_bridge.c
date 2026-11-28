@@ -109,6 +109,43 @@ static void check_client(RaBridge* bridge) {
 
     ra_bridge_set_hardcore(bridge, false);
     assert(!ra_bridge_is_hardcore(bridge));
+    /* Loading a game in Softcore and then reconciling to Hardcore once active must request a reset. */
+    ra_bridge_load_game(bridge, "0123456789abcdef0123456789abcdef");
+    assert(ra_bridge_game_status(bridge) == RA_GAME_LOADING);
+    reply(bridge, request(bridge, "r=achievementsets&"),
+        "{\"Success\":true,\"GameId\":7,\"Title\":\"Synthetic GBA\",\"ConsoleId\":5,"
+        "\"ImageIconUrl\":\"https://media.retroachievements.org/Images/001.png\","
+        "\"Sets\":[{\"AchievementSetId\":7,\"GameId\":7,\"Title\":\"Core\",\"Type\":\"core\","
+        "\"ImageIconUrl\":\"https://media.retroachievements.org/Images/001.png\","
+        "\"Achievements\":[{\"ID\":43,\"Title\":\"Reconciled Award\",\"Description\":\"Hardcore after load\","
+        "\"Flags\":3,\"Points\":5,\"MemAddr\":\"0xH0000=9\",\"Author\":\"Test\","
+        "\"BadgeName\":\"1\",\"Created\":1,\"Modified\":1}],\"Leaderboards\":[]}]}");
+    reply(bridge, request(bridge, "r=startsession&"), "{\"Success\":true}");
+    assert(ra_bridge_is_active(bridge));
+    assert(!ra_bridge_is_hardcore(bridge));
+    assert(!ra_bridge_take_reset_request(bridge));
+    ra_bridge_set_hardcore(bridge, true);
+    assert(ra_bridge_is_hardcore(bridge));
+    assert(ra_bridge_take_reset_request(bridge));
+    assert(!ra_bridge_take_reset_request(bridge));
+    ra_bridge_reset(bridge);
+    iwram[0] = 0;
+    ra_bridge_do_frame(bridge);
+    assert(!ra_bridge_pop_unlock(bridge, &event));
+    iwram[0] = 9;
+    ra_bridge_do_frame(bridge);
+    assert(ra_bridge_pop_unlock(bridge, &event));
+    assert(event.id == 43);
+    list = ra_bridge_achievements(bridge);
+    assert(list && list->num_buckets == 1 && list->buckets[0].num_achievements == 1);
+    assert(list->buckets[0].achievements[0]->unlocked & RC_CLIENT_ACHIEVEMENT_UNLOCKED_HARDCORE);
+    rc_client_destroy_achievement_list(list);
+    reply(bridge, request(bridge, "r=awardachievement&"),
+        "{\"Success\":true,\"AchievementID\":43,\"AchievementsRemaining\":0}");
+    ra_bridge_unload_game(bridge);
+
+    ra_bridge_set_hardcore(bridge, false);
+    assert(!ra_bridge_is_hardcore(bridge));
     ra_bridge_load_game(bridge, "abcdef0123456789abcdef0123456789");
     reply(bridge, request(bridge, "r=achievementsets&"),
         "{\"Success\":true,\"GameId\":0,\"Title\":\"Unknown\",\"ConsoleId\":5,\"ImageIconUrl\":\"https://media.retroachievements.org/Images/001.png\"}");

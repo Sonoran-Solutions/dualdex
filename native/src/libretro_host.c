@@ -39,6 +39,7 @@ static void (*p_retro_cheat_set)(unsigned, bool, const char*);
 
 static void* g_core_handle = NULL;
 static bool g_is_game_loaded = false;
+static bool g_ra_hardcore_protected = false;
 #ifdef DUALDEX_WITH_RCHEEVOS
 static RaBridge* g_ra;
 #endif
@@ -145,6 +146,19 @@ bool libretro_host_read_gba_address(uint32_t address, void* out, size_t length) 
     return ok;
 }
 
+void libretro_host_set_ra_hardcore_protected(bool protected_session) {
+    g_ra_hardcore_protected = protected_session;
+}
+
+bool libretro_host_is_ra_hardcore_protected(void) {
+    if (g_ra_hardcore_protected) return true;
+#ifdef DUALDEX_WITH_RCHEEVOS
+    return ra_bridge_is_active(g_ra) && ra_bridge_is_hardcore(g_ra);
+#else
+    return false;
+#endif
+}
+
 #ifdef DUALDEX_WITH_RCHEEVOS
 static bool read_ra_memory(void* user, uint32_t address, uint8_t* out, size_t length) {
     (void)user;
@@ -162,8 +176,10 @@ void libretro_host_ra_logout(void) {
 }
 
 void libretro_host_ra_set_hardcore(bool enabled) {
+    bool was_hardcore = ra_bridge_is_hardcore(g_ra);
+    bool active = ra_bridge_is_active(g_ra);
     ra_bridge_set_hardcore(g_ra, enabled);
-    if (ra_bridge_take_reset_request(g_ra)) {
+    if (ra_bridge_take_reset_request(g_ra) || (enabled && active && !was_hardcore)) {
         libretro_host_cheat_reset();
         libretro_host_reset();
     }
@@ -475,6 +491,7 @@ bool libretro_host_init(const char* core_lib_path) {
 }
 
 bool libretro_host_unload_rom(void) {
+    g_ra_hardcore_protected = false;
 #ifdef DUALDEX_WITH_RCHEEVOS
     ra_bridge_unload_game(g_ra);
 #endif
@@ -664,9 +681,7 @@ bool libretro_host_save_state(const char* save_state_path) {
 }
 
 bool libretro_host_load_state(const char* save_state_path) {
-#ifdef DUALDEX_WITH_RCHEEVOS
-    if (ra_bridge_is_active(g_ra) && ra_bridge_is_hardcore(g_ra)) return false;
-#endif
+    if (libretro_host_is_ra_hardcore_protected()) return false;
     if (!g_core_handle || !g_is_game_loaded || !save_state_path || !p_retro_unserialize) {
         return false;
     }
@@ -822,9 +837,9 @@ void libretro_host_cheat_reset(void) {
 }
 
 void libretro_host_cheat_set(unsigned index, bool enabled, const char* code) {
-#ifdef DUALDEX_WITH_RCHEEVOS
-    if (enabled && ra_bridge_is_active(g_ra) && ra_bridge_is_hardcore(g_ra)) return;
-#endif
+    /* Reject every cheat_set (including enabled=false) under Hardcore protection:
+     * packaged mGBA ignores the enabled flag and still applies the code. */
+    if (libretro_host_is_ra_hardcore_protected()) return;
     if (p_retro_cheat_set && code) {
         p_retro_cheat_set(index, enabled, code);
     }

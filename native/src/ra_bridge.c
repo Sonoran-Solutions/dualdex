@@ -257,6 +257,9 @@ const char* ra_bridge_game_title(const RaBridge* bridge) {
 
 void ra_bridge_unload_game(RaBridge* bridge) {
     if (!bridge) return;
+    /* Clear pending mastery events while client->game is still attached: rcheevos v12.5.0
+     * dereferences client->game inside rc_client_raise_mastery_event during unload. */
+    if (bridge->game == RA_GAME_ACTIVE) rc_client_reset(bridge->client);
     rc_client_unload_game(bridge->client);
     bridge->game = RA_GAME_NONE;
     bridge->processing = false;
@@ -269,6 +272,8 @@ void ra_bridge_reset(RaBridge* bridge) {
     if (!bridge) return;
     bridge->reset_requested = false;
     rc_client_reset(bridge->client);
+    if (bridge->game == RA_GAME_ACTIVE)
+        bridge->processing = rc_client_is_processing_required(bridge->client);
 }
 
 bool ra_bridge_take_reset_request(RaBridge* bridge) {

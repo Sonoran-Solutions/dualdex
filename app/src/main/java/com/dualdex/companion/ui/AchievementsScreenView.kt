@@ -73,7 +73,7 @@ class AchievementsScreenView(
             addView(signOut, fullRow())
             addView(hardcore, fullRow())
             addView(label(RaHardcorePolicy.SUMMARY))
-            addView(label("Enabling Hardcore restarts a supported game. During set lookup, the change takes effect on the next game launch."))
+            addView(label("Enabling Hardcore restarts a supported game once its achievement set loads."))
             addView(banners, fullRow())
             addView(sound, fullRow())
             addView(gameText)
@@ -126,8 +126,10 @@ class AchievementsScreenView(
     private fun submit() {
         val name = username.text.toString()
         if (name.isBlank() || password.text.isEmpty()) {
-            if (name.isBlank()) username.error = "Enter your username"
-            else password.error = "Enter your password"
+            val message = if (name.isBlank()) "Enter your username" else "Enter your password"
+            notice.text = message
+            notice.visibility = View.VISIBLE
+            notice.announceForAccessibility(message)
             return
         }
         val secret = password.text.toString().encodeToByteArray()

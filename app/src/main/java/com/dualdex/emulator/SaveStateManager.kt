@@ -260,7 +260,14 @@ open class SaveStateManager(
                 continue
             }
             val sourceExcluded = AtomicSaveFile.isAutoLoadExcluded(file)
-            if (AtomicSaveFile.copyFromStaging(file, target, markAutoLoadExcluded = sourceExcluded)) {
+            val isStateFile = file.name.endsWith(".state")
+            if (AtomicSaveFile.copyFromStaging(
+                    stagingFile = file,
+                    targetFile = target,
+                    markAutoLoadExcluded = sourceExcluded,
+                    preserveSourceTimestampForAutoLoad = isStateFile
+                )
+            ) {
                 migratedAny = true
             } else {
                 allMigrated = false
@@ -968,7 +975,11 @@ open class SaveStateManager(
                     }
 
                     // 6. Commit candidate atomically to canonical store
-                    val committed = AtomicSaveFile.writeBytes(canonicalFile, cleanBytes)
+                    val committed = AtomicSaveFile.writeBytes(
+                        targetFile = canonicalFile,
+                        bytes = cleanBytes,
+                        expectedPriorSize = expectedRamSize.toLong()
+                    )
                     if (!committed) {
                         Log.e(TAG, "Import failed: atomic canonical commit failed, rolling back live SRAM")
                         nativeLoadSaveRam(sramBackup.absolutePath) // Rollback live SRAM
@@ -1016,7 +1027,12 @@ open class SaveStateManager(
 
             // 2. Commit newly captured SRAM to canonical internal store
             val canonicalFile = getCanonicalFile(identity, "battery.sav")
-            val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+            val expectedRamSize = nativeGetSaveRamSize().takeIf { it > 0 }
+            val committed = AtomicSaveFile.copyFromStaging(
+                stagingFile = stagingFile,
+                targetFile = canonicalFile,
+                expectedPriorSize = expectedRamSize
+            )
             if (!committed || !canonicalFile.exists() || canonicalFile.length() == 0L) {
                 Log.e(TAG, "Export aborted: failed to commit fresh SRAM to canonical store")
                 return false

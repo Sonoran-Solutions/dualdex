@@ -246,12 +246,14 @@ open class LegacySaveCatalog(
             }
         }
 
-        // 2. Create durable copy in canonical store using AtomicSaveFile (preserving explicit-only exclusion)
+        // 2. Create durable copy in canonical store using AtomicSaveFile (preserving explicit-only exclusion
+        // and source timestamp provenance for state files so older legacy states never auto-load over newer SRAM)
         val sourceExcluded = AtomicSaveFile.isAutoLoadExcluded(source)
         val committed = AtomicSaveFile.copyFromStaging(
             stagingFile = source,
             targetFile = targetFile,
-            markAutoLoadExcluded = sourceExcluded
+            markAutoLoadExcluded = sourceExcluded,
+            preserveSourceTimestampForAutoLoad = candidate.targetFileName.endsWith(".state")
         )
         if (!committed || !targetFile.exists() || targetFile.length() != expectedSize) {
             Log.e(TAG, "Failed to commit legacy candidate ${source.name} to canonical destination ${targetFile.absolutePath}")

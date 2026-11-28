@@ -274,7 +274,8 @@ object AtomicSaveFile {
         stagingFile: File,
         targetFile: File,
         markAutoLoadExcluded: Boolean = false,
-        expectedPriorSize: Long? = null
+        expectedPriorSize: Long? = null,
+        preserveSourceTimestampForAutoLoad: Boolean = false
     ): Boolean {
         if (!stagingFile.exists() || stagingFile.length() == 0L) {
             Log.e(TAG, "Staging file missing or empty: ${stagingFile.absolutePath}")
@@ -288,6 +289,7 @@ object AtomicSaveFile {
         }
 
         val expectedSize = stagingFile.length()
+        val sourceMtime = stagingFile.lastModified()
         val tmpFile = File(parent, "${targetFile.name}.tmp")
         val bakFile = File(parent, "${targetFile.name}.bak")
 
@@ -324,8 +326,11 @@ object AtomicSaveFile {
                 }
             }
 
-            // 3b. If preserving explicit-only exclusion, persist the marker BEFORE publishing targetFile
-            if (markAutoLoadExcluded && !writeSidecarAtomically(autoLoadExcludedFile(targetFile), "excluded\n")) {
+            // 3b. If preserving explicit-only exclusion or verifying source timestamp provenance,
+            // persist the exclusion marker BEFORE publishing targetFile so there is zero window
+            // where an unverified migrated state appears eligible for automatic boot loading.
+            val guardWithExclusion = markAutoLoadExcluded || preserveSourceTimestampForAutoLoad
+            if (guardWithExclusion && !writeSidecarAtomically(autoLoadExcludedFile(targetFile), "excluded\n")) {
                 Log.e(TAG, "Aborting atomic staging copy: failed to persist auto-load exclusion marker for ${targetFile.name}")
                 if (tmpFile.exists()) tmpFile.delete()
                 return false
@@ -336,7 +341,16 @@ object AtomicSaveFile {
 
             // 5. Verify final file
             if (moved && targetFile.exists() && targetFile.length() == expectedSize) {
-                if (!markAutoLoadExcluded) {
+                if (markAutoLoadExcluded) {
+                    // Explicit-only status must stay durably excluded.
+                } else if (preserveSourceTimestampForAutoLoad) {
+                    val timestampPreserved = sourceMtime > 0L &&
+                        applyLastModified(targetFile, sourceMtime) &&
+                        targetFile.lastModified() == sourceMtime
+                    if (timestampPreserved) {
+                        clearAutoLoadExcluded(targetFile)
+                    }
+                } else {
                     clearAutoLoadExcluded(targetFile)
                 }
                 return true

@@ -18,7 +18,7 @@ selected `com.google.android.gms/.backup.BackupTransportService`; active GMS was
 
 SOURCE backup was accepted with real flags **1**, quota **26,214,400**, observed
 measurement + streaming callbacks on the same agent and package/aggregate
-**Success**. Observed source dataset token: `386db8add52d6f95`, listed on both AVDs.
+**Success**. Observed source dataset token: `<SOURCE_TOKEN>`, listed on both AVDs.
 The separate untouched TARGET's package-scoped restore returned **-1000** after
 GMS could not retrieve the source Folsom decryption key for `@pm@`. No DualDex
 restore callback ran; all eight expected path/hashes were missing, zero entries
@@ -143,7 +143,7 @@ account was added to either emulator.
 | Framework callback with absent encryption/D2D flags refuses | PASS | — | API 28 local transport reported flags 0, quota 26,214,400; package failed `-1002` |
 | Successful cloud-route callback/emission and staged restore | BLOCKED | SIMULATED | API 28 local transport cannot supply required flag; API 34 local transport used fake encryption flag 1, quota 26,214,400; valid archive restored to staging |
 | Preserve previous successful local-transport dataset after refusal | BLOCKED | **FAIL** | API 34: first restore had 8 entries; after agent refusal, same-token restore had 0; [issue #194](https://github.com/Sonoran-Solutions/dualdex/issues/194) |
-| Preserve previous successful **remote cloud** dataset after refusal | NOT_RUN | NOT_RUN | No separately authorized disposable cloud account/dataset; local behavior cannot establish GMS remote behavior |
+| Preserve previous successful **remote cloud** dataset after refusal | NOT_RUN | NOT_RUN | Pre-authorization emulator matrix (historical; no disposable account there). Subsequent 2026-10-14 authorized GMS run stayed BLOCKED on fresh-target key recovery (`UnrecoverableKeyException`); local behavior cannot establish GMS remote behavior |
 | GMS D2D single-device test-mode backup/restore | NOT_RUN | SIMULATED | Actual GMS transport callbacks, flags 2, quota `Long.MAX_VALUE`; documented reinstall restored all 14 admitted files by hash, canonical battery absent |
 | Real source-to-target D2D migration | NOT_RUN | NOT_RUN | No real two-device setup-wizard transfer executed |
 | Directory headers through real transport | NOT_RUN | NOT_RUN | Observed archive and 14-file restores contained file callbacks only; independent directory counters remain host-tested |

@@ -89,6 +89,42 @@ class SaveStates153Test {
     }
 
     @Test
+    fun futureBarrierAndLiveState_laterChangedBatteryFlushIsNotRolledBackOnRestart_andNoopFlushPreservesResume() {
+        val future = System.currentTimeMillis() + 7 * 86400000L
+        ssm.getCanonicalFile(rom, SaveStateFiles.RESUME_BARRIER).apply {
+            writeText(future.toString()); check(setLastModified(future))
+        }
+        val initialSram = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 0x11 }
+        bridge.currentSramBytes = initialSram
+        assertTrue(ssm.flushBatterySave(rom) is com.dualdex.emulator.storage.SaveWriteResult.Success)
+        val batteryFile = ssm.getCanonicalFile(rom, SaveStateFiles.BATTERY)
+        assertTrue(batteryFile.lastModified() > future)
+
+        assertTrue(ssm.saveAutoResume(rom))
+        val autoResume = ssm.getCanonicalFile(rom, SaveStateFiles.AUTO_RESUME)
+        val stateTime = autoResume.lastModified()
+        assertTrue(stateTime > batteryFile.lastModified())
+
+        // Unchanged/no-op flush must not bump battery.sav past the newer resume state.
+        assertTrue(ssm.flushBatterySave(rom) is com.dualdex.emulator.storage.SaveWriteResult.Success)
+        assertTrue(batteryFile.lastModified() < stateTime)
+        assertEquals(SaveStateFiles.AUTO_RESUME, ssm.loadNewestResumeState(rom))
+
+        // Later changed battery flush without a subsequent state write must outrank the older state.
+        val newerSram = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 0x22 }
+        bridge.currentSramBytes = newerSram
+        assertTrue(ssm.flushBatterySave(rom) is com.dualdex.emulator.storage.SaveWriteResult.Success)
+        assertTrue(batteryFile.lastModified() > stateTime)
+        assertEquals(0L, batteryFile.lastModified() % 1000L)
+
+        // Restart without writing any new state must not load the older state over the newer battery save.
+        val restarted = SaveStateManager(customBaseDir = dir, coreBridge = bridge)
+        restarted.setActiveGame(rom)
+        assertNull(restarted.loadNewestResumeState(rom))
+        assertArrayEquals(newerSram, restarted.getCanonicalFile(rom, SaveStateFiles.BATTERY).readBytes())
+    }
+
+    @Test
     fun failedBarrierPublicationPreservesFutureMarkerAndAutoResumeBytes() {
         val future = System.currentTimeMillis() + 7 * 86400000L
         val resume = state(SaveStateFiles.AUTO_RESUME, future)

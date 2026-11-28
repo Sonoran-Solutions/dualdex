@@ -80,11 +80,11 @@ secrets are not included here. Account authorization is no longer the blocker.
 | One valid retry after GMS's new-session event; expect cloud acceptance | SOURCE `onCreate` → measurement `onFullBackup flags=1 quota=26214400 call=1` returned → streaming `call=2`, same flags/quota, returned; 794,112 bytes reported transferred | Package Success / aggregate Success; command exit 0 | PASS for scoped GMS backup acceptance only; usable remote baseline still requires TARGET recovery |
 | Separate untouched TARGET restores observed SOURCE token; expect all eight staged path/hashes and no canonical writes | `restoreStarting: 1 packages`; monitor `PM_AGENT_HAS_NO_METADATA` for `@pm@`; `restoreFinished: -1000`; zero app restore callbacks | No application package result; aggregate restore -1000; shell exit 0 | BLOCKED baseline: no application data recovered; **not a retention FAIL** |
 
-The actual SOURCE dataset token `386db8add52d6f95` was the sole listed token on
+The actual SOURCE dataset token `<SOURCE_TOKEN>` was the sole listed token on
 both environments after accepted backup. It was selected explicitly on TARGET:
 
 ```bash
-adb -s emulator-5582 shell bmgr restore 386db8add52d6f95   com.dualdex.backupacceptance --monitor
+adb -s emulator-5582 shell bmgr restore <SOURCE_TOKEN> com.dualdex.backupacceptance --monitor
 ```
 
 TARGET GMS attempted encrypted `@pm@` recovery but logged `Could not retrieve key`

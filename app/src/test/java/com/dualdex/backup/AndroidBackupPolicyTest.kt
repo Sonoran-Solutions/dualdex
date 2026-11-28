@@ -169,12 +169,18 @@ class AndroidBackupPolicyTest {
 
     @Test
     fun manifestBackupReferencesResolveToRealRuleResources() {
-        val document = parse(File(root, "app/src/main/AndroidManifest.xml"))
+        val manifestFile = File(root, "app/src/main/AndroidManifest.xml")
+        val rawManifest = manifestFile.readText()
+        val document = parse(rawManifest)
         val application = document.getElementsByTagName("application").item(0) as Element
         val android = "http://schemas.android.com/apk/res/android"
         assertEquals("true", application.getAttributeNS(android, "allowBackup"))
         assertEquals("@xml/backup_rules", application.getAttributeNS(android, "fullBackupContent"))
         assertEquals("@xml/data_extraction_rules", application.getAttributeNS(android, "dataExtractionRules"))
+        assertFalse(application.hasAttributeNS(android, "backupAgent"))
+        assertFalse(application.hasAttribute("android:backupAgent"))
+        assertFalse(rawManifest.contains("backupAgent"))
+        assertFalse(rawManifest.contains("QuotaAwareBackupAgent"))
         assertTrue(File(root, "app/src/main/res/xml/backup_rules.xml").isFile)
         assertTrue(File(root, "app/src/main/res/xml/data_extraction_rules.xml").isFile)
     }

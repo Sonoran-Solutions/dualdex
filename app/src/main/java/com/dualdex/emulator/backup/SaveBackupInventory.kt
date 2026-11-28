@@ -43,9 +43,10 @@ class SaveBackupInventory(private val filesDir: File) {
                         if (Files.isSymbolicLink(dir)) {
                             complete = false; problems += "symbolic link in save tree"; return FileVisitResult.SKIP_SUBTREE
                         }
-                        val rel = relative(dir)
-                        if (rootName == "saves_v2" && dir.toAbsolutePath().normalize() != rootPath && !rel.contains('/')) {
-                            if (rel.matches(Regex("[0-9a-fA-F]{64}"))) identities += rel.lowercase()
+                        val normalizedDir = dir.toAbsolutePath().normalize()
+                        val relToRoot = rootPath.relativize(normalizedDir).toString().replace(File.separatorChar, '/')
+                        if (rootName == "saves_v2" && normalizedDir != rootPath && !relToRoot.contains('/')) {
+                            if (relToRoot.matches(Regex("[0-9a-fA-F]{64}"))) identities += relToRoot.lowercase()
                             else { complete = false; problems += "invalid ROM identity directory" }
                         }
                         return FileVisitResult.CONTINUE
@@ -145,6 +146,8 @@ class SaveBackupInventory(private val filesDir: File) {
         QuotaBackupSelection.SourceStamp(relative, total, expectedModified, digest.digest().joinToString("") { "%02x".format(it) })
     }.getOrNull()
 
-    private fun isSaveLike(path: String): Boolean = path.endsWith(".sav", true) || path.endsWith(".state", true) || path == "metadata.json"
+    private fun isSaveLike(path: String): Boolean =
+        path.endsWith(".sav", true) || path.endsWith(".state", true) ||
+            path == "metadata.json" || path.endsWith("/metadata.json")
     private fun String.endsWithAny(vararg endings: String) = endings.any { endsWith(it, true) }
 }

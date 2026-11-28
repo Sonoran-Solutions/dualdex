@@ -10,12 +10,51 @@ import subprocess
 import sys
 import time
 
+import xml.etree.ElementTree as ET
+
 if not __debug__:
     raise SystemExit('Run without Python optimization: APK and result assertions must stay enabled')
 
 PACKAGE = 'com.dualdex.backupacceptance'
 INSTRUMENT = PACKAGE + '/com.dualdex.acceptance.AcceptanceInstrumentation'
 REPO = Path(__file__).resolve().parents[2]
+
+
+def validate_args(args):
+    if args.retention_matrix and (args.transport != 'local' or args.baseline_only):
+        raise ValueError('--retention-matrix requires --transport local without --baseline-only')
+    if args.transport == 'd2d-test' and not args.baseline_only:
+        raise ValueError('--transport d2d-test requires --baseline-only (retention experiments on D2D are unsupported)')
+
+
+def verify_acceptance_manifest(manifest_xml):
+    ns = '{http://schemas.android.com/apk/res/android}'
+    m = ET.fromstring(manifest_xml)
+    app = m.find('application')
+    ins = m.find('instrumentation')
+    assert m.get('package') == PACKAGE, 'Refusing to install any other package'
+    assert app is not None and app.get(ns + 'testOnly') == 'true'
+    assert app.get(ns + 'fullBackupOnly') == 'true'
+    assert app.get(ns + 'backupAgent') == 'com.dualdex.acceptance.ObservedBackupAgent'
+    assert ins is not None and ins.get(ns + 'targetPackage') == PACKAGE
+    return app
+
+
+def logcat_delta(before_lines, after_lines):
+    if len(after_lines) >= len(before_lines) and after_lines[:len(before_lines)] == before_lines:
+        return '\n'.join(after_lines[len(before_lines):])
+    raise RuntimeError('DualDexAcceptance logcat buffer changed unexpectedly during backup refusal check')
+
+
+def verify_intended_refusal(backup_text, log_text):
+    result = backup_result(backup_text)
+    if result['package'] == 'Success':
+        raise RuntimeError('Malformed metadata unexpectedly backed up successfully')
+    if 'callback onFullBackup aborted IOException: Essential save coverage unavailable' not in log_text:
+        raise RuntimeError('Missing agent refusal callback for malformed metadata')
+    if 'callback onFullBackup returned' in log_text:
+        raise RuntimeError('Agent backup callback unexpectedly returned normally during refusal')
+    return result
 
 
 def require_disposable(serial, qemu, expected, actual, reset=False, allow_reset=False):
@@ -59,8 +98,10 @@ def main():
     p.add_argument('--baseline-only', action='store_true', help='Verify a transport round trip without a later failure experiment')
     p.add_argument('--cleanup', action='store_true', help='Uninstall only the synthetic test package after testing')
     a = p.parse_args()
-    if a.retention_matrix and (a.transport != 'local' or a.baseline_only):
-        p.error('--retention-matrix requires --transport local without --baseline-only')
+    try:
+        validate_args(a)
+    except ValueError as e:
+        p.error(str(e))
     out = a.output.resolve()
     if out == REPO or REPO in out.parents:
         p.error('Evidence must remain outside the repository')
@@ -69,14 +110,8 @@ def main():
     adb = str(sdk/'platform-tools/adb')
     apk = a.apk.resolve()
     manifest = subprocess.check_output([str(sdk/'cmdline-tools/latest/bin/apkanalyzer'), 'manifest', 'print', str(apk)], text=True)
-    import xml.etree.ElementTree as ET
     ns = '{http://schemas.android.com/apk/res/android}'
-    m = ET.fromstring(manifest); app = m.find('application'); ins = m.find('instrumentation')
-    assert m.get('package') == PACKAGE, 'Refusing to install any other package'
-    assert app is not None and app.get(ns+'testOnly') == 'true'
-    assert app.get(ns+'fullBackupOnly') == 'true'
-    assert app.get(ns+'backupAgent') == 'com.dualdex.acceptance.ObservedBackupAgent'
-    assert ins is not None and ins.get(ns+'targetPackage') == PACKAGE
+    app = verify_acceptance_manifest(manifest)
     (out/'merged-manifest.xml').write_text(manifest)
     commands=[]
     def run(*args, timeout=120, allow_failure=False):
@@ -142,9 +177,12 @@ def main():
             if a.transport=='local': run('shell','settings','put','secure','backup_local_transport_parameters','is_encrypted=true')
             run('shell','bmgr','run'); time.sleep(3)
             run('shell','logcat','-c')
-            def capture_transport(label):
+            def verify_selected_transport():
                 current=run('shell','bmgr','list','transports')
                 assert re.search(r'^\s*\*\s+'+re.escape(transport)+r'\s*$',current,re.M), 'Unexpected selected transport'
+                return current
+            def capture_transport(label):
+                current=verify_selected_transport()
                 sets=run('shell','bmgr','list','sets')
                 (out/(label+'-transport.json')).write_text(json.dumps({'selected':transport,'list':current,'sets':sets},indent=2))
                 return restore_tokens(sets)
@@ -157,10 +195,21 @@ def main():
                     state={'exists':True,'size':int(size.strip()),'sha256':run('shell','sha256sum',archive).split()[0]}
                 (out/(label+'-archive.json')).write_text(json.dumps(state,indent=2))
             def backup(label):
+                verify_selected_transport()
                 text=run('shell','bmgr','backupnow',PACKAGE,timeout=180)
                 (out/(label+'-backup.txt')).write_text(text)
                 if a.retention_matrix: archive_probe(label)
                 result=backup_result(text)
+                (out/(label+'-result.json')).write_text(json.dumps(result,indent=2))
+                return result
+            def backup_refusal(label):
+                verify_selected_transport()
+                before_log=run('shell','logcat','-d','-s','DualDexAcceptance:I','*:S').splitlines()
+                text=run('shell','bmgr','backupnow',PACKAGE,timeout=180)
+                (out/(label+'-backup.txt')).write_text(text)
+                after_log=run('shell','logcat','-d','-s','DualDexAcceptance:I','*:S').splitlines()
+                if a.retention_matrix: archive_probe(label)
+                result=verify_intended_refusal(text, logcat_delta(before_log, after_log))
                 (out/(label+'-result.json')).write_text(json.dumps(result,indent=2))
                 return result
             def restore(label, clear=True):
@@ -212,7 +261,7 @@ def main():
                 assert capture_transport('C-baseline')==token
                 # No restore of C's baseline before refusal: removes restore-as-cause ambiguity.
                 instrument('seed','malformed')
-                refused=backup('C-refused'); assert refused['package']!='Success'
+                refused=backup_refusal('C-refused')
                 assert capture_transport('C-refused')==token
                 after=restore('C-after-refusal')
                 results['C-before-emission']={'retention':'PASS' if after==expected else 'FAIL','expected':expected,'recovered':after,'backupResult':refused,'token':token}
@@ -244,11 +293,10 @@ def main():
                 (out/'transport-result.json').write_text(json.dumps({'transport':transport,'baselineHashes':baseline,'baselineStatus':'PASS','previousDatasetRetention':'NOT_RUN','remoteCloudPreservation':'NOT_RUN','realTwoDeviceTransfer':'NOT_RUN'},indent=2))
                 return
             instrument('seed','malformed')
-            failed=run('shell','bmgr','backupnow',PACKAGE,timeout=180)
-            (out/'backup-refused.txt').write_text(failed)
-            if f'Package {PACKAGE} with result: Success' in failed: raise RuntimeError('Malformed metadata unexpectedly backed up successfully')
+            refused=backup_refusal('refused')
+            (out/'backup-refused.txt').write_text((out/'refused-backup.txt').read_text())
             recovered=restore('after-refusal')
-            (out/'transport-result.json').write_text(json.dumps({'transport':transport,'baselineHashes':baseline,'afterRefusalHashes':recovered,
+            (out/'transport-result.json').write_text(json.dumps({'transport':transport,'baselineHashes':baseline,'afterRefusalHashes':recovered,'backupResult':refused,
                 'previousDatasetRetention':'PASS' if recovered==baseline else 'FAIL','localOrSingleDeviceOnly':True,'remoteCloudPreservation':'NOT_RUN','realTwoDeviceTransfer':'NOT_RUN'},indent=2))
             assert recovered==baseline, 'Earlier local/test-transport dataset changed after refusal'
             print('Transport round-trip and earlier test dataset retention passed; remote cloud and real D2D NOT_RUN',flush=True)

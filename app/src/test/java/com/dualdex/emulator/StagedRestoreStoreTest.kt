@@ -302,7 +302,7 @@ class StagedRestoreStoreTest {
         assertFalse(File(root, "saves/SameTitle.sav").exists())
     }
 
-    @Test fun evenAnEmptyLocalFileRequiresExplicitReplacement() {
+    @Test fun evenAnEmptyLocalFileRequiresExplicitReplacementAndRemainsReviewable() {
         ready()
         val local = put(root, path, "")
         val review = review()
@@ -310,6 +310,28 @@ class StagedRestoreStoreTest {
         assertEquals(0L, local.length())
         assertEquals(IMPORTED, store.import(review, REPLACE_LOCAL))
         assertEquals("restored", local.readText())
+        val reopened = StagedRestoreStore(root).review().single { it.retainedLocal }
+        assertNull(reopened.error)
+        val retainedEntry = reopened.entries.single()
+        assertEquals(path, retainedEntry.source.path)
+        assertEquals(0L, retainedEntry.source.version.size)
+        assertEquals(0, File(root, "restore_staging/${reopened.id}/$path").readBytes().size)
+    }
+
+    @Test fun malformedLocalMetadataReplacementRemainsReviewableUnderRetainedLocalPolicy() {
+        val metaPath = "saves_v2/$hash/metadata.json"
+        val validMeta = """{"sha256":"$hash","displayName":"Clean"}"""
+        ready(text = validMeta, target = metaPath)
+        val local = put(root, metaPath, "{")
+        assertEquals(IMPORTED, store.import(review(metaPath), REPLACE_LOCAL))
+        assertEquals(validMeta, local.readText())
+
+        val reopened = StagedRestoreStore(root).review().single { it.retainedLocal }
+        assertNull(reopened.error)
+        val retainedEntry = reopened.entries.single()
+        assertEquals(metaPath, retainedEntry.source.path)
+        assertEquals("{", File(root, "restore_staging/${reopened.id}/$metaPath").readText())
+        assertEquals("Restored game", retainedEntry.source.title)
     }
 
     @Test fun cloudMutationAtCommitBoundaryCannotChangeLocal() {

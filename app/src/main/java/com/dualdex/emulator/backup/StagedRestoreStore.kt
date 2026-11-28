@@ -46,14 +46,15 @@ class StagedRestoreStore(private val filesRoot: File) {
             .filter { it.name.matches(READY) }.sortedBy { it.name }.map { session ->
                 try {
                     requireSafe(filesRoot, session)
-                    val entries = inventory(session).map { source ->
+                    val retainedLocal = session.name.startsWith("ready-local-")
+                    val entries = inventory(session, retainedLocal).map { source ->
                         val local = source.target?.let { relative ->
                             val target = targetFile(relative)
                             AtomicSaveFile.version(target, BackupFileTreePolicy.MAX_D2D_FILE_BYTES)
                         }
                         Review(session.name, source, local)
                     }
-                    Session(session.name, session.name.startsWith("ready-local-"), entries)
+                    Session(session.name, retainedLocal, entries)
                 } catch (_: Exception) {
                     Session(session.name, session.name.startsWith("ready-local-"), emptyList(),
                         "This restored set could not be validated. It remains in private storage; no saves were changed.")
@@ -69,7 +70,8 @@ class StagedRestoreStore(private val filesRoot: File) {
             if (!review.session.matches(READY)) return Result.FAILED
             val session = File(staging, review.session)
             requireSafe(filesRoot, session)
-            val source = inventory(session).singleOrNull { it.path == review.source.path } ?: return Result.REVIEW_AGAIN
+            val source = inventory(session, session.name.startsWith("ready-local-"))
+                .singleOrNull { it.path == review.source.path } ?: return Result.REVIEW_AGAIN
             if (source != review.source) return Result.REVIEW_AGAIN
             val relative = source.target ?: return Result.FAILED
             val target = targetFile(relative)
@@ -138,7 +140,7 @@ class StagedRestoreStore(private val filesRoot: File) {
         }
     }
 
-    private fun inventory(session: File): List<Source> {
+    private fun inventory(session: File, retainedLocal: Boolean = false): List<Source> {
         requireSafe(filesRoot, session)
         val paths = mutableListOf<String>()
         Files.walkFileTree(session.toPath(), object : java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
@@ -154,6 +156,23 @@ class StagedRestoreStore(private val filesRoot: File) {
             }
         })
         if (paths.isEmpty()) throw IOException("Empty restore")
+        if (retainedLocal) {
+            if (QuotaBackupSelection.CLOUD_SNAPSHOT_PATH in paths) throw IOException("Unexpected cloud snapshot in retained local copy")
+            var totalBytes = 0L
+            return paths.sorted().map { relativePath ->
+                if (!BackupFileTreePolicy.isAllowedPath(relativePath, directory = false) || relativePath.startsWith("sharedpref/")) {
+                    throw IOException("Unapproved retained local data")
+                }
+                val file = File(session, relativePath).also { requireSafe(session, it) }
+                val version = AtomicSaveFile.version(file, BackupFileTreePolicy.MAX_D2D_FILE_BYTES)
+                    ?: throw IOException("Missing retained file")
+                if (version.size > BackupFileTreePolicy.MAX_D2D_STAGING_BYTES - totalBytes) {
+                    throw IOException("Retained local data exceeds limit")
+                }
+                totalBytes += version.size
+                sourceForFile(session, relativePath, file, version, tolerateInvalidMetadata = true)
+            }
+        }
         if (QuotaBackupSelection.CLOUD_SNAPSHOT_PATH in paths) {
             if (paths.size != 1) throw IOException("Mixed restore formats")
             val archive = File(session, paths.single())
@@ -176,19 +195,37 @@ class StagedRestoreStore(private val filesRoot: File) {
         val files = BackupFileTreePolicy.collect(session, File(session, BackupFileTreePolicy.LEGACY_CATALOG_PATH))
         if (files.map { it.relativePath }.toSet() != paths.toSet()) throw IOException("Unapproved restored data")
         return files.map { entry ->
-            val parts = entry.relativePath.split('/')
-            val hash = parts.getOrNull(1)?.lowercase()?.takeIf { parts[0] == "saves_v2" }
-            val metadata = hash?.let { File(session, "saves_v2/${parts[1]}/metadata.json") }
-            val title = if (metadata?.isFile == true) metadataTitle(metadata.inputStream(), BackupFileTreePolicy.MAX_METADATA_BYTES) else null
-            val target = when {
-                entry.relativePath == BackupFileTreePolicy.LEGACY_CATALOG_PATH -> null // Absolute-path assignment keys are not portable authority.
-                hash != null && parts.size == 3 && parts.last() == "resume_barrier" -> null // Managed by the local import transaction.
-                hash != null -> (listOf("saves_v2", hash) + parts.drop(2)).joinToString("/")
-                else -> entry.relativePath // Legacy files remain unassigned in their original recovery locations.
-            }
-            Source(entry.relativePath, target, hash, title?.take(160) ?: if (hash == null) "Unassigned legacy data" else "Restored game",
-                AtomicSaveFile.version(entry.file, BackupFileTreePolicy.MAX_D2D_FILE_BYTES) ?: throw IOException("Missing restored file"))
+            val version = AtomicSaveFile.version(entry.file, BackupFileTreePolicy.MAX_D2D_FILE_BYTES)
+                ?: throw IOException("Missing restored file")
+            sourceForFile(session, entry.relativePath, entry.file, version, tolerateInvalidMetadata = false)
         }
+    }
+
+    private fun sourceForFile(
+        session: File,
+        relativePath: String,
+        file: File,
+        version: AtomicSaveFile.Version,
+        tolerateInvalidMetadata: Boolean
+    ): Source {
+        val parts = relativePath.split('/')
+        val hash = parts.getOrNull(1)?.lowercase()?.takeIf { parts[0] == "saves_v2" }
+        val metadata = hash?.let { File(session, "saves_v2/${parts[1]}/metadata.json") }
+        val title = if (metadata?.isFile == true && (!tolerateInvalidMetadata || metadata.length() <= BackupFileTreePolicy.MAX_METADATA_BYTES)) {
+            if (tolerateInvalidMetadata) runCatching { metadataTitle(metadata.inputStream(), BackupFileTreePolicy.MAX_METADATA_BYTES) }.getOrNull()
+            else metadataTitle(metadata.inputStream(), BackupFileTreePolicy.MAX_METADATA_BYTES)
+        } else null
+        val target = when {
+            relativePath == BackupFileTreePolicy.LEGACY_CATALOG_PATH -> null // Absolute-path assignment keys are not portable authority.
+            hash != null && parts.size == 3 && parts.last() == "resume_barrier" -> null // Managed by the local import transaction.
+            hash != null -> (listOf("saves_v2", hash) + parts.drop(2)).joinToString("/")
+            else -> relativePath // Legacy files remain unassigned in their original recovery locations.
+        }
+        return Source(
+            relativePath, target, hash,
+            title?.take(160) ?: if (hash == null) "Unassigned legacy data" else "Restored game",
+            version
+        )
     }
 
     private fun metadataTitle(input: InputStream, limit: Long): String? = input.use {

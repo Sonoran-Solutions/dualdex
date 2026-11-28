@@ -69,6 +69,21 @@ class CloudBackupFailureTest {
         assertFalse(File(files, QuotaBackupSelection.CLOUD_SNAPSHOT_PATH).exists())
     }
 
+    @Test fun twoRomDirectoriesWhereSecondHasOnlyRecoveryBakRefusesWithoutEmitting() {
+        validSources()
+        val secondHash = "b".repeat(64)
+        val secondDir = File(files, "saves_v2/$secondHash").apply { mkdirs() }
+        File(secondDir, "battery.sav.bak").writeText("recovery backup only")
+        val inventory = SaveBackupInventory(files).scan()
+        assertEquals(setOf(hash, secondHash), inventory.identities)
+        val selection = QuotaBackupSelection.select(
+            inventory.identities, inventory.candidates, inventory.complete, QuotaBackupSelection.DEFAULT_BUDGET_BYTES
+        )
+        assertEquals(QuotaBackupSelection.Verdict.REFUSAL, selection.verdict)
+        assertEquals(setOf(secondHash), selection.unprotectedRomIdentities)
+        refuse()
+    }
+
     @Test fun successRequiresEmissionOfACompleteValidatedArchive() {
         validSources()
         val verdict = QuotaAwareBackupAgent.emitCloudSnapshot(files, cache,

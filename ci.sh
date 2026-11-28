@@ -709,6 +709,38 @@ gradle_build() {
   echo "== gradle assembleDebug =="
   init_submodules
   ./gradlew assembleDebug
+  verify_ordinary_debug_manifest
+}
+
+verify_ordinary_debug_manifest() {
+  local merged_manifest=""
+  local candidate
+  for candidate in \
+    app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml \
+    app/build/intermediates/merged_manifest/debug/AndroidManifest.xml \
+    app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml \
+    app/build/intermediates/merged_manifests/debug/AndroidManifest.xml; do
+    if [ -f "$candidate" ]; then
+      merged_manifest="$candidate"
+      break
+    fi
+  done
+  if [ -z "$merged_manifest" ]; then
+    echo "error: merged ordinary debug AndroidManifest.xml not found after assembleDebug" >&2
+    return 1
+  fi
+  python3 - "$merged_manifest" <<'PY'
+import sys, xml.etree.ElementTree as ET
+path = sys.argv[1]
+raw = open(path, encoding='utf-8').read()
+root = ET.fromstring(raw)
+app = root.find('application')
+ns = '{http://schemas.android.com/apk/res/android}'
+if root.get('package') != 'com.dualdex' or app is None:
+    raise SystemExit(f'error: unexpected package or missing <application> in {path}')
+if app.get(ns + 'backupAgent') is not None or 'backupAgent' in raw or 'QuotaAwareBackupAgent' in raw:
+    raise SystemExit(f'error: ordinary debug manifest {path} must not declare android:backupAgent')
+PY
 }
 
 gradle_release() {

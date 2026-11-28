@@ -250,15 +250,31 @@ open class SaveStateManager(
         return false
     }
 
+    /** Commits [stagingFile] to [canonicalFile] with a monotonic whole-second timestamp above existing states, barriers, and battery saves. */
+    private fun commitOrderedFromStaging(stagingFile: File, canonicalFile: File): Boolean {
+        val timestamp = try {
+            SaveStateFiles.nextStateTimestamp(checkNotNull(canonicalFile.parentFile))
+        } catch (failure: IOException) {
+            Log.e(TAG, "Cannot order save file safely", failure)
+            return false
+        }
+        return AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile, timestamp)
+    }
+
+    /** Commits changed SRAM to [canonicalFile] monotonically; unchanged bytes are skipped so no-op flushes do not suppress newer states. */
+    private fun commitBatteryIfChanged(stagingFile: File, canonicalFile: File): Boolean {
+        val unchanged = canonicalFile.isFile && canonicalFile.length() == stagingFile.length() &&
+            canonicalFile.readBytes().contentEquals(stagingFile.readBytes())
+        return unchanged || commitOrderedFromStaging(stagingFile, canonicalFile)
+    }
+
     /** Serializes the core into [fileName] via staging; the previous file is kept as `.bak` by [AtomicSaveFile]. */
     private fun writeState(identity: RomIdentity, fileName: String): File? {
         val stagingFile = getStagingFile(identity, fileName)
         val ok = nativeSaveState(stagingFile.absolutePath)
         if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) return null
         val canonicalFile = getCanonicalFile(identity, fileName)
-        val timestamp = try { SaveStateFiles.nextStateTimestamp(checkNotNull(canonicalFile.parentFile)) }
-            catch (failure: IOException) { Log.e(TAG, "Cannot order new state safely", failure); return null }
-        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it, timestamp) }
+        return canonicalFile.takeIf { commitOrderedFromStaging(stagingFile, it) }
     }
 
     /**
@@ -566,11 +582,7 @@ open class SaveStateManager(
         }
 
         val canonicalFile = getCanonicalFile(identity, "battery.sav")
-        // Unchanged SRAM is not rewritten: a no-op flush (e.g. onDestroy after onPause) must not bump
-        // battery.sav's mtime past the resume state written in between, or the next boot rejects it as stale.
-        val unchanged = canonicalFile.isFile && canonicalFile.length() == stagingFile.length() &&
-            canonicalFile.readBytes().contentEquals(stagingFile.readBytes())
-        val committed = unchanged || AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        val committed = commitBatteryIfChanged(stagingFile, canonicalFile)
         if (!committed) {
             Log.e(TAG, "Atomic commit to canonical battery.sav failed")
             return SaveWriteResult.Failure("Canonical commit failed")
@@ -717,7 +729,7 @@ open class SaveStateManager(
 
             // 2. Commit newly captured SRAM to canonical internal store
             val canonicalFile = getCanonicalFile(identity, "battery.sav")
-            val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+            val committed = commitBatteryIfChanged(stagingFile, canonicalFile)
             if (!committed || !canonicalFile.exists() || canonicalFile.length() == 0L) {
                 Log.e(TAG, "Export aborted: failed to commit fresh SRAM to canonical store")
                 return false

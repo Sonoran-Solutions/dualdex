@@ -261,11 +261,14 @@ open class SaveStateManager(
             }
             val sourceExcluded = AtomicSaveFile.isAutoLoadExcluded(file)
             val isStateFile = file.name.endsWith(".state")
+            val isFreshnessAnchor = file.name == SaveStateFiles.BATTERY ||
+                file.name == SaveStateFiles.RESUME_BARRIER
             if (AtomicSaveFile.copyFromStaging(
                     stagingFile = file,
                     targetFile = target,
                     markAutoLoadExcluded = sourceExcluded,
-                    preserveSourceTimestampForAutoLoad = isStateFile
+                    preserveSourceTimestampForAutoLoad = isStateFile,
+                    preserveSourceTimestamp = isFreshnessAnchor
                 )
             ) {
                 migratedAny = true

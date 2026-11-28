@@ -1379,6 +1379,62 @@ class RetroAchievementsTest {
     }
 
     @Test
+    fun migratingOlderBatteryBarrierAndNewerStateTogetherPreservesBootResumeSelection() {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_legacy_together_").toFile()
+        try {
+            val romFile = File(tempRoot, "romMigrateTogether.gba").apply { writeBytes(ByteArray(4096) { 0x6F }) }
+            val identity = RomIdentity.fromFile(romFile, "Rom Migrate Together")
+            val savesDir = File(tempRoot, "saves")
+            val oldDir = File(File(savesDir, "saves_fallback"), identity.legacyStorageKey).apply { mkdirs() }
+
+            val now = System.currentTimeMillis()
+            val barrierMtime = ((now - 600_000L) / 1000L) * 1000L
+            val batteryMtime = ((now - 300_000L) / 1000L) * 1000L
+            val newerStateMtime = ((now - 60_000L) / 1000L) * 1000L
+
+            val oldBatteryBytes = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 0x21 }
+            val newerResumeBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x63 }
+
+            File(oldDir, SaveStateFiles.RESUME_BARRIER).apply {
+                writeText(barrierMtime.toString())
+                setLastModified(barrierMtime)
+            }
+            File(oldDir, SaveStateFiles.BATTERY).apply {
+                writeBytes(oldBatteryBytes)
+                setLastModified(batteryMtime)
+            }
+            File(oldDir, SaveStateFiles.AUTO_RESUME).apply {
+                writeBytes(newerResumeBytes)
+                setLastModified(newerStateMtime)
+            }
+
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = savesDir, customCoordinator = core)
+            assertTrue(core.loadVerifiedRom(romFile.absolutePath, identity))
+            ssm.setActiveGame(identity)
+
+            val canonicalBarrier = ssm.getCanonicalFile(identity, SaveStateFiles.RESUME_BARRIER)
+            val canonicalBattery = ssm.getCanonicalFile(identity, SaveStateFiles.BATTERY)
+            val canonicalAuto = ssm.getCanonicalFile(identity, SaveStateFiles.AUTO_RESUME)
+            assertEquals(barrierMtime, canonicalBarrier.lastModified())
+            assertEquals(batteryMtime, canonicalBattery.lastModified())
+            assertEquals(newerStateMtime, canonicalAuto.lastModified())
+            assertFalse(AtomicSaveFile.isAutoLoadExcluded(canonicalAuto))
+
+            assertEquals(
+                "Migrating an older battery + barrier alongside a newer unmarked state must preserve boot resume",
+                SaveStateFiles.AUTO_RESUME,
+                ssm.loadNewestResumeState(identity)
+            )
+            assertEquals(1, bridge.loadedStates.size)
+            assertArrayEquals(newerResumeBytes, bridge.loadedStates.single())
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
     fun legacyMigrationRejectsInternalSidecarsAndPreservesAutoLoadExclusion() {
         val tempRoot = Files.createTempDirectory("dualdex_ra_legacy_sidecar_").toFile()
         try {

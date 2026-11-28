@@ -275,7 +275,8 @@ object AtomicSaveFile {
         targetFile: File,
         markAutoLoadExcluded: Boolean = false,
         expectedPriorSize: Long? = null,
-        preserveSourceTimestampForAutoLoad: Boolean = false
+        preserveSourceTimestampForAutoLoad: Boolean = false,
+        preserveSourceTimestamp: Boolean = false
     ): Boolean {
         if (!stagingFile.exists() || stagingFile.length() == 0L) {
             Log.e(TAG, "Staging file missing or empty: ${stagingFile.absolutePath}")
@@ -351,6 +352,13 @@ object AtomicSaveFile {
                         clearAutoLoadExcluded(targetFile)
                     }
                 } else {
+                    if (preserveSourceTimestamp && sourceMtime > 0L) {
+                        val timestampPreserved = applyLastModified(targetFile, sourceMtime) &&
+                            targetFile.lastModified() == sourceMtime
+                        if (!timestampPreserved) {
+                            Log.w(TAG, "Could not verify original timestamp ($sourceMtime) for ${targetFile.name}")
+                        }
+                    }
                     clearAutoLoadExcluded(targetFile)
                 }
                 return true

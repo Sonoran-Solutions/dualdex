@@ -336,6 +336,20 @@ typedef struct {
     uint32_t save_block3_ptr_gba_address;    // absolute GBA address of `gSaveBlock3Ptr`, 0 = unavailable
     uint32_t save_block3_base_gba_address;   // absolute GBA address of the compiled `gSaveblock3`
 
+    // Exact-build PC storage. No pointer declaration means no reads.
+    uint32_t pokemon_storage_ptr_gba_address;  // gPokemonStoragePtr in IWRAM
+    uint32_t pokemon_storage_base_gba_address; // compiled gPokemonStorage in EWRAM
+    uint32_t pokemon_storage_aslr_range;       // 4-byte aligned window, including offset zero
+    uint32_t pokemon_storage_size;             // sizeof(struct PokemonStorage), without ASLR padding
+    uint32_t pc_box_current_offset;            // offset of the current box byte
+    uint32_t pc_box_mons_offset;               // offset of boxes[0][0]
+    uint8_t  pc_box_count;
+    uint8_t  pc_box_slots;
+    uint8_t  pc_box_mon_stride;
+    uint32_t pc_box_species_info_gba_address;  // ROM gSpeciesInfo (rev 0)
+    uint32_t pc_box_species_dex_gba_address;   // ROM sSpeciesToNationalPokedexNum (rev 0)
+    uint32_t pc_box_rev1_rom_shift;            // shift of both ROM tables in an admitted rev 1
+
     PokemonStorageLayout storage_layout;     // which BoxPokemon bit layout to parse
     PartyDiscoveryPolicy player_party_policy;// Discovery policy: authoritative static vs heuristic
 
@@ -403,6 +417,40 @@ void pokemon_reader_reset(void);
  * own, so an unknown ROM can never be interpreted through an arbitrary supported layout.
  */
 const GameMemoryConfig* pokemon_get_game_config(GbaGameId game_id);
+
+#define DUALDEX_PC_BOX_MAX_SLOTS 30
+
+typedef enum {
+    PC_BOX_UNSUPPORTED = 0,
+    PC_BOX_UNREADABLE = 1,
+    PC_BOX_AVAILABLE = 2
+} PcBoxAvailability;
+
+typedef struct {
+    ParsedPokemon mon;
+    uint16_t national_dex; // 0 if unknown
+    int8_t ability_id;    // -1 if unknown, 0 if the selected ability is None
+    int8_t growth_rate;   // -1 if unknown
+} PcBoxRawSlot;
+
+typedef struct {
+    uint8_t box_index;
+    uint8_t box_count;
+    uint8_t current_box;
+    uint8_t slot_count;
+    PcBoxRawSlot slots[DUALDEX_PC_BOX_MAX_SLOTS];
+} PcBoxRawSnapshot;
+
+/**
+ * Read exactly one box through the supplied read-only address map. A negative index of -1
+ * selects the game's current box. Callers must hold the core lock and verify the loaded ROM.
+ * A successful snapshot preserves physical slot indices. Empty and invalid records have species 0.
+ * Box records carry no party level/stats; optional ROM lookups supply dex, ability and growth rate.
+ * On failure, the output is cleared.
+ */
+PcBoxAvailability pokemon_read_pc_box_gba(
+    DualDexGbaReadFn read, void* user, GbaGameId game_id, int box_index, PcBoxRawSnapshot* out
+);
 
 /**
  * Parse the active player party from a 256 KB EWRAM buffer.

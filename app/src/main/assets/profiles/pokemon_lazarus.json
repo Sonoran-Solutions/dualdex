@@ -1,0 +1,23 @@
+{
+  "id": "pokemon_lazarus",
+  "name": "Pokemon Lazarus",
+  "baseGame": "Emerald",
+  "gameId": 0,
+  "developer": "Nemo622",
+  "engine": "pokeemerald-expansion",
+  "hasEvs": true,
+  "hasIvs": true,
+  "hasPhysSpecSplit": true,
+  "steelResistsGhostDark": false,
+  "cfruOffsets": false,
+  "playerPartyOffset": 0,
+  "enemyPartyOffset": 0,
+  "docsUrl": null,
+  "headerTitles": ["POKEMONLAZARUS", "POKEMON LAZARUS", "LAZARUS"],
+  "sha256Hashes": [],
+  "isVerified": false,
+  "memoryLayoutVerified": false,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "modern"
+}

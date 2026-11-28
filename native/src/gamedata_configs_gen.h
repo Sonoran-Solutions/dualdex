@@ -23,6 +23,8 @@
  * CONFIG_EMERALD - gamedata/gen3/emerald.json
  *
  * Evidence:
+ *   - pret/pokeemerald symbols branch: pokeemerald.sym pins PC RAM symbols and both ROM tables; gPokemonStorage includes 0x80 bytes of ASLR padding.
+ *   - PC layout: include/pokemon_storage_system.h and include/pokemon.h (boxes aligned at +4); src/load_save.c SetSaveBlocksPointers uses aligned offsets 0..124.
  *   - pret/pokeemerald src/pokemon.c + sym_ewram.txt: gPlayerPartyCount 0x020244E9, gPlayerParty 0x020244EC.
  *   - pokeemerald src/pokemon.c:76-77 declares gPlayerPartyCount then gEnemyPartyCount as the first two EWRAM objects.
  *   - PR #70 layout audit: docs/VANILLA_CALCULATOR_EVIDENCE.md section 7; tools/calc-goldens/audit_vanilla_layout.py.
@@ -46,6 +48,17 @@ static const GameMemoryConfig CONFIG_EMERALD = {
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 0x28,
     .battle_mons_stat_stages_offset = 0x18,
+    .pokemon_storage_ptr_gba_address = 0x03005D94,
+    .pokemon_storage_base_gba_address = 0x02029808,
+    .pokemon_storage_aslr_range = 128,
+    .pokemon_storage_size = 33744,
+    .pc_box_current_offset = 0x0,
+    .pc_box_mons_offset = 0x4,
+    .pc_box_count = 14,
+    .pc_box_slots = 30,
+    .pc_box_mon_stride = 80,
+    .pc_box_species_info_gba_address = 0x083203CC,
+    .pc_box_species_dex_gba_address = 0x0831DC82,
     .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .has_evs = true,
     .has_ivs = true,
@@ -55,6 +68,8 @@ static const GameMemoryConfig CONFIG_EMERALD = {
  * CONFIG_FIRERED - gamedata/gen3/firered_rev0.json
  *
  * Evidence:
+ *   - pret/pokefirered symbols branch: pokefirered.sym and pokefirered_rev1.sym pin PC RAM symbols and both ROM tables.
+ *   - PC layout: include/pokemon_storage_system.h and include/pokemon.h (boxes aligned at +4); src/load_save.c SetSaveBlocksPointers uses aligned offsets 0..124.
  *   - pret/pokefirered src/pokemon.c + sym_ewram.txt: gPlayerPartyCount 0x02024029, gPlayerParty 0x02024284, gEnemyParty 0x0202402C.
  *   - pokefirered src/pokemon.c:59-60 declares gPlayerPartyCount then gEnemyPartyCount as the first two EWRAM objects.
  *   - PR #70 layout audit: docs/VANILLA_CALCULATOR_EVIDENCE.md section 7; tools/calc-goldens/audit_vanilla_layout.py.
@@ -79,6 +94,18 @@ static const GameMemoryConfig CONFIG_FIRERED = {
     .battle_mons_size = 88,
     .battle_mons_hp_offset = 0x28,
     .battle_mons_stat_stages_offset = 0x18,
+    .pokemon_storage_ptr_gba_address = 0x03005010,
+    .pokemon_storage_base_gba_address = 0x02029314,
+    .pokemon_storage_aslr_range = 128,
+    .pokemon_storage_size = 33744,
+    .pc_box_current_offset = 0x0,
+    .pc_box_mons_offset = 0x4,
+    .pc_box_count = 14,
+    .pc_box_slots = 30,
+    .pc_box_mon_stride = 80,
+    .pc_box_species_info_gba_address = 0x08254784,
+    .pc_box_species_dex_gba_address = 0x08251FEE,
+    .pc_box_rev1_rom_shift = 112,
     .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
     .has_evs = true,
     .has_ivs = true,
@@ -93,6 +120,7 @@ static const GameMemoryConfig CONFIG_FIRERED = {
  *   - Values migrated unchanged from native/src/pokemon_reader.c CONFIG_LEAFGREEN at 3d0a0e4.
  *
  * Notes:
+ *   PC boxes are disabled until the App has an exact-ROM LeafGreen profile.
  *   No exact LeafGreen symbol or runtime evidence is recorded, so party discovery stays heuristic.
  */
 static const GameMemoryConfig CONFIG_LEAFGREEN = {
@@ -168,6 +196,7 @@ static const GameMemoryConfig CONFIG_SAPPHIRE = {
  *   - app/src/main/assets/profiles/ghost_grey.json declares a HexManiacAdvance FireRed binary hack with no exact hash.
  *
  * Notes:
+ *   PC storage layout is unverified for this build.
  *   In-place FireRed binary hack: inherits the FireRed party addresses but declares no gBattleMons,
  *   so battle readers fail closed. The enemy count keeps the legacy 0x24028 value: the PR #70
  *   correction to 0x2402A was applied only to layouts with symbol evidence.
@@ -195,6 +224,7 @@ static const GameMemoryConfig CONFIG_GHOST_GREY = {
  *   - app/src/main/assets/profiles/radical_red.json declares a CFRU FireRed hack with no exact hash.
  *
  * Notes:
+ *   PC storage layout is unverified for this build.
  *   CFRU hack without exact-ROM evidence: storage is PKMN_STORAGE_CFRU_UNVERIFIED (never the exact
  *   Unbound semantics), no gBattleMons is declared and the enemy count keeps the legacy 0x24028 value.
  */
@@ -222,6 +252,7 @@ static const GameMemoryConfig CONFIG_RADICAL_RED = {
  *   - BattlePokemon / live battle ABI: native/src/hns_battle_pokemon_layout_gen.h and hns_live_battle_layout_gen.h (generated from the pinned source).
  *
  * Notes:
+ *   PC boxes stay disabled: the release pointer at 0x030041DC is corroborated, but currentBox, boxes and their dimensions are not verified for the exact release.
  *   Deliberately a root config (no base): every value is pinned from this exact build, and inheriting
  *   vanilla Emerald values would let an Emerald edit silently change an exact-build layout.
  *
@@ -429,6 +460,7 @@ static const GameMemoryConfig CONFIG_HEART_AND_SOUL = {
  *   - Exact ROM SHA-256 7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7 (app/src/main/assets/profiles/unbound.json).
  *
  * Notes:
+ *   PC storage layout is unverified for this build.
  *   CFRU on FireRed: player party, party counts, BattlePokemon size (0x58), hp (+0x28) and statStages
  *   (+0x18) are inherited unchanged from firered_rev0. Unbound's +0x18 is type3; stages 1..7 are at
  *   +0x19..0x1F. The enemy count byte stays zero; only mapped opponent battlers establish occupancy.

@@ -375,4 +375,55 @@ class CheatManagerTest {
         assertEquals(listOf(custom.code), bridge.sets)
         assertFalse(manager.applyCheats(a).accepted)
     }
+
+    @Test fun hardcoreRejectsDeleteAndPresetResetWithoutMutatingSavedCustomCheats() {
+        val storage = mutableMapOf<String, String>()
+        val bridge = Bridge()
+        val core = LibretroCoreCoordinator(bridge)
+        val identity = RomIdentity(a.sha256, a.displayName, md5 = "a".repeat(32))
+        bind(core, identity)
+        val secondCustom = custom.copy(id = "custom-2", name = "Second code", code = "82025840 0045")
+        val manager = CheatManager(
+            memoryStorage = storage,
+            coreCoordinator = core,
+            presetPolicy = CheatPresetPolicy(mapOf(identity.sha256 to listOf(preset)))
+        )
+
+        // Persist custom cheats in Softcore first.
+        assertTrue(manager.addCheat(identity, custom).accepted)
+        assertTrue(manager.addCheat(identity, secondCustom).accepted)
+        val savedBeforeHardcore = storage.toMap()
+        val cheatsBeforeHardcore = manager.getCheats(identity)
+        assertEquals(3, cheatsBeforeHardcore.size) // 1 preset + 2 custom cheats
+
+        // Engage Hardcore mode.
+        core.executeExclusive { core.setRaHardcoreLocked(true) }
+        bridge.sets.clear()
+
+        // Every mutating operation must reject before touching disk.
+        val deleteResult = manager.deleteCheat(identity, custom.id)
+        assertFalse(deleteResult.accepted)
+        assertEquals(CheatManager.HARDCORE_BLOCKED, deleteResult.message)
+        assertEquals(savedBeforeHardcore, storage)
+
+        val resetPresets = manager.resetToDefaultPresets(identity)
+        assertTrue(resetPresets.isEmpty())
+        assertEquals(savedBeforeHardcore, storage)
+
+        val loadPresetsResult = manager.loadPresets(identity)
+        assertFalse(loadPresetsResult.accepted)
+        assertEquals(CheatManager.HARDCORE_BLOCKED, loadPresetsResult.message)
+        assertEquals(savedBeforeHardcore, storage)
+
+        assertFalse(manager.addCheat(identity, custom.copy(id = "custom-3")).accepted)
+        assertFalse(manager.updateCheat(identity, custom.copy(name = "Mutated")).accepted)
+        assertFalse(manager.toggleCheat(identity, custom.id, false).accepted)
+        assertFalse(manager.disableAllCheats(identity).accepted)
+        assertFalse(manager.saveCheats(identity, emptyList()).accepted)
+
+        // Disk storage and saved custom cheats remain completely intact, and zero cheats were set.
+        assertEquals(savedBeforeHardcore, storage)
+        assertEquals(cheatsBeforeHardcore, manager.getCheats(identity))
+        assertTrue(bridge.sets.isEmpty())
+    }
 }

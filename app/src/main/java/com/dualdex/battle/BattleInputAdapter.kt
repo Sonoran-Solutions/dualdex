@@ -21,7 +21,14 @@ import kotlinx.coroutines.CancellationException
  */
 fun interface BattleInputDispatcher {
     val stateGeneration: Long get() = 0L
+    val isInteractiveAllowed: Boolean get() = true
     suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean
+    suspend fun sendAuthorizedButton(
+        buttonMask: Int,
+        durationMs: Long,
+        delayMs: Long,
+        expectedGeneration: Long
+    ): Boolean = sendButton(buttonMask, durationMs, delayMs)
     suspend fun sendFrameButton(buttonMask: Int, settleFrames: Int): Boolean = false
     suspend fun waitFrames(frames: Int): Boolean = false
     /** Lock-timeout retries of the most recent input session, for acceptance evidence (#175). */
@@ -49,10 +56,13 @@ class DefaultBattleInputDispatcher(
     private val coordinator: () -> LibretroCoreCoordinator = { LibretroCoreCoordinator.defaultInstance }
 ) : BattleInputDispatcher {
     override val stateGeneration: Long get() = coordinator().stateGeneration
+    override val isInteractiveAllowed: Boolean get() = coordinator().raHardcorePolicy.mayUseInteractiveBattleControls
     // Accessed only by the macro owning the router's automation mutex.
     private var inputSession: Pair<LibretroCoreCoordinator, Long>? = null
     private var sessionStats: EdgeWriteStats? = null
     override val writeStats: EdgeWriteStats? get() = sessionStats
+
+    private class InputAuthorizationRejected : RuntimeException()
 
     private companion object {
         const val WRITE_ATTEMPTS = 3
@@ -63,21 +73,114 @@ class DefaultBattleInputDispatcher(
     }
 
     override suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean {
-        return ControllerInputRouter.sendAutomatedButton(buttonMask, durationMs, delayMs)
+        return sendAuthorizedButton(buttonMask, durationMs, delayMs, coordinator().stateGeneration)
+    }
+
+    override suspend fun sendAuthorizedButton(
+        buttonMask: Int,
+        durationMs: Long,
+        delayMs: Long,
+        expectedGeneration: Long
+    ): Boolean {
+        val core = coordinator()
+        if (!core.raHardcorePolicy.mayUseInteractiveBattleControls ||
+            core.stateGeneration != expectedGeneration) {
+            return false
+        }
+        var pressStage = true
+        return try {
+            ControllerInputRouter.sendAuthorizedAutomatedButton(
+                buttonMask = buttonMask,
+                durationMs = durationMs,
+                delayMs = delayMs,
+                expectedGeneration = expectedGeneration,
+                coordinator = core
+            ) { _, automatedMask ->
+                if (pressStage) {
+                    pressStage = false
+                    if (automatedMask != 0) {
+                        if (!writeAuthorizedCombinedMask(core, automatedMask, expectedGeneration)) {
+                            throw InputAuthorizationRejected()
+                        }
+                    } else {
+                        writeReleaseMask(core)
+                    }
+                } else {
+                    // Always permit button release so keys never stick if Hardcore engages mid-press.
+                    // automatedMask is 0 here; writeLiveMaskFor preserves the latest held physical input.
+                    writeReleaseMask(core)
+                }
+            }
+        } catch (_: InputAuthorizationRejected) {
+            false
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun writeAuthorizedCombinedMask(
+        core: LibretroCoreCoordinator,
+        automatedMask: Int,
+        generation: Long
+    ): Boolean {
+        repeat(WRITE_ATTEMPTS) { attempt ->
+            try {
+                return core.executeExclusive(PRESS_WRITE_TIMEOUT_MS) {
+                    if (coordinator() !== core) false
+                    else core.setRoutedCombinedInputLocked(automatedMask, generation)
+                }
+            } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
+                val last = attempt + 1 == WRITE_ATTEMPTS
+                sessionStats?.apply {
+                    if (last) pressExhausted++ else pressRetries++
+                }
+                if (last) throw e
+            }
+        }
+        return false
+    }
+
+    private fun writeReleaseMask(core: LibretroCoreCoordinator) {
+        try {
+            repeat(WRITE_ATTEMPTS) { attempt ->
+                try {
+                    core.executeExclusive(RELEASE_WRITE_TIMEOUT_MS) {
+                        ControllerInputRouter.writeLiveMaskFor(core)
+                    }
+                    return
+                } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
+                    val last = attempt + 1 == WRITE_ATTEMPTS
+                    sessionStats?.apply {
+                        if (last) releaseExhausted++ else releaseRetries++
+                    }
+                    if (last) throw e
+                }
+            }
+        } catch (_: Exception) {
+            // A stalled core must never retain an automated press; writeLiveMaskFor has zero automated bits.
+            ControllerInputRouter.writeLiveMaskFor(core)
+        }
     }
 
     override suspend fun waitFrames(frames: Int): Boolean {
         require(frames >= 0)
         val core = inputSession?.first ?: coordinator()
-        if (!core.emulationRunning || coordinator() !== core) return false
+        if (!core.emulationRunning || coordinator() !== core ||
+            !core.raHardcorePolicy.mayUseInteractiveBattleControls) return false
         val generation = inputSession?.second ?: core.stateGeneration
         if (core.stateGeneration != generation) return false
         val target = core.completedFrames + frames
         return withTimeoutOrNull(2000L) {
             core.frameCompletions.first {
-                it >= target || !core.emulationRunning || coordinator() !== core || core.stateGeneration != generation
+                it >= target || !core.emulationRunning || coordinator() !== core ||
+                    core.stateGeneration != generation ||
+                    !core.raHardcorePolicy.mayUseInteractiveBattleControls
             }
-            core.emulationRunning && coordinator() === core && core.stateGeneration == generation &&
+            core.emulationRunning && coordinator() === core &&
+                core.stateGeneration == generation &&
+                core.raHardcorePolicy.mayUseInteractiveBattleControls &&
                 core.completedFrames >= target
         } ?: false
     }
@@ -88,11 +191,15 @@ class DefaultBattleInputDispatcher(
             repeat(WRITE_ATTEMPTS) { attempt ->
                 try {
                     core.executeExclusive(timeoutMs) {
-                        // Check under the same lock as load/switch: a queued press cannot cross a restore.
-                        check(mask == 0 || (coordinator() === core && core.stateGeneration == generation)) {
-                            "Core state changed during automated input"
+                        if (mask == 0) {
+                            ControllerInputRouter.writeLiveMaskFor(core)
+                        } else {
+                            // Check under the same lock as load/switch/Hardcore: a queued press cannot cross a boundary.
+                            check(coordinator() === core &&
+                                core.setAuthorizedAutomatedInputLocked(mask, generation)) {
+                                "Core state or Hardcore policy changed during automated input"
+                            }
                         }
-                        core.setInputButtons(mask)
                     }
                     return
                 } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
@@ -109,8 +216,9 @@ class DefaultBattleInputDispatcher(
                 }
             }
         } catch (e: Exception) {
-            // A stalled core must not retain automation, even if its lock cannot be acquired.
-            if (mask == 0) core.setInputButtons(0)
+            // A stalled core must not retain automation, even if its lock cannot be acquired,
+            // while preserving any live physical press under leaf router lock.
+            if (mask == 0) ControllerInputRouter.writeLiveMaskFor(core)
             throw e
         }
     }
@@ -234,6 +342,7 @@ class BattleInputAdapter(
     }
 
     suspend fun executeSelectMove(slot: Int, currentUi: BattleUiSnapshot): BattleInputResult {
+        val generation = dispatcher.stateGeneration
         val trace = MoveMacroTrace(frameReader)
         // A second tap is rejected, never queued against a snapshot from the previous turn.
         if (!actionMutex.tryLock()) {
@@ -241,7 +350,6 @@ class BattleInputAdapter(
             return BattleInputResult.Busy
         }
         try {
-            val generation = dispatcher.stateGeneration
             val stats = dispatcher.writeStats
             return withContext(macroDispatcher) {
                 withTimeoutOrNull(20_000L) {
@@ -287,11 +395,13 @@ class BattleInputAdapter(
         if (!currentUi.inputSafe) return BattleInputResult.UnknownUiState(currentUi.state)
         if (currentUi.playerBattlerCount != 1) return BattleInputResult.UnsupportedProfile("Move selection requires singles")
         if (currentUi.battlerIndex !in 0..3) return BattleInputResult.CursorUnavailable("Player battler is unknown")
+        if (!dispatcher.isInteractiveAllowed) return BattleInputResult.Cancelled("Interactive battle controls disabled")
         if (isPaused()) return BattleInputResult.Paused
         val reader = stateReader ?: return BattleInputResult.CursorUnavailable("Direct core reader is unavailable")
         val startFrame = frameReader()
         fun abort(result: BattleInputResult): Nothing = throw MoveMacroAbort(result)
         fun running() {
+            if (!dispatcher.isInteractiveAllowed) abort(BattleInputResult.Cancelled("Interactive battle controls disabled"))
             if (dispatcher.stateGeneration != generation) abort(BattleInputResult.Cancelled("Core state changed"))
             if (isPaused()) abort(BattleInputResult.Paused)
             if (frameReader() - startFrame >= WATCHDOG_FRAMES) {
@@ -426,8 +536,15 @@ class BattleInputAdapter(
         party: List<ParsedPokemon>,
         activeSlot: Int = 0
     ): BattleInputResult {
+        // Capture core state generation before waiting on actionMutex so a queued switch using
+        // a pre-switch party/menu snapshot cannot drive a replacement ROM or restored state.
+        val expectedGeneration = dispatcher.stateGeneration
         return actionMutex.withLock {
-            executeSwitchPokemonInternal(targetSlot, currentUi, party, activeSlot)
+            try {
+                executeSwitchPokemonInternal(targetSlot, currentUi, party, activeSlot, expectedGeneration)
+            } catch (abort: MoveMacroAbort) {
+                abort.result
+            }
         }
     }
 
@@ -435,8 +552,29 @@ class BattleInputAdapter(
         targetSlot: Int,
         currentUi: BattleUiSnapshot,
         party: List<ParsedPokemon>,
-        activeSlot: Int
+        activeSlot: Int,
+        generation: Long
     ): BattleInputResult {
+        fun abort(result: BattleInputResult): Nothing = throw MoveMacroAbort(result)
+        fun ensureAuthorized() {
+            if (!dispatcher.isInteractiveAllowed) {
+                abort(BattleInputResult.Cancelled("Interactive battle controls disabled"))
+            }
+            if (dispatcher.stateGeneration != generation) {
+                abort(BattleInputResult.Cancelled("Core state changed"))
+            }
+        }
+        ensureAuthorized()
+        suspend fun sendStep(buttonMask: Int, durationMs: Long, delayMs: Long) {
+            ensureAuthorized()
+            val sent = dispatcher.sendAuthorizedButton(buttonMask, durationMs, delayMs, generation)
+            if (!sent) {
+                ensureAuthorized()
+                abort(BattleInputResult.Cancelled("Automated input rejected"))
+            }
+            ensureAuthorized()
+        }
+
         if (targetSlot !in 0..5) {
             return BattleInputResult.IllegalTarget("Party slot $targetSlot out of bounds (0..5)")
         }
@@ -468,19 +606,22 @@ class BattleInputAdapter(
             return BattleInputResult.UnknownUiState(currentUi.state)
         }
 
+        ensureAuthorized()
+
         if (currentUi.state == BattleUiState.COMMAND_MENU) {
             val commandCursor = currentUi.selectedActionIndex
                 ?: return BattleInputResult.CursorUnavailable("Command menu cursor is unknown")
 
             // Navigate to POKEMON (slot 2 in 2x2 grid: x=0, y=1)
-            navigateToCommandSlot(fromSlot = commandCursor, toSlot = 2)
+            navigateToCommandSlot(fromSlot = commandCursor, toSlot = 2, sendStep = ::sendStep)
 
             // Open Party Screen with A
-            dispatcher.sendButton(InputManager.BTN_A, BTN_PRESS_DURATION_MS, MENU_TRANSITION_DELAY_MS)
+            sendStep(InputManager.BTN_A, BTN_PRESS_DURATION_MS, MENU_TRANSITION_DELAY_MS)
 
             val observedPartyCursor: Int = if (stateReader != null) {
-                val transitionedUi = waitForUiState(BattleUiState.PARTY_MENU, TRANSITION_TIMEOUT_MS)
+                val transitionedUi = waitForUiState(BattleUiState.PARTY_MENU, TRANSITION_TIMEOUT_MS, ::ensureAuthorized)
                 if (transitionedUi == null) {
+                    ensureAuthorized()
                     val actual = stateReader.invoke()?.state ?: BattleUiState.UNKNOWN
                     return BattleInputResult.UnexpectedTransition(BattleUiState.PARTY_MENU, actual)
                 }
@@ -491,13 +632,13 @@ class BattleInputAdapter(
                     ?: return BattleInputResult.CursorUnavailable("Party cursor is unknown")
             }
 
-            navigateToPartySlot(fromSlot = observedPartyCursor, toSlot = targetSlot)
+            navigateToPartySlot(fromSlot = observedPartyCursor, toSlot = targetSlot, sendStep = ::sendStep)
 
             // Press A to open action menu
-            dispatcher.sendButton(InputManager.BTN_A, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+            sendStep(InputManager.BTN_A, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
 
             // Press A to select SHIFT (top option)
-            dispatcher.sendButton(InputManager.BTN_A, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+            sendStep(InputManager.BTN_A, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
             return BattleInputResult.Success
         }
 
@@ -505,13 +646,13 @@ class BattleInputAdapter(
             val startSlot = currentUi.selectedPartySlot
                 ?: return BattleInputResult.CursorUnavailable("Party cursor is unknown")
 
-            navigateToPartySlot(fromSlot = startSlot, toSlot = targetSlot)
+            navigateToPartySlot(fromSlot = startSlot, toSlot = targetSlot, sendStep = ::sendStep)
 
             // Press A to open action menu
-            dispatcher.sendButton(InputManager.BTN_A, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+            sendStep(InputManager.BTN_A, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
 
             // Press A to confirm SHIFT
-            dispatcher.sendButton(InputManager.BTN_A, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+            sendStep(InputManager.BTN_A, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
             return BattleInputResult.Success
         }
 
@@ -528,16 +669,28 @@ class BattleInputAdapter(
     }
 
     suspend fun cancel(): Boolean {
+        val generation = dispatcher.stateGeneration
         return actionMutex.withLock {
-            dispatcher.sendButton(InputManager.BTN_B, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+            if (!dispatcher.isInteractiveAllowed || dispatcher.stateGeneration != generation) {
+                return@withLock false
+            }
+            dispatcher.sendAuthorizedButton(
+                InputManager.BTN_B, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS, generation
+            )
         }
     }
 
-    private suspend fun waitForUiState(expected: BattleUiState, timeoutMs: Long): BattleUiSnapshot? {
+    private suspend fun waitForUiState(
+        expected: BattleUiState,
+        timeoutMs: Long,
+        onPoll: () -> Unit = {}
+    ): BattleUiSnapshot? {
         val reader = stateReader ?: return null
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
+            onPoll()
             val snapshot = reader.invoke()
+            onPoll()
             if (snapshot?.state == expected) {
                 return snapshot
             }
@@ -546,28 +699,36 @@ class BattleInputAdapter(
         return null
     }
 
-    private suspend fun navigateToCommandSlot(fromSlot: Int, toSlot: Int) {
+    private suspend fun navigateToCommandSlot(
+        fromSlot: Int,
+        toSlot: Int,
+        sendStep: suspend (Int, Long, Long) -> Unit
+    ) {
         if (fromSlot == toSlot) return
         val fromX = fromSlot % 2
         val fromY = fromSlot / 2
         val toX = toSlot % 2
         val toY = toSlot / 2
 
-        if (toX > fromX) dispatcher.sendButton(InputManager.BTN_RIGHT, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
-        else if (toX < fromX) dispatcher.sendButton(InputManager.BTN_LEFT, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+        if (toX > fromX) sendStep(InputManager.BTN_RIGHT, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+        else if (toX < fromX) sendStep(InputManager.BTN_LEFT, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
 
-        if (toY > fromY) dispatcher.sendButton(InputManager.BTN_DOWN, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
-        else if (toY < fromY) dispatcher.sendButton(InputManager.BTN_UP, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+        if (toY > fromY) sendStep(InputManager.BTN_DOWN, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+        else if (toY < fromY) sendStep(InputManager.BTN_UP, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
     }
 
-    private suspend fun navigateToPartySlot(fromSlot: Int, toSlot: Int) {
+    private suspend fun navigateToPartySlot(
+        fromSlot: Int,
+        toSlot: Int,
+        sendStep: suspend (Int, Long, Long) -> Unit
+    ) {
         if (toSlot > fromSlot) {
             repeat(toSlot - fromSlot) {
-                dispatcher.sendButton(InputManager.BTN_DOWN, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+                sendStep(InputManager.BTN_DOWN, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
             }
         } else if (toSlot < fromSlot) {
             repeat(fromSlot - toSlot) {
-                dispatcher.sendButton(InputManager.BTN_UP, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
+                sendStep(InputManager.BTN_UP, BTN_PRESS_DURATION_MS, BTN_INTER_DELAY_MS)
             }
         }
     }

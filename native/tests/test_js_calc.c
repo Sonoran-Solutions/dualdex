@@ -59,6 +59,7 @@
 
 #define BUNDLE_PATH "app/src/main/assets/calc_bundle.js"
 #define UNBOUND_ADDON_PATH "app/src/main/assets/unbound_calc_bundle.js"
+#define EXPANSION_TIERB_ADDON_PATH "app/src/main/assets/expansion_tierb_calc_bundle.js"
 
 static int g_checks_passed = 0;
 static int g_checks_failed = 0;
@@ -1753,21 +1754,37 @@ static int load_bundle(void) {
         free(bundle_js);
         return 1;
     }
+    char* expansion_addon_js = read_file_to_string(EXPANSION_TIERB_ADDON_PATH);
+    if (!expansion_addon_js) {
+        printf(ANSI_RED "Failed to read %s - the shipped Expansion Tier-B addon bundle must be present\n" ANSI_RESET,
+               EXPANSION_TIERB_ADDON_PATH);
+        free(bundle_js);
+        free(addon_js);
+        return 1;
+    }
     size_t base_len = strlen(bundle_js);
     size_t addon_len = strlen(addon_js);
-    char* combined = (char*)malloc(base_len + addon_len + 3);
+    size_t expansion_len = strlen(expansion_addon_js);
+    char* combined = (char*)malloc(base_len + addon_len + expansion_len + 5);
     if (!combined) {
         free(bundle_js);
         free(addon_js);
+        free(expansion_addon_js);
         return 1;
     }
     memcpy(combined, bundle_js, base_len);
     combined[base_len] = '\n';
     combined[base_len + 1] = ';';
-    memcpy(combined + base_len + 2, addon_js, addon_len + 1);
+    memcpy(combined + base_len + 2, addon_js, addon_len);
+    combined[base_len + 2 + addon_len] = '\n';
+    combined[base_len + 3 + addon_len] = ';';
+    memcpy(combined + base_len + 4 + addon_len, expansion_addon_js, expansion_len + 1);
     free(bundle_js);
     free(addon_js);
-    printf("Initializing QuickJS with %s + %s (%zu bytes)...\n", BUNDLE_PATH, UNBOUND_ADDON_PATH, base_len + addon_len + 2);
+    free(expansion_addon_js);
+    printf("Initializing QuickJS with %s + %s + %s (%zu bytes)...\n",
+           BUNDLE_PATH, UNBOUND_ADDON_PATH, EXPANSION_TIERB_ADDON_PATH,
+           base_len + addon_len + expansion_len + 4);
     bool ok = js_calc_init(combined);
     free(combined);
     if (!ok) {
@@ -4435,6 +4452,166 @@ static void check_unbound_cfru(void) {
     for (size_t i = 0; i < sizeof(fixtures) / sizeof(fixtures[0]); ++i) run_fixture(&fixtures[i]);
 }
 
+static void check_expansion_tierb(void) {
+    /* Independent UQ4.12 half-down vectors for upstream pokeemerald-expansion Gen 8/9 Singles. */
+    static const int rolls_neutral[ROLL_COUNT] =
+        {37, 37, 38, 38, 39, 39, 40, 40, 40, 41, 41, 42, 42, 43, 43, 44};
+    static const int rolls_fairy_stab_2x[ROLL_COUNT] =
+        {146, 146, 150, 152, 152, 156, 156, 158, 158, 162, 164, 164, 168, 168, 170, 174};
+    static const int rolls_immune[ROLL_COUNT] =
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    /* Fire Punch BP 75, Atk 140 vs Def 100, STAB, Sun (1.5x), Burn (0.5x), Reflect (0.5x), no crit:
+     * base = 48 -> Sun 72 -> roll 85..100 -> STAB 6144 -> Burn 2048 -> Reflect 2048 (all half-down) */
+    static const int rolls_sun_burn_reflect[ROLL_COUNT] =
+        {22, 22, 23, 23, 24, 24, 24, 24, 24, 25, 25, 25, 25, 26, 26, 27};
+    /* Same matchup with Crit=true, attackStage=-2, defenseStage=+2:
+     * Crit ignores -2 Atk / +2 Def, bypasses Reflect, applies modern 1.5x crit (72 -> 108), keeps STAB + Burn. */
+    static const int rolls_sun_burn_crit_ignores_drops[ROLL_COUNT] =
+        {68, 69, 69, 71, 72, 72, 73, 74, 75, 75, 76, 77, 78, 78, 79, 81};
+    /* Flamethrower BP 90 Special, SpA 140 vs SpD 100, no STAB, Rain (0.5x), Light Screen (0.5x), Burn ignored:
+     * base = 57 -> Rain 28 -> roll 85..100 -> Light Screen 2048 */
+    static const int rolls_rain_light_screen[ROLL_COUNT] =
+        {11, 12, 12, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 13, 14};
+
+    const calc_fixture fixtures[] = {
+        {
+            .name = "expansion_tierb_neutral_hit",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Machamp\",\"defenderName\":\"Blastoise\",\"moveName\":\"Strength\",\"defenderMaxHP\":154},"
+                "\"expansion\":{\"level\":50,\"power\":80,\"category\":\"Physical\",\"moveType\":\"Normal\","
+                "\"attack\":123,\"spAttack\":85,\"defense\":101,\"spDefense\":110,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Fighting\"],\"defenderTypes\":[\"Water\"],"
+                "\"attackerBurned\":false,\"weather\":\"None\",\"isReflect\":false,\"isLightScreen\":false,\"isCrit\":false}}",
+            .expect_success = 1, .expect_rolls = rolls_neutral, .expect_move_type = "Normal",
+            .expect_move_category = "Physical", .expect_move_power = 80, .expect_defender_hp = 154
+        },
+        {
+            .name = "expansion_tierb_stab_fairy_super_effective",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Sylveon\",\"defenderName\":\"Dragonite\",\"moveName\":\"Moonblast\",\"defenderMaxHP\":166},"
+                "\"expansion\":{\"level\":50,\"power\":95,\"category\":\"Special\",\"moveType\":\"Fairy\","
+                "\"attack\":85,\"spAttack\":162,\"defense\":115,\"spDefense\":120,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Fairy\"],\"defenderTypes\":[\"Dragon\",\"Flying\"],"
+                "\"attackerBurned\":false,\"weather\":\"None\",\"isReflect\":false,\"isLightScreen\":false,\"isCrit\":false}}",
+            .expect_success = 1, .expect_rolls = rolls_fairy_stab_2x, .expect_move_type = "Fairy",
+            .expect_move_category = "Special", .expect_move_power = 95, .expect_defender_hp = 166
+        },
+        {
+            .name = "expansion_tierb_steel_neutral_to_ghost",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Porygon\",\"defenderName\":\"Registeel\",\"moveName\":\"Shadow Ball\",\"defenderMaxHP\":187},"
+                "\"expansion\":{\"level\":50,\"power\":80,\"category\":\"Special\",\"moveType\":\"Ghost\","
+                "\"attack\":80,\"spAttack\":120,\"defense\":100,\"spDefense\":100,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Normal\"],\"defenderTypes\":[\"Steel\"],"
+                "\"attackerBurned\":false,\"weather\":\"None\",\"isReflect\":false,\"isLightScreen\":false,\"isCrit\":false}}",
+            .expect_success = 1, .expect_rolls = rolls_neutral, .expect_move_type = "Ghost",
+            .expect_move_category = "Special", .expect_move_power = 80, .expect_defender_hp = 187
+        },
+        {
+            .name = "expansion_tierb_dragon_vs_fairy_immunity",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Garchomp\",\"defenderName\":\"Sylveon\",\"moveName\":\"Dragon Claw\",\"defenderMaxHP\":170},"
+                "\"expansion\":{\"level\":50,\"power\":80,\"category\":\"Physical\",\"moveType\":\"Dragon\","
+                "\"attack\":150,\"spAttack\":100,\"defense\":85,\"spDefense\":150,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Dragon\",\"Ground\"],\"defenderTypes\":[\"Fairy\"],"
+                "\"attackerBurned\":false,\"weather\":\"None\",\"isReflect\":false,\"isLightScreen\":false,\"isCrit\":false}}",
+            .expect_success = 1, .expect_rolls = rolls_immune, .expect_move_type = "Dragon",
+            .expect_move_category = "Physical", .expect_move_power = 80, .expect_defender_hp = 170
+        },
+        {
+            .name = "expansion_tierb_sun_burn_reflect_physical",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Arcanine\",\"defenderName\":\"Snorlax\",\"moveName\":\"Fire Punch\",\"defenderMaxHP\":235},"
+                "\"expansion\":{\"level\":50,\"power\":75,\"category\":\"Physical\",\"moveType\":\"Fire\","
+                "\"attack\":140,\"spAttack\":120,\"defense\":100,\"spDefense\":130,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Fire\"],\"defenderTypes\":[\"Normal\"],"
+                "\"attackerBurned\":true,\"weather\":\"Sun\",\"isReflect\":true,\"isLightScreen\":false,\"isCrit\":false}}",
+            .expect_success = 1, .expect_rolls = rolls_sun_burn_reflect, .expect_move_type = "Fire",
+            .expect_move_category = "Physical", .expect_move_power = 75, .expect_defender_hp = 235
+        },
+        {
+            .name = "expansion_tierb_crit_bypasses_reflect_and_ignores_drops",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Arcanine\",\"defenderName\":\"Snorlax\",\"moveName\":\"Fire Punch\",\"defenderMaxHP\":235},"
+                "\"expansion\":{\"level\":50,\"power\":75,\"category\":\"Physical\",\"moveType\":\"Fire\","
+                "\"attack\":140,\"spAttack\":120,\"defense\":100,\"spDefense\":130,"
+                "\"attackStage\":-2,\"spAttackStage\":0,\"defenseStage\":2,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Fire\"],\"defenderTypes\":[\"Normal\"],"
+                "\"attackerBurned\":true,\"weather\":\"Sun\",\"isReflect\":true,\"isLightScreen\":false,\"isCrit\":true}}",
+            .expect_success = 1, .expect_rolls = rolls_sun_burn_crit_ignores_drops, .expect_move_type = "Fire",
+            .expect_move_category = "Physical", .expect_move_power = 75, .expect_defender_hp = 235
+        },
+        {
+            .name = "expansion_tierb_rain_light_screen_special_ignores_burn",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Porygon\",\"defenderName\":\"Snorlax\",\"moveName\":\"Flamethrower\",\"defenderMaxHP\":235},"
+                "\"expansion\":{\"level\":50,\"power\":90,\"category\":\"Special\",\"moveType\":\"Fire\","
+                "\"attack\":80,\"spAttack\":140,\"defense\":100,\"spDefense\":100,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Normal\"],\"defenderTypes\":[\"Normal\"],"
+                "\"attackerBurned\":true,\"weather\":\"Rain\",\"isReflect\":false,\"isLightScreen\":true,\"isCrit\":false}}",
+            .expect_success = 1, .expect_rolls = rolls_rain_light_screen, .expect_move_type = "Fire",
+            .expect_move_category = "Special", .expect_move_power = 90, .expect_defender_hp = 235
+        },
+        {
+            .name = "expansion_tierb_doubles_refused",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Doubles\"},"
+                "\"display\":{\"attackerName\":\"Machamp\",\"defenderName\":\"Snorlax\",\"moveName\":\"Strength\",\"defenderMaxHP\":235},"
+                "\"expansion\":{\"level\":50,\"power\":80,\"category\":\"Physical\",\"moveType\":\"Normal\","
+                "\"attack\":123,\"spAttack\":85,\"defense\":101,\"spDefense\":110,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Fighting\"],\"defenderTypes\":[\"Normal\"],"
+                "\"attackerBurned\":false,\"weather\":\"None\",\"isReflect\":false,\"isLightScreen\":false,\"isCrit\":false}}",
+            .expect_error_contains = "Singles"
+        },
+        {
+            .name = "expansion_tierb_status_refused",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Machamp\",\"defenderName\":\"Snorlax\",\"moveName\":\"Swords Dance\",\"defenderMaxHP\":235},"
+                "\"expansion\":{\"level\":50,\"power\":80,\"category\":\"Status\",\"moveType\":\"Normal\","
+                "\"attack\":123,\"spAttack\":85,\"defense\":101,\"spDefense\":110,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Fighting\"],\"defenderTypes\":[\"Normal\"],"
+                "\"attackerBurned\":false,\"weather\":\"None\",\"isReflect\":false,\"isLightScreen\":false,\"isCrit\":false}}",
+            .expect_error_contains = "category"
+        },
+        {
+            .name = "expansion_tierb_zero_power_refused",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"field\":{\"gameType\":\"Singles\"},"
+                "\"display\":{\"attackerName\":\"Machamp\",\"defenderName\":\"Snorlax\",\"moveName\":\"Guillotine\",\"defenderMaxHP\":235},"
+                "\"expansion\":{\"level\":50,\"power\":0,\"category\":\"Physical\",\"moveType\":\"Normal\","
+                "\"attack\":123,\"spAttack\":85,\"defense\":101,\"spDefense\":110,"
+                "\"attackStage\":0,\"spAttackStage\":0,\"defenseStage\":0,\"spDefenseStage\":0,"
+                "\"attackerTypes\":[\"Fighting\"],\"defenderTypes\":[\"Normal\"],"
+                "\"attackerBurned\":false,\"weather\":\"None\",\"isReflect\":false,\"isLightScreen\":false,\"isCrit\":false}}",
+            .expect_error_contains = "power"
+        },
+        {
+            .name = "expansion_tierb_no_smogon_fallback",
+            .request =
+                "{\"typeSystem\":\"expansion_tierb\",\"gen\":8,\"attacker\":{\"species\":\"Machamp\"},"
+                "\"defender\":{\"species\":\"Snorlax\"},\"move\":{\"name\":\"Rock Slide\"}}",
+            .expect_error_contains = "Expansion Tier-B"
+        }
+    };
+    for (size_t i = 0; i < sizeof(fixtures) / sizeof(fixtures[0]); ++i) run_fixture(&fixtures[i]);
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -4457,6 +4634,9 @@ int main(void) {
 
     printf("-- Unbound CFRU ordinary-hit Singles and refusal paths --\n");
     check_unbound_cfru();
+
+    printf("-- Expansion Tier-B ordinary-hit Singles and refusal paths --\n");
+    check_expansion_tierb();
 
     printf("-- equivalent singles inputs --\n");
     check_singles_equivalence();

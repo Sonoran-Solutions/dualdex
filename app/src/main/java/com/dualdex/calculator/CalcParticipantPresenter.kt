@@ -3,6 +3,7 @@ package com.dualdex.calculator
 import com.dualdex.battle.StatStages
 import com.dualdex.pokemon.ItemDatabase
 import com.dualdex.pokemon.ParsedPokemon
+import com.dualdex.pokemon.PcBoxSlot
 
 /**
  * Turns the Calc screen's screen state into the two participants a calculation runs on.
@@ -186,6 +187,48 @@ object CalcParticipantPresenter {
             effectiveAbility = effectiveAbility,
             partySlot = activeEnemySlot,
             effectiveItem = effectiveItem
+        )
+    }
+
+    /**
+     * Hypothetical attacker built from a read-only PC Box slot (Wave 2).
+     *
+     * Boxed Pokémon carry no live battle status, stat stages, or current HP, and their level is
+     * derived from EXP, so the participant uses [CalcInputOrigin.MANUAL] rather than claiming live
+     * battle verification.
+     */
+    fun pcBoxAttacker(
+        slot: PcBoxSlot,
+        speciesName: String,
+        isExpansionItems: Boolean = false
+    ): CalcParticipantState? {
+        val mon = slot.pokemon?.takeIf { slot.canSendToCalc } ?: return null
+        val level = slot.estimatedLevel ?: return null
+        return CalcParticipantState(
+            species = speciesName,
+            level = level,
+            nature = mon.natureName,
+            item = itemName(mon.heldItem, isExpansionItems),
+            ability = slot.abilityName,
+            status = null,
+            boosts = CalcParticipantState.NONE,
+            ivs = StatBlock(
+                hp = mon.hpIv,
+                atk = mon.attackIv,
+                def = mon.defenseIv,
+                spa = mon.spAttackIv,
+                spd = mon.spDefenseIv,
+                spe = mon.speedIv
+            ),
+            evs = StatBlock(
+                hp = mon.hpEv,
+                atk = mon.attackEv,
+                def = mon.defenseEv,
+                spa = mon.spAttackEv,
+                spd = mon.spDefenseEv,
+                spe = mon.speedEv
+            ),
+            origin = CalcInputOrigin.MANUAL
         )
     }
 

@@ -7,7 +7,8 @@ import java.security.MessageDigest
 data class RomIdentity(
     val sha256: String,
     val displayName: String,
-    val storageKey: String = sha256.trim().lowercase()
+    val storageKey: String = sha256.trim().lowercase(),
+    val md5: String = ""
 ) {
     val shortHash: String
         get() = if (sha256.length >= 12) sha256.take(12) else sha256.padEnd(12, '0')
@@ -45,36 +46,41 @@ data class RomIdentity(
             )
         }
 
-        fun calculateSha256(file: File): String {
-            if (!file.exists() || file.length() == 0L) return ""
-            val digest = MessageDigest.getInstance("SHA-256")
-            FileInputStream(file).use { fis ->
+        private fun MessageDigest.hexDigest(): String =
+            digest().joinToString("") { "%02x".format(it) }
+
+        private fun hashFile(file: File, vararg algorithms: String): List<String> {
+            if (!file.exists() || file.length() == 0L) return algorithms.map { "" }
+            val digests = algorithms.map(MessageDigest::getInstance)
+            FileInputStream(file).use { stream ->
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
-                while (fis.read(buffer).also { bytesRead = it } != -1) {
-                    digest.update(buffer, 0, bytesRead)
+                while (stream.read(buffer).also { bytesRead = it } != -1) {
+                    digests.forEach { it.update(buffer, 0, bytesRead) }
                 }
             }
-            return digest.digest().joinToString("") { "%02x".format(it) }
+            return digests.map { it.hexDigest() }
         }
 
-        fun calculateSha256(bytes: ByteArray): String {
+        private fun hashBytes(bytes: ByteArray, algorithm: String): String {
             if (bytes.isEmpty()) return ""
-            val digest = MessageDigest.getInstance("SHA-256")
-            val hash = digest.digest(bytes)
-            return hash.joinToString("") { "%02x".format(it) }
+            return MessageDigest.getInstance(algorithm).apply { update(bytes) }.hexDigest()
         }
+
+        fun calculateSha256(file: File): String = hashFile(file, "SHA-256").single()
+        fun calculateSha256(bytes: ByteArray): String = hashBytes(bytes, "SHA-256")
+        fun calculateMd5(file: File): String = hashFile(file, "MD5").single()
+        fun calculateMd5(bytes: ByteArray): String = hashBytes(bytes, "MD5")
 
         fun fromFile(file: File, preferredTitle: String? = null): RomIdentity {
-            val hash = calculateSha256(file)
+            val (sha256, md5) = hashFile(file, "SHA-256", "MD5")
             val name = preferredTitle?.ifBlank { null } ?: file.nameWithoutExtension.ifEmpty { DEFAULT_TITLE }
-            return create(hash, name)
+            return create(sha256, name).copy(md5 = md5)
         }
 
         fun fromBytes(bytes: ByteArray, preferredTitle: String? = null): RomIdentity {
-            val hash = calculateSha256(bytes)
             val name = preferredTitle?.ifBlank { null } ?: DEFAULT_TITLE
-            return create(hash, name)
+            return create(calculateSha256(bytes), name).copy(md5 = calculateMd5(bytes))
         }
     }
 }

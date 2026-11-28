@@ -388,6 +388,47 @@ class ConsistencyTest(GamedataFixture):
         self.assert_rejected(r'sapphire\.json: \[party-count-inside-party\]')
 
 
+class PcStorageTest(GamedataFixture):
+    def test_verified_pc_layouts_and_explicit_opt_outs(self):
+        for game, pointer, base in (
+            ('firered_rev0', 0x03005010, 0x02029314),
+            ('emerald', 0x03005D94, 0x02029808),
+        ):
+            with self.subTest(game=game):
+                cfg = self.resolved(game)
+                self.assertEqual(tuple(cfg.get(name) for name in g.PC_STORAGE_FIELDS),
+                                 (pointer, base, 128, 0x83D0, 0, 4, 14, 30, 80))
+        for game in ('unbound', 'ghost_grey', 'radical_red', 'leafgreen', 'heart_and_soul_2_0_5'):
+            with self.subTest(game=game):
+                self.assertIsNone(self.resolved(game).get('pokemon_storage_ptr_gba_address'))
+
+    def test_pc_layout_cannot_be_inherited_implicitly(self):
+        self.edit('ghost_grey', lambda cfg: cfg['fields'].pop('pokemon_storage_ptr_gba_address'))
+        self.assert_rejected('PC storage must be explicitly declared')
+
+    def test_pc_pointer_must_fit_four_bytes_in_iwram(self):
+        self.set_field('emerald', 'pokemon_storage_ptr_gba_address', {'iwram': '0x7FFD'})
+        self.assert_rejected('4 bytes runs past the end of IWRAM')
+
+    def test_pc_storage_stride_and_spans(self):
+        for field, value, error in (
+            ('pc_box_mon_stride', 79, 'pc_box_mon_stride must be 80'),
+            ('pokemon_storage_size', 33603, 'fit inside pokemon_storage_size'),
+            ('pc_box_count', 0, 'PC box dimensions must be positive'),
+            ('pc_box_slots', 31, 'at most 30 slots'),
+            ('pc_box_current_offset', 4, 'fit inside pokemon_storage_size'),
+            ('pokemon_storage_base_gba_address', {'ewram': '0x38000'}, 'runs past the end of EWRAM'),
+            ('pc_box_species_info_gba_address', {'gba': '0x09FFD2B0'}, 'revision shift must fit inside ROM'),
+        ):
+            with self.subTest(field=field):
+                original = json.loads((self.dir / 'firered_rev0.json').read_text())['fields'][field]
+                self.set_field('firered_rev0', field, value)
+                try:
+                    self.assert_rejected(error)
+                finally:
+                    self.set_field('firered_rev0', field, original)
+
+
 class HeaderGateTest(unittest.TestCase):
     def make_root(self, reader_change=None):
         tmp = tempfile.TemporaryDirectory()

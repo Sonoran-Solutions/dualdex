@@ -7,9 +7,13 @@ import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.bindSyntheticRom
 import com.dualdex.emulator.syntheticRomBridge
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -513,6 +517,216 @@ class BattleInputAdapterTest {
             ControllerInputRouter.reset()
         }
     }
+
+    @Test fun inFlightSwitchMacroAbortsImmediatelyWhenHardcoreActivatesAndReleasesHeldButton() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val masks = mutableListOf<Int>()
+            var engaged = false
+            lateinit var core: LibretroCoreCoordinator
+            core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
+                override fun setInputButtons(buttonMask: Int) {
+                    masks += buttonMask
+                    // Engage Hardcore right as the first non-zero press lands.
+                    if (buttonMask != 0 && !engaged) {
+                        engaged = true
+                        setRaHardcoreLocked(true)
+                    }
+                }
+            }
+            assertTrue(core.loadRom("synthetic.gba"))
+            val adapter = BattleInputAdapter(DefaultBattleInputDispatcher { core })
+            val ui = BattleUiSnapshot(
+                state = BattleUiState.COMMAND_MENU,
+                selectedActionIndex = 0,
+                selectedPartySlot = 0,
+                stateConfidence = DataConfidence.VERIFIED,
+                isInputAccepted = true,
+                capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+            )
+            val party = listOf(
+                syntheticMon(species = 1, currentHp = 100),
+                syntheticMon(species = 4, currentHp = 100)
+            )
+
+            val result = adapter.executeSwitchPokemon(1, ui, party, activeSlot = 0)
+            assertTrue("Expected Cancelled, got $result", result is BattleInputResult.Cancelled)
+            // Only the first step (BTN_DOWN) pressed before Hardcore; release (0) was still allowed.
+            assertEquals(listOf(InputManager.BTN_DOWN), masks.filter { it != 0 })
+            assertEquals(0, masks.last())
+            assertFalse(adapter.cancel())
+            assertEquals(listOf(InputManager.BTN_DOWN), masks.filter { it != 0 })
+        } finally {
+            ControllerInputRouter.reset()
+        }
+    }
+
+    @Test fun inFlightSwitchMacroAbortsImmediatelyWhenGenerationChangesAndPermitsRelease() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val masks = mutableListOf<Int>()
+            var resetTriggered = false
+            lateinit var core: LibretroCoreCoordinator
+            core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
+                override fun setInputButtons(buttonMask: Int) {
+                    masks += buttonMask
+                    // Advance core state generation (e.g. reset/ROM switch) during the first press.
+                    if (buttonMask != 0 && !resetTriggered) {
+                        resetTriggered = true
+                        resetCore()
+                    }
+                }
+            }
+            assertTrue(core.loadRom("synthetic.gba"))
+            val adapter = BattleInputAdapter(DefaultBattleInputDispatcher { core })
+            val ui = BattleUiSnapshot(
+                state = BattleUiState.PARTY_MENU,
+                selectedPartySlot = 0,
+                stateConfidence = DataConfidence.VERIFIED,
+                isInputAccepted = true,
+                capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+            )
+            val party = listOf(
+                syntheticMon(species = 1, currentHp = 100),
+                syntheticMon(species = 4, currentHp = 100),
+                syntheticMon(species = 7, currentHp = 100)
+            )
+
+            val result = adapter.executeSwitchPokemon(2, ui, party, activeSlot = 0)
+            assertTrue("Expected Cancelled, got $result", result is BattleInputResult.Cancelled)
+            assertEquals(listOf(InputManager.BTN_DOWN), masks.filter { it != 0 })
+            assertEquals(0, masks.last())
+
+            // Direct coordinator check: stale generation and Hardcore reject presses but permit release (0).
+            val staleGeneration = core.stateGeneration - 1
+            assertFalse(core.setAuthorizedAutomatedInput(InputManager.BTN_A, staleGeneration))
+            assertTrue(core.setAuthorizedAutomatedInput(0, staleGeneration))
+            core.executeExclusive { core.setRaHardcoreLocked(true) }
+            assertFalse(core.setAuthorizedAutomatedInput(InputManager.BTN_A, core.stateGeneration))
+            assertTrue(core.setAuthorizedAutomatedInput(0, core.stateGeneration))
+        } finally {
+            ControllerInputRouter.reset()
+        }
+    }
+
+    @Test fun queuedPartySwitchAbortsWhenGenerationChangesWhileWaitingOnActionMutex() = runBlocking {
+        ControllerInputRouter.reset()
+        try {
+            val firstStarted = CompletableDeferred<Unit>()
+            val releaseFirst = CompletableDeferred<Unit>()
+            val core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
+                val writes = mutableListOf<Int>()
+                override fun setInputButtons(buttonMask: Int) {
+                    writes += buttonMask
+                }
+            }
+            assertTrue(core.loadRom("romA.gba"))
+            val baseDispatcher = DefaultBattleInputDispatcher { core }
+            var holdNextPress = true
+            val holdingDispatcher = object : BattleInputDispatcher {
+                override val stateGeneration: Long get() = baseDispatcher.stateGeneration
+                override val isInteractiveAllowed: Boolean get() = baseDispatcher.isInteractiveAllowed
+                override suspend fun sendButton(buttonMask: Int, durationMs: Long, delayMs: Long): Boolean =
+                    baseDispatcher.sendButton(buttonMask, durationMs, delayMs)
+                override suspend fun sendAuthorizedButton(
+                    buttonMask: Int,
+                    durationMs: Long,
+                    delayMs: Long,
+                    expectedGeneration: Long
+                ): Boolean {
+                    if (holdNextPress) {
+                        holdNextPress = false
+                        firstStarted.complete(Unit)
+                        releaseFirst.await()
+                    }
+                    return baseDispatcher.sendAuthorizedButton(buttonMask, durationMs, delayMs, expectedGeneration)
+                }
+            }
+            val adapter = BattleInputAdapter(holdingDispatcher)
+            val ui = BattleUiSnapshot(
+                state = BattleUiState.PARTY_MENU,
+                selectedPartySlot = 0,
+                stateConfidence = DataConfidence.VERIFIED,
+                isInputAccepted = true,
+                capabilities = BattleInteractionCapabilities.FULL_VERIFIED
+            )
+            val party = listOf(
+                syntheticMon(species = 1, currentHp = 100),
+                syntheticMon(species = 4, currentHp = 100)
+            )
+
+            // Action 1 holds actionMutex at ROM A's generation.
+            val firstSwitch = async(start = CoroutineStart.UNDISPATCHED) {
+                adapter.executeSwitchPokemon(1, ui, party, activeSlot = 0)
+            }
+            firstStarted.await()
+
+            // Action 2 and cancel() queue behind actionMutex while still on ROM A's generation.
+            val queuedSwitch = async(start = CoroutineStart.UNDISPATCHED) {
+                adapter.executeSwitchPokemon(1, ui, party, activeSlot = 0)
+            }
+            val queuedCancel = async(start = CoroutineStart.UNDISPATCHED) {
+                adapter.cancel()
+            }
+
+            // Replacement ROM loads (advancing core stateGeneration) before actionMutex is released.
+            assertTrue(core.loadRom("romB.gba"))
+            val writesBeforeRelease = core.writes.size
+            releaseFirst.complete(Unit)
+
+            assertTrue(firstSwitch.await() is BattleInputResult.Cancelled)
+            assertEquals(BattleInputResult.Cancelled("Core state changed"), queuedSwitch.await())
+            assertFalse(queuedCancel.await())
+            assertTrue(
+                "No non-zero press may reach the replacement ROM; writes=${core.writes.drop(writesBeforeRelease)}",
+                core.writes.drop(writesBeforeRelease).none { it != 0 }
+            )
+        } finally {
+            ControllerInputRouter.reset()
+        }
+    }
+
+    private fun syntheticMon(species: Int, currentHp: Int = 100): ParsedPokemon = ParsedPokemon(
+        isValid = true,
+        isEmpty = false,
+        pid = 1L,
+        tid = 1,
+        sid = 1,
+        nickname = "Mon$species",
+        otName = "Test",
+        species = species,
+        heldItem = 0,
+        level = 50,
+        nature = 0,
+        natureName = "Hardy",
+        isShiny = false,
+        abilitySlot = 0,
+        isEgg = false,
+        friendship = 70,
+        experience = 1000L,
+        hpIv = 31,
+        attackIv = 31,
+        defenseIv = 31,
+        speedIv = 31,
+        spAttackIv = 31,
+        spDefenseIv = 31,
+        hpEv = 0,
+        attackEv = 0,
+        defenseEv = 0,
+        speedEv = 0,
+        spAttackEv = 0,
+        spDefenseEv = 0,
+        moves = intArrayOf(1, 0, 0, 0),
+        pp = intArrayOf(35, 0, 0, 0),
+        currentHp = currentHp,
+        maxHp = 100,
+        attack = 100,
+        defense = 100,
+        speed = 100,
+        spAttack = 100,
+        spDefense = 100,
+        statusCondition = 0L
+    )
 
     private fun directions(from: Int, target: Int): List<Int> = buildList {
         if (from and 1 != target and 1) add(if (target and 1 == 0) InputManager.BTN_LEFT else InputManager.BTN_RIGHT)

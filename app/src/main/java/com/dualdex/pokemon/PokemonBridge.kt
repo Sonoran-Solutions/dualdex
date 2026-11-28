@@ -1,5 +1,7 @@
 package com.dualdex.pokemon
 
+import com.dualdex.emulator.LibretroHost
+
 object PokemonBridge {
     init {
         System.loadLibrary("dualdex_native")
@@ -24,6 +26,12 @@ object PokemonBridge {
      * Read the active enemy/opponent party from EWRAM during battle.
      */
     external fun readEnemyParty(ewramBytes: ByteArray, gameId: Int): Array<ParsedPokemon>
+
+    internal fun readPcBoxFromCore(gameId: Int, boxIndex: Int): PcBoxSnapshot {
+        val metadata = IntArray(PcBoxSnapshot.NATIVE_METADATA_WORDS).apply { this[0] = 1 }
+        val mons = LibretroHost.nativeReadPcBoxFromCore(gameId, boxIndex, metadata)
+        return PcBoxSnapshot.fromNative(metadata, mons)
+    }
 
     /**
      * Read the player's live map coordinates and location from EWRAM.

@@ -1,0 +1,23 @@
+{
+  "id": "emerald_legacy",
+  "name": "Pokemon Emerald Legacy",
+  "baseGame": "Emerald",
+  "gameId": 0,
+  "developer": "TheSmithPlays",
+  "engine": "pokeemerald",
+  "hasEvs": true,
+  "hasIvs": true,
+  "hasPhysSpecSplit": false,
+  "steelResistsGhostDark": true,
+  "cfruOffsets": false,
+  "playerPartyOffset": 0,
+  "enemyPartyOffset": 0,
+  "docsUrl": null,
+  "headerTitles": ["EMERALDLEGACY", "EMERALD LEGACY"],
+  "sha256Hashes": [],
+  "isVerified": false,
+  "memoryLayoutVerified": false,
+  "battleUiVerified": false,
+  "interactiveControlsVerified": false,
+  "gameDataPackId": "modern"
+}

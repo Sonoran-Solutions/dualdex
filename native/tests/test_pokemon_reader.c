@@ -625,6 +625,69 @@ static void fake_gba_init(FakeGba* gba, bool map_iwram, bool map_ewram) {
     }
 }
 
+static bool count_pc_read(void* user, uint32_t address, uint8_t* out, size_t length) {
+    (void)address;
+    (void)out;
+    (void)length;
+    (*(unsigned*)user)++;
+    return false;
+}
+
+static void test_pc_box_pointer_and_metadata(void) {
+    printf("Running test_pc_box_pointer_and_metadata...\n");
+    static FakeGba gba;
+    fake_gba_init(&gba, true, true);
+    uint8_t revision = 1;
+    uint8_t species_info[5] = {3, 0, 0, 65, 34};
+    uint8_t dex[2] = {252, 0}; // internal ID 277 = Treecko
+    TEST_ASSERT(gba_memory_map_add(&gba.table, &revision, 0x080000BC, 1, 0, 0, 0, 0),
+                "map synthetic ROM revision");
+    TEST_ASSERT(gba_memory_map_add(&gba.table, species_info, 0x082547F4 + 277 * 28 + 0x13,
+                                  sizeof(species_info), 0, 0, 0, 0), "map rev 1 species info");
+    TEST_ASSERT(gba_memory_map_add(&gba.table, dex, 0x0825205E + 276 * 2,
+                                  sizeof(dex), 0, 0, 0, 0), "map rev 1 National Dex index");
+
+    const uint32_t base = 0x02029314u;
+    write32_le_t(gba.iwram + 0x5010, base);
+    RawGbaPokemon slot;
+    build_vanilla_mon(&slot, 24, 25, 277, 30, 52, 31u | (1u << 31));
+    memcpy(gba.ewram + 0x29314 + 4, &slot, 80);
+    build_vanilla_mon(&slot, 48, 49, 25, 30, 52, 1u << 30);
+    memcpy(gba.ewram + 0x29314 + 4 + 80, &slot, 80);
+    gba.ewram[0x29314 + 4 + 80 + 0x13] |= 1u; // Mark a checksum-valid record as Bad Egg.
+    memcpy(gba.ewram + 0x29314 + 4 + 2 * 80, &slot, 80);
+
+    PcBoxRawSnapshot pc;
+    TEST_ASSERT(pokemon_read_pc_box_gba(fake_gba_read, &gba.table, GAME_FIRERED, 0, &pc) == PC_BOX_AVAILABLE,
+                "valid FireRed box");
+    TEST_ASSERT(pc.slots[0].mon.species == 277 && pc.slots[0].mon.is_shiny &&
+                pc.slots[0].national_dex == 252 && pc.slots[0].ability_id == 34 && pc.slots[0].growth_rate == 3,
+                "preserve the record and resolve species metadata at the rev 1 addresses");
+    TEST_ASSERT(pc.slots[1].mon.species == 0 && pc.slots[2].mon.is_egg,
+                "Bad Egg flagged slots are skipped and actual eggs are preserved");
+
+    const uint32_t invalid[] = {0, base - 4, base + 1, base + 128, 0x0203FFFC, 0x03005010, 0xFFFFFFFF};
+    for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
+        write32_le_t(gba.iwram + 0x5010, invalid[i]);
+        TEST_ASSERT(pokemon_read_pc_box_gba(fake_gba_read, &gba.table, GAME_FIRERED, 0, &pc) == PC_BOX_UNREADABLE
+                    && !pc.box_count && !pc.slots[0].mon.species, "invalid pointer clears prior snapshot");
+    }
+    write32_le_t(gba.iwram + 0x5010, base);
+    gba.ewram[0x29314] = 14;
+    TEST_ASSERT(pokemon_read_pc_box_gba(fake_gba_read, &gba.table, GAME_FIRERED, 0, &pc) == PC_BOX_UNREADABLE,
+                "reject invalid current box");
+    unsigned reads = 0;
+    TEST_ASSERT(pokemon_read_pc_box_gba(count_pc_read, &reads, GAME_FIRERED, 14, &pc) == PC_BOX_UNREADABLE
+                && reads == 0, "reject invalid requested box before touching memory");
+    const GbaGameId unsupported[] = {GAME_UNKNOWN, GAME_UNBOUND, GAME_HEART_AND_SOUL, GAME_GHOST_GREY,
+                                     GAME_RADICAL_RED, GAME_LEAFGREEN};
+    for (size_t i = 0; i < sizeof(unsupported) / sizeof(unsupported[0]); i++) {
+        TEST_ASSERT(pokemon_read_pc_box_gba(count_pc_read, &reads, unsupported[i], 0, &pc) == PC_BOX_UNSUPPORTED
+                    && reads == 0 && !pc.box_count, "unsupported configs never call the read callback");
+    }
+    g_tests_passed++;
+}
+
 /**
  * A synthetic Heart & Soul 2.0.5 battle.
  *
@@ -7250,6 +7313,7 @@ int main(void) {
     test_hns_saveblock1_aslr_window_is_not_fixed();
     test_hns_battle_pokemon_layout_fields();
     test_generated_game_configs_are_wired_to_lookup();
+    test_pc_box_pointer_and_metadata();
     test_unknown_game_still_fails_closed();
     test_heart_and_soul_party_and_battle_hp_sync();
 

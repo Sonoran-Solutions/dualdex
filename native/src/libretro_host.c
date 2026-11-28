@@ -1,4 +1,7 @@
 #include "libretro_host.h"
+#ifdef DUALDEX_WITH_RCHEEVOS
+#include "ra_bridge.h"
+#endif
 #include "libretro.h"
 #include "gba_memory_map.h"
 #include "pokemon_reader.h"
@@ -36,6 +39,10 @@ static void (*p_retro_cheat_set)(unsigned, bool, const char*);
 
 static void* g_core_handle = NULL;
 static bool g_is_game_loaded = false;
+static bool g_ra_hardcore_protected = false;
+#ifdef DUALDEX_WITH_RCHEEVOS
+static RaBridge* g_ra;
+#endif
 static uint32_t g_current_buttons = 0;
 static enum retro_pixel_format g_pixel_format = RETRO_PIXEL_FORMAT_RGB565;
 static double g_target_fps = 59.7275;
@@ -138,6 +145,57 @@ bool libretro_host_read_gba_address(uint32_t address, void* out, size_t length) 
 
     return ok;
 }
+
+void libretro_host_set_ra_hardcore_protected(bool protected_session) {
+    g_ra_hardcore_protected = protected_session;
+}
+
+bool libretro_host_is_ra_hardcore_protected(void) {
+    if (g_ra_hardcore_protected) return true;
+#ifdef DUALDEX_WITH_RCHEEVOS
+    return ra_bridge_is_active(g_ra) && ra_bridge_is_hardcore(g_ra);
+#else
+    return false;
+#endif
+}
+
+#ifdef DUALDEX_WITH_RCHEEVOS
+static bool read_ra_memory(void* user, uint32_t address, uint8_t* out, size_t length) {
+    (void)user;
+    return libretro_host_read_gba_address(address, out, length);
+}
+
+struct RaBridge* libretro_host_ra_client(bool create) {
+    if (create && !g_ra) g_ra = ra_bridge_create(read_ra_memory, NULL);
+    return g_ra;
+}
+
+void libretro_host_ra_logout(void) {
+    ra_bridge_destroy(g_ra);
+    g_ra = NULL;
+}
+
+void libretro_host_ra_set_hardcore(bool enabled) {
+    bool was_hardcore = ra_bridge_is_hardcore(g_ra);
+    bool active = ra_bridge_is_active(g_ra);
+    ra_bridge_set_hardcore(g_ra, enabled);
+    if (ra_bridge_take_reset_request(g_ra) || (enabled && active && !was_hardcore)) {
+        libretro_host_cheat_reset();
+        libretro_host_reset();
+    }
+}
+#else
+struct RaBridge* libretro_host_ra_client(bool create) {
+    (void)create;
+    return NULL;
+}
+
+void libretro_host_ra_logout(void) {}
+
+void libretro_host_ra_set_hardcore(bool enabled) {
+    (void)enabled;
+}
+#endif
 
 // Environment callback implementation
 static bool core_environment_cb(unsigned cmd, void *data) {
@@ -433,6 +491,10 @@ bool libretro_host_init(const char* core_lib_path) {
 }
 
 bool libretro_host_unload_rom(void) {
+    g_ra_hardcore_protected = false;
+#ifdef DUALDEX_WITH_RCHEEVOS
+    ra_bridge_unload_game(g_ra);
+#endif
     if (!g_core_handle) return false;
     libretro_host_clear_audio();
     if (g_is_game_loaded && p_retro_unload_game) {
@@ -512,6 +574,9 @@ bool libretro_host_load_rom(const char* rom_file_path) {
 void libretro_host_step_frame(void) {
     if (g_core_handle && g_is_game_loaded && p_retro_run) {
         p_retro_run();
+#ifdef DUALDEX_WITH_RCHEEVOS
+        if (g_ra) ra_bridge_do_frame(g_ra);
+#endif
     }
 }
 
@@ -616,6 +681,7 @@ bool libretro_host_save_state(const char* save_state_path) {
 }
 
 bool libretro_host_load_state(const char* save_state_path) {
+    if (libretro_host_is_ra_hardcore_protected()) return false;
     if (!g_core_handle || !g_is_game_loaded || !save_state_path || !p_retro_unserialize) {
         return false;
     }
@@ -650,6 +716,9 @@ bool libretro_host_load_state(const char* save_state_path) {
     bool ok = false;
     if (rd == sz) {
         ok = p_retro_unserialize(buf, sz);
+#ifdef DUALDEX_WITH_RCHEEVOS
+        if (ok) ra_bridge_reset(g_ra);
+#endif
     }
     free(buf);
     return ok;
@@ -709,6 +778,9 @@ void libretro_host_reset(void) {
         // if the core were to republish nothing, stale pointers must not survive.
         libretro_host_clear_memory_regions();
         p_retro_reset();
+#ifdef DUALDEX_WITH_RCHEEVOS
+        ra_bridge_reset(g_ra);
+#endif
         libretro_host_clear_audio();
         pokemon_reader_reset();
     }
@@ -765,6 +837,9 @@ void libretro_host_cheat_reset(void) {
 }
 
 void libretro_host_cheat_set(unsigned index, bool enabled, const char* code) {
+    /* Reject every cheat_set (including enabled=false) under Hardcore protection:
+     * packaged mGBA ignores the enabled flag and still applies the code. */
+    if (libretro_host_is_ra_hardcore_protected()) return;
     if (p_retro_cheat_set && code) {
         p_retro_cheat_set(index, enabled, code);
     }

@@ -376,6 +376,97 @@ bool pokemon_parse_single_layout(
     return (out->species > 0 && out->species < 2000);
 }
 
+enum { PC_BOX_MON_BYTES = 80, GEN3_LAST_SPECIES = 411, GEN3_LAST_ABILITY = 76 };
+
+static void read_pc_box_species(DualDexGbaReadFn read, void* user, const GameMemoryConfig* config,
+                                uint32_t shift, PcBoxRawSlot* slot) {
+    const uint16_t species = slot->mon.species;
+    // Kanto and Johto internal IDs are National Dex numbers. Hoenn IDs are reordered.
+    if (species > 251) {
+        uint8_t dex[2];
+        if (read(user, config->pc_box_species_dex_gba_address + shift + (species - 1u) * 2,
+                 dex, sizeof(dex))) {
+            const uint16_t national_dex = read16_le(dex);
+            if (national_dex >= 252 && national_dex <= 386) slot->national_dex = national_dex;
+        }
+    }
+
+    // pret SpeciesInfo: 28-byte entries, growth rate at 0x13, two abilities at 0x16.
+    uint8_t info[5];
+    if (read(user, config->pc_box_species_info_gba_address + shift + species * 28u + 0x13,
+             info, sizeof(info))) {
+        if (info[0] < 6) slot->growth_rate = (int8_t)info[0];
+        const uint8_t ability = info[3 + slot->mon.ability_slot];
+        if (ability <= GEN3_LAST_ABILITY) slot->ability_id = (int8_t)ability;
+    }
+}
+
+PcBoxAvailability pokemon_read_pc_box_gba(
+    DualDexGbaReadFn read, void* user, GbaGameId game_id, int box_index, PcBoxRawSnapshot* out
+) {
+    if (!out) return PC_BOX_UNREADABLE;
+    memset(out, 0, sizeof(*out));
+    const GameMemoryConfig* config = pokemon_get_game_config(game_id);
+    if (!config || !config->pokemon_storage_ptr_gba_address) return PC_BOX_UNSUPPORTED;
+    if (!read || box_index < -1 || box_index >= config->pc_box_count) return PC_BOX_UNREADABLE;
+
+    const uint32_t ewram_end = DUALDEX_GBA_EWRAM_BASE + DUALDEX_GBA_EWRAM_SIZE;
+    const uint32_t size = config->pokemon_storage_size;
+    const uint32_t window = config->pokemon_storage_aslr_range;
+    const size_t box_bytes = (size_t)config->pc_box_slots * config->pc_box_mon_stride;
+    const uint64_t mons_end = (uint64_t)config->pc_box_mons_offset + config->pc_box_count * box_bytes;
+    if (!size || size > DUALDEX_GBA_EWRAM_SIZE || window < 4 ||
+        !config->pc_box_slots || config->pc_box_slots > DUALDEX_PC_BOX_MAX_SLOTS ||
+        config->pc_box_mon_stride != PC_BOX_MON_BYTES || mons_end > size ||
+        config->pc_box_current_offset >= config->pc_box_mons_offset) return PC_BOX_UNREADABLE;
+
+    uint8_t ptr[4];
+    if (!read(user, config->pokemon_storage_ptr_gba_address, ptr, sizeof(ptr))) return PC_BOX_UNREADABLE;
+    const uint32_t base = read32_le(ptr);
+    const uint32_t window_start = config->pokemon_storage_base_gba_address;
+    if (base < DUALDEX_GBA_EWRAM_BASE || base > ewram_end - size || (base & 3u) ||
+        base < window_start || base - window_start > window - 4) return PC_BOX_UNREADABLE;
+
+    uint8_t current;
+    if (!read(user, base + config->pc_box_current_offset, &current, 1) ||
+        current >= config->pc_box_count) return PC_BOX_UNREADABLE;
+    if (box_index == -1) box_index = current;
+
+    _Alignas(4) uint8_t raw[DUALDEX_PC_BOX_MAX_SLOTS * PC_BOX_MON_BYTES];
+    const uint32_t address = base + config->pc_box_mons_offset + (uint32_t)(box_index * box_bytes);
+    if (!read(user, address, raw, box_bytes)) return PC_BOX_UNREADABLE;
+
+    out->box_index = (uint8_t)box_index;
+    out->box_count = config->pc_box_count;
+    out->current_box = current;
+    out->slot_count = config->pc_box_slots;
+
+    uint8_t revision = 0;
+    bool read_revision = config->pc_box_rev1_rom_shift != 0;
+    for (uint8_t i = 0; i < out->slot_count; i++) {
+        ParsedPokemon mon;
+        const uint8_t* slot_bytes = raw + i * PC_BOX_MON_BYTES;
+        if (!pokemon_parse_single_layout(slot_bytes, false, config->storage_layout, &mon) ||
+            (slot_bytes[0x13] & 1u) || // BoxPokemon.isBadEgg
+            (mon.species > 251 && mon.species < 277) || mon.species > GEN3_LAST_SPECIES) continue;
+        PcBoxRawSlot* slot = &out->slots[i];
+        slot->mon = mon;
+        slot->national_dex = mon.species <= 251 ? mon.species : 0;
+        slot->ability_id = -1;
+        slot->growth_rate = -1;
+        // Both FireRed revisions share RAM addresses. Only their ROM tables moved.
+        if (read_revision) {
+            if (!read(user, 0x080000BCu, &revision, 1)) revision = 0xFF;
+            read_revision = false;
+        }
+        if (revision <= 1 && config->pc_box_species_info_gba_address &&
+            config->pc_box_species_dex_gba_address && mon.ability_slot_known && mon.ability_slot < 2) {
+            read_pc_box_species(read, user, config, revision * config->pc_box_rev1_rom_shift, slot);
+        }
+    }
+    return PC_BOX_AVAILABLE;
+}
+
 static uint32_t s_cached_player_party_offset = 0;
 static uint32_t s_cached_enemy_party_offset = 0;
 

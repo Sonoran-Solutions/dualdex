@@ -4,7 +4,12 @@ import android.os.SystemClock
 import android.util.Log
 import com.dualdex.battle.ActiveEnemyResolution
 import com.dualdex.pokemon.ParsedPokemon
+import com.dualdex.pokemon.PcBoxAvailability
+import com.dualdex.pokemon.PcBoxSnapshot
 import com.dualdex.pokemon.PlayerLocation
+import com.dualdex.pokemon.PokemonBridge
+import com.dualdex.retroachievements.RaHardcorePolicy
+import com.dualdex.retroachievements.RaRom
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -58,6 +63,58 @@ open class LibretroCoreCoordinator(
     private var romUnloaded = true
     private var loadedRomSha256: String? = null
 
+    @Volatile private var raHardcoreArmed = false
+    private val _raRom = MutableStateFlow<RaRom?>(null)
+    internal val raRom = _raRom.asStateFlow()
+    private val _raHardcore = MutableStateFlow(RaHardcorePolicy())
+    val raHardcoreChanges = _raHardcore.asStateFlow()
+    val raHardcorePolicy: RaHardcorePolicy get() = _raHardcore.value
+
+    /** Arm the next ROM before its atomic load, battery restore, and optional state restore. */
+    internal fun armRaHardcore(armed: Boolean) {
+        raHardcoreArmed = armed
+    }
+
+    private fun isPolicyProtected(policy: RaHardcorePolicy): Boolean =
+        !policy.mayLoadSaveState || !policy.mayUseCheats
+
+    internal open fun syncRaHardcoreProtectedNative(protectedSession: Boolean) {
+        if (bridge == null) {
+            try {
+                LibretroHost.nativeSetRaHardcoreProtected(protectedSession)
+            } catch (_: UnsatisfiedLinkError) {}
+        }
+    }
+
+    internal fun setRaHardcoreLocked(active: Boolean) {
+        check(lock.isHeldByCurrentThread)
+        val changed = raHardcorePolicy.isHardcoreActive != active
+        val policy = RaHardcorePolicy(active)
+        if (changed) {
+            _raHardcore.value = policy
+            if (active) {
+                // Cancel any outstanding injected press and reconcile the native button mask
+                // before a reset starts a protected run.
+                advanceGeneration()
+            }
+        }
+        syncRaHardcoreProtectedNative(isPolicyProtected(policy))
+        if (changed && bridge == null) {
+            try {
+                LibretroHost.nativeRaHardcore(active)
+            } catch (_: UnsatisfiedLinkError) {}
+        }
+    }
+
+    private fun updateRaRom(md5: String? = null) {
+        val rom = md5?.takeIf { it.length == 32 && it.all { c -> c in '0'..'9' || c in 'a'..'f' } }
+            ?.let { RaRom(it, stateGeneration) }
+        val policy = RaHardcorePolicy(raHardcoreArmed && rom != null)
+        _raHardcore.value = policy
+        syncRaHardcoreProtectedNative(isPolicyProtected(policy))
+        _raRom.value = rom
+    }
+
     @Volatile var emulationRunning = false
         internal set
     private val _frameCompletions = MutableStateFlow(0L)
@@ -78,6 +135,7 @@ open class LibretroCoreCoordinator(
     private fun advanceGeneration() {
         stateGeneration++
         _stateGenerationFlow.value = stateGeneration
+        ControllerInputRouter.revokeAutomatedMaskAndSync(this)
     }
 
     /** Must be called under [lock]; arbitrary display/profile code cannot assert provenance. */
@@ -182,6 +240,7 @@ open class LibretroCoreCoordinator(
         cheatRomSha256 = null
         loadedRomSha256 = null
         romUnloaded = true
+        updateRaRom()
         try {
             LibretroHost.nativeLoadCore(coreLibPath)
         } catch (_: UnsatisfiedLinkError) {
@@ -190,16 +249,16 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadRom(romPath: String): Boolean = executeExclusive {
-        loadRomLocked(romPath, null)
+        loadRomLocked(romPath, null, null)
     }
 
     /** The session manager calls this only after hashing the exact cached file passed below. */
     internal fun loadVerifiedRom(romPath: String, identity: RomIdentity): Boolean = executeExclusive {
         require(identity.isValid && identity.sha256.matches(Regex("[0-9a-fA-F]{64}")))
-        loadRomLocked(romPath, identity.sha256.lowercase())
+        loadRomLocked(romPath, identity.sha256.lowercase(), identity.md5.lowercase())
     }
 
-    private fun loadRomLocked(romPath: String, authorizedSha256: String?): Boolean {
+    private fun loadRomLocked(romPath: String, authorizedSha256: String?, md5: String?): Boolean {
         check(lock.isHeldByCurrentThread)
         advanceGeneration()
         cheatRomSha256 = null
@@ -212,6 +271,7 @@ open class LibretroCoreCoordinator(
         }
         romUnloaded = !ok
         if (ok) loadedRomSha256 = authorizedSha256
+        updateRaRom(md5.takeIf { ok })
         return ok
     }
 
@@ -220,6 +280,7 @@ open class LibretroCoreCoordinator(
         cheatRomSha256 = null
         romUnloaded = true
         loadedRomSha256 = null
+        updateRaRom()
         bridge?.unloadRom() ?: try {
             LibretroHost.nativeUnloadRom()
         } catch (_: UnsatisfiedLinkError) {
@@ -252,6 +313,7 @@ open class LibretroCoreCoordinator(
     }
 
     fun loadState(statePath: String): Boolean = executeExclusive {
+        if (!raHardcorePolicy.mayLoadSaveState) return@executeExclusive false
         advanceGeneration()
         bridge?.loadState(statePath) ?: try {
             LibretroHost.nativeLoadState(statePath)
@@ -301,6 +363,7 @@ open class LibretroCoreCoordinator(
         cheatRomSha256 = null
         loadedRomSha256 = null
         romUnloaded = true
+        updateRaRom()
         if (bridge == null) {
             try {
                 LibretroHost.nativeCleanup()
@@ -319,6 +382,8 @@ open class LibretroCoreCoordinator(
     }
 
     fun cheatSet(index: Int, enabled: Boolean, code: String): Unit = executeExclusive {
+        // Reject every cheatSet (including enabled=false): packaged mGBA ignores the enabled flag.
+        if (!raHardcorePolicy.mayUseCheats) return@executeExclusive
         if (bridge != null) {
             bridge?.cheatSet(index, enabled, code)
         } else {
@@ -383,6 +448,80 @@ open class LibretroCoreCoordinator(
         LibretroHost.nativeSetInputButtons(buttonMask)
     }
 
+    /**
+     * Writes an automated battle-console button mask under the core lock.
+     * Release (`buttonMask == 0`) is always permitted so buttons never stick; any non-zero press
+     * requires matching [expectedGeneration] and [RaHardcorePolicy.mayUseInteractiveBattleControls].
+     */
+    internal fun setAuthorizedAutomatedInputLocked(
+        buttonMask: Int,
+        expectedGeneration: Long
+    ): Boolean {
+        check(lock.isHeldByCurrentThread)
+        if (buttonMask != 0 &&
+            (!raHardcorePolicy.mayUseInteractiveBattleControls || stateGeneration != expectedGeneration)) {
+            return false
+        }
+        if (buttonMask != 0) {
+            ControllerInputRouter.markAutomatedNativeDirty(this)
+        }
+        setInputButtons(buttonMask)
+        return true
+    }
+
+    /**
+     * Writes combined physical + automated button bits under the core lock.
+     * Physical input and unconditional release (`automatedMask == 0`) are always preserved;
+     * non-zero automated bits are included only when [expectedGeneration] matches
+     * [stateGeneration] and [RaHardcorePolicy.mayUseInteractiveBattleControls] allows automation.
+     */
+    internal fun setCombinedInputLocked(
+        physicalMask: Int,
+        automatedMask: Int,
+        expectedGeneration: Long?
+    ): Boolean {
+        check(lock.isHeldByCurrentThread)
+        if (automatedMask == 0) {
+            setInputButtons(physicalMask)
+            return true
+        }
+        val allowed = expectedGeneration != null &&
+            raHardcorePolicy.mayUseInteractiveBattleControls &&
+            stateGeneration == expectedGeneration
+        setInputButtons(if (allowed) physicalMask or automatedMask else physicalMask)
+        return allowed
+    }
+
+    /**
+     * Validates [automatedMask] against [expectedGeneration] and [raHardcorePolicy] under the
+     * core lock, then atomically combines it with the live physical mask inside
+     * [ControllerInputRouter]'s leaf lock so concurrent physical releases are never overwritten
+     * by a pre-release physical snapshot.
+     */
+    internal fun setRoutedCombinedInputLocked(
+        automatedMask: Int,
+        expectedGeneration: Long?
+    ): Boolean {
+        check(lock.isHeldByCurrentThread)
+        if (automatedMask == 0) {
+            ControllerInputRouter.writeLiveMaskFor(this)
+            return true
+        }
+        val allowed = expectedGeneration != null &&
+            raHardcorePolicy.mayUseInteractiveBattleControls &&
+            stateGeneration == expectedGeneration
+        ControllerInputRouter.writeLiveMaskFor(this, automatedMask, includeAutomated = allowed)
+        return allowed
+    }
+
+    open fun setAuthorizedAutomatedInput(
+        buttonMask: Int,
+        expectedGeneration: Long,
+        timeoutMs: Long = 17L
+    ): Boolean = executeExclusive(timeoutMs) {
+        setAuthorizedAutomatedInputLocked(buttonMask, expectedGeneration)
+    }
+
     fun setTargetAudioSampleRate(rate: Int) {
         LibretroHost.nativeSetTargetAudioSampleRate(rate)
     }
@@ -400,6 +539,14 @@ open class LibretroCoreCoordinator(
         null
     } catch (_: Exception) {
         null
+    }
+
+    open fun readPcBoxFromCore(gameId: Int, boxIndex: Int): PcBoxSnapshot = try {
+        executeExclusive(50L) { PokemonBridge.readPcBoxFromCore(gameId, boxIndex) }
+    } catch (_: LinkageError) {
+        PcBoxSnapshot.unavailable(PcBoxAvailability.UNREADABLE)
+    } catch (_: LockTimeoutException) {
+        PcBoxSnapshot.unavailable(PcBoxAvailability.UNREADABLE)
     }
 
     open fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = try {

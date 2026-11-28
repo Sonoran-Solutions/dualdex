@@ -43,8 +43,8 @@ open class LegacySaveCatalog(
         if (legacyDir.exists() && legacyDir.isDirectory) {
             val files = legacyDir.listFiles { f ->
                 f.isFile && f.length() > 0L &&
+                    !AtomicSaveFile.isInternalSidecarName(f.name) &&
                     !f.name.endsWith(".migrated.bak") &&
-                    !f.name.endsWith(".tmp") &&
                     !f.name.endsWith(".orig.bak") &&
                     (f.name.endsWith(".sav") || f.name.endsWith(".state"))
             } ?: emptyArray()
@@ -67,8 +67,9 @@ open class LegacySaveCatalog(
                 val base = dir.name.removePrefix("legacy_")
                 val files = dir.listFiles { f ->
                     f.isFile && f.length() > 0L &&
+                        !AtomicSaveFile.isInternalSidecarName(f.name) &&
                         !f.name.endsWith(".migrated.bak") &&
-                        !f.name.endsWith(".tmp")
+                        !f.name.endsWith(".orig.bak")
                 } ?: emptyArray()
 
                 for (file in files) {
@@ -208,6 +209,12 @@ open class LegacySaveCatalog(
         }
 
         val source = candidate.sourceFile
+        if (AtomicSaveFile.isInternalSidecarName(source.name) ||
+            AtomicSaveFile.isInternalSidecarName(candidate.targetFileName)
+        ) {
+            Log.e(TAG, "Refusing to assign internal sidecar file: ${source.name} -> ${candidate.targetFileName}")
+            return MigrationResult.FAILURE
+        }
         if (!source.exists() || source.length() == 0L) {
             Log.e(TAG, "Source legacy file does not exist: ${source.absolutePath}")
             return MigrationResult.FAILURE
@@ -239,8 +246,18 @@ open class LegacySaveCatalog(
             }
         }
 
-        // 2. Create durable copy in canonical store using AtomicSaveFile
-        val committed = AtomicSaveFile.copyFromStaging(source, targetFile)
+        // 2. Create durable copy in canonical store using AtomicSaveFile (preserving explicit-only exclusion
+        // and source timestamp provenance for state, battery, and resume_barrier files)
+        val sourceExcluded = AtomicSaveFile.isAutoLoadExcluded(source)
+        val isFreshnessAnchor = candidate.targetFileName == SaveStateFiles.BATTERY ||
+            candidate.targetFileName == SaveStateFiles.RESUME_BARRIER
+        val committed = AtomicSaveFile.copyFromStaging(
+            stagingFile = source,
+            targetFile = targetFile,
+            markAutoLoadExcluded = sourceExcluded,
+            preserveSourceTimestampForAutoLoad = candidate.targetFileName.endsWith(".state"),
+            preserveSourceTimestamp = isFreshnessAnchor
+        )
         if (!committed || !targetFile.exists() || targetFile.length() != expectedSize) {
             Log.e(TAG, "Failed to commit legacy candidate ${source.name} to canonical destination ${targetFile.absolutePath}")
             return MigrationResult.FAILURE

@@ -14,6 +14,9 @@ import com.dualdex.emulator.storage.SaveShareStore
 import com.dualdex.emulator.storage.SaveStateFiles
 import com.dualdex.emulator.storage.SaveWriteResult
 import com.dualdex.settings.SettingsManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
@@ -35,6 +38,25 @@ data class LegacyMigrationResult(
     val gameTitles: List<String>,
     val message: String
 )
+
+/**
+ * Tracks a pre-existing boot-resume state whose load was skipped for the active ROM session
+ * (for example while RetroAchievements Hardcore mode or set lookup was active).
+ *
+ * Scoped to both [romSha256] and [sessionGeneration] so switching or closing the ROM never
+ * leaks protection across sessions.
+ */
+data class PreservedAutoResume(
+    val romSha256: String,
+    val sessionGeneration: Long,
+    val resumeFileName: String
+)
+
+sealed class PreserveAutoResumeResult {
+    data object None : PreserveAutoResumeResult()
+    data class Preserved(val record: PreservedAutoResume) : PreserveAutoResumeResult()
+    data class Failed(val reason: String) : PreserveAutoResumeResult()
+}
 
 open class SaveStateManager(
     private val context: Context? = null,
@@ -64,7 +86,21 @@ open class SaveStateManager(
     private val legacyCatalog by lazy { customLegacyCatalog ?: LegacySaveCatalog(context) }
     val saveShareStore by lazy { SaveShareStore(context) }
 
+    private var romSessionGeneration: Long = 0L
+    private val _preservedAutoResume = MutableStateFlow<PreservedAutoResume?>(null)
+    val preservedAutoResume: StateFlow<PreservedAutoResume?> = _preservedAutoResume.asStateFlow()
+    private var failedAutoResumePreservationGeneration: Long? = null
+
     var activeIdentity: RomIdentity? = null
+        set(value) {
+            field = value
+            if (value == null || !value.isValid ||
+                _preservedAutoResume.value?.romSha256?.equals(value.sha256, ignoreCase = true) != true
+            ) {
+                _preservedAutoResume.value = null
+                failedAutoResumePreservationGeneration = null
+            }
+        }
     var activeProfileName: String? = null
     var activeProfileId: String? = null
 
@@ -78,12 +114,16 @@ open class SaveStateManager(
 
     fun setActiveGame(identity: RomIdentity, profileName: String? = null, profileId: String? = null) {
         synchronized(globalSaveLock) {
+            romSessionGeneration++
             activeIdentity = identity
             activeProfileName = profileName
             activeProfileId = profileId
+            _preservedAutoResume.value = null
+            failedAutoResumePreservationGeneration = null
             if (identity.isValid) {
                 migrateOldBranchDirIfPresent(identity)
                 recordMetadata(identity, profileId)
+                restoreDurablePreservedAutoResumeLocked(identity)
             }
         }
     }
@@ -177,33 +217,68 @@ open class SaveStateManager(
     fun migrateOldBranchDirIfPresent(identity: RomIdentity): Boolean {
         if (!identity.isValid) return false
         val canonicalDir = getCanonicalRomDir(identity)
-        val canonicalHasSaves = canonicalDir.listFiles { f ->
-            f.isFile && (f.name.endsWith(".sav") || f.name.endsWith(".state"))
-        }?.isNotEmpty() == true
-
-        if (canonicalHasSaves) return false
 
         // Check fallbackBaseDir for <sanitizedTitle>__<shortHash>
         val oldKey = identity.legacyStorageKey
         val oldDir = File(fallbackBaseDir, oldKey)
         if (!oldDir.exists() || !oldDir.isDirectory) return false
 
+        val inProgressMarker = File(oldDir, ".migration_in_progress")
+        val resumingIncomplete = inProgressMarker.exists()
+
+        val canonicalHasSaves = canonicalDir.listFiles { f ->
+            f.isFile && (f.name.endsWith(".sav") || f.name.endsWith(".state"))
+        }?.isNotEmpty() == true
+
+        if (canonicalHasSaves && !resumingIncomplete) return false
+
         val oldFiles = oldDir.listFiles { f ->
-            f.isFile && !f.name.endsWith(".tmp") && !f.name.endsWith(".bak")
+            f.isFile && !AtomicSaveFile.isInternalSidecarName(f.name)
         } ?: return false
 
         if (oldFiles.isEmpty()) return false
 
-        Log.i(TAG, "Migrating old branch save directory from $oldKey to canonical ${identity.storageKey}")
+        if (!resumingIncomplete) {
+            val markerCreated = try {
+                inProgressMarker.writeText("1")
+                inProgressMarker.exists()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to mark old-branch migration in progress for $oldKey: ${e.message}")
+                false
+            }
+            if (!markerCreated) return false
+        }
+
+        Log.i(TAG, "Migrating old branch save directory from $oldKey to canonical ${identity.storageKey} (resuming=$resumingIncomplete)")
         var migratedAny = false
+        var allMigrated = true
         for (file in oldFiles) {
             val target = File(canonicalDir, file.name)
-            if (AtomicSaveFile.copyFromStaging(file, target)) {
+            // When resuming an incomplete migration, protect any canonical file that already exists
+            // (including newer saves created after the partial pass) and only migrate missing files.
+            if (target.isFile && target.length() > 0L) {
+                continue
+            }
+            val sourceExcluded = AtomicSaveFile.isAutoLoadExcluded(file)
+            val isStateFile = file.name.endsWith(".state")
+            val isFreshnessAnchor = file.name == SaveStateFiles.BATTERY ||
+                file.name == SaveStateFiles.RESUME_BARRIER
+            if (AtomicSaveFile.copyFromStaging(
+                    stagingFile = file,
+                    targetFile = target,
+                    markAutoLoadExcluded = sourceExcluded,
+                    preserveSourceTimestampForAutoLoad = isStateFile,
+                    preserveSourceTimestamp = isFreshnessAnchor
+                )
+            ) {
                 migratedAny = true
+            } else {
+                allMigrated = false
             }
         }
 
-        if (migratedAny) {
+        if (allMigrated) {
+            inProgressMarker.delete()
             val bakDir = File(fallbackBaseDir, "${oldKey}.migrated.bak")
             oldDir.renameTo(bakDir)
         }
@@ -240,17 +315,38 @@ open class SaveStateManager(
         val ok = nativeSaveState(stagingFile.absolutePath)
         if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) return null
         val canonicalFile = getCanonicalFile(identity, fileName)
-        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it) }
+        val expectedStateSize = nativeGetSaveStateSize().takeIf { it > 0 }
+        return canonicalFile.takeIf {
+            AtomicSaveFile.copyFromStaging(
+                stagingFile = stagingFile,
+                targetFile = it,
+                expectedPriorSize = expectedStateSize
+            )
+        }
     }
 
     /**
      * Validates and loads [fileName]. With [snapshotUndo] the current state is first written to
      * `undo_load.state`, so an accidental load can be reverted with [undoLoad].
+     * When [allowRecovery] is false (used by automatic boot resume after candidate recovery and
+     * eligibility checks have already completed under [globalSaveLock]), refuses to retry backup
+     * recovery or load any file marked `.no_autoload`.
      */
-    private fun loadStateFile(identity: RomIdentity, fileName: String, snapshotUndo: Boolean): Boolean {
+    private fun loadStateFile(
+        identity: RomIdentity,
+        fileName: String,
+        snapshotUndo: Boolean,
+        allowRecovery: Boolean = true
+    ): Boolean {
+        if (!coreCoordinator.raHardcorePolicy.mayLoadSaveState) return false
         val canonicalFile = getCanonicalFile(identity, fileName)
         val expectedSize = nativeGetSaveStateSize()
-        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
+        if (allowRecovery) {
+            AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
+        } else if (AtomicSaveFile.isAutoLoadExcluded(canonicalFile)) {
+            Log.w(TAG, "Refusing automatic load of $fileName: durable auto-load exclusion marker present")
+            return false
+        }
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
         if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
             Log.e(TAG, "$fileName size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
@@ -288,7 +384,15 @@ open class SaveStateManager(
         profileId: String? = null
     ): Boolean = synchronized(globalSaveLock) {
         if (refuse("loadSlot", identity)) return false
-        return loadStateFile(identity, SaveStateFiles.slotState(slotIndex), snapshotUndo = true)
+        val fileName = SaveStateFiles.slotState(slotIndex)
+        val loaded = loadStateFile(identity, fileName, snapshotUndo = true)
+        if (loaded) {
+            AtomicSaveFile.clearAutoLoadExcluded(getCanonicalFile(identity, fileName))
+            if (preservedAutoResumeFor(identity)?.resumeFileName == fileName) {
+                clearPreservedAutoResumeLocked(identity)
+            }
+        }
+        return loaded
     }
 
     /** Reverts the most recent slot/quick load by restoring the state captured just before it. */
@@ -343,17 +447,229 @@ open class SaveStateManager(
         profileId: String? = null
     ): Boolean = synchronized(globalSaveLock) {
         if (refuse("quickLoad", identity)) return false
-        return loadStateFile(identity, SaveStateFiles.QUICK_SAVE, snapshotUndo = true)
+        val loaded = loadStateFile(identity, SaveStateFiles.QUICK_SAVE, snapshotUndo = true)
+        if (loaded) {
+            AtomicSaveFile.clearAutoLoadExcluded(getCanonicalFile(identity, SaveStateFiles.QUICK_SAVE))
+            if (preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.QUICK_SAVE) {
+                clearPreservedAutoResumeLocked(identity)
+            }
+        }
+        return loaded
+    }
+
+    private fun deleteDurablePreservedMarkerLocked(identity: RomIdentity) {
+        val dir = getCanonicalRomDir(identity)
+        val markerFile = File(dir, SaveStateFiles.PRESERVED_AUTO_RESUME)
+        markerFile.delete()
+        File(dir, "${SaveStateFiles.PRESERVED_AUTO_RESUME}.bak").delete()
+        File(dir, "${SaveStateFiles.PRESERVED_AUTO_RESUME}.tmp").delete()
+        AtomicSaveFile.backupProvenanceFile(markerFile).delete()
+        AtomicSaveFile.autoLoadExcludedFile(markerFile).delete()
+    }
+
+    private fun clearPreservedAutoResumeLocked(identity: RomIdentity) {
+        if (_preservedAutoResume.value?.romSha256?.equals(identity.sha256, ignoreCase = true) == true) {
+            _preservedAutoResume.value = null
+        }
+        if (identity.isValid) {
+            deleteDurablePreservedMarkerLocked(identity)
+        }
+    }
+
+    private fun hasFailedAutoResumePreservationLocked(identity: RomIdentity): Boolean =
+        identity.isValid && isLoadedRom(identity) && failedAutoResumePreservationGeneration == romSessionGeneration
+
+    private fun recoverResumeCandidatesLocked(dir: File, expectedSize: Long?): Set<String> {
+        val excluded = mutableSetOf<String>()
+        for (name in SaveStateFiles.allResumeStateNames) {
+            val candidate = File(dir, name)
+            val bak = File(dir, "$name.bak")
+            if (candidate.exists() || bak.exists()) {
+                val outcome = AtomicSaveFile.recoverInterruptedDetailed(candidate, expectedSize)
+                if (outcome == AtomicSaveFile.RecoveryOutcome.UNAVAILABLE ||
+                    outcome == AtomicSaveFile.RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP
+                ) {
+                    excluded += name
+                }
+            }
+        }
+        return excluded
+    }
+
+    private fun readDurablePreservedFileNameLocked(identity: RomIdentity): String? {
+        if (!identity.isValid) return null
+        val dir = getCanonicalRomDir(identity)
+        val markerFile = File(dir, SaveStateFiles.PRESERVED_AUTO_RESUME)
+        AtomicSaveFile.recoverInterrupted(markerFile)
+        if (!markerFile.isFile || markerFile.length() == 0L) return null
+        val fileName = runCatching { markerFile.readText(Charsets.UTF_8).trim() }.getOrNull()
+        if (fileName.isNullOrEmpty() || !SaveStateFiles.isResumeStateName(fileName)) {
+            deleteDurablePreservedMarkerLocked(identity)
+            return null
+        }
+        val target = File(dir, fileName)
+        val expectedSize = if (isLoadedRom(identity)) nativeGetSaveStateSize().takeIf { it > 0 } else null
+        val outcome = AtomicSaveFile.recoverInterruptedDetailed(target, expectedSize)
+        val isAutoLoadExcluded =
+            outcome == AtomicSaveFile.RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP ||
+                AtomicSaveFile.isAutoLoadExcluded(target)
+        val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified()
+        val invalidatedByBarrier = barrier > 0L && (
+            isAutoLoadExcluded || target.lastModified() <= barrier
+            )
+        if (!target.isFile || target.length() == 0L || invalidatedByBarrier) {
+            deleteDurablePreservedMarkerLocked(identity)
+            return null
+        }
+        return fileName
+    }
+
+    private fun restoreDurablePreservedAutoResumeLocked(identity: RomIdentity): PreservedAutoResume? {
+        val fileName = readDurablePreservedFileNameLocked(identity) ?: run {
+            _preservedAutoResume.value = null
+            return null
+        }
+        val record = PreservedAutoResume(
+            romSha256 = identity.sha256.lowercase(),
+            sessionGeneration = romSessionGeneration,
+            resumeFileName = fileName
+        )
+        _preservedAutoResume.value = record
+        return record
+    }
+
+    fun preservedAutoResumeFor(identity: RomIdentity): PreservedAutoResume? = synchronized(globalSaveLock) {
+        val record = _preservedAutoResume.value ?: return null
+        if (!identity.isValid || !isLoadedRom(identity)) return null
+        if (record.sessionGeneration != romSessionGeneration) return null
+        if (!record.romSha256.equals(identity.sha256, ignoreCase = true)) return null
+        return record
+    }
+
+    fun hasPreservedAutoResume(identity: RomIdentity): Boolean =
+        preservedAutoResumeFor(identity) != null
+
+    /**
+     * Records that boot-time auto-resume was skipped for the active ROM session (e.g. while
+     * RetroAchievements Hardcore mode or set lookup is active), when an eligible resume state
+     * or an already-preserved durable reference exists on disk. While preserved, automatic
+     * [saveAutoResume] writes will not overwrite the preserved auto-resume slot until the player
+     * explicitly resolves it.
+     *
+     * Fails closed if an eligible resume state exists and the durable marker cannot be written:
+     * returns [PreserveAutoResumeResult.Failed] without publishing an in-memory record and blocks
+     * [saveAutoResume] / [closeGame] for this session so unprotected state can never be overwritten
+     * or outpaced by flushed SRAM.
+     */
+    fun preserveSkippedAutoResume(identity: RomIdentity): PreserveAutoResumeResult = synchronized(globalSaveLock) {
+        if (refuse("preserveSkippedAutoResume", identity)) {
+            return PreserveAutoResumeResult.Failed("ROM is not active")
+        }
+        val existingDurable = readDurablePreservedFileNameLocked(identity)
+        if (existingDurable != null) {
+            failedAutoResumePreservationGeneration = null
+            val record = PreservedAutoResume(
+                romSha256 = identity.sha256.lowercase(),
+                sessionGeneration = romSessionGeneration,
+                resumeFileName = existingDurable
+            )
+            _preservedAutoResume.value = record
+            return PreserveAutoResumeResult.Preserved(record)
+        }
+        val dir = getCanonicalRomDir(identity)
+        val expectedSize = nativeGetSaveStateSize().takeIf { it > 0 }
+        val excludedNames = recoverResumeCandidatesLocked(dir, expectedSize)
+        val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
+        val newest = SaveStateFiles.newestResumeState(
+            dir = dir,
+            barrierMs = barrier,
+            excludedNames = excludedNames
+        )
+        if (newest == null) {
+            failedAutoResumePreservationGeneration = null
+            _preservedAutoResume.value = null
+            return PreserveAutoResumeResult.None
+        }
+        val markerFile = File(dir, SaveStateFiles.PRESERVED_AUTO_RESUME)
+        if (!AtomicSaveFile.writeBytes(markerFile, newest.name.toByteArray(Charsets.UTF_8))) {
+            Log.e(TAG, "Failed to persist durable preserved auto-resume marker for ${identity.storageKey}")
+            _preservedAutoResume.value = null
+            failedAutoResumePreservationGeneration = romSessionGeneration
+            return PreserveAutoResumeResult.Failed(
+                "Could not durably protect skipped boot-resume state (${newest.name})"
+            )
+        }
+        failedAutoResumePreservationGeneration = null
+        val record = PreservedAutoResume(
+            romSha256 = identity.sha256.lowercase(),
+            sessionGeneration = romSessionGeneration,
+            resumeFileName = newest.name
+        )
+        _preservedAutoResume.value = record
+        return PreserveAutoResumeResult.Preserved(record)
+    }
+
+    /**
+     * Explicitly restores the preserved boot-resume state once state loading is permitted (e.g.
+     * after RetroAchievements lookup resolves to Softcore / no achievement set). Bound to
+     * [expected] under [globalSaveLock] so a stale UI click from an earlier session generation
+     * of the same ROM cannot restore a newer session's record. Fails closed while Hardcore mode
+     * blocks state loading, leaving the preserved state protected.
+     */
+    fun restorePreservedAutoResume(
+        identity: RomIdentity,
+        expected: PreservedAutoResume
+    ): Boolean = synchronized(globalSaveLock) {
+        if (refuse("restorePreservedAutoResume", identity)) return false
+        val record = preservedAutoResumeFor(identity) ?: return false
+        if (record != expected) return false
+        val loaded = loadStateFile(identity, record.resumeFileName, snapshotUndo = true)
+        if (loaded) {
+            AtomicSaveFile.clearAutoLoadExcluded(getCanonicalFile(identity, record.resumeFileName))
+            clearPreservedAutoResumeLocked(identity)
+        }
+        return loaded
+    }
+
+    /**
+     * Explicitly discards preservation so the player keeps the current session and re-enables
+     * automatic [saveAutoResume] writes for this session. Bound to [expected] under
+     * [globalSaveLock] so a stale UI click cannot dismiss a newer session's record.
+     */
+    fun keepCurrentSessionOverPreservedAutoResume(
+        identity: RomIdentity,
+        expected: PreservedAutoResume
+    ): Boolean = synchronized(globalSaveLock) {
+        if (refuse("keepCurrentSessionOverPreservedAutoResume", identity)) return false
+        val record = preservedAutoResumeFor(identity) ?: return false
+        if (record != expected) return false
+        clearPreservedAutoResumeLocked(identity)
+        return true
     }
 
     fun saveAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (refuse("saveAutoResume", identity)) return false
+        if (hasFailedAutoResumePreservationLocked(identity)) {
+            Log.e(TAG, "Refusing saveAutoResume for ${identity.storageKey}: durable preservation of skipped boot-resume state failed")
+            return false
+        }
+        if (preservedAutoResumeFor(identity) != null) {
+            Log.i(TAG, "Skipping saveAutoResume for ${identity.storageKey}: preserving skipped boot-resume state")
+            return false
+        }
         return writeState(identity, SaveStateFiles.AUTO_RESUME) != null
     }
 
     fun loadAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (refuse("loadAutoResume", identity)) return false
-        return loadStateFile(identity, SaveStateFiles.AUTO_RESUME, snapshotUndo = false)
+        val loaded = loadStateFile(identity, SaveStateFiles.AUTO_RESUME, snapshotUndo = false)
+        if (loaded) {
+            AtomicSaveFile.clearAutoLoadExcluded(getCanonicalFile(identity, SaveStateFiles.AUTO_RESUME))
+            if (preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.AUTO_RESUME) {
+                clearPreservedAutoResumeLocked(identity)
+            }
+        }
+        return loaded
     }
 
     /**
@@ -364,9 +680,21 @@ open class SaveStateManager(
     fun loadNewestResumeState(identity: RomIdentity): String? = synchronized(globalSaveLock) {
         if (refuse("loadNewestResumeState", identity)) return null
         val dir = getCanonicalRomDir(identity)
+        val expectedSize = nativeGetSaveStateSize().takeIf { it > 0 }
+        val excludedNames = recoverResumeCandidatesLocked(dir, expectedSize)
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
-        val newest = SaveStateFiles.newestResumeState(dir, barrier) ?: return null
-        return newest.name.takeIf { loadStateFile(identity, it, snapshotUndo = false) }
+        val newest = SaveStateFiles.newestResumeState(
+            dir = dir,
+            barrierMs = barrier,
+            excludedNames = excludedNames
+        ) ?: return null
+        val loadedName = newest.name.takeIf {
+            loadStateFile(identity, it, snapshotUndo = false, allowRecovery = false)
+        }
+        if (loadedName != null && preservedAutoResumeFor(identity)?.resumeFileName == loadedName) {
+            clearPreservedAutoResumeLocked(identity)
+        }
+        return loadedName
     }
 
     /**
@@ -376,8 +704,12 @@ open class SaveStateManager(
      */
     fun clearAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (!identity.isValid) return false
+        clearPreservedAutoResumeLocked(identity)
         val dir = getCanonicalRomDir(identity)
-        File(dir, SaveStateFiles.AUTO_RESUME).delete()
+        val autoResumeFile = File(dir, SaveStateFiles.AUTO_RESUME)
+        autoResumeFile.delete()
+        AtomicSaveFile.autoLoadExcludedFile(autoResumeFile).delete()
+        AtomicSaveFile.backupProvenanceFile(autoResumeFile).delete()
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER)
         return try {
             barrier.writeText(System.currentTimeMillis().toString())
@@ -395,6 +727,7 @@ open class SaveStateManager(
     /** Flushes the battery save, then resets the core. Refuses (no reset) if the flush fails. */
     fun restartGame(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (refuse("restartGame", identity)) return false
+        if (hasFailedAutoResumePreservationLocked(identity)) return false
         if (flushBatterySave(identity) !is SaveWriteResult.Success) return false
         nativeResetCore()
         return true
@@ -402,9 +735,10 @@ open class SaveStateManager(
 
     /**
      * Close Game, in this order: [pauseEmulation] (caller stops the frame loop and polling), write
-     * the battery save and the resume state, and only if both succeeded unload the ROM. On any
-     * failure nothing is unloaded and [resumeEmulation] restarts the game. On success emulation
-     * stays paused; the caller clears its session.
+     * the battery save and the resume state (unless a skipped boot-resume state is preserved), and
+     * only if both succeeded unload the ROM. On any failure nothing is unloaded and
+     * [resumeEmulation] restarts the game. On success emulation stays paused; the caller clears
+     * its session.
      */
     fun closeGame(
         identity: RomIdentity,
@@ -414,8 +748,9 @@ open class SaveStateManager(
         pauseEmulation()
         val closed = synchronized(globalSaveLock) {
             !refuse("closeGame", identity) &&
+                !hasFailedAutoResumePreservationLocked(identity) &&
                 flushBatterySave(identity) is SaveWriteResult.Success &&
-                saveAutoResume(identity) &&
+                (hasPreservedAutoResume(identity) || saveAutoResume(identity)) &&
                 coreCoordinator.executeExclusive {
                     coreCoordinator.unloadRom()
                     activeIdentity = null
@@ -466,34 +801,35 @@ open class SaveStateManager(
         return getFileInfo(identity, "battery.sav", slotIndex = 0)
     }
 
-    private fun getFileInfo(identity: RomIdentity, fileName: String, slotIndex: Int): SaveSlotInfo {
-        val canonicalFile = getCanonicalFile(identity, fileName)
-        val expectedSize = if (fileName == "battery.sav") {
-            nativeGetSaveRamSize().takeIf { it > 0 }
-        } else if (fileName.endsWith(".state")) {
-            nativeGetSaveStateSize().takeIf { it > 0 }
-        } else null
-        AtomicSaveFile.recoverInterrupted(canonicalFile, expectedSize)
-        return if (canonicalFile.exists() && canonicalFile.length() > 0L) {
-            val ts = canonicalFile.lastModified()
-            val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
-            SaveSlotInfo(
-                slotIndex = slotIndex,
-                exists = true,
-                timestampMs = ts,
-                formattedDate = dateStr,
-                sizeBytes = canonicalFile.length()
-            )
-        } else {
-            SaveSlotInfo(
-                slotIndex = slotIndex,
-                exists = false,
-                timestampMs = 0L,
-                formattedDate = if (slotIndex == 0) "No .sav file" else "Empty",
-                sizeBytes = 0L
-            )
+    private fun getFileInfo(identity: RomIdentity, fileName: String, slotIndex: Int): SaveSlotInfo =
+        synchronized(globalSaveLock) {
+            val canonicalFile = getCanonicalFile(identity, fileName)
+            val expectedSize = if (fileName == "battery.sav") {
+                nativeGetSaveRamSize().takeIf { it > 0 }
+            } else if (fileName.endsWith(".state")) {
+                nativeGetSaveStateSize().takeIf { it > 0 }
+            } else null
+            AtomicSaveFile.recoverInterrupted(canonicalFile, expectedSize)
+            if (canonicalFile.exists() && canonicalFile.length() > 0L) {
+                val ts = canonicalFile.lastModified()
+                val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
+                SaveSlotInfo(
+                    slotIndex = slotIndex,
+                    exists = true,
+                    timestampMs = ts,
+                    formattedDate = dateStr,
+                    sizeBytes = canonicalFile.length()
+                )
+            } else {
+                SaveSlotInfo(
+                    slotIndex = slotIndex,
+                    exists = false,
+                    timestampMs = 0L,
+                    formattedDate = if (slotIndex == 0) "No .sav file" else "Empty",
+                    sizeBytes = 0L
+                )
+            }
         }
-    }
 
     // ---------------------------------------------------------
     // Cartridge Battery Save (.sav) Management
@@ -544,7 +880,12 @@ open class SaveStateManager(
         // battery.sav's mtime past the resume state written in between, or the next boot rejects it as stale.
         val unchanged = canonicalFile.isFile && canonicalFile.length() == stagingFile.length() &&
             canonicalFile.readBytes().contentEquals(stagingFile.readBytes())
-        val committed = unchanged || AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        val expectedRamSize = nativeGetSaveRamSize().takeIf { it > 0 }
+        val committed = unchanged || AtomicSaveFile.copyFromStaging(
+            stagingFile = stagingFile,
+            targetFile = canonicalFile,
+            expectedPriorSize = expectedRamSize
+        )
         if (!committed) {
             Log.e(TAG, "Atomic commit to canonical battery.sav failed")
             return SaveWriteResult.Failure("Canonical commit failed")
@@ -637,7 +978,11 @@ open class SaveStateManager(
                     }
 
                     // 6. Commit candidate atomically to canonical store
-                    val committed = AtomicSaveFile.writeBytes(canonicalFile, cleanBytes)
+                    val committed = AtomicSaveFile.writeBytes(
+                        targetFile = canonicalFile,
+                        bytes = cleanBytes,
+                        expectedPriorSize = expectedRamSize.toLong()
+                    )
                     if (!committed) {
                         Log.e(TAG, "Import failed: atomic canonical commit failed, rolling back live SRAM")
                         nativeLoadSaveRam(sramBackup.absolutePath) // Rollback live SRAM
@@ -685,7 +1030,12 @@ open class SaveStateManager(
 
             // 2. Commit newly captured SRAM to canonical internal store
             val canonicalFile = getCanonicalFile(identity, "battery.sav")
-            val committed = AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+            val expectedRamSize = nativeGetSaveRamSize().takeIf { it > 0 }
+            val committed = AtomicSaveFile.copyFromStaging(
+                stagingFile = stagingFile,
+                targetFile = canonicalFile,
+                expectedPriorSize = expectedRamSize
+            )
             if (!committed || !canonicalFile.exists() || canonicalFile.length() == 0L) {
                 Log.e(TAG, "Export aborted: failed to commit fresh SRAM to canonical store")
                 return false

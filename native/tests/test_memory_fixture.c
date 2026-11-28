@@ -295,6 +295,52 @@ static void test_unsupported(void) {
           memory_fixture_ewram(&fixture), sizeof(ewram), NULL, &party) == 0);
 }
 
+static void test_pc_box_replay(void) {
+    const struct { GbaGameId game; uint32_t pointer, base; } pcs[] = {
+        {GAME_FIRERED, 0x5010, 0x29314},
+        {GAME_EMERALD, 0x5D94, 0x29808}
+    };
+    for (size_t i = 0; i < sizeof(pcs) / sizeof(pcs[0]); i++) {
+        synthetic((unsigned)i);
+        const uint32_t base = pcs[i].base + 124;
+        put32(iwram + pcs[i].pointer, DUALDEX_GBA_EWRAM_BASE + base);
+        ewram[base] = 13;
+        uint8_t* box = ewram + base + 4 + 13 * 30 * 80;
+        uint8_t bytes[100];
+        mon(bytes, 25, false);
+        memcpy(box + 2 * 80, bytes, 80);
+        bytes[32] ^= 1;
+        memcpy(box + 3 * 80, bytes, 80);
+        mon(bytes, 19, false);
+        memcpy(box + 29 * 80, bytes, 80);
+        write_pair();
+        CHECK(memory_fixture_load(&fixture, regions, 2) == FIXTURE_OK);
+
+        PcBoxRawSnapshot pc;
+        CHECK(pokemon_read_pc_box_gba(memory_fixture_read, &fixture, pcs[i].game, -1, &pc) == PC_BOX_AVAILABLE);
+        CHECK(pc.box_index == 13 && pc.current_box == 13 && pc.box_count == 14 && pc.slot_count == 30);
+        const ParsedPokemon* boxed = &pc.slots[2].mon;
+        CHECK(boxed->species == 25 && boxed->held_item == 15 && boxed->moves[0] == 33);
+        CHECK(boxed->hp_iv == 31 && boxed->hp_ev == 10 && boxed->nature == 24 && boxed->ability_slot == 1);
+        CHECK(boxed->level == 0 && boxed->max_hp == 0 && boxed->attack == 0);
+        CHECK(pc.slots[0].mon.species == 0 && pc.slots[3].mon.species == 0 && pc.slots[29].mon.species == 19);
+        CHECK(memcmp(fixture.ewram, ewram, sizeof(ewram)) == 0);
+        CHECK(memcmp(fixture.iwram, iwram, sizeof(iwram)) == 0);
+        checks++;
+        CHECK(pokemon_read_pc_box_gba(memory_fixture_read, &fixture, pcs[i].game, 0, &pc) == PC_BOX_AVAILABLE);
+        CHECK(pc.box_index == 0 && pc.current_box == 13);
+        for (unsigned slot = 0; slot < pc.slot_count; slot++) CHECK(pc.slots[slot].mon.species == 0);
+        checks++;
+
+        put32(iwram + pcs[i].pointer, 0x0203FFFC);
+        write_pair();
+        CHECK(memory_fixture_load(&fixture, regions, 2) == FIXTURE_OK);
+        CHECK(pokemon_read_pc_box_gba(memory_fixture_read, &fixture, pcs[i].game, 0, &pc) == PC_BOX_UNREADABLE);
+        CHECK(pc.slot_count == 0 && pc.box_count == 0);
+        checks++;
+    }
+}
+
 int main(int argc, char** argv) {
     if (argc == 5 && strcmp(argv[1], "--replay") == 0) {
         GbaGameId game = strcmp(argv[2], "firered") == 0 ? GAME_FIRERED :
@@ -323,7 +369,7 @@ int main(int argc, char** argv) {
     CHECK(atexit(cleanup) == 0);
     regions[0] = (MemoryFixtureRegion){DUALDEX_GBA_EWRAM_BASE, ewram_path};
     regions[1] = (MemoryFixtureRegion){DUALDEX_GBA_IWRAM_BASE, iwram_path};
-    test_replay(); test_bad_content(); test_pointers(); test_loading(); test_unsupported();
+    test_replay(); test_bad_content(); test_pointers(); test_loading(); test_unsupported(); test_pc_box_replay();
     printf("Memory fixture replay: %u replay/rejection cases passed (all synthetic, ROM-free).\n", checks);
     return 0;
 }

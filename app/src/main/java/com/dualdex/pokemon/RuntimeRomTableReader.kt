@@ -80,18 +80,20 @@ enum class TableLayoutVersion {
     GEN3_VANILLA_BYTE,
 
     /**
-     * Pinned upstream `pokeemerald-expansion` v1.9.0 (`include/move.h` `struct MoveInfo`,
+     * Pinned upstream `pokeemerald-expansion` v1.9.0–v1.10.0 (`include/move.h` `struct MoveInfo`,
      * `include/item.h` `struct Item`):
      * - `MoveInfo`: `type:5`, `category:2`, `power:9` at `+0x0A`; `accuracy:7`, `target:9` at `+0x0C`; `pp` at `+0x0E`
-     * - `Item`: `description` ptr at `+0x0C`; inline `name[20]` at `+0x14`
+     * - `Item`: `description` ptr at `+0x0C`; inline `u8 name[20]` at `+0x14`
      */
     EXPANSION_V1_9_BITFIELD,
 
     /**
-     * Pinned `pokeemerald-expansion` v1.10+ packed `MoveInfo` layout with pointer-backed `Item.name`
-     * at `+0x14` and `Item.description` ptr at `+0x0C`.
+     * Pinned upstream `pokeemerald-expansion` v1.13.0 (`include/move.h` `struct MoveInfo`,
+     * `include/item.h` `struct Item`):
+     * - `MoveInfo`: `type:5`, `category:2`, `power:9` at `+0x0A`; `accuracy:7`, `target:9` at `+0x0C`; `pp` at `+0x0E`
+     * - `Item`: `description` ptr at `+0x0C`; pointer-backed `const u8 *name` at `+0x14` (`pluralName` ptr at `+0x18`)
      */
-    EXPANSION_V1_10_PTR_ITEM
+    EXPANSION_V1_13_PTR_ITEM
 }
 
 data class SpeciesTableSpec(
@@ -240,7 +242,7 @@ object RuntimeRomTableReader {
         "GEN3_VANILLA_BYTE" to TableLayoutVersion.GEN3_VANILLA_BYTE,
         "EXPANSION_V1_9_BITFIELD" to TableLayoutVersion.EXPANSION_V1_9_BITFIELD,
         "EXPANSION_V1_9_INLINE_ITEM" to TableLayoutVersion.EXPANSION_V1_9_BITFIELD,
-        "EXPANSION_V1_10_PTR_ITEM" to TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM
+        "EXPANSION_V1_13_PTR_ITEM" to TableLayoutVersion.EXPANSION_V1_13_PTR_ITEM
     )
 
     val GEN3_TYPE_MAP: Map<Int, PokemonType> = mapOf(
@@ -482,7 +484,7 @@ object RuntimeRomTableReader {
 
             when (resolvedLayout) {
                 TableLayoutVersion.EXPANSION_V1_9_BITFIELD,
-                TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM -> {
+                TableLayoutVersion.EXPANSION_V1_13_PTR_ITEM -> {
                     val combatWord = u16(romBytes, rowOff + combatWordOff)
                     typeRaw = combatWord and 0x1F
                     packedCategoryRaw = (combatWord ushr 5) and 0x03
@@ -615,7 +617,7 @@ object RuntimeRomTableReader {
 
     private fun TableLayoutVersion.isPackedExpansion(): Boolean =
         this == TableLayoutVersion.EXPANSION_V1_9_BITFIELD ||
-            this == TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM
+            this == TableLayoutVersion.EXPANSION_V1_13_PTR_ITEM
 
     private fun resolveTypeMapping(
         specTypeMapping: Map<Int, PokemonType>?,
@@ -820,16 +822,16 @@ object RuntimeRomTableReader {
                 resolvedNameLen = EXPANSION_ITEM_INLINE_NAME_LEN
                 resolvedDescOff = EXPANSION_ITEM_DESC_PTR_OFFSET
             }
-            TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM -> {
+            TableLayoutVersion.EXPANSION_V1_13_PTR_ITEM -> {
                 minStride = 44
                 if (spec.nameOffset != null && spec.nameOffset != EXPANSION_ITEM_NAME_OFFSET) {
-                    return ResolvedItemOffsets(error = "EXPANSION_V1_10_PTR_ITEM requires item nameOffset 0x14")
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_13_PTR_ITEM requires item nameOffset 0x14")
                 }
                 if (spec.nameIsPointer != null && spec.nameIsPointer != true) {
-                    return ResolvedItemOffsets(error = "EXPANSION_V1_10_PTR_ITEM requires pointer-backed item names (nameIsPointer=true)")
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_13_PTR_ITEM requires pointer-backed item names (nameIsPointer=true)")
                 }
                 if (spec.descPtrOffset != null && spec.descPtrOffset != EXPANSION_ITEM_DESC_PTR_OFFSET) {
-                    return ResolvedItemOffsets(error = "EXPANSION_V1_10_PTR_ITEM requires item descPtrOffset 0x0C")
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_13_PTR_ITEM requires item descPtrOffset 0x0C")
                 }
                 resolvedNameOff = EXPANSION_ITEM_NAME_OFFSET
                 resolvedIsPtr = true

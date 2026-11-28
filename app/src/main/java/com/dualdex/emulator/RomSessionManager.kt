@@ -310,6 +310,7 @@ open class RomSessionManager(
                 // view model can be stale when another entry point switched ROMs meanwhile.
                 val oldIdentity = saveStateManager.activeIdentity
                 var switchAbortedDueToFlush = false
+                var switchFailureReason: String? = null
 
                 val switchSuccess = synchronized(SaveStateManager.globalSaveLock) {
                     coreCoordinator.executeExclusive {
@@ -346,11 +347,24 @@ open class RomSessionManager(
                                     Log.i(TAG, "Resumed ${newIdentity.storageKey} from $it")
                                 }
                             } else {
-                                saveStateManager.preserveSkippedAutoResume(newIdentity)?.let { preserved ->
-                                    Log.i(
-                                        TAG,
-                                        "Preserved skipped boot-resume state ${preserved.resumeFileName} for ${newIdentity.storageKey}"
-                                    )
+                                when (val preserved = saveStateManager.preserveSkippedAutoResume(newIdentity)) {
+                                    is PreserveAutoResumeResult.Preserved -> {
+                                        Log.i(
+                                            TAG,
+                                            "Preserved skipped boot-resume state ${preserved.record.resumeFileName} for ${newIdentity.storageKey}"
+                                        )
+                                    }
+                                    PreserveAutoResumeResult.None -> Unit
+                                    is PreserveAutoResumeResult.Failed -> {
+                                        Log.e(
+                                            TAG,
+                                            "Aborting ROM load for ${newIdentity.storageKey}: ${preserved.reason}"
+                                        )
+                                        switchFailureReason = preserved.reason
+                                        coreCoordinator.unloadRom()
+                                        saveStateManager.activeIdentity = null
+                                        return@executeExclusive false
+                                    }
                                 }
                             }
                         }
@@ -372,7 +386,7 @@ open class RomSessionManager(
                     saveStateManager.activeIdentity = null
                     viewModel?.clearRomSession()
                     viewModel?.stopPolling()
-                    return@withLock SwitchResult.Failure("Core rejected ROM file")
+                    return@withLock SwitchResult.Failure(switchFailureReason ?: "Core rejected ROM file")
                 }
 
                 // 4. Post-switch initialization: audio and settings

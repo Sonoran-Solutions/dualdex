@@ -403,29 +403,69 @@ class RuntimeRomTableReaderTest {
         assertEquals("Master Ball", snapshot.items[1])
         assertEquals("Item19", snapshot.items[19])
 
-        // Pointer-name item layout (EXPANSION_V1_10_PTR_ITEM) reads pointer at +0x14 and rejects inline items
+        // Pointer-name item layout (EXPANSION_V1_13_PTR_ITEM, verified against expansion/1.13.0 include/item.h)
+        // reads pointer at +0x14 and rejects inline items (used by expansion/1.9.0 and expansion/1.10.0).
         assertTrue(
             RuntimeRomTableReader.read(
                 rom,
                 expSpec.copy(
-                    layoutVersion = TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM,
-                    layoutRevisionId = "EXPANSION_V1_10_PTR_ITEM"
+                    layoutVersion = TableLayoutVersion.EXPANSION_V1_13_PTR_ITEM,
+                    layoutRevisionId = "EXPANSION_V1_13_PTR_ITEM"
                 )
             ) is RuntimeRomTableResult.Unavailable
         )
 
+        // Upstream expansion/1.10.0 inline Item layout (stride 76: name[20] at +0x14, pluralName[20] at +0x28)
+        // must succeed with EXPANSION_V1_9_BITFIELD / EXPANSION_V1_9_INLINE_ITEM and fail EXPANSION_V1_13_PTR_ITEM.
+        val v110ItemsOff = 0x44000
+        val v110ItemsStride = 76
+        writeU32(rom, v110ItemsOff + 0x0C, allocAlignedString(""))
+        encodeGen3("????????").copyInto(rom, v110ItemsOff + 0x14)
+        for (i in 1 until 20) {
+            val r = v110ItemsOff + i * v110ItemsStride
+            writeU32(rom, r + 0x0C, allocAlignedString("v1.10 Item desc\n$i"))
+            val nameEnc = encodeGen3(if (i == 1) "Great Ball" else "InlineItem$i")
+            nameEnc.copyInto(rom, r + 0x14, 0, minOf(nameEnc.size, 20))
+            val pluralEnc = encodeGen3(if (i == 1) "Great Balls" else "InlineItems$i")
+            pluralEnc.copyInto(rom, r + 0x28, 0, minOf(pluralEnc.size, 20))
+        }
+        val v110InlineSpec = expSpec.copy(
+            layoutVersion = TableLayoutVersion.EXPANSION_V1_9_BITFIELD,
+            layoutRevisionId = "EXPANSION_V1_9_INLINE_ITEM",
+            items = ItemTableSpec(
+                itemsAddress = RuntimeRomTableReader.ROM_BASE + v110ItemsOff,
+                itemsStride = v110ItemsStride,
+                count = 20
+            )
+        )
+        val v110InlineRes = RuntimeRomTableReader.read(rom, v110InlineSpec)
+        assertTrue(v110InlineRes is RuntimeRomTableResult.Success)
+        assertEquals("Great Ball", (v110InlineRes as RuntimeRomTableResult.Success).snapshot.items[1])
+        assertTrue(
+            RuntimeRomTableReader.read(
+                rom,
+                v110InlineSpec.copy(
+                    layoutVersion = TableLayoutVersion.EXPANSION_V1_13_PTR_ITEM,
+                    layoutRevisionId = "EXPANSION_V1_13_PTR_ITEM"
+                )
+            ) is RuntimeRomTableResult.Unavailable
+        )
+
+        // Upstream expansion/1.13.0 pointer-backed Item layout (stride 44: desc ptr +0x0C, name ptr +0x14, pluralName ptr +0x18)
         val ptrItemsOff = 0x48000
         val ptrItemsStride = 44
         writeU32(rom, ptrItemsOff + 0x0C, allocAlignedString(""))
         writeU32(rom, ptrItemsOff + 0x14, allocAlignedString("????????"))
+        writeU32(rom, ptrItemsOff + 0x18, allocAlignedString("????????"))
         for (i in 1 until 20) {
             val r = ptrItemsOff + i * ptrItemsStride
             writeU32(rom, r + 0x0C, allocAlignedString("Ptr Item desc $i"))
             writeU32(rom, r + 0x14, allocAlignedString(if (i == 1) "Ultra Ball" else "PtrItem$i"))
+            writeU32(rom, r + 0x18, allocAlignedString(if (i == 1) "Ultra Balls" else "PtrItems$i"))
         }
         val ptrItemSpec = expSpec.copy(
-            layoutVersion = TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM,
-            layoutRevisionId = "EXPANSION_V1_10_PTR_ITEM",
+            layoutVersion = TableLayoutVersion.EXPANSION_V1_13_PTR_ITEM,
+            layoutRevisionId = "EXPANSION_V1_13_PTR_ITEM",
             items = ItemTableSpec(
                 itemsAddress = RuntimeRomTableReader.ROM_BASE + ptrItemsOff,
                 itemsStride = ptrItemsStride,
@@ -435,6 +475,13 @@ class RuntimeRomTableReaderTest {
         val ptrItemRes = RuntimeRomTableReader.read(rom, ptrItemSpec)
         assertTrue(ptrItemRes is RuntimeRomTableResult.Success)
         assertEquals("Ultra Ball", (ptrItemRes as RuntimeRomTableResult.Success).snapshot.items[1])
+        // Reject old mispinned revision ID
+        assertTrue(
+            RuntimeRomTableReader.read(
+                rom,
+                ptrItemSpec.copy(layoutRevisionId = "EXPANSION_V1_10_PTR_ITEM")
+            ) is RuntimeRomTableResult.Unavailable
+        )
 
         // Inconsistent specs with EXPANSION_V1_9_BITFIELD must fail closed:
         // (a) Explicit vanilla ppOffset = 4

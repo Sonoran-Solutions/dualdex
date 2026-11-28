@@ -61,7 +61,7 @@ def _build_synthetic_expansion_rom(
     types_off = 0x700000
     is_packed_expansion = layout in (
         ee.LAYOUT_EXPANSION_V1_9_BITFIELD,
-        ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM,
+        ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM,
     )
 
     def alloc_str(text: str) -> int:
@@ -145,9 +145,10 @@ def _build_synthetic_expansion_rom(
                 struct.pack_into("<I", row, 0x0C, alloc_str(""))
                 enc0 = _encode_gen3("????????")
                 row[0x14:0x14 + len(enc0)] = enc0
-            elif layout == ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM:
+            elif layout == ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM:
                 struct.pack_into("<I", row, 0x0C, alloc_str(""))
                 struct.pack_into("<I", row, 0x14, alloc_str("????????"))
+                struct.pack_into("<I", row, 0x18, alloc_str("????????"))
         else:
             if layout == ee.LAYOUT_EXPANSION_V1_9_BITFIELD:
                 struct.pack_into("<I", row, 0x0C, alloc_str(f"Item desc\nline {i}."))
@@ -161,9 +162,11 @@ def _build_synthetic_expansion_rom(
                     if plural_enc[-1] != 0xFF:
                         plural_enc = plural_enc[:-1] + b"\xFF"
                     row[0x28:0x28 + len(plural_enc)] = plural_enc
-            elif layout == ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM:
+            elif layout == ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM:
+                # Upstream expansion/1.13.0 include/item.h: description at +0x0C, name ptr at +0x14, pluralName ptr at +0x18
                 struct.pack_into("<I", row, 0x0C, alloc_str(f"Item desc\nline {i}."))
                 struct.pack_into("<I", row, 0x14, alloc_str(f"Item{i}"))
+                struct.pack_into("<I", row, 0x18, alloc_str(f"Items{i}"))
             else:
                 enc = _encode_gen3(f"Item{i}")[:14]
                 if enc[-1] != 0xFF:
@@ -221,30 +224,44 @@ class ExpansionExtractTest(unittest.TestCase):
         self.assertEqual(alias_report["status"], "OK")
         self.assertEqual(alias_report["layout_version"], ee.LAYOUT_EXPANSION_V1_9_BITFIELD)
 
-    def test_pointer_name_item_variant_has_distinct_layout_id(self):
+    def test_pointer_name_item_variant_has_distinct_v113_layout_id(self):
+        # Upstream expansion/1.13.0 include/item.h: 44-byte struct Item with pointer-backed name at +0x14
         rom = bytes(_build_synthetic_expansion_rom(
-            layout=ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM,
+            layout=ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM,
             items_stride=44,
         ))
         report = ee.extract_expansion_tables(rom)
         self.assertEqual(report["status"], "OK")
-        self.assertEqual(report["layout_version"], ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM)
+        self.assertEqual(report["layout_version"], ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM)
         self.assertTrue(report["tables"]["gSpeciesInfo"]["sanity_ok"])
         self.assertTrue(report["tables"]["gMovesInfo"]["sanity_ok"])
         self.assertTrue(report["tables"]["gItemsInfo"]["sanity_ok"])
         self.assertEqual(report["tables"]["gItemsInfo"]["stride"], 44)
-        self.assertEqual(report["tables"]["gItemsInfo"]["item_layout"], "EXPANSION_V1_10_PTR_ITEM")
+        self.assertEqual(report["tables"]["gItemsInfo"]["item_layout"], "EXPANSION_V1_13_PTR_ITEM")
 
-        # Forcing v1.9.0 inline-item layout on a pointer-name item ROM must reject gItemsInfo.
+        # Forcing v1.9.0-v1.10.0 inline-item layout on a v1.13.0 pointer-name ROM must reject gItemsInfo.
         forced_v19 = ee.extract_expansion_tables(rom, layout=ee.LAYOUT_EXPANSION_V1_9_BITFIELD)
         self.assertEqual(forced_v19["status"], "PARTIAL")
         self.assertFalse(forced_v19["tables"]["gItemsInfo"]["sanity_ok"])
 
-        # Forcing pointer-name item layout on a v1.9.0 inline-item ROM must reject gItemsInfo.
-        v19_rom = bytes(_build_synthetic_expansion_rom(layout=ee.LAYOUT_EXPANSION_V1_9_BITFIELD))
-        forced_v110 = ee.extract_expansion_tables(v19_rom, layout=ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM)
-        self.assertEqual(forced_v110["status"], "PARTIAL")
-        self.assertFalse(forced_v110["tables"]["gItemsInfo"]["sanity_ok"])
+        # Upstream expansion/1.10.0 still uses inline name[20] + pluralName[20] (76-byte struct Item):
+        # it must match EXPANSION_V1_9_BITFIELD and be rejected by EXPANSION_V1_13_PTR_ITEM.
+        v110_inline_rom = bytes(_build_synthetic_expansion_rom(
+            layout=ee.LAYOUT_EXPANSION_V1_9_BITFIELD,
+            items_stride=76,
+        ))
+        auto_v110 = ee.extract_expansion_tables(v110_inline_rom)
+        self.assertEqual(auto_v110["status"], "OK")
+        self.assertEqual(auto_v110["layout_version"], ee.LAYOUT_EXPANSION_V1_9_BITFIELD)
+        self.assertEqual(auto_v110["tables"]["gItemsInfo"]["stride"], 76)
+        self.assertEqual(auto_v110["tables"]["gItemsInfo"]["item_layout"], "EXPANSION_V1_9_INLINE_ITEM")
+        forced_v113 = ee.extract_expansion_tables(v110_inline_rom, layout=ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM)
+        self.assertEqual(forced_v113["status"], "PARTIAL")
+        self.assertFalse(forced_v113["tables"]["gItemsInfo"]["sanity_ok"])
+
+        # Old mispinned v1.10 pointer ID must fail closed as unsupported.
+        with self.assertRaises(ValueError):
+            ee.extract_expansion_tables(rom, layout="EXPANSION_V1_10_PTR_ITEM")
 
     def test_rhh_exp_marker_outside_header_window_and_gen3_vanilla_byte_layout(self):
         rom = _build_synthetic_expansion_rom(
@@ -305,10 +322,10 @@ class ExpansionExtractTest(unittest.TestCase):
         self.assertFalse(report_inline2["tables"]["gItemsInfo"]["sanity_ok"])
         self.assertIsNone(report_inline2["tables"]["gItemsInfo"]["table_sha256"])
 
-        # Pointer-name v1.10+ item negatives:
+        # Pointer-name v1.13.0 item negatives:
         # 3) Valid description pointer at +0x0C (and decoy pointer at +0x00), wiped name pointer at +0x14 -> refused!
         rom = _build_synthetic_expansion_rom(
-            layout=ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM,
+            layout=ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM,
             items_stride=44,
         )
         for i in range(1, 30):
@@ -316,7 +333,7 @@ class ExpansionExtractTest(unittest.TestCase):
             decoy_desc_ptr = struct.unpack_from("<I", rom, row_off + 0x0C)[0]
             struct.pack_into("<I", rom, row_off + 0x00, decoy_desc_ptr)
             struct.pack_into("<I", rom, row_off + 0x14, 0)  # wipe name pointer
-        report = ee.extract_expansion_tables(bytes(rom), layout=ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM)
+        report = ee.extract_expansion_tables(bytes(rom), layout=ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM)
         self.assertEqual(report["status"], "PARTIAL")
         self.assertFalse(report["tables"]["gItemsInfo"]["sanity_ok"])
         self.assertEqual(report["tables"]["gItemsInfo"]["reason"], "items_sanity_probe_failed")
@@ -324,13 +341,13 @@ class ExpansionExtractTest(unittest.TestCase):
 
         # 4) Valid name pointer at +0x14 without valid description pointer at +0x0C -> refused!
         rom2 = _build_synthetic_expansion_rom(
-            layout=ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM,
+            layout=ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM,
             items_stride=44,
         )
         for i in range(1, 30):
             row_off = items_off + i * 44
             struct.pack_into("<I", rom2, row_off + 0x0C, 0)  # wipe description pointer
-        report2 = ee.extract_expansion_tables(bytes(rom2), layout=ee.LAYOUT_EXPANSION_V1_10_PTR_ITEM)
+        report2 = ee.extract_expansion_tables(bytes(rom2), layout=ee.LAYOUT_EXPANSION_V1_13_PTR_ITEM)
         self.assertEqual(report2["status"], "PARTIAL")
         self.assertFalse(report2["tables"]["gItemsInfo"]["sanity_ok"])
         self.assertIsNone(report2["tables"]["gItemsInfo"]["table_sha256"])

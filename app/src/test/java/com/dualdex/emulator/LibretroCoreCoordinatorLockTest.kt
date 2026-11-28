@@ -651,4 +651,153 @@ class LibretroCoreCoordinatorLockTest {
             ControllerInputRouter.reset()
         }
     }
+
+    @Test fun generationBoundaryClearsNativeMaskBeforeFirstReplacementFrameWhileReleasePending() = runBlocking {
+        val previousProvider = ControllerInputRouter.coordinatorProvider
+        ControllerInputRouter.reset()
+        try {
+            val liveNativeMask = java.util.concurrent.atomic.AtomicInteger(0)
+            val sampledFrames = java.util.Collections.synchronizedList(mutableListOf<Int>())
+            var pressLanded = CountDownLatch(1)
+            val bridge = object : LibretroCoreBridge {
+                override fun loadRom(romPath: String) = true
+                override fun loadState(statePath: String) = true
+                override fun resetCore() = Unit
+                override fun stepFrame(): Boolean {
+                    sampledFrames += liveNativeMask.get()
+                    return true
+                }
+            }
+            val core = object : LibretroCoreCoordinator(bridge = bridge) {
+                override fun setInputButtons(buttonMask: Int) {
+                    liveNativeMask.set(buttonMask)
+                    if ((buttonMask and InputManager.BTN_A) != 0) {
+                        pressLanded.countDown()
+                    }
+                }
+            }
+            ControllerInputRouter.coordinatorProvider = { core }
+            assertTrue(core.loadRom("synthetic.gba"))
+            val dispatcher = DefaultBattleInputDispatcher { core }
+
+            // 1) loadState() during timed automated press (no physical button held) -> first replacement frame sees 0.
+            val gen1 = core.stateGeneration
+            val press1 = async(Dispatchers.Default) {
+                dispatcher.sendAuthorizedButton(
+                    buttonMask = InputManager.BTN_A,
+                    durationMs = 250L,
+                    delayMs = 0L,
+                    expectedGeneration = gen1
+                )
+            }
+            assertTrue("Automated press 1 did not land", pressLanded.await(5, TimeUnit.SECONDS))
+            assertEquals(InputManager.BTN_A, liveNativeMask.get())
+            assertTrue(core.loadState("replacement.state"))
+            assertFalse("Timed release should still be pending", press1.isCompleted)
+            assertTrue(core.stepFrame())
+            assertEquals(
+                "First frame after loadState must not observe revoked automated BTN_A",
+                0,
+                sampledFrames.last()
+            )
+            press1.await()
+
+            // 2) resetCore() during timed automated press with physical BTN_B held -> first frame sees ONLY BTN_B.
+            ControllerInputRouter.setPhysicalMask(InputManager.BTN_B)
+            pressLanded = CountDownLatch(1)
+            val gen2 = core.stateGeneration
+            val press2 = async(Dispatchers.Default) {
+                dispatcher.sendAuthorizedButton(
+                    buttonMask = InputManager.BTN_A,
+                    durationMs = 250L,
+                    delayMs = 0L,
+                    expectedGeneration = gen2
+                )
+            }
+            assertTrue("Automated press 2 did not land", pressLanded.await(5, TimeUnit.SECONDS))
+            assertEquals(InputManager.BTN_A or InputManager.BTN_B, liveNativeMask.get())
+            core.resetCore()
+            assertFalse("Timed release should still be pending", press2.isCompleted)
+            assertTrue(core.stepFrame())
+            assertEquals(
+                "First frame after resetCore must drop automated BTN_A while preserving physical BTN_B",
+                InputManager.BTN_B,
+                sampledFrames.last()
+            )
+            press2.await()
+            ControllerInputRouter.setPhysicalMask(0)
+            assertEquals(0, liveNativeMask.get())
+        } finally {
+            ControllerInputRouter.coordinatorProvider = previousProvider
+            ControllerInputRouter.reset()
+        }
+    }
+
+    @Test fun hardcoreRevocationSerializedWithPhysicalReleaseNeverRestoresStaleHeldButton() = runBlocking {
+        val previousProvider = ControllerInputRouter.coordinatorProvider
+        ControllerInputRouter.reset()
+        try {
+            val liveNativeMask = java.util.concurrent.atomic.AtomicInteger(0)
+            val writes = java.util.Collections.synchronizedList(mutableListOf<Int>())
+            val pressLanded = CountDownLatch(1)
+            val revocationWriteEntered = CountDownLatch(1)
+            val physicalReleaseQueued = CountDownLatch(1)
+            val delayRevocationWrite = AtomicBoolean(false)
+
+            val core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
+                override fun setInputButtons(buttonMask: Int) {
+                    if (buttonMask == InputManager.BTN_B && delayRevocationWrite.compareAndSet(true, false)) {
+                        revocationWriteEntered.countDown()
+                        // Give the physical release thread time to attempt setPhysicalMask(0) concurrently.
+                        physicalReleaseQueued.await(200, TimeUnit.MILLISECONDS)
+                        Thread.sleep(25)
+                    }
+                    writes += buttonMask
+                    liveNativeMask.set(buttonMask)
+                    if ((buttonMask and InputManager.BTN_A) != 0) {
+                        pressLanded.countDown()
+                    }
+                }
+            }
+            ControllerInputRouter.coordinatorProvider = { core }
+            assertTrue(core.loadRom("synthetic.gba"))
+            ControllerInputRouter.setPhysicalMask(InputManager.BTN_B)
+            val gen = core.stateGeneration
+            val dispatcher = DefaultBattleInputDispatcher { core }
+
+            val timedPress = async(Dispatchers.Default) {
+                dispatcher.sendAuthorizedButton(
+                    buttonMask = InputManager.BTN_A,
+                    durationMs = 250L,
+                    delayMs = 0L,
+                    expectedGeneration = gen
+                )
+            }
+            assertTrue("Automated press did not land", pressLanded.await(5, TimeUnit.SECONDS))
+            assertEquals(InputManager.BTN_A or InputManager.BTN_B, liveNativeMask.get())
+
+            // Trigger Hardcore activation and concurrent physical release to 0.
+            delayRevocationWrite.set(true)
+            val hardcoreThread = Thread {
+                core.executeExclusive { core.setRaHardcoreLocked(true) }
+            }
+            val releaseThread = Thread {
+                assertTrue(revocationWriteEntered.await(5, TimeUnit.SECONDS))
+                physicalReleaseQueued.countDown()
+                ControllerInputRouter.setPhysicalMask(0)
+            }
+            hardcoreThread.start()
+            releaseThread.start()
+            hardcoreThread.join(5000)
+            releaseThread.join(5000)
+            timedPress.await()
+
+            assertEquals("Physical release to 0 must not be overwritten by stale BTN_B", 0, liveNativeMask.get())
+            assertEquals(0, ControllerInputRouter.getEffectiveMask())
+            assertEquals(0, writes.last())
+        } finally {
+            ControllerInputRouter.coordinatorProvider = previousProvider
+            ControllerInputRouter.reset()
+        }
+    }
 }

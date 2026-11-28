@@ -3,7 +3,20 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#if defined(__GLIBC__)
+extern void* __libc_malloc(size_t size);
+static int g_fail_malloc_countdown = 0;
+
+void* malloc(size_t size) {
+    if (g_fail_malloc_countdown > 0 && --g_fail_malloc_countdown == 0) {
+        return NULL;
+    }
+    return __libc_malloc(size);
+}
+#endif
 
 static uint8_t iwram[DUALDEX_GBA_IWRAM_SIZE];
 static uint8_t ewram[DUALDEX_GBA_EWRAM_SIZE];
@@ -154,6 +167,109 @@ static void check_client(RaBridge* bridge) {
     assert(!ra_bridge_is_active(bridge));
 }
 
+static void check_multisubset_bucket_label_oom(RaBridge* bridge) {
+    /* Subset titles > 4 KiB exceed any pre-reserved rc_buffer_t slack from loading the 1-item sets,
+     * guaranteeing rc_buffer_alloc() must invoke malloc() for each subset bucket label. */
+    char core_title[4096];
+    char bonus_title[4096];
+    memset(core_title, 'C', sizeof(core_title) - 1);
+    core_title[sizeof(core_title) - 1] = '\0';
+    memcpy(core_title, "Core_", 5);
+    memset(bonus_title, 'B', sizeof(bonus_title) - 1);
+    bonus_title[sizeof(bonus_title) - 1] = '\0';
+    memcpy(bonus_title, "Bonus_", 6);
+
+    char payload[12288];
+    int written = snprintf(payload, sizeof(payload),
+        "{\"Success\":true,\"GameId\":100,\"Title\":\"MultiSubset GBA\",\"ConsoleId\":5,"
+        "\"ImageIconUrl\":\"https://media.retroachievements.org/Images/001.png\","
+        "\"Sets\":["
+        "{\"AchievementSetId\":100,\"GameId\":100,\"Title\":\"%s\",\"Type\":\"core\","
+        "\"ImageIconUrl\":\"https://media.retroachievements.org/Images/001.png\","
+        "\"Achievements\":[{\"ID\":101,\"Title\":\"Core Ach\",\"Description\":\"Core desc\","
+        "\"Flags\":3,\"Points\":5,\"MemAddr\":\"0xH0000=1\",\"Author\":\"Test\","
+        "\"BadgeName\":\"1\",\"Created\":1,\"Modified\":1}],"
+        "\"Leaderboards\":[{\"ID\":201,\"Title\":\"Core LB\",\"Description\":\"Core LB desc\","
+        "\"Mem\":\"STA:0xH0000=1::CAN:0xH0000=2::SUB:0xH0000=3::VAL:0xH0000\","
+        "\"Format\":\"VALUE\",\"LowerIsBetter\":false,\"Hidden\":false}]},"
+        "{\"AchievementSetId\":101,\"GameId\":101,\"Title\":\"%s\",\"Type\":\"bonus\","
+        "\"ImageIconUrl\":\"https://media.retroachievements.org/Images/001.png\","
+        "\"Achievements\":[{\"ID\":102,\"Title\":\"Bonus Ach\",\"Description\":\"Bonus desc\","
+        "\"Flags\":3,\"Points\":10,\"MemAddr\":\"0xH0000=2\",\"Author\":\"Test\","
+        "\"BadgeName\":\"2\",\"Created\":1,\"Modified\":1}],"
+        "\"Leaderboards\":[{\"ID\":202,\"Title\":\"Bonus LB\",\"Description\":\"Bonus LB desc\","
+        "\"Mem\":\"STA:0xH0000=1::CAN:0xH0000=2::SUB:0xH0000=3::VAL:0xH0000\","
+        "\"Format\":\"VALUE\",\"LowerIsBetter\":false,\"Hidden\":false}]}"
+        "]}",
+        core_title, bonus_title);
+    assert(written > 0 && (size_t)written < sizeof(payload));
+
+    ra_bridge_load_game(bridge, "11111111111111111111111111111111");
+    assert(ra_bridge_game_status(bridge) == RA_GAME_LOADING);
+    reply(bridge, request(bridge, "r=achievementsets&"), payload);
+    reply(bridge, request(bridge, "r=startsession&"), "{\"Success\":true}");
+    assert(ra_bridge_is_active(bridge));
+
+#if defined(__GLIBC__)
+    /* Fail the main list allocation (#1): must return NULL and unlock cleanly. */
+    g_fail_malloc_countdown = 1;
+    rc_client_achievement_list_t* oom_ach_list = ra_bridge_achievements(bridge);
+    int rem = g_fail_malloc_countdown;
+    g_fail_malloc_countdown = 0;
+    assert(rem == 0 && oom_ach_list == NULL);
+
+    g_fail_malloc_countdown = 1;
+    rc_client_leaderboard_list_t* oom_lb_list = ra_bridge_leaderboards(bridge);
+    rem = g_fail_malloc_countdown;
+    g_fail_malloc_countdown = 0;
+    assert(rem == 0 && oom_lb_list == NULL);
+
+    /* Fail the rc_buffer_alloc bucket label allocation (#2) AFTER list allocation (#1) succeeds. */
+    g_fail_malloc_countdown = 2;
+    rc_client_achievement_list_t* ach_list = ra_bridge_achievements(bridge);
+    rem = g_fail_malloc_countdown;
+    g_fail_malloc_countdown = 0;
+    assert(rem == 0);
+    assert(ach_list != NULL && ach_list->num_buckets == 2);
+    assert(ach_list->buckets[0].label != NULL && strcmp(ach_list->buckets[0].label, "Locked") == 0);
+    assert(ach_list->buckets[1].label != NULL && strstr(ach_list->buckets[1].label, " - Locked") != NULL);
+    rc_client_destroy_achievement_list(ach_list);
+
+    /* Subsequent call with memory available allocates the full subset-qualified label. */
+    ach_list = ra_bridge_achievements(bridge);
+    assert(ach_list != NULL && ach_list->num_buckets == 2);
+    assert(ach_list->buckets[0].label != NULL && strstr(ach_list->buckets[0].label, " - Locked") != NULL);
+    assert(ach_list->buckets[1].label != NULL && strstr(ach_list->buckets[1].label, " - Locked") != NULL);
+    rc_client_destroy_achievement_list(ach_list);
+
+    /* Same label-allocation OOM check for rc_client_create_leaderboard_list. */
+    g_fail_malloc_countdown = 2;
+    rc_client_leaderboard_list_t* lb_list = ra_bridge_leaderboards(bridge);
+    rem = g_fail_malloc_countdown;
+    g_fail_malloc_countdown = 0;
+    assert(rem == 0);
+    assert(lb_list != NULL && lb_list->num_buckets == 2);
+    assert(lb_list->buckets[0].label != NULL && strcmp(lb_list->buckets[0].label, "Inactive") == 0);
+    assert(lb_list->buckets[1].label != NULL && strstr(lb_list->buckets[1].label, " - Inactive") != NULL);
+    rc_client_destroy_leaderboard_list(lb_list);
+
+    lb_list = ra_bridge_leaderboards(bridge);
+    assert(lb_list != NULL && lb_list->num_buckets == 2);
+    assert(lb_list->buckets[0].label != NULL && strstr(lb_list->buckets[0].label, " - Inactive") != NULL);
+    assert(lb_list->buckets[1].label != NULL && strstr(lb_list->buckets[1].label, " - Inactive") != NULL);
+    rc_client_destroy_leaderboard_list(lb_list);
+#else
+    rc_client_achievement_list_t* ach_list = ra_bridge_achievements(bridge);
+    assert(ach_list != NULL && ach_list->num_buckets == 2);
+    rc_client_destroy_achievement_list(ach_list);
+    rc_client_leaderboard_list_t* lb_list = ra_bridge_leaderboards(bridge);
+    assert(lb_list != NULL && lb_list->num_buckets == 2);
+    rc_client_destroy_leaderboard_list(lb_list);
+#endif
+
+    ra_bridge_unload_game(bridge);
+}
+
 int main(void) {
     DualDexGbaRegionTable memory = {0};
     assert(gba_memory_map_add(&memory, iwram, DUALDEX_GBA_IWRAM_BASE, sizeof(iwram), 0, 0, 0, 0));
@@ -164,6 +280,7 @@ int main(void) {
     assert(bridge);
     check_memory(bridge);
     check_client(bridge);
+    check_multisubset_bucket_label_oom(bridge);
     ra_bridge_destroy(bridge);
 
     bridge = ra_bridge_create(read_gba, &memory);

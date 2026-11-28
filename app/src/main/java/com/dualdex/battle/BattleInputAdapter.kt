@@ -95,20 +95,20 @@ class DefaultBattleInputDispatcher(
                 delayMs = delayMs,
                 expectedGeneration = expectedGeneration,
                 coordinator = core
-            ) { physicalMask, automatedMask ->
+            ) { _, automatedMask ->
                 if (pressStage) {
                     pressStage = false
                     if (automatedMask != 0) {
-                        if (!writeAuthorizedCombinedMask(core, physicalMask, automatedMask, expectedGeneration)) {
+                        if (!writeAuthorizedCombinedMask(core, automatedMask, expectedGeneration)) {
                             throw InputAuthorizationRejected()
                         }
                     } else {
-                        writeReleaseMask(core, physicalMask)
+                        writeReleaseMask(core)
                     }
                 } else {
                     // Always permit button release so keys never stick if Hardcore engages mid-press.
-                    // automatedMask is 0 here; physicalMask preserves any held physical input.
-                    writeReleaseMask(core, physicalMask)
+                    // automatedMask is 0 here; writeLiveMaskFor preserves the latest held physical input.
+                    writeReleaseMask(core)
                 }
             }
         } catch (_: InputAuthorizationRejected) {
@@ -122,7 +122,6 @@ class DefaultBattleInputDispatcher(
 
     private fun writeAuthorizedCombinedMask(
         core: LibretroCoreCoordinator,
-        physicalMask: Int,
         automatedMask: Int,
         generation: Long
     ): Boolean {
@@ -130,7 +129,7 @@ class DefaultBattleInputDispatcher(
             try {
                 return core.executeExclusive(PRESS_WRITE_TIMEOUT_MS) {
                     if (coordinator() !== core) false
-                    else core.setCombinedInputLocked(physicalMask, automatedMask, generation)
+                    else core.setRoutedCombinedInputLocked(automatedMask, generation)
                 }
             } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
                 val last = attempt + 1 == WRITE_ATTEMPTS
@@ -143,12 +142,12 @@ class DefaultBattleInputDispatcher(
         return false
     }
 
-    private fun writeReleaseMask(core: LibretroCoreCoordinator, physicalMask: Int) {
+    private fun writeReleaseMask(core: LibretroCoreCoordinator) {
         try {
             repeat(WRITE_ATTEMPTS) { attempt ->
                 try {
                     core.executeExclusive(RELEASE_WRITE_TIMEOUT_MS) {
-                        core.setInputButtons(physicalMask)
+                        ControllerInputRouter.writeLiveMaskFor(core)
                     }
                     return
                 } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
@@ -160,8 +159,8 @@ class DefaultBattleInputDispatcher(
                 }
             }
         } catch (_: Exception) {
-            // A stalled core must never retain an automated press; physicalMask has zero automated bits.
-            core.setInputButtons(physicalMask)
+            // A stalled core must never retain an automated press; writeLiveMaskFor has zero automated bits.
+            ControllerInputRouter.writeLiveMaskFor(core)
         }
     }
 

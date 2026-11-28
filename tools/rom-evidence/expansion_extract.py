@@ -62,7 +62,7 @@ GEN3_TYPE_FIRE = 10
 GEN3_TYPE_GRASS = 12
 
 LAYOUT_EXPANSION_V1_9_BITFIELD = "EXPANSION_V1_9_BITFIELD"
-LAYOUT_EXPANSION_V1_10_PTR_ITEM = "EXPANSION_V1_10_PTR_ITEM"
+LAYOUT_EXPANSION_V1_13_PTR_ITEM = "EXPANSION_V1_13_PTR_ITEM"
 LAYOUT_GEN3_VANILLA_BYTE = "GEN3_VANILLA_BYTE"
 
 LAYOUT_ALIASES = {
@@ -72,7 +72,7 @@ LAYOUT_ALIASES = {
 # Explicitly pinned record layouts; unknown layout versions fail closed.
 SUPPORTED_LAYOUTS = {
     LAYOUT_EXPANSION_V1_9_BITFIELD: {
-        "description": "pokeemerald-expansion v1.9.0 packed MoveInfo bitfields + inline Item name at +0x14",
+        "description": "pokeemerald-expansion v1.9.0-v1.10.0 packed MoveInfo bitfields + inline Item name[20] at +0x14",
         "move_layout": "PACKED_BITFIELD",
         "item_layout": "EXPANSION_V1_9_INLINE_ITEM",
         "uses_expansion_types": True,
@@ -86,16 +86,16 @@ SUPPORTED_LAYOUTS = {
         "item_min_stride": 44,
         "item_max_stride": 128,
         "item_name_is_pointer": False,
-        "item_name_offset": 0x14,           # u8 name[ITEM_NAME_LENGTH]
+        "item_name_offset": 0x14,           # u8 name[ITEM_NAME_LENGTH] (v1.9.0/v1.10.0 include/item.h)
         "item_name_len": 20,
         "item_desc_ptr_offset": 0x0C,       # const u8 *description
         "type_id_min": 1,
         "type_id_max": 20,
     },
-    LAYOUT_EXPANSION_V1_10_PTR_ITEM: {
-        "description": "pokeemerald-expansion v1.10+ packed MoveInfo bitfields + pointer-backed Item name at +0x14",
+    LAYOUT_EXPANSION_V1_13_PTR_ITEM: {
+        "description": "pokeemerald-expansion v1.13.0 packed MoveInfo bitfields + pointer-backed Item name at +0x14",
         "move_layout": "PACKED_BITFIELD",
-        "item_layout": "EXPANSION_V1_10_PTR_ITEM",
+        "item_layout": "EXPANSION_V1_13_PTR_ITEM",
         "uses_expansion_types": True,
         "move_min_stride": 16,
         "move_max_stride": 128,
@@ -107,7 +107,7 @@ SUPPORTED_LAYOUTS = {
         "item_min_stride": 44,
         "item_max_stride": 128,
         "item_name_is_pointer": True,
-        "item_name_offset": 0x14,           # const u8 *name
+        "item_name_offset": 0x14,           # const u8 *name (v1.13.0 include/item.h; pluralName ptr at +0x18)
         "item_desc_ptr_offset": 0x0C,       # const u8 *description
         "type_id_min": 1,
         "type_id_max": 20,
@@ -638,7 +638,7 @@ def extract_expansion_tables(rom: bytes, *, layout: str | None = None) -> dict:
 
     candidate_order = (
         LAYOUT_EXPANSION_V1_9_BITFIELD,
-        LAYOUT_EXPANSION_V1_10_PTR_ITEM,
+        LAYOUT_EXPANSION_V1_13_PTR_ITEM,
         LAYOUT_GEN3_VANILLA_BYTE,
     )
     candidates = [
@@ -647,7 +647,7 @@ def extract_expansion_tables(rom: bytes, *, layout: str | None = None) -> dict:
     ]
     priority = {
         LAYOUT_EXPANSION_V1_9_BITFIELD: 2,
-        LAYOUT_EXPANSION_V1_10_PTR_ITEM: 1,
+        LAYOUT_EXPANSION_V1_13_PTR_ITEM: 1,
         LAYOUT_GEN3_VANILLA_BYTE: 0,
     }
     return max(
@@ -665,7 +665,7 @@ def main(argv=None):
     parser.add_argument(
         "--layout",
         default=None,
-        help="Optional pinned layout version (EXPANSION_V1_9_BITFIELD, EXPANSION_V1_10_PTR_ITEM, or GEN3_VANILLA_BYTE)",
+        help="Optional pinned layout version (EXPANSION_V1_9_BITFIELD, EXPANSION_V1_13_PTR_ITEM, or GEN3_VANILLA_BYTE)",
     )
     args = parser.parse_args(argv)
     try:

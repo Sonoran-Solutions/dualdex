@@ -32,17 +32,63 @@ object ControllerInputRouter {
     private fun effectiveMask() = physicalEffectiveMask() or automatedMask
 
     /**
-     * Clears any active automated bits belonging to [coordinator] (or unbound) and returns the
-     * current effective physical mask so the caller can preserve physical buttons while clearing
-     * revoked automated presses under the core lock.
+     * Clears any active automated bits belonging to [coordinator] (or unbound) and, when an
+     * automated mask was live, immediately reconciles the native button mask to the current
+     * effective physical mask inside [lock]. Executing the native write under leaf [lock]
+     * guarantees that generation revocation and Hardcore activation are totally ordered with
+     * physical input updates and never leave automated bits live for the first replacement frame.
      */
-    internal fun clearAutomatedMaskFor(coordinator: LibretroCoreCoordinator): Int = synchronized(lock) {
-        if (automatedCoordinator == null || automatedCoordinator === coordinator) {
+    internal fun revokeAutomatedMaskAndSync(coordinator: LibretroCoreCoordinator): Int = synchronized(lock) {
+        val matches = automatedCoordinator == null || automatedCoordinator === coordinator
+        val hadAutomated = matches && automatedMask != 0
+        if (matches) {
             automatedMask = 0
             automatedGeneration = null
             automatedCoordinator = null
         }
-        physicalEffectiveMask()
+        val physical = physicalEffectiveMask()
+        if (hadAutomated) {
+            try {
+                coordinator.setInputButtons(physical)
+            } catch (_: UnsatisfiedLinkError) {
+                // Host JVM checks do not load the native library.
+            }
+        }
+        physical
+    }
+
+    /**
+     * Atomically reads the live effective physical mask under leaf [lock], optionally combines it
+     * with [automatedMask], and writes the native button mask. Callers may hold [dispatchLock]
+     * and/or [coordinator].lock; [lock] is always a leaf lock and never waits on any other lock.
+     */
+    internal fun writeLiveMaskFor(
+        coordinator: LibretroCoreCoordinator,
+        automatedMask: Int = 0,
+        includeAutomated: Boolean = false
+    ) {
+        synchronized(lock) {
+            val physical = physicalEffectiveMask()
+            val effective = if (includeAutomated) physical or automatedMask else physical
+            try {
+                coordinator.setInputButtons(effective)
+            } catch (_: UnsatisfiedLinkError) {
+                // Host JVM checks do not load the native library.
+            }
+        }
+    }
+
+    private fun clearAutomatedMaskIfMatchesLocked(
+        coordinator: LibretroCoreCoordinator,
+        expectedGeneration: Long?
+    ) {
+        if ((automatedCoordinator == null || automatedCoordinator === coordinator) &&
+            automatedGeneration == expectedGeneration
+        ) {
+            automatedMask = 0
+            automatedGeneration = null
+            automatedCoordinator = null
+        }
     }
 
     private fun clearAutomatedMaskIfMatches(
@@ -50,35 +96,48 @@ object ControllerInputRouter {
         expectedGeneration: Long?
     ) {
         synchronized(lock) {
-            if ((automatedCoordinator == null || automatedCoordinator === coordinator) &&
-                automatedGeneration == expectedGeneration
-            ) {
-                automatedMask = 0
-                automatedGeneration = null
-                automatedCoordinator = null
-            }
+            clearAutomatedMaskIfMatchesLocked(coordinator, expectedGeneration)
         }
     }
 
     fun setPhysicalMask(mask: Int) {
+        val needsAutomatedDispatch: Boolean
         synchronized(lock) {
             physicalMask = mask
             latchedMask = latchedMask and mask
             if (exclusive) return
-        }
-        synchronized(dispatchLock) {
-            val physical: Int
-            val automated: Int
-            val generation: Long?
-            val targetCore: LibretroCoreCoordinator
-            synchronized(lock) {
-                if (exclusive) return
-                physical = physicalEffectiveMask()
-                automated = automatedMask
-                generation = automatedGeneration
-                targetCore = automatedCoordinator ?: coordinatorProvider()
+            if (automatedMask == 0) {
+                val targetCore = automatedCoordinator ?: coordinatorProvider()
+                try {
+                    targetCore.setInputButtons(physicalEffectiveMask())
+                } catch (_: UnsatisfiedLinkError) {
+                    // Host JVM checks do not load the native library.
+                }
+                return
             }
-            dispatchCombinedMask(targetCore, physical, automated, generation)
+            needsAutomatedDispatch = true
+        }
+        if (needsAutomatedDispatch) {
+            synchronized(dispatchLock) {
+                val automated: Int
+                val generation: Long?
+                val targetCore: LibretroCoreCoordinator
+                synchronized(lock) {
+                    if (exclusive) return
+                    automated = automatedMask
+                    generation = automatedGeneration
+                    targetCore = automatedCoordinator ?: coordinatorProvider()
+                    if (automated == 0) {
+                        try {
+                            targetCore.setInputButtons(physicalEffectiveMask())
+                        } catch (_: UnsatisfiedLinkError) {
+                            // Host JVM checks do not load the native library.
+                        }
+                        return
+                    }
+                }
+                dispatchCombinedMask(targetCore, automated, generation)
+            }
         }
     }
 
@@ -97,28 +156,26 @@ object ControllerInputRouter {
 
     private fun dispatchCombinedMask(
         coordinator: LibretroCoreCoordinator,
-        physical: Int,
         automated: Int,
         generation: Long?
     ) {
         if (automated == 0) {
-            try {
-                coordinator.setInputButtons(physical)
-            } catch (_: UnsatisfiedLinkError) {
-                // Host JVM checks do not load the native library.
-            }
+            writeLiveMaskFor(coordinator)
             return
         }
         val allowed = try {
             coordinator.executeExclusive(COMBINED_LOCK_TIMEOUT_MS) {
-                coordinator.setCombinedInputLocked(physical, automated, generation)
+                coordinator.setRoutedCombinedInputLocked(automated, generation)
             }
         } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
-            // Never write unvalidated automated bits when core lock is contended; preserve physical input.
-            try {
-                coordinator.setInputButtons(physical)
-            } catch (_: UnsatisfiedLinkError) {}
-            false
+            // Never write unvalidated automated bits when core lock is contended; preserve live physical input.
+            synchronized(lock) {
+                clearAutomatedMaskIfMatchesLocked(coordinator, generation)
+                try {
+                    coordinator.setInputButtons(physicalEffectiveMask())
+                } catch (_: UnsatisfiedLinkError) {}
+            }
+            return
         } catch (_: UnsatisfiedLinkError) {
             // Host JVM checks without a native library cannot write native buttons.
             true
@@ -199,8 +256,8 @@ object ControllerInputRouter {
             val useDefaultDispatch = setButtons === defaultDispatch
             try {
                 if (useDefaultDispatch) {
-                    setAutomatedState(buttonMask, generation, core) { physical, automated ->
-                        dispatchCombinedMask(core, physical, automated, generation)
+                    setAutomatedState(buttonMask, generation, core) { _, automated ->
+                        dispatchCombinedMask(core, automated, generation)
                     }
                 } else {
                     setAutomatedMask(buttonMask, setButtons)
@@ -208,8 +265,8 @@ object ControllerInputRouter {
                 delay(durationMs)
             } finally {
                 if (useDefaultDispatch) {
-                    setAutomatedState(0, null, null) { physical, _ ->
-                        dispatchCombinedMask(core, physical, 0, null)
+                    setAutomatedState(0, null, null) { _, _ ->
+                        dispatchCombinedMask(core, 0, null)
                     }
                 } else {
                     setAutomatedMask(0, setButtons)
@@ -273,8 +330,8 @@ object ControllerInputRouter {
                 automatedCoordinator = null
                 latchedMask = 0
                 exclusive = false
+                dispatchEffectiveMask(0)
             }
-            dispatchEffectiveMask(0)
         }
     }
 }

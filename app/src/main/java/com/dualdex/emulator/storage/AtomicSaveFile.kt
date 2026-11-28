@@ -10,11 +10,21 @@ object AtomicSaveFile {
 
     private const val TAG = "AtomicSaveFile"
 
+    enum class RecoveryOutcome {
+        UNAVAILABLE,
+        TARGET_VALID,
+        RESTORED_WITH_ORIGINAL_TIMESTAMP,
+        RESTORED_WITHOUT_ORIGINAL_TIMESTAMP
+    }
+
     @Volatile
     var syncHook: ((FileOutputStream) -> Unit)? = null
 
     @Volatile
     var backupHook: ((File, File) -> Boolean)? = null
+
+    @Volatile
+    var preserveTimestampHook: ((File, Long) -> Boolean)? = null
 
     /**
      * Atomically write a byte array to targetFile with durability and previous-good backup (.bak).
@@ -58,12 +68,16 @@ object AtomicSaveFile {
             // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created)
             if (targetFile.exists() && targetFile.length() > 0L) {
                 val origSize = targetFile.length()
+                val origMtime = targetFile.lastModified()
                 val backupOk = try {
                     val hook = backupHook
                     if (hook != null) {
                         hook(targetFile, bakFile)
                     } else {
                         targetFile.copyTo(bakFile, overwrite = true)
+                        if (origMtime > 0L) {
+                            bakFile.setLastModified(origMtime)
+                        }
                         bakFile.exists() && bakFile.isFile && bakFile.length() == origSize
                     }
                 } catch (e: Exception) {
@@ -164,12 +178,16 @@ object AtomicSaveFile {
             // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created)
             if (targetFile.exists() && targetFile.length() > 0L) {
                 val origSize = targetFile.length()
+                val origMtime = targetFile.lastModified()
                 val backupOk = try {
                     val hook = backupHook
                     if (hook != null) {
                         hook(targetFile, bakFile)
                     } else {
                         targetFile.copyTo(bakFile, overwrite = true)
+                        if (origMtime > 0L) {
+                            bakFile.setLastModified(origMtime)
+                        }
                         bakFile.exists() && bakFile.isFile && bakFile.length() == origSize
                     }
                 } catch (e: Exception) {
@@ -225,30 +243,56 @@ object AtomicSaveFile {
     }
 
     /**
-     * Restore canonical targetFile from its .bak sibling.
+     * Restore canonical targetFile from its .bak sibling, preserving the backup's original
+     * modification timestamp so recovered backups never masquerade as fresher than newer saves.
      */
-    fun restoreBackup(targetFile: File): Boolean {
+    fun restoreBackupDetailed(targetFile: File): RecoveryOutcome {
         val bakFile = File(targetFile.parentFile, "${targetFile.name}.bak")
         if (!bakFile.exists() || bakFile.length() == 0L) {
-            return false
+            return RecoveryOutcome.UNAVAILABLE
         }
         return try {
+            val backupMtime = bakFile.lastModified()
             bakFile.copyTo(targetFile, overwrite = true)
-            targetFile.exists() && targetFile.length() == bakFile.length()
+            if (!targetFile.exists() || targetFile.length() != bakFile.length()) {
+                return RecoveryOutcome.UNAVAILABLE
+            }
+            val timestampPreserved = if (backupMtime > 0L) {
+                val hook = preserveTimestampHook
+                val ok = if (hook != null) {
+                    hook(targetFile, backupMtime)
+                } else {
+                    targetFile.setLastModified(backupMtime)
+                }
+                ok && targetFile.lastModified() in 1L..backupMtime
+            } else {
+                false
+            }
+            if (timestampPreserved) {
+                RecoveryOutcome.RESTORED_WITH_ORIGINAL_TIMESTAMP
+            } else {
+                Log.w(TAG, "Restored ${targetFile.name} from .bak without establishing original timestamp")
+                RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to restore backup for ${targetFile.name}: ${e.message}")
-            false
+            RecoveryOutcome.UNAVAILABLE
         }
     }
 
     /**
-     * Detects interrupted .tmp / .bak states and recovers the last known valid canonical file.
-     * When expectedSize is provided, treats truncated or mismatched canonical files as invalid
-     * and recovers from a matching .bak file.
-     * Guaranteed to never silently discard a recoverable .bak file.
+     * Restore canonical targetFile from its .bak sibling.
      */
-    fun recoverInterrupted(targetFile: File, expectedSize: Long? = null): Boolean {
-        val parent = targetFile.parentFile ?: return false
+    fun restoreBackup(targetFile: File): Boolean =
+        restoreBackupDetailed(targetFile) != RecoveryOutcome.UNAVAILABLE
+
+    /**
+     * Detects interrupted .tmp / .bak states and recovers the last known valid canonical file,
+     * reporting whether the target was already valid or restored from `.bak` with/without
+     * establishing the backup's original modification timestamp.
+     */
+    fun recoverInterruptedDetailed(targetFile: File, expectedSize: Long? = null): RecoveryOutcome {
+        val parent = targetFile.parentFile ?: return RecoveryOutcome.UNAVAILABLE
         val tmpFile = File(parent, "${targetFile.name}.tmp")
         val bakFile = File(parent, "${targetFile.name}.bak")
 
@@ -257,11 +301,11 @@ object AtomicSaveFile {
             if (isTargetInvalid) {
                 if (bakFile.exists() && bakFile.isFile && bakFile.length() == expectedSize) {
                     Log.w(TAG, "Interrupted write detected for ${targetFile.name} (expected $expectedSize bytes, target has ${if (targetFile.exists()) targetFile.length() else -1}). Restoring from .bak")
-                    val restored = restoreBackup(targetFile)
+                    val outcome = restoreBackupDetailed(targetFile)
                     if (tmpFile.exists()) tmpFile.delete()
-                    return restored
+                    return outcome
                 }
-                return false
+                return RecoveryOutcome.UNAVAILABLE
             }
 
             // Target exists and matches expectedSize
@@ -269,7 +313,7 @@ object AtomicSaveFile {
                 Log.w(TAG, "Cleaning up leftover .tmp file for ${targetFile.name}")
                 tmpFile.delete()
             }
-            return true
+            return RecoveryOutcome.TARGET_VALID
         }
 
         // Expected size not known: conservative fallback
@@ -277,11 +321,11 @@ object AtomicSaveFile {
         if (!targetFile.exists() || targetFile.length() == 0L) {
             if (bakFile.exists() && bakFile.isFile && bakFile.length() > 0L) {
                 Log.w(TAG, "Interrupted write detected for ${targetFile.name}. Restoring from .bak (${bakFile.length()} bytes)")
-                val restored = restoreBackup(targetFile)
+                val outcome = restoreBackupDetailed(targetFile)
                 if (tmpFile.exists()) {
                     tmpFile.delete()
                 }
-                return restored
+                return outcome
             }
         }
 
@@ -291,9 +335,18 @@ object AtomicSaveFile {
                 Log.w(TAG, "Cleaning up leftover .tmp file for ${targetFile.name}")
                 tmpFile.delete()
             }
-            return true
+            return RecoveryOutcome.TARGET_VALID
         }
 
-        return false
+        return RecoveryOutcome.UNAVAILABLE
     }
+
+    /**
+     * Detects interrupted .tmp / .bak states and recovers the last known valid canonical file.
+     * When expectedSize is provided, treats truncated or mismatched canonical files as invalid
+     * and recovers from a matching .bak file.
+     * Guaranteed to never silently discard a recoverable .bak file.
+     */
+    fun recoverInterrupted(targetFile: File, expectedSize: Long? = null): Boolean =
+        recoverInterruptedDetailed(targetFile, expectedSize) != RecoveryOutcome.UNAVAILABLE
 }

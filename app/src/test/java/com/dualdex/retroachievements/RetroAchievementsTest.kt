@@ -2,12 +2,15 @@ package com.dualdex.retroachievements
 
 import com.dualdex.emulator.LibretroCoreBridge
 import com.dualdex.emulator.LibretroCoreCoordinator
+import com.dualdex.emulator.LoadedRomStatus
+import com.dualdex.emulator.PreserveAutoResumeResult
 import com.dualdex.emulator.RomDurableResumeTest
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.emulator.RomSaveIntegrityTest
 import com.dualdex.emulator.RomSessionManager
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.SwitchResult
+import com.dualdex.emulator.storage.AtomicSaveFile
 import com.dualdex.emulator.storage.SaveStateFiles
 import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.runBlocking
@@ -581,6 +584,171 @@ class RetroAchievementsTest {
             assertTrue(ssm.saveAutoResume(active))
             assertEquals(0x77.toByte(), autoResumeFile.readBytes()[0])
         } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun recoveredOlderBackupOverNewerBatteryIsNeverAutoLoadedInSoftcore() = runBlocking {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_autoresume_bak_freshness_").toFile()
+        try {
+            val romFile = File(tempRoot, "romBak.gba").apply { writeBytes(ByteArray(4096) { 0x64 }) }
+            val romIdentity = RomIdentity.fromFile(romFile, "Rom Bak")
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = File(tempRoot, "saves"), customCoordinator = core)
+            val sessions = RomSessionManager(
+                saveStateManager = ssm,
+                customRomCacheDir = File(tempRoot, "cache"),
+                customCoordinator = core
+            )
+
+            val now = System.currentTimeMillis()
+            val olderBackupMtime = now - 60_000L
+            val newerBatteryBytes = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 0x09 }
+            val olderBackupBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x4B }
+
+            fun seedCorruptTargetWithOlderBackupAndNewerBattery() {
+                val batteryFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.BATTERY).apply {
+                    writeBytes(newerBatteryBytes)
+                    setLastModified(now)
+                }
+                val autoResumeFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.AUTO_RESUME).apply {
+                    writeBytes(ByteArray(16) { 0xEE.toByte() }) // truncated target with newer mtime
+                    setLastModified(now + 5_000L)
+                }
+                val backupFile = File(autoResumeFile.parentFile, "${autoResumeFile.name}.bak").apply {
+                    writeBytes(olderBackupBytes)
+                    setLastModified(olderBackupMtime)
+                }
+                ssm.getCanonicalFile(romIdentity, SaveStateFiles.PRESERVED_AUTO_RESUME).apply {
+                    writeText(SaveStateFiles.AUTO_RESUME, Charsets.UTF_8)
+                }
+                assertTrue(batteryFile.lastModified() > backupFile.lastModified())
+            }
+
+            // Part A: normal restoreBackup preserves .bak's older mtime so Softcore does not auto-load it.
+            seedCorruptTargetWithOlderBackupAndNewerBattery()
+            core.armRaHardcore(false)
+            val session1 = (sessions.switchRomFile(romFile, emptyList(), preferredTitle = "Rom Bak") as SwitchResult.Success).identity
+            assertEquals("Stale recovered backup must not auto-load over newer battery.sav", 0, bridge.loadedStates.size)
+            val autoResumeFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.AUTO_RESUME)
+            val batteryFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.BATTERY)
+            assertArrayEquals(olderBackupBytes, autoResumeFile.readBytes())
+            assertTrue(
+                "Restored backup must retain older timestamp than newer battery.sav",
+                autoResumeFile.lastModified() < batteryFile.lastModified()
+            )
+            val preserved1 = ssm.preservedAutoResumeFor(session1)
+            assertNotNull("Preserved marker must remain offered for explicit restoration", preserved1)
+            assertEquals(SaveStateFiles.AUTO_RESUME, preserved1!!.resumeFileName)
+            bridge.nextSavedStateByte = 0x7E
+            assertFalse("Pause must not overwrite preserved auto_resume.state", ssm.saveAutoResume(session1))
+            assertArrayEquals(olderBackupBytes, autoResumeFile.readBytes())
+
+            // Explicit restore still works when the player consciously requests it.
+            assertTrue(ssm.restorePreservedAutoResume(session1, preserved1))
+            assertEquals(1, bridge.loadedStates.size)
+            assertArrayEquals(olderBackupBytes, bridge.loadedStates.single())
+            assertTrue(ssm.closeGame(session1))
+
+            // Part B: even if setLastModified fails during backup recovery (freshness cannot be established),
+            // Softcore still refuses automatic load and keeps the state explicit-only.
+            seedCorruptTargetWithOlderBackupAndNewerBattery()
+            AtomicSaveFile.preserveTimestampHook = { _, _ -> false }
+            try {
+                core.armRaHardcore(false)
+                val session2 = (sessions.switchRomFile(romFile, emptyList(), preferredTitle = "Rom Bak") as SwitchResult.Success).identity
+                assertEquals(
+                    "Backup recovered without established original timestamp must not auto-load",
+                    1,
+                    bridge.loadedStates.size
+                )
+                val preserved2 = ssm.preservedAutoResumeFor(session2)
+                assertNotNull(preserved2)
+                assertEquals(SaveStateFiles.AUTO_RESUME, preserved2!!.resumeFileName)
+                assertFalse(ssm.saveAutoResume(session2))
+                assertArrayEquals(olderBackupBytes, autoResumeFile.readBytes())
+                assertTrue(ssm.restorePreservedAutoResume(session2, preserved2))
+                assertEquals(2, bridge.loadedStates.size)
+            } finally {
+                AtomicSaveFile.preserveTimestampHook = null
+            }
+        } finally {
+            AtomicSaveFile.preserveTimestampHook = null
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun failedPreservedMarkerWritePropagatesFailureAndRefusesUnprotectedSession() = runBlocking {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_marker_fail_").toFile()
+        try {
+            val romFile = File(tempRoot, "romMarkerFail.gba").apply { writeBytes(ByteArray(4096) { 0x65 }) }
+            val romIdentity = RomIdentity.fromFile(romFile, "Rom Marker Fail")
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = File(tempRoot, "saves"), customCoordinator = core)
+            val sessions = RomSessionManager(
+                saveStateManager = ssm,
+                customRomCacheDir = File(tempRoot, "cache"),
+                customCoordinator = core
+            )
+
+            val seededMtime = System.currentTimeMillis() - 1_000L
+            val originalAutoResumeBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x5C }
+            val originalBatteryBytes = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 0x01 }
+            val batteryFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.BATTERY).apply {
+                writeBytes(originalBatteryBytes)
+                setLastModified(seededMtime)
+            }
+            val autoResumeFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.AUTO_RESUME).apply {
+                writeBytes(originalAutoResumeBytes)
+                setLastModified(seededMtime)
+            }
+            val markerFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.PRESERVED_AUTO_RESUME)
+
+            // Part A: RomSessionManager refuses to proceed with a skipped-resume session when marker persistence fails.
+            core.armRaHardcore(true)
+            AtomicSaveFile.syncHook = { throw IOException("Simulated atomic marker write failure") }
+            val switchResult = try {
+                sessions.switchRomFile(romFile, emptyList(), preferredTitle = "Rom Marker Fail")
+            } finally {
+                AtomicSaveFile.syncHook = null
+            }
+            assertTrue("Expected SwitchResult.Failure when durable marker write fails, got $switchResult", switchResult is SwitchResult.Failure)
+            assertNull(ssm.activeIdentity)
+            assertNull(ssm.preservedAutoResume.value)
+            assertEquals(LoadedRomStatus.UNLOADED, core.loadedRomSnapshot().status)
+            assertFalse(markerFile.exists())
+            assertArrayEquals(originalAutoResumeBytes, autoResumeFile.readBytes())
+            assertArrayEquals(originalBatteryBytes, batteryFile.readBytes())
+
+            // Part B: Direct SaveStateManager call propagates Failed, publishes no preserved record,
+            // and fails closed on saveAutoResume and closeGame without flushing SRAM or unloading.
+            assertTrue(core.loadVerifiedRom(romFile.absolutePath, romIdentity))
+            ssm.setActiveGame(romIdentity)
+            AtomicSaveFile.syncHook = { throw IOException("Simulated atomic marker write failure") }
+            val preserveResult = try {
+                ssm.preserveSkippedAutoResume(romIdentity)
+            } finally {
+                AtomicSaveFile.syncHook = null
+            }
+            assertTrue("Expected PreserveAutoResumeResult.Failed, got $preserveResult", preserveResult is PreserveAutoResumeResult.Failed)
+            assertNull(ssm.preservedAutoResumeFor(romIdentity))
+            assertFalse(markerFile.exists())
+
+            bridge.nextSavedStateByte = 0x7A
+            assertFalse("saveAutoResume must fail closed after marker write failure", ssm.saveAutoResume(romIdentity))
+            assertArrayEquals(originalAutoResumeBytes, autoResumeFile.readBytes())
+
+            bridge.nextSramByte = 0x77
+            assertFalse("closeGame must not flush changed SRAM or unload unprotected session", ssm.closeGame(romIdentity))
+            assertArrayEquals(originalBatteryBytes, batteryFile.readBytes())
+            assertArrayEquals(originalAutoResumeBytes, autoResumeFile.readBytes())
+            assertNotNull(ssm.activeIdentity)
+        } finally {
+            AtomicSaveFile.syncHook = null
             tempRoot.deleteRecursively()
         }
     }

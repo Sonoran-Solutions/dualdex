@@ -93,12 +93,9 @@ open class LibretroCoreCoordinator(
         if (changed) {
             _raHardcore.value = policy
             if (active) {
-                // Cancel any outstanding injected press before a reset starts a protected run.
+                // Cancel any outstanding injected press and reconcile the native button mask
+                // before a reset starts a protected run.
                 advanceGeneration()
-                val physical = ControllerInputRouter.clearAutomatedMaskFor(this)
-                try {
-                    setInputButtons(physical)
-                } catch (_: UnsatisfiedLinkError) {}
             }
         }
         syncRaHardcoreProtectedNative(isPolicyProtected(policy))
@@ -138,7 +135,7 @@ open class LibretroCoreCoordinator(
     private fun advanceGeneration() {
         stateGeneration++
         _stateGenerationFlow.value = stateGeneration
-        ControllerInputRouter.clearAutomatedMaskFor(this)
+        ControllerInputRouter.revokeAutomatedMaskAndSync(this)
     }
 
     /** Must be called under [lock]; arbitrary display/profile code cannot assert provenance. */
@@ -489,6 +486,28 @@ open class LibretroCoreCoordinator(
             raHardcorePolicy.mayUseInteractiveBattleControls &&
             stateGeneration == expectedGeneration
         setInputButtons(if (allowed) physicalMask or automatedMask else physicalMask)
+        return allowed
+    }
+
+    /**
+     * Validates [automatedMask] against [expectedGeneration] and [raHardcorePolicy] under the
+     * core lock, then atomically combines it with the live physical mask inside
+     * [ControllerInputRouter]'s leaf lock so concurrent physical releases are never overwritten
+     * by a pre-release physical snapshot.
+     */
+    internal fun setRoutedCombinedInputLocked(
+        automatedMask: Int,
+        expectedGeneration: Long?
+    ): Boolean {
+        check(lock.isHeldByCurrentThread)
+        if (automatedMask == 0) {
+            ControllerInputRouter.writeLiveMaskFor(this)
+            return true
+        }
+        val allowed = expectedGeneration != null &&
+            raHardcorePolicy.mayUseInteractiveBattleControls &&
+            stateGeneration == expectedGeneration
+        ControllerInputRouter.writeLiveMaskFor(this, automatedMask, includeAutomated = allowed)
         return allowed
     }
 

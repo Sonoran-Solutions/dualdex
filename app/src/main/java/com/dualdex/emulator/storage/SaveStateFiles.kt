@@ -21,6 +21,9 @@ object SaveStateFiles {
     fun slotState(slot: Int) = "slot_$slot.state"
     fun slotThumbnail(slot: Int) = "slot_$slot.png"
 
+    val allResumeStateNames: List<String> =
+        listOf(AUTO_RESUME, QUICK_SAVE) + (1..SLOT_COUNT).map(::slotState)
+
     fun isResumeStateName(fileName: String): Boolean =
         fileName == AUTO_RESUME || fileName == QUICK_SAVE || (1..SLOT_COUNT).any { slotState(it) == fileName }
 
@@ -32,10 +35,17 @@ object SaveStateFiles {
      * booting one that predates the cartridge save (crash before the resume write, a failed
      * snapshot, an import) would roll that save back. Equal mtimes are kept because the normal
      * pause path flushes the battery and writes the resume state within the same second.
+     * Any state in [excludedNames] (for example, a backup recovered without establishing its
+     * original modification timestamp) is excluded from automatic boot selection.
      */
-    fun newestResumeState(dir: File, barrierMs: Long = 0L): File? {
+    fun newestResumeState(
+        dir: File,
+        barrierMs: Long = 0L,
+        excludedNames: Set<String> = emptySet()
+    ): File? {
         val batteryMs = File(dir, BATTERY).lastModified() // 0 when absent
-        return (listOf(AUTO_RESUME, QUICK_SAVE) + (1..SLOT_COUNT).map(::slotState))
+        return allResumeStateNames
+            .filter { it !in excludedNames }
             .map { File(dir, it) }
             .filter { it.isFile && it.length() > 0L && it.lastModified() > barrierMs && it.lastModified() >= batteryMs }
             .maxByOrNull { it.lastModified() }

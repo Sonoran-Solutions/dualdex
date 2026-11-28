@@ -4194,6 +4194,8 @@ static const char* rc_client_get_subset_achievement_bucket_label(uint8_t bucket_
   label = rc_client_get_achievement_bucket_label(bucket_type);
   new_label_len = strlen(subset->public_.title) + strlen(label) + 4;
   new_label = (char*)rc_buffer_alloc(&game->buffer, new_label_len);
+  if (!new_label)
+    return label;
   snprintf(new_label, new_label_len, "%s - %s", subset->public_.title, label);
 
   *ptr = new_label;
@@ -4958,6 +4960,8 @@ static const char* rc_client_get_subset_leaderboard_bucket_label(uint8_t bucket_
   label = rc_client_get_leaderboard_bucket_label(bucket_type);
   new_label_len = strlen(subset->public_.title) + strlen(label) + 4;
   new_label = (char*)rc_buffer_alloc(&game->buffer, new_label_len);
+  if (!new_label)
+    return label;
   snprintf(new_label, new_label_len, "%s - %s", subset->public_.title, label);
 
   *ptr = new_label;

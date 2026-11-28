@@ -628,12 +628,12 @@ class NuzlockeTrackerTest {
             mon(species = 263, pid = 5L),
             mon(species = 265, pid = 6L, isEgg = true) // 5 valid mons + 1 egg = 6 occupied party slots
         )
-        val wildZigzagoon = mon(species = 263, pid = 999L, level = 4)
+        val wildTaillow = mon(species = 276, pid = 999L, level = 4)
 
         assertTrue(
             tracker.onObservation(
                 party = fullParty,
-                enemyParty = listOf(wildZigzagoon),
+                enemyParty = listOf(wildTaillow),
                 activeEnemyIndex = 0,
                 battleKind = NuzlockeBattleKind.WILD_SINGLE,
                 inBattle = true,

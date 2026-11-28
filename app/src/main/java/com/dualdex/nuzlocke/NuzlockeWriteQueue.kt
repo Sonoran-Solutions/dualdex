@@ -3,7 +3,6 @@ package com.dualdex.nuzlocke
 import java.io.File
 import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -50,7 +49,8 @@ internal class NuzlockeWriteQueue {
     private val lastErrorByRom = HashMap<String, ErrorSnapshot>()
     private var writing = false
 
-    private val listeners = CopyOnWriteArrayList<WeakReference<(String, Long, Result<Unit>) -> Unit>>()
+    private val listenersLock = Any()
+    private val listeners = ArrayList<WeakReference<(String, Long, Result<Unit>) -> Unit>>()
 
     private val executor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "DualDex-NuzlockeIO").apply { isDaemon = true }
@@ -61,8 +61,10 @@ internal class NuzlockeWriteQueue {
      * before [awaitIdle] is unblocked. Held weakly so ViewModel instances are never leaked.
      */
     fun addWeakListener(listener: (String, Long, Result<Unit>) -> Unit) {
-        listeners.removeAll { it.get() == null || it.get() === listener }
-        listeners.add(WeakReference(listener))
+        synchronized(listenersLock) {
+            listeners.removeAll { it.get() == null || it.get() === listener }
+            listeners.add(WeakReference(listener))
+        }
     }
 
     /**
@@ -126,6 +128,28 @@ internal class NuzlockeWriteQueue {
     fun lastErrorForRom(romSha256: String): String? {
         val canonical = NuzlockeStore.canonicalSha256(romSha256) ?: return null
         return queueLock.withLock { lastErrorByRom[canonical]?.message }
+    }
+
+    data class RomSnapshot(
+        val state: NuzlockeRunState?,
+        val lastError: String?,
+        val lastCompletedRevision: Long
+    )
+
+    /**
+     * Atomically captures the latest retained state, persistence error, and completed revision
+     * for [romSha256] under a single [queueLock] acquisition.
+     */
+    fun snapshotForRom(romSha256: String): RomSnapshot {
+        val canonical = NuzlockeStore.canonicalSha256(romSha256)
+            ?: return RomSnapshot(null, null, 0L)
+        return queueLock.withLock {
+            RomSnapshot(
+                state = latestStateByRom[canonical]?.state,
+                lastError = lastErrorByRom[canonical]?.message,
+                lastCompletedRevision = lastCompletedRevisionByRom[canonical] ?: 0L
+            )
+        }
     }
 
     fun lastCompletedRevisionForRom(romSha256: String): Long {
@@ -209,17 +233,21 @@ internal class NuzlockeWriteQueue {
     }
 
     private fun notifyListeners(romSha256: String, revision: Long, result: Result<Unit>) {
-        var sawDead = false
-        for (ref in listeners) {
-            val listener = ref.get()
-            if (listener == null) {
-                sawDead = true
-            } else {
-                listener(romSha256, revision, result)
+        val active = synchronized(listenersLock) {
+            val live = ArrayList<(String, Long, Result<Unit>) -> Unit>(listeners.size)
+            val iter = listeners.iterator()
+            while (iter.hasNext()) {
+                val listener = iter.next().get()
+                if (listener == null) {
+                    iter.remove()
+                } else {
+                    live.add(listener)
+                }
             }
+            live
         }
-        if (sawDead) {
-            listeners.removeAll { it.get() == null }
+        for (listener in active) {
+            listener(romSha256, revision, result)
         }
     }
 

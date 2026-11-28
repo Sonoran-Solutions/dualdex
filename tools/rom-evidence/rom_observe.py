@@ -266,7 +266,7 @@ def main(argv=None):
             (args.output.exists() and p.exists() and os.path.samefile(args.output, p))
             for p in protected
         )
-    except OSError as error:
+    except (OSError, RuntimeError) as error:
         print(f'FAIL: {sanitize_error(error)}', file=sys.stderr)
         return 1
     if is_protected:

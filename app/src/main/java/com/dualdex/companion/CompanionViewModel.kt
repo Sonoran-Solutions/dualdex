@@ -333,7 +333,8 @@ class CompanionViewModel(
                 nuzlockeWriteQueue = shared
             }
         }
-        val loaded = queue?.latestStateForRom(canonical)
+        val queueSnapshot = queue?.snapshotForRom(canonical)
+        val loaded = queueSnapshot?.state
             ?: store?.load(canonical)
             ?: NuzlockeRunState(romSha256 = canonical)
         val tracker = nuzlockeTracker
@@ -342,8 +343,8 @@ class CompanionViewModel(
         } else {
             tracker.loadState(loaded)
         }
-        _nuzlockePersistenceError.value = queue?.lastErrorForRom(canonical)
-        nuzlockeErrorRevision = queue?.lastCompletedRevisionForRom(canonical) ?: 0L
+        _nuzlockePersistenceError.value = queueSnapshot?.lastError
+        nuzlockeErrorRevision = queueSnapshot?.lastCompletedRevision ?: 0L
         _nuzlockeState.value = loaded
     }
 
@@ -643,7 +644,10 @@ class CompanionViewModel(
         val gameId = _activeGameId.value
 
         val playerPartyRaw = coreCoordinator.readPartyFromCore(gameId)
-        val freshParty = playerPartyRaw?.filterNotNull()?.filter { !it.isEmpty && it.isValid }
+        val freshParty = playerPartyRaw
+            ?.filterNotNull()
+            ?.filter { !it.isEmpty && it.isValid }
+            ?.takeIf { it.isNotEmpty() }
         if (!freshParty.isNullOrEmpty()) {
             playerPartyStabilizer.onValidRead()
             if (freshParty != _playerParty.value) {

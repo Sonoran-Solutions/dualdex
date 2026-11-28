@@ -402,6 +402,25 @@ class CliTest(unittest.TestCase):
             self.assertNotIn('private-secret-out.json', err2.getvalue())
             self.assertNotIn('/', err2.getvalue())
 
+            # 3. Symlink loop on output path raises RuntimeError in Path.resolve() on Python 3.12;
+            #    must be sanitized without leaking the host path or crashing with an uncaught traceback.
+            loop_a = folder / 'private-loop-a.json'
+            loop_b = folder / 'private-loop-b.json'
+            loop_a.symlink_to(loop_b)
+            loop_b.symlink_to(loop_a)
+            argv_loop = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                         '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                         '--output', str(loop_a)]
+            err3 = io.StringIO()
+            with patch.object(ro.Session, 'open') as opened3, contextlib.redirect_stderr(err3):
+                code3 = ro.main(argv_loop)
+            opened3.assert_not_called()
+            self.assertEqual(code3, 1)
+            self.assertIn('FAIL:', err3.getvalue())
+            self.assertNotIn('private-loop-a.json', err3.getvalue())
+            self.assertNotIn('private-loop-b.json', err3.getvalue())
+            self.assertNotIn('/', err3.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()

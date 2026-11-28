@@ -128,9 +128,11 @@ class Observer:
         require(count <= 6, 'party count exceeds six')
         data = self.read(self.symbols['g' + side + 'Party'], 456)
         after = self.read(self.symbols['g' + side + 'PartyCount'], 1)[0]
-        require(after == count and data == self.read(self.symbols['g' + side + 'Party'], 456),
+        repeated = self.read(self.symbols['g' + side + 'Party'], 456)
+        final = self.read(self.symbols['g' + side + 'PartyCount'], 1)[0]
+        require(count == after == final and data == repeated,
                 'incoherent paused party snapshot')
-        return data, dict(count=count, count_after=after, sha256=digest(data),
+        return data, dict(count=count, count_after=after, count_final=final, sha256=digest(data),
             slot_sha256=[digest(data[i*76:(i+1)*76]) for i in range(6)],
             unused_species=[slot_fields(data[i*76:(i+1)*76])['species'] for i in range(count,6)],
             slots=[slot_fields(data[i*76:(i+1)*76]) for i in range(count)])
@@ -140,7 +142,7 @@ class Observer:
             require_private_directory(screens)
         # No retro_run occurs between reads: the single-threaded core is paused.
         row = dict(label=label, frame=self.frames, parties={}, save_blocks={})
-        for side in ('Player', 'Enemy'):
+        for side in (('Player',) if getattr(self, 'player_only', False) else ('Player', 'Enemy')):
             data, row['parties'][side.lower()] = self.party_snapshot(side)
             if screens:
                 with (screens / (label + '_' + side.lower() + '.party')).open('xb') as raw:
@@ -179,6 +181,7 @@ def main():
     parser.add_argument('--cartridge-dir', type=Path, help='private experiment directory with an exclusive cartridge.sav; never use personal data')
     parser.add_argument('--load-cartridge', action='store_true', help='load only cartridge.sav created in that directory by this tool')
     parser.add_argument('--screens', type=Path, help='optional private PPM directory; never commit images')
+    parser.add_argument('--player-only', action='store_true', help='capture only the bounded player party')
     args = parser.parse_args()
     library = HERE.parent / 'vanilla-runtime-probe/build/probe_host.so'
     protected = [args.rom, args.core, args.movie, library, Path(__file__)]
@@ -217,6 +220,8 @@ def main():
             staged.write_bytes(rom)
             host = Observer(library, core, staged,
                             {name: int(value, 16) for name, value in static['symbols'].items()})
+            host.player_only = args.player_only
+            report['player_only'] = args.player_only
             require(not (args.initial_state and args.load_cartridge), 'choose state or cartridge bootstrap')
             if args.initial_state:
                 state_bytes = read_local(args.initial_state, 16*1024*1024)
@@ -266,6 +271,7 @@ def main():
                     host.frames = saved_frame
             report['status'] = 'OBSERVED'  # Captured successfully, not a layout correctness verdict.
     except (ValueError, OSError, UnicodeError, KeyError, TypeError) as error:
+        report['observations'] = []  # A failed run exposes no last-good party.
         report['error'] = str(error)
         print(f'FAIL: {error}', file=sys.stderr)
     finally:

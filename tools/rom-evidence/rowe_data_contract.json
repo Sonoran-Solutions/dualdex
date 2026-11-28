@@ -1,0 +1,1290 @@
+{
+  "embedded_symbols": {
+    "data_symbols": {
+      "gBaseStats": "0x08502c54",
+      "gBattleMoves": "0x08435298",
+      "gItems": "0x08f76d78",
+      "gMoveNames": "0x0841e42c",
+      "gRegionMapEntries": "0x08fd278c",
+      "gSpeciesNames": "0x084180a4"
+    },
+    "entry_count": 150,
+    "form_table_symbol_name": "NOT_PRESENT_IN_150_ENTRY_SYMBOL_TABLE",
+    "status": "STATIC_VERIFIED",
+    "table_address": "0x08fb0670"
+  },
+  "forms": {
+    "algorithm": "species_id * 4 pointer; form_id * 2 u16; 0xffff list sentinel; null pointer returns stored species ID",
+    "alternate_species_id_ranges": [
+      [
+        1501,
+        1600
+      ],
+      [
+        1602,
+        1686
+      ],
+      [
+        1688,
+        1768
+      ],
+      [
+        1781,
+        1788
+      ],
+      [
+        1799,
+        1799
+      ],
+      [
+        1810,
+        1810
+      ],
+      [
+        1813,
+        1813
+      ],
+      [
+        1816,
+        1816
+      ],
+      [
+        1824,
+        1824
+      ],
+      [
+        1826,
+        1829
+      ],
+      [
+        1851,
+        1882
+      ],
+      [
+        1884,
+        1885
+      ],
+      [
+        1887,
+        1918
+      ],
+      [
+        1920,
+        1935
+      ],
+      [
+        1937,
+        1959
+      ]
+    ],
+    "candidate_pointer_table": "0x085e700c",
+    "example_nonzero_form_static_mapping": {
+      "base_type_ids": [
+        17,
+        0
+      ],
+      "raw_form_id": 1,
+      "raw_stored_species_id": 19,
+      "runtime_effective_identity_status": "NOT_VERIFIED",
+      "static_name_candidate": "Rattata",
+      "static_resolved_species_id": 1551
+    },
+    "form_choices_including_form_zero": 3472,
+    "invalid_form_behavior": "REFUSE; game accessor does not bounds-check the form list",
+    "malformed_species_ids": [],
+    "name_and_metadata_key": "resolved_species_id, only when the static list entry is in the verified name range",
+    "nonzero_form_choices": 2872,
+    "nonzero_form_species_id_ranges": [
+      [
+        1501,
+        1600
+      ],
+      [
+        1602,
+        1686
+      ],
+      [
+        1688,
+        1768
+      ],
+      [
+        1781,
+        1788
+      ],
+      [
+        1799,
+        1799
+      ],
+      [
+        1810,
+        1810
+      ],
+      [
+        1813,
+        1813
+      ],
+      [
+        1816,
+        1816
+      ],
+      [
+        1824,
+        1824
+      ],
+      [
+        1826,
+        1829
+      ],
+      [
+        1851,
+        1882
+      ],
+      [
+        1884,
+        1885
+      ],
+      [
+        1887,
+        1918
+      ],
+      [
+        1920,
+        1935
+      ],
+      [
+        1937,
+        1959
+      ]
+    ],
+    "observed_form_zero_examples": {
+      "161": {
+        "resolved_species_id": 161,
+        "runtime_status": "NOT_VERIFIED",
+        "status": "STATIC_VERIFIED",
+        "stored_form_id": 0,
+        "stored_species_id": 161
+      },
+      "661": {
+        "resolved_species_id": 661,
+        "runtime_status": "NOT_VERIFIED",
+        "status": "STATIC_VERIFIED",
+        "stored_form_id": 0,
+        "stored_species_id": 661
+      }
+    },
+    "payload_sha256": "08cd2a15108b20441d42d22b5696ff7ced507d485787afff997a55c500fcd300",
+    "pointer_slots": 1960,
+    "pointer_table_sha256": "4c7ee9df3c9320c933e33690a7026d03f20e66e9a31a860ff1398aee0afdc6b3",
+    "resolved_species_id_ranges": [
+      [
+        3,
+        3
+      ],
+      [
+        6,
+        6
+      ],
+      [
+        9,
+        9
+      ],
+      [
+        12,
+        12
+      ],
+      [
+        15,
+        15
+      ],
+      [
+        18,
+        20
+      ],
+      [
+        24,
+        28
+      ],
+      [
+        36,
+        38
+      ],
+      [
+        50,
+        53
+      ],
+      [
+        59,
+        59
+      ],
+      [
+        65,
+        65
+      ],
+      [
+        68,
+        68
+      ],
+      [
+        71,
+        71
+      ],
+      [
+        74,
+        80
+      ],
+      [
+        83,
+        83
+      ],
+      [
+        87,
+        89
+      ],
+      [
+        94,
+        94
+      ],
+      [
+        99,
+        99
+      ],
+      [
+        103,
+        103
+      ],
+      [
+        105,
+        105
+      ],
+      [
+        110,
+        110
+      ],
+      [
+        115,
+        115
+      ],
+      [
+        121,
+        122
+      ],
+      [
+        127,
+        128
+      ],
+      [
+        130,
+        131
+      ],
+      [
+        142,
+        146
+      ],
+      [
+        149,
+        150
+      ],
+      [
+        154,
+        154
+      ],
+      [
+        157,
+        157
+      ],
+      [
+        160,
+        160
+      ],
+      [
+        169,
+        169
+      ],
+      [
+        171,
+        172
+      ],
+      [
+        181,
+        181
+      ],
+      [
+        195,
+        195
+      ],
+      [
+        199,
+        199
+      ],
+      [
+        201,
+        201
+      ],
+      [
+        208,
+        208
+      ],
+      [
+        212,
+        214
+      ],
+      [
+        222,
+        222
+      ],
+      [
+        227,
+        227
+      ],
+      [
+        229,
+        229
+      ],
+      [
+        248,
+        248
+      ],
+      [
+        254,
+        254
+      ],
+      [
+        257,
+        257
+      ],
+      [
+        260,
+        260
+      ],
+      [
+        263,
+        264
+      ],
+      [
+        282,
+        282
+      ],
+      [
+        286,
+        286
+      ],
+      [
+        292,
+        292
+      ],
+      [
+        302,
+        303
+      ],
+      [
+        306,
+        306
+      ],
+      [
+        308,
+        308
+      ],
+      [
+        310,
+        310
+      ],
+      [
+        319,
+        319
+      ],
+      [
+        323,
+        323
+      ],
+      [
+        330,
+        330
+      ],
+      [
+        334,
+        334
+      ],
+      [
+        350,
+        351
+      ],
+      [
+        354,
+        354
+      ],
+      [
+        358,
+        359
+      ],
+      [
+        362,
+        362
+      ],
+      [
+        373,
+        373
+      ],
+      [
+        376,
+        376
+      ],
+      [
+        380,
+        384
+      ],
+      [
+        386,
+        386
+      ],
+      [
+        398,
+        398
+      ],
+      [
+        405,
+        405
+      ],
+      [
+        412,
+        413
+      ],
+      [
+        421,
+        423
+      ],
+      [
+        428,
+        428
+      ],
+      [
+        445,
+        445
+      ],
+      [
+        448,
+        448
+      ],
+      [
+        460,
+        460
+      ],
+      [
+        475,
+        475
+      ],
+      [
+        478,
+        479
+      ],
+      [
+        485,
+        485
+      ],
+      [
+        487,
+        487
+      ],
+      [
+        491,
+        493
+      ],
+      [
+        497,
+        497
+      ],
+      [
+        500,
+        500
+      ],
+      [
+        503,
+        503
+      ],
+      [
+        530,
+        531
+      ],
+      [
+        545,
+        545
+      ],
+      [
+        550,
+        550
+      ],
+      [
+        553,
+        555
+      ],
+      [
+        560,
+        560
+      ],
+      [
+        562,
+        562
+      ],
+      [
+        569,
+        569
+      ],
+      [
+        584,
+        586
+      ],
+      [
+        604,
+        604
+      ],
+      [
+        609,
+        609
+      ],
+      [
+        618,
+        618
+      ],
+      [
+        623,
+        623
+      ],
+      [
+        641,
+        642
+      ],
+      [
+        645,
+        649
+      ],
+      [
+        652,
+        652
+      ],
+      [
+        655,
+        655
+      ],
+      [
+        658,
+        658
+      ],
+      [
+        666,
+        666
+      ],
+      [
+        668,
+        671
+      ],
+      [
+        676,
+        676
+      ],
+      [
+        678,
+        678
+      ],
+      [
+        681,
+        681
+      ],
+      [
+        687,
+        687
+      ],
+      [
+        689,
+        689
+      ],
+      [
+        691,
+        691
+      ],
+      [
+        701,
+        701
+      ],
+      [
+        710,
+        711
+      ],
+      [
+        716,
+        716
+      ],
+      [
+        718,
+        720
+      ],
+      [
+        733,
+        733
+      ],
+      [
+        740,
+        741
+      ],
+      [
+        743,
+        746
+      ],
+      [
+        763,
+        763
+      ],
+      [
+        768,
+        768
+      ],
+      [
+        773,
+        774
+      ],
+      [
+        778,
+        778
+      ],
+      [
+        780,
+        780
+      ],
+      [
+        800,
+        801
+      ],
+      [
+        807,
+        807
+      ],
+      [
+        809,
+        809
+      ],
+      [
+        812,
+        812
+      ],
+      [
+        818,
+        818
+      ],
+      [
+        823,
+        823
+      ],
+      [
+        826,
+        826
+      ],
+      [
+        834,
+        834
+      ],
+      [
+        839,
+        839
+      ],
+      [
+        841,
+        842
+      ],
+      [
+        844,
+        845
+      ],
+      [
+        849,
+        849
+      ],
+      [
+        851,
+        851
+      ],
+      [
+        858,
+        858
+      ],
+      [
+        861,
+        861
+      ],
+      [
+        869,
+        870
+      ],
+      [
+        875,
+        875
+      ],
+      [
+        892,
+        892
+      ],
+      [
+        901,
+        901
+      ],
+      [
+        952,
+        952
+      ],
+      [
+        959,
+        959
+      ],
+      [
+        970,
+        970
+      ],
+      [
+        978,
+        978
+      ],
+      [
+        980,
+        980
+      ],
+      [
+        998,
+        998
+      ],
+      [
+        1501,
+        1600
+      ],
+      [
+        1602,
+        1686
+      ],
+      [
+        1688,
+        1768
+      ],
+      [
+        1781,
+        1788
+      ],
+      [
+        1799,
+        1799
+      ],
+      [
+        1810,
+        1810
+      ],
+      [
+        1813,
+        1813
+      ],
+      [
+        1816,
+        1816
+      ],
+      [
+        1824,
+        1824
+      ],
+      [
+        1826,
+        1829
+      ],
+      [
+        1851,
+        1882
+      ],
+      [
+        1884,
+        1885
+      ],
+      [
+        1887,
+        1918
+      ],
+      [
+        1920,
+        1935
+      ],
+      [
+        1937,
+        1959
+      ]
+    ],
+    "runtime_nonzero_form_observation": "NOT_VERIFIED",
+    "species_with_form_table": 600,
+    "status": "STATIC_VERIFIED_MAPPING_ALGORITHM_RUNTIME_NOT_VERIFIED",
+    "stored_form_width_bits": 5,
+    "unique_nonzero_form_species_ids": 388,
+    "unique_resolved_species_ids": 600
+  },
+  "move_names": {
+    "first_invalid_record_id": 943,
+    "identity_contract_examples": {
+      "111": {
+        "displayed_name": "Defense Curl",
+        "effective_battle_behavior": "NOT_VERIFIED",
+        "metadata_lookup_key": 111,
+        "raw_stored_move_id": 111
+      },
+      "193": {
+        "displayed_name": "Foresight",
+        "effective_battle_behavior": "NOT_VERIFIED",
+        "metadata_lookup_key": 193,
+        "raw_stored_move_id": 193
+      },
+      "33": {
+        "displayed_name": "Tackle",
+        "effective_battle_behavior": "NOT_VERIFIED",
+        "metadata_lookup_key": 33,
+        "raw_stored_move_id": 33
+      },
+      "45": {
+        "displayed_name": "Growl",
+        "effective_battle_behavior": "NOT_VERIFIED",
+        "metadata_lookup_key": 45,
+        "raw_stored_move_id": 45
+      },
+      "64": {
+        "displayed_name": "Peck",
+        "effective_battle_behavior": "NOT_VERIFIED",
+        "metadata_lookup_key": 64,
+        "raw_stored_move_id": 64
+      },
+      "98": {
+        "displayed_name": "Quick Attack",
+        "effective_battle_behavior": "NOT_VERIFIED",
+        "metadata_lookup_key": 98,
+        "raw_stored_move_id": 98
+      }
+    },
+    "post_boundary_status_counts": {
+      "EMPTY_OR_UNSET": 15,
+      "INVALID_TERMINATION": 64,
+      "UNKNOWN_GLYPH": 2
+    },
+    "record_stride": 17,
+    "safe_name_ids": [
+      1,
+      942
+    ],
+    "safe_name_region_sha256": "1975aec95a940284f8ef45f36aa0a2a0eb07bda5566209d3b7ac8edcf43baa34",
+    "scanned_stored_id_range": [
+      0,
+      1023
+    ],
+    "start": "0x0841e42c",
+    "status": "STATIC_VERIFIED_SAFE_PREFIX",
+    "stored_id_vs_effective_battle_behavior": "NOT_VERIFIED",
+    "stored_id_width_bits": 10,
+    "ui_correlated_examples": {
+      "111": "Defense Curl",
+      "193": "Foresight",
+      "33": "Tackle",
+      "45": "Growl",
+      "64": "Peck",
+      "98": "Quick Attack"
+    }
+  },
+  "nickname_text": {
+    "control_sequences": "refused; no control tokens are silently removed",
+    "decoder_domains": [
+      "species_name",
+      "move_name",
+      "item_name",
+      "party_nickname"
+    ],
+    "decoder_statuses": [
+      "VALID_TEXT",
+      "EMPTY_OR_UNSET",
+      "UNKNOWN_GLYPH",
+      "MALFORMED_CONTROL",
+      "INVALID_TERMINATION",
+      "UNSUPPORTED_MODE"
+    ],
+    "egg_name_handling": "NOT_VERIFIED",
+    "full_width_unterminated": "accepted only for 12 recognized glyph bytes; RUNTIME_OBSERVED full-width case NOT_VERIFIED",
+    "observed_raw_examples": {
+      "Fletchling": "c0e0d9e8d7dce0dde2dbff00",
+      "Sentret": "cdd9e2e8e6d9e8ff000000"
+    },
+    "status": "STATIC_WIDTH_AND_SYNTHETIC_DECODER",
+    "stored_width_bytes": 12,
+    "terminator": "0xff when present; trailing 0x00/0xff padding retained as raw bytes",
+    "ui_max_displayed_characters": "NOT_VERIFIED"
+  },
+  "pokedaisy_comparison": {
+    "base_stats_address_stride_and_type_offsets": "SUPPORTED_INDEPENDENTLY",
+    "battle_moves_address_stride_and_power_type_offsets": "SUPPORTED_INDEPENDENTLY",
+    "form_output_start_1551": "CONTRADICTED; bounded nonzero-form outputs include 1501",
+    "form_pointer_address_and_accessor_algorithm": "SUPPORTED_INDEPENDENTLY; form table absent as named embedded symbol",
+    "items_address_stride_and_index_clamp": "SUPPORTED_INDEPENDENTLY; individual item IDs still require record/name validation",
+    "move_name_address_and_stride": "SUPPORTED_INDEPENDENTLY; safe names only IDs 1..942",
+    "pokedaisy_stop_after_empty_names": "NOT_USED; full 10-bit move-ID space is scanned",
+    "region_map_entry_count_213": "THIRD_PARTY_LEAD; record-count bound lacks independent accessor proof",
+    "species_name_address_and_stride": "SUPPORTED_INDEPENDENTLY",
+    "type_effectiveness_normal_table": "SUPPORTED_INDEPENDENTLY; alternate path trigger NOT_VERIFIED"
+  },
+  "release": "R.O.W.E. 2.1.9.1 Experimental",
+  "rom_identity": {
+    "bytes": 33554432,
+    "crc32": "ad252fd3",
+    "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3"
+  },
+  "safe_future_display": {
+    "mode_dependent_effective_values": "REFUSE",
+    "nonzero_forms": "REFUSE until runtime observation",
+    "other_table_names": "static lookup only; no production global fallback",
+    "runtime_observed_move_ids": [
+      33,
+      45,
+      64,
+      98,
+      111,
+      193
+    ],
+    "runtime_observed_species_form_zero": [
+      161,
+      661
+    ],
+    "unknown_or_hole_ids": "REFUSE"
+  },
+  "schema_version": 1,
+  "secondary_tables": {
+    "base_stats": {
+      "ability_live_slot_semantics": "NOT_VERIFIED",
+      "named_species_type_fields_checked": 1464,
+      "record_count_bound": 1960,
+      "record_index_bounds": [
+        0,
+        1959
+      ],
+      "record_stride": 64,
+      "region_sha256": "e1bfcfc8110b60470d2ad8475101cd75056d6cbcf3a42f0462f5cdd85b024f20",
+      "start": "0x08502c54",
+      "status": "STATIC_VERIFIED",
+      "type_id_values": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "type_offsets": [
+        12,
+        13
+      ]
+    },
+    "battle_moves": {
+      "effective_battle_values": "NOT_VERIFIED",
+      "name_matched_records": 942,
+      "named_move_id_bounds": [
+        1,
+        942
+      ],
+      "record_stride": 56,
+      "region_sha256": "52978c7e16a4ec4191425c59686b35c4039460af41e80d6ca7415e132a49c9bc",
+      "start": "0x08435298",
+      "static_power_offset": 2,
+      "static_type_offset": 3,
+      "status": "STATIC_VERIFIED_NAMED_PREFIX",
+      "type_values": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ]
+    },
+    "items": {
+      "accessor_index_bounds": [
+        0,
+        999
+      ],
+      "description_pointer_offset": 28,
+      "inline_name_status_counts": {
+        "EMPTY_OR_UNSET": 156,
+        "UNKNOWN_GLYPH": 1,
+        "VALID_TEXT": 843
+      },
+      "item_effects": "NOT_VERIFIED",
+      "item_id_mismatch_ranges": [
+        [
+          602,
+          607
+        ],
+        [
+          609,
+          681
+        ],
+        [
+          708,
+          708
+        ],
+        [
+          794,
+          804
+        ],
+        [
+          809,
+          811
+        ],
+        [
+          813,
+          813
+        ],
+        [
+          815,
+          816
+        ],
+        [
+          819,
+          819
+        ],
+        [
+          942,
+          999
+        ]
+      ],
+      "item_id_offset": 18,
+      "item_ids_matching_record_index": 844,
+      "name_width": 18,
+      "pocket_offset": 34,
+      "record_stride": 56,
+      "region_sha256": "3eec0eef18f4b98a4fc68cfec34c4edc396c80d0127f154e0909884e69c915c2",
+      "sample_checks": {
+        "1": {
+          "description_pointer_in_rom": true,
+          "name_status": "VALID_TEXT",
+          "pocket_value": 3,
+          "record_id_matches_index": true
+        },
+        "214": {
+          "description_pointer_in_rom": true,
+          "name_status": "VALID_TEXT",
+          "pocket_value": 10,
+          "record_id_matches_index": true
+        },
+        "28": {
+          "description_pointer_in_rom": true,
+          "name_status": "VALID_TEXT",
+          "pocket_value": 2,
+          "record_id_matches_index": true
+        },
+        "467": {
+          "description_pointer_in_rom": true,
+          "name_status": "VALID_TEXT",
+          "pocket_value": 10,
+          "record_id_matches_index": true
+        },
+        "90": {
+          "description_pointer_in_rom": true,
+          "name_status": "VALID_TEXT",
+          "pocket_value": 1,
+          "record_id_matches_index": true
+        }
+      },
+      "start": "0x08f76d78",
+      "status": "STATIC_VERIFIED_BOUNDED_SUBSET"
+    },
+    "map_sections": {
+      "bounded_name_payload_sha256": "d21d063922cc6c2c5ce1c2be90d34c7252935b0c30b94589ab5189d6abe90e0c",
+      "bounded_name_status_counts": {
+        "UNSUPPORTED_MODE": 1,
+        "VALID_TEXT": 212
+      },
+      "candidate_record_count": 213,
+      "invalid_name_pointers": 0,
+      "nonzero_name_pointers_in_rom": 213,
+      "record_stride": 8,
+      "region_mode_and_runtime_selection": "NOT_VERIFIED",
+      "region_sha256": "0e28701aaa990c6cce8037030f14929d84a9a3088700d4e303eda51302bebb1d",
+      "start": "0x08fd278c",
+      "status": "THIRD_PARTY_LEAD_WITH_BOUNDED_POINTER_CHECKS",
+      "unsupported_name_entry_ids": [
+        66
+      ]
+    },
+    "type_effectiveness": {
+      "alternate_path_trigger": "NOT_VERIFIED",
+      "alternate_region_sha256": "d377b620e9d8a798bd6617f7115bc2c7d70d0a0a0d39a83659c9044102844526",
+      "alternate_start": "0x0842c454",
+      "calculator_claim": "NOT_IN_SCOPE",
+      "cell_format": "u16 Q4.12",
+      "dimensions": [
+        19,
+        19
+      ],
+      "normal_region_sha256": "52c4ff26852981398dbbf91042939fe9c757f0bb98fa71a4dbfaaaccbc510a29",
+      "normal_start": "0x0842c182",
+      "normal_value_counts": {
+        "0x0000": 8,
+        "0x0800": 61,
+        "0x1000": 241,
+        "0x2000": 51
+      },
+      "status": "STATIC_VERIFIED_TABLE_AND_CONDITIONAL_ALTERNATE"
+    }
+  },
+  "source_provenance": {
+    "exact_release_source_elf": "NOT_VERIFIED",
+    "pokedaisy_commit": "eddffd90979ec12e6425e1d96c7aca41d5783b61",
+    "pokedaisy_license": "GPL-3.0",
+    "table_reference": "THIRD_PARTY_LEAD"
+  },
+  "species_names": {
+    "egg_identity": "NOT_VERIFIED",
+    "empty_slot_count": 495,
+    "empty_slot_ranges": [
+      [
+        1026,
+        1500
+      ],
+      [
+        1769,
+        1780
+      ],
+      [
+        1836,
+        1839
+      ],
+      [
+        1883,
+        1883
+      ],
+      [
+        1886,
+        1886
+      ],
+      [
+        1919,
+        1919
+      ],
+      [
+        1936,
+        1936
+      ]
+    ],
+    "end_exclusive": "0x0841e42c",
+    "identity_contract_examples": {
+      "161": {
+        "displayed_name": "Sentret",
+        "metadata_lookup_key": 161,
+        "raw_form_id": 0,
+        "raw_stored_species_id": 161,
+        "runtime_evidence": "RUNTIME_OBSERVED_IN_PARTY_LAYOUT_EVIDENCE",
+        "static_resolved_species_id": 161
+      },
+      "661": {
+        "displayed_name": "Fletchling",
+        "metadata_lookup_key": 661,
+        "raw_form_id": 0,
+        "raw_stored_species_id": 661,
+        "runtime_evidence": "RUNTIME_OBSERVED_IN_PARTY_LAYOUT_EVIDENCE",
+        "static_resolved_species_id": 661
+      }
+    },
+    "name_table_region_sha256": "c98f1cf41a2113c50a3a3973c37a293bd754bfc76e5509a6a670c01efbaf41d0",
+    "record_count": 1960,
+    "record_index_bounds": [
+      0,
+      1959
+    ],
+    "record_stride": 13,
+    "safe_lookup_id_count": 1464,
+    "start": "0x084180a4",
+    "status": "STATIC_VERIFIED",
+    "stored_id_and_form_are_separate": true,
+    "ui_correlated_examples": {
+      "161": "Sentret",
+      "661": "Fletchling"
+    },
+    "valid_name_count_including_reserved_id_zero": 1465
+  },
+  "static_accessor_spans": {
+    "base_stats_type_fields": {
+      "end_exclusive": "0x080a1944",
+      "sha256": "9b156e6252996ae837222056dcb43d0759e5e331d2682ba30b5ddfbb1d026b6e",
+      "start": "0x080a192a"
+    },
+    "battle_move_power_index": {
+      "end_exclusive": "0x08044104",
+      "sha256": "e7a58f58da875f6d8cb06004a5b590ca5e43bc2c1692d7a02668700257d63eb6",
+      "start": "0x08044060"
+    },
+    "battle_move_type_index": {
+      "end_exclusive": "0x08042300",
+      "sha256": "ea51181ee868e073b3ed27416b29d67620a519cd048ba82c8f7e39e0eaf14c25",
+      "start": "0x0804225c"
+    },
+    "form_species_resolution": {
+      "end_exclusive": "0x080a1908",
+      "sha256": "e99790b55ea81fa269438c23ba1f28f048dc045e9d62bdcc22b73769f7f9bb18",
+      "start": "0x080a1874"
+    },
+    "item_record_index": {
+      "end_exclusive": "0x081283c0",
+      "sha256": "3c3278d4e70db457cbf17f5de2502a88eafd583e83444a7ec4d9598510f50a4a",
+      "start": "0x08128380"
+    },
+    "map_section_record_index": {
+      "end_exclusive": "0x0817abbc",
+      "sha256": "5eb7460f44ff0f11446ecca0f2ecd683615670158c15a83a9d4979511e790c59",
+      "start": "0x0817aba0"
+    },
+    "move_name_index": {
+      "end_exclusive": "0x08078314",
+      "sha256": "173edd7644dcfa445153c6fa129c67af865a1ada9d78ee1db4990051d2e253e3",
+      "start": "0x080782a4"
+    },
+    "species_name_index": {
+      "end_exclusive": "0x080169ac",
+      "sha256": "fcda18aa473aff0acae399d808bf3014f7615c3222e8f3203d460624953e85ef",
+      "start": "0x08016970"
+    },
+    "type_effectiveness_select": {
+      "end_exclusive": "0x08059184",
+      "sha256": "95ce9a4d2cdec679c59f6af52e4bb8bf81081aefaf1c6aab17c0dc597e3a98e0",
+      "start": "0x0805915c"
+    }
+  },
+  "status": "STATIC_VERIFIED_EXACT_ROM_EXTRACTION",
+  "stored_effective_semantics": {
+    "abilities": "live slot, suppression and mode behavior NOT_VERIFIED",
+    "level": "stored byte verified; accessor has conditional path with unknown trigger",
+    "moves": "stored 10-bit IDs verified; accessor has conditional paths with unknown trigger",
+    "nature": "stored 5-bit field STATIC_VERIFIED; mode-dependent effective nature NOT_VERIFIED",
+    "species_form": "static mapping algorithm verified; nonzero-form runtime NOT_VERIFIED",
+    "unsupported_mode": "REFUSE_EFFECTIVE_VALUE"
+  },
+  "tools_sha256": {
+    "rowe_data.py": "7ad543f6dedeb84ba6cc6a9281eb500472c4adda06accd9f3d6454b94a5c2468",
+    "rowe_symbols.py": "36ce4947b77fa3306d79b12fda82130a1c28c88811b0c7c80094352179dc465c",
+    "rowe_text.py": "58375f2c59206b2c59c202f921159f89ad7d3706ad9c7b38ed01e0f4091aa832"
+  }
+}

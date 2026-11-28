@@ -65,7 +65,7 @@ static const uint8_t SUBSTRUCT_BLOCK_INDEX[24][4] = {
 //   gPlayerPartyCount global (upstream orders gEnemyParty at 0x2402C before gPlayerParty
 //   at 0x24284), not padding.
 // Both games therefore have authoritative player party symbol addresses.
-// Other vanilla titles and unverified hacks retain PARTY_DISCOVERY_HEURISTIC.
+// Other vanilla titles and hacks retain PARTY_DISCOVERY_HEURISTIC, except Unbound (evidence below).
 //
 // Enemy count symbols (PR #70 layout audit; see docs/VANILLA_CALCULATOR_EVIDENCE.md §7):
 // `gPlayerPartyCount` and `gEnemyPartyCount` are declared as the FIRST two EWRAM objects of
@@ -417,6 +417,7 @@ static const GameMemoryConfig CONFIG_RADICAL_RED = {
     .enemy_party_offset = 0x2402C,
     .enemy_party_count_offset = 0x24028,
     .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
+    .storage_layout = PKMN_STORAGE_CFRU_UNVERIFIED,
     .has_evs = true,
     .has_ivs = true
 };
@@ -427,8 +428,35 @@ static const GameMemoryConfig CONFIG_UNBOUND = {
     .player_party_offset = 0x24284,
     .player_party_count_offset = 0x24029,
     .enemy_party_offset = 0x2402C,
-    .enemy_party_count_offset = 0x24028,
-    .player_party_policy = PARTY_DISCOVERY_HEURISTIC,
+    .enemy_party_count_offset = 0x2402A,
+    // Exact-candidate globals: docs/UNBOUND_BATTLE_TRAINER_EVIDENCE.md, Production implications.
+    // The enemy count byte stays zero; only mapped opponent battlers establish occupancy.
+    .battle_mons_offset = 0x23BE4,
+    .battle_mons_size = 0x58,
+    .battle_mons_hp_offset = 0x28,
+    // docs/UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md: +0x18 is type3; stages 1..7 at +0x19..0x1F.
+    .battle_mons_stat_stages_offset = 0x18,
+    .battlers_count_offset = 0x23BCC,
+    .battler_party_indexes_offset = 0x23BCE,
+    .battler_positions_offset = 0x23BD6,
+    .battle_type_flags_offset = 0x22B4C,
+    .battle_outcome_offset = 0x23E8A,
+    .absent_battler_flags_offset = 0x23D70,
+    .main_struct_gba_address = 0x030030F0,
+    .main_in_battle_byte_offset = 0x439,
+    .main_in_battle_bit = 1,
+    // Exact-ROM getters and observed count/base/100-byte stride: UNBOUND_PARTY_LAYOUT_EVIDENCE.md.
+    .player_party_policy = PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+    .storage_layout = PKMN_STORAGE_CFRU,
+    // UNBOUND_LOCATION_EVIDENCE.md: fixed base; the pointer must match exactly.
+    .save_block1_ptr_gba_address = 0x03005008,
+    .save_block1_base_gba_address = 0x0202552C,
+    .save_block1_aslr_range = 4,
+    .save_block1_size = 0x3D68, // CFRU/FireRed extent for bounds only; not runtime-verified.
+    .save_block1_pos_offset = 0x00,
+    .save_block1_location_offset = 0x04,
+    .save_block1_escape_warp_offset = 0x24,
+    .location_max_map_group = 56,
     .has_evs = true,
     .has_ivs = true
 };
@@ -550,6 +578,8 @@ bool pokemon_parse_single_layout(
 
     memset(out, 0, sizeof(ParsedPokemon));
     out->storage_layout = storage_layout;
+    const bool is_cfru = storage_layout == PKMN_STORAGE_CFRU ||
+                         storage_layout == PKMN_STORAGE_CFRU_UNVERIFIED;
 
     const RawGbaPokemon* raw = (const RawGbaPokemon*)raw_bytes;
 
@@ -572,13 +602,10 @@ bool pokemon_parse_single_layout(
     uint32_t decrypted_words[12];
     const uint8_t* raw_subs = raw->raw_substructures;
 
-    // CFRU hacks (Pokemon Unbound, Radical Red) store party substructures in a
-    // FIXED GAEM order and leave the checksum word (offset 0x1C) zeroed — the
-    // value is reused by the CFRU battle engine. Vanilla Gen 3 party mons always
-    // carry a non-zero checksum, so a zero checksum is a reliable CFRU signature:
-    // read the raw substructures directly and skip checksum validation.
+    // Only the configured CFRU layout permits zero-checksum plaintext in fixed GAEM order.
+    // A zero checksum alone is not evidence of the storage layout.
     uint32_t order;
-    if (raw->checksum == 0) {
+    if (is_cfru && raw->checksum == 0) {
         for (int i = 0; i < 12; i++) {
             decrypted_words[i] = read32_le(raw_subs + (i * 4));
         }
@@ -598,22 +625,12 @@ bool pokemon_parse_single_layout(
 
         order = raw->pid % 24;
 
+        // No unencrypted fallback: CFRU plaintext was observed only with a zero checksum and fixed
+        // GAEM order (UNBOUND_PARTY_LAYOUT_EVIDENCE.md); a nonzero-checksum plaintext record is
+        // unobserved, so it fails closed rather than being decoded in a guessed order.
         if (calc_checksum != raw->checksum) {
-            // Attempt B: Unencrypted substructures (key = 0, as in some decompilation hacks)
-            uint16_t raw_checksum = 0;
-            for (int i = 0; i < 24; i++) {
-                raw_checksum += read16_le(raw_subs + (i * 2));
-            }
-
-            if (raw_checksum == raw->checksum) {
-                for (int i = 0; i < 12; i++) {
-                    decrypted_words[i] = read32_le(raw_subs + (i * 4));
-                }
-                calc_checksum = raw_checksum;
-            } else {
-                out->is_valid = false;
-                return false;
-            }
+            out->is_valid = false;
+            return false;
         }
     }
     out->is_valid = true;
@@ -628,10 +645,10 @@ bool pokemon_parse_single_layout(
     // 4. Growth (G)
     // In pokeemerald-expansion: species is 11 bits (0..2047), bits 11..15 are teraType (0..30)
     uint16_t raw_species = read16_le(g_ptr + 0);
-    out->species = raw_species & 0x07FF;
+    out->species = is_cfru ? raw_species : raw_species & 0x07FF;
 
     uint16_t raw_item = read16_le(g_ptr + 2);
-    out->held_item = raw_item & 0x03FF;
+    out->held_item = is_cfru ? raw_item : raw_item & 0x03FF;
 
     uint32_t raw_exp = read32_le(g_ptr + 4);
     out->experience = raw_exp & 0x001FFFFF;
@@ -647,7 +664,7 @@ bool pokemon_parse_single_layout(
     // In pokeemerald-expansion: each move is 11 bits (0..2047), evolutionTracker in upper bits
     for (int i = 0; i < 4; i++) {
         uint16_t raw_move = read16_le(a_ptr + (i * 2));
-        out->moves[i] = raw_move & 0x07FF;
+        out->moves[i] = is_cfru ? raw_move : raw_move & 0x07FF;
         out->pp[i] = a_ptr[8 + i] & 0x7F;
     }
 
@@ -661,7 +678,7 @@ bool pokemon_parse_single_layout(
 
     // 7. Misc (M): IVs, Egg, Ability
     //
-    // Both layouts agree on the IV packing and on the egg bit; they disagree on what bit 31 of
+    // The layouts agree on the IV packing and on the egg bit; they disagree on what bit 31 of
     // the IV word means and on where the ability slot lives, so the two are resolved separately
     // rather than by reusing one game's meaning for the other.
     uint32_t iv_word = read32_le(m_ptr + 4);
@@ -700,7 +717,15 @@ bool pokemon_parse_single_layout(
         out->hidden_nature_modifier = hidden_nature_modifier;
         out->hidden_nature = (uint8_t)((out->pid % 25) ^ hidden_nature_modifier);
         out->nature_modified = (hidden_nature_modifier != 0);
-    } else {
+    } else if (storage_layout == PKMN_STORAGE_CFRU) {
+        // Exact-ROM rules: UNBOUND_PARTY_SEMANTICS_EVIDENCE.md. Consumers resolve empty
+        // ability slots against base stats; this reader reports the stored selection only.
+        out->ability_slot = (iv_word >> 31) ? 2 : (out->pid & 1);
+        out->ability_num = out->ability_slot;
+        out->ability_slot_known = true;
+        out->is_shiny = out->shiny_value < 16;
+        out->shiny_state = out->is_shiny ? PKMN_SHINY_YES : PKMN_SHINY_NO;
+    } else if (!is_cfru) {
         // Vanilla Gen 3: bit 31 of the IV word is the ability slot. Unchanged.
         out->ability_slot = (uint8_t)((iv_word >> 31) & 0x01);
         out->ability_slot_known = true;
@@ -708,7 +733,7 @@ bool pokemon_parse_single_layout(
     }
 
     // 8. Derived Properties
-    // Displayed nature is pid % 25 in both layouts: H&S's GetNature() is
+    // Displayed nature is pid % 25: H&S's GetNature() is
     // `personality % NUM_NATURES` and the summary screen stores it in `sum->nature`.
     out->nature = (uint8_t)(out->pid % 25);
     out->nature_name = pokemon_get_nature_name(out->nature);
@@ -716,7 +741,7 @@ bool pokemon_parse_single_layout(
         out->hidden_nature = out->nature;
     }
 
-    if (storage_layout != PKMN_STORAGE_EXPANSION) {
+    if (storage_layout != PKMN_STORAGE_EXPANSION && !is_cfru) {
         out->is_shiny = (((out->tid ^ out->sid) ^ (pid_hi ^ pid_lo)) < 8);
         out->shiny_state = out->is_shiny ? PKMN_SHINY_YES : PKMN_SHINY_NO;
     }
@@ -745,6 +770,8 @@ bool pokemon_parse_single_layout(
         out->level = 0;
     }
 
+    // CFRU reads the full halfword so an out-of-domain ID fails here instead of aliasing
+    // through a mask; identity mapping belongs to the data pack.
     return (out->species > 0 && out->species < 2000);
 }
 
@@ -989,7 +1016,7 @@ static bool read_battle_globals(
         return true;
     }
 
-    if (out->battle_outcome != 0) {
+    if (out->battle_outcome != 0 && config->game_id != GAME_UNBOUND) {
         // An outcome is recorded as soon as the battle engine decides it, while teardown is still
         // in progress. Reporting ENDING keeps the previous opponent off screen during teardown.
         out->lifecycle = BATTLE_LIFECYCLE_ENDING;
@@ -1050,6 +1077,64 @@ static bool read_battle_globals(
             out->kind = BATTLE_KIND_UNKNOWN;
             return true;
         }
+    }
+
+    if (config->game_id == GAME_UNBOUND) {
+        // docs/UNBOUND_BATTLE_TRAINER_EVIDENCE.md: only wild single (0x4) and
+        // two-opponent trainer double (0x20000D) were captured. Single-opponent trainer,
+        // wild double, ordinary trainer double and in-game partner fail closed until captured.
+        // Other CFRU modes/bits are source-only too. Outcome is diagnostic; gMain.inBattle
+        // stays authoritative through the win/run screen and teardown (both evidence docs).
+        const bool two_opponents = out->battle_type_flags == 0x20000Du && out->battlers_count == 4;
+        if ((!two_opponents && !(out->battle_type_flags == 0x4u && out->battlers_count == 2)) ||
+            !out->absent_flags_readable ||
+            (out->absent_battler_flags >> out->battlers_count) != 0) {
+            return true; // UNKNOWN, never fall back to the H&S flag definitions.
+        }
+        uint8_t positions_seen = 0;
+        uint8_t slots_seen[2] = {0, 0};
+        for (uint8_t b = 0; b < out->battlers_count; b++) {
+            const uint8_t pos = out->position[b];
+            const uint8_t slot = (uint8_t)out->party_index[b];
+            const uint8_t side = pos & 1u;
+            if ((positions_seen & (1u << pos)) || (!two_opponents && pos > 1) ||
+                (slots_seen[side] & (1u << slot)) ||
+                (two_opponents && side && (pos == 1 ? slot >= 3 : slot < 3))) {
+                return true;
+            }
+            positions_seen |= (uint8_t)(1u << pos);
+            slots_seen[side] |= (uint8_t)(1u << slot);
+            if (out->absent_battler_flags & (1u << b)) continue;
+            const size_t mon = config->battle_mons_offset + (size_t)b * config->battle_mons_size;
+            if (!config->battle_mons_offset || config->battle_mons_size != 0x58 ||
+                mon + config->battle_mons_size > ewram_size) return true;
+            const uint16_t species = read16_le(ewram + mon);
+            if (species == 0) {
+                // Send-out has not filled gBattleMons yet, even though indexes/count are set.
+                out->lifecycle = BATTLE_LIFECYCLE_INITIALIZING;
+                return true;
+            }
+            if (species >= 2000) return true;
+            const uint32_t party_base = side ? config->enemy_party_offset : config->player_party_offset;
+            const size_t party = (size_t)party_base + (size_t)slot * sizeof(RawGbaPokemon);
+            if (!party_base || party + sizeof(RawGbaPokemon) > ewram_size) return true;
+            // Unbound leaves gBattleMons intact at teardown. Bind every present battler to
+            // its mapped record before trusting HP, including during later battles/send-outs.
+            // unbound_observe.py / battle evidence: personality +0x48, OT ID +0x54.
+            if (read32_le(ewram + mon + 0x48) != read32_le(ewram + party) ||
+                read32_le(ewram + mon + 0x54) != read32_le(ewram + party + 4)) {
+                out->lifecycle = BATTLE_LIFECYCLE_INITIALIZING;
+                return true;
+            }
+            // UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md: +0x18 is type3 (observed 20),
+            // not an HP stage. Validate only Atk..Evasion at +0x19..+0x1F.
+            for (size_t s = 0x19; s < 0x20; s++) {
+                if (ewram[mon + s] > 12) return true;
+            }
+        }
+        out->lifecycle = BATTLE_LIFECYCLE_ACTIVE;
+        out->kind = two_opponents ? BATTLE_KIND_MULTI_OR_PARTNER : BATTLE_KIND_WILD_SINGLE;
+        return true;
     }
 
     out->lifecycle = BATTLE_LIFECYCLE_ACTIVE;
@@ -1158,16 +1243,13 @@ static uint8_t scan_ewram_for_party_layout(
         // Substructure decryption & parsing
         ParsedPokemon test_mon;
         if (!parse_party_mon((const uint8_t*)raw, storage_layout, &test_mon)) continue;
-        if (test_mon.species == 0 || test_mon.species >= 2000) continue;
 
         // Ensure this is slot 0 of the party, not slot 1-5.
         // If the preceding 100 bytes is ALREADY a valid party Pokemon, skip 'off'
         if (off >= sizeof(RawGbaPokemon)) {
             ParsedPokemon prev_mon;
             if (parse_party_mon(ewram + off - sizeof(RawGbaPokemon), storage_layout, &prev_mon)) {
-                if (prev_mon.species > 0 && prev_mon.species < 2000) {
-                    continue; // Skip: preceding slot is part of the party
-                }
+                continue; // Skip: preceding slot is part of the party
             }
         }
 
@@ -1181,9 +1263,7 @@ static uint8_t scan_ewram_for_party_layout(
             if (next_off + sizeof(RawGbaPokemon) > ewram_size) break;
             ParsedPokemon next_mon;
             if (parse_party_mon(ewram + next_off, storage_layout, &next_mon)) {
-                if (next_mon.species > 0 && next_mon.species < 2000) {
-                    candidate_snap.members[candidate_snap.count++] = next_mon;
-                } else break;
+                candidate_snap.members[candidate_snap.count++] = next_mon;
             } else break;
         }
 
@@ -1256,7 +1336,7 @@ static uint8_t scan_ewram_for_party_layout(
 
 /**
  * Parse one party-slot candidate using the storage layout the caller's configuration declares.
- * A NULL configuration keeps the vanilla layout, which is what every FireRed/Emerald path uses.
+ * Successful parsing includes layout-specific species validation.
  */
 static bool parse_party_mon(
     const uint8_t* raw,
@@ -1438,6 +1518,17 @@ static void sync_live_player_battle_mon(
     if (!config || !state || !out_snapshot) return;
     if (out_snapshot->count == 0) return;
 
+    if (config->game_id == GAME_UNBOUND && state->lifecycle == BATTLE_LIFECYCLE_ACTIVE) {
+        // A double has no single active player, but both HP readings follow their mapped slots.
+        for (uint8_t b = 0; b < state->battlers_count; b++) {
+            BattlerTacticalState tactical;
+            read_battler_tactical_state(ewram, ewram_size, config, state, b, &tactical);
+            if (!position_is_opponent_side(tactical.position)) {
+                apply_battle_mon_hp(ewram, ewram_size, config, b, &tactical, out_snapshot);
+            }
+        }
+    }
+
     PlayerBattlerResolution player;
     resolve_single_player_battler(ewram, ewram_size, config, state, &player);
 
@@ -1584,9 +1675,7 @@ static uint8_t read_authoritative_player_party(
     // fails validation, fail closed (all-or-nothing), clear cache, and do not scan.
     for (uint8_t i = 0; i < count; i++) {
         const uint8_t* mon_ptr = ewram + config->player_party_offset + (i * sizeof(RawGbaPokemon));
-        if (!parse_party_mon(mon_ptr, config->storage_layout, &out_snapshot->members[i]) ||
-            out_snapshot->members[i].species == 0 ||
-            out_snapshot->members[i].species >= 2000) {
+        if (!parse_party_mon(mon_ptr, config->storage_layout, &out_snapshot->members[i])) {
             // Corrupt or invalid authoritative slot: fail closed all-or-nothing
             s_cached_player_party_offset = 0;
             memset(out_snapshot, 0, sizeof(PartySnapshot));
@@ -1621,15 +1710,13 @@ static uint8_t read_heuristic_player_party(
     if (config->player_party_offset + sizeof(RawGbaPokemon) <= ewram_size) {
         ParsedPokemon first_mon;
         const uint8_t* mon_ptr = ewram + config->player_party_offset;
-        if (parse_party_mon(mon_ptr, config->storage_layout, &first_mon) && first_mon.species > 0 && first_mon.species < 2000) {
+        if (parse_party_mon(mon_ptr, config->storage_layout, &first_mon)) {
             uint8_t valid_count = 0;
             out_snapshot->members[valid_count++] = first_mon;
             for (uint8_t i = 1; i < 6; i++) {
                 const uint8_t* p = ewram + config->player_party_offset + (i * sizeof(RawGbaPokemon));
                 if (parse_party_mon(p, config->storage_layout, &out_snapshot->members[valid_count])) {
-                    if (out_snapshot->members[valid_count].species > 0 && out_snapshot->members[valid_count].species < 2000) {
-                        valid_count++;
-                    } else break;
+                    valid_count++;
                 } else break;
             }
 
@@ -1654,15 +1741,13 @@ static uint8_t read_heuristic_player_party(
     if (s_cached_player_party_offset > 0 && s_cached_player_party_offset + sizeof(RawGbaPokemon) <= ewram_size) {
         ParsedPokemon first_mon;
         const uint8_t* mon_ptr = ewram + s_cached_player_party_offset;
-        if (parse_party_mon(mon_ptr, config->storage_layout, &first_mon) && first_mon.species > 0 && first_mon.species < 2000) {
+        if (parse_party_mon(mon_ptr, config->storage_layout, &first_mon)) {
             uint8_t valid_count = 0;
             out_snapshot->members[valid_count++] = first_mon;
             for (uint8_t i = 1; i < 6; i++) {
                 const uint8_t* p = ewram + s_cached_player_party_offset + (i * sizeof(RawGbaPokemon));
                 if (parse_party_mon(p, config->storage_layout, &out_snapshot->members[valid_count])) {
-                    if (out_snapshot->members[valid_count].species > 0 && out_snapshot->members[valid_count].species < 2000) {
-                        valid_count++;
-                    } else break;
+                    valid_count++;
                 } else break;
             }
             out_snapshot->count = valid_count;
@@ -1726,6 +1811,39 @@ uint8_t pokemon_read_player_party_gba(
                                        have_battle_state ? &battle_state : NULL, out_snapshot);
 }
 
+static uint8_t read_unbound_enemy_party(
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    const BattleStateRaw* state,
+    PartySnapshot* out_snapshot
+) {
+    // UNBOUND_BATTLE_TRAINER_EVIDENCE.md: neither 0x24028 nor 0x2402A is an
+    // occupancy signal. Publish only mapped, present battlers, preserving physical slots.
+    // ponytail: reserve/bench records stay unavailable; add them only with occupancy evidence.
+    if (!state || state->lifecycle != BATTLE_LIFECYCLE_ACTIVE) return 0;
+    if (!config->enemy_party_offset ||
+        config->enemy_party_offset + 6 * sizeof(RawGbaPokemon) > ewram_size) return 0;
+
+    PartySnapshot snapshot = {0};
+    snapshot.active_battler_slot = -1;
+    snapshot.active_battler_index = -1;
+    for (uint8_t b = 0; b < state->battlers_count; b++) {
+        BattlerTacticalState tactical;
+        read_battler_tactical_state(ewram, ewram_size, config, state, b, &tactical);
+        if (!tactical.present || !position_is_opponent_side(tactical.position)) continue;
+        const uint8_t slot = (uint8_t)tactical.party_index;
+        const uint8_t* raw = ewram + config->enemy_party_offset + slot * sizeof(RawGbaPokemon);
+        if (!parse_party_mon(raw, config->storage_layout, &snapshot.members[slot]) ||
+            tactical.hp > snapshot.members[slot].max_hp) return 0;
+        if (snapshot.count <= slot) snapshot.count = slot + 1;
+        apply_battle_mon_hp(ewram, ewram_size, config, b, &tactical, &snapshot);
+    }
+    sync_live_enemy_battle_mon(ewram, ewram_size, config, state, &snapshot);
+    *out_snapshot = snapshot;
+    return snapshot.count;
+}
+
 /**
  * Read the enemy party from the authoritative `gEnemyPartyCount` symbol.
  *
@@ -1779,9 +1897,7 @@ static uint8_t read_authoritative_enemy_party(
 
     for (uint8_t i = 0; i < count; i++) {
         const uint8_t* mon_ptr = ewram + config->enemy_party_offset + ((size_t)i * sizeof(RawGbaPokemon));
-        if (!parse_party_mon(mon_ptr, config->storage_layout, &out_snapshot->members[i]) ||
-            out_snapshot->members[i].species == 0 ||
-            out_snapshot->members[i].species >= 2000) {
+        if (!parse_party_mon(mon_ptr, config->storage_layout, &out_snapshot->members[i])) {
             clear_battle_derived_cache();
             memset(out_snapshot, 0, sizeof(PartySnapshot));
             out_snapshot->active_battler_slot = -1;
@@ -1853,7 +1969,6 @@ static uint8_t read_heuristic_enemy_party(
 
         ParsedPokemon test_mon;
         if (!parse_party_mon((const uint8_t*)raw, config->storage_layout, &test_mon)) continue;
-        if (test_mon.species == 0 || test_mon.species >= 2000) continue;
         // Do NOT reject test_mon.current_hp == 0!
 
         // Found active enemy party!
@@ -1864,9 +1979,7 @@ static uint8_t read_heuristic_enemy_party(
             if (next_off + sizeof(RawGbaPokemon) > ewram_size) break;
             ParsedPokemon next_mon;
             if (parse_party_mon(ewram + next_off, config->storage_layout, &next_mon)) {
-                if (next_mon.species > 0 && next_mon.species < 2000) {
-                    out_snapshot->members[count++] = next_mon;
-                } else break;
+                out_snapshot->members[count++] = next_mon;
             } else break;
         }
         out_snapshot->count = count;
@@ -1894,15 +2007,12 @@ static uint8_t read_heuristic_enemy_party(
             if (off >= sizeof(RawGbaPokemon)) {
                 ParsedPokemon prev_mon;
                 if (parse_party_mon(ewram + off - sizeof(RawGbaPokemon), config->storage_layout, &prev_mon)) {
-                    if (prev_mon.species > 0 && prev_mon.species < 2000) {
-                        continue; // Preceding slot is already a party mon
-                    }
+                    continue; // Preceding slot is already a party mon
                 }
             }
 
             ParsedPokemon test_mon;
             if (!parse_party_mon((const uint8_t*)raw, config->storage_layout, &test_mon)) continue;
-            if (test_mon.species == 0 || test_mon.species >= 2000) continue;
 
             // Found enemy party via scan!
             uint8_t count = 0;
@@ -1912,9 +2022,7 @@ static uint8_t read_heuristic_enemy_party(
                 if (next_off + sizeof(RawGbaPokemon) > ewram_size) break;
                 ParsedPokemon next_mon;
                 if (parse_party_mon(ewram + next_off, config->storage_layout, &next_mon)) {
-                    if (next_mon.species > 0 && next_mon.species < 2000) {
-                        out_snapshot->members[count++] = next_mon;
-                    } else break;
+                    out_snapshot->members[count++] = next_mon;
                 } else break;
             }
             out_snapshot->count = count;
@@ -1966,6 +2074,10 @@ uint8_t pokemon_read_enemy_party_gba(
         return 0;
     }
 
+    if (config->game_id == GAME_UNBOUND) {
+        return read_unbound_enemy_party(ewram, ewram_size, config,
+                                       have_battle_state ? &battle_state : NULL, out_snapshot);
+    }
     if (config->enemy_party_count_offset != 0) {
         return read_authoritative_enemy_party(ewram, ewram_size, config,
                                               have_battle_state ? &battle_state : NULL, out_snapshot);
@@ -2108,7 +2220,7 @@ static bool resolve_save_block1_base(
 ) {
     if (!read || !config || !out_base) return false;
     if (config->save_block1_ptr_gba_address == 0) return false;
-    if (config->save_block1_base_gba_address == 0 || config->save_block1_aslr_range == 0) return false;
+    if (config->save_block1_base_gba_address == 0 || config->save_block1_aslr_range < 4) return false;
 
     uint8_t raw[4];
     if (!read(user, config->save_block1_ptr_gba_address, raw, sizeof(raw))) {
@@ -2179,8 +2291,9 @@ static bool decode_location_fields(
     int16_t esc_group = (int16_t)(int8_t)escape[0];
     int16_t esc_num = (int16_t)(int8_t)escape[1];
 
-    // Basic validity sanity check: valid map groups are typically 0..35 and map nums 0..130
-    if (map_group < 0 || map_group > 35 || map_num < 0 || map_num > 130) {
+    // Preserve the legacy bound unless this layout declares a verified wider domain.
+    int16_t max_map_group = config->location_max_map_group ? config->location_max_map_group : 35;
+    if (map_group < 0 || map_group > max_map_group || map_num < 0 || map_num > 130) {
         return false;
     }
 
@@ -2193,7 +2306,8 @@ static bool decode_location_fields(
     out_location->local_y = pos_y;
     out_location->escape_map_group = esc_group;
     out_location->escape_map_num = esc_num;
-    out_location->is_indoors = (map_group != 0);
+    // CFRU map groups do not establish FireRed-style indoor/outdoor semantics.
+    out_location->is_indoors = config->storage_layout != PKMN_STORAGE_CFRU && map_group != 0;
     out_location->is_valid = true;
     return true;
 }
@@ -2229,6 +2343,10 @@ bool pokemon_read_player_location_gba(
         return decode_location_fields(sb1, span, config, out_location);
     }
 
+    // CFRU needs its own verified SaveBlock1 path, never a guess inside the enemy party.
+    if (config->storage_layout == PKMN_STORAGE_CFRU ||
+        config->storage_layout == PKMN_STORAGE_CFRU_UNVERIFIED) return false;
+
     // Legacy layouts: SaveBlock1 is located relative to the live party offset.
     if (!ewram || ewram_size == 0) return false;
 
@@ -2250,7 +2368,7 @@ bool pokemon_read_player_location_gba(
     if (party_off >= sb1_party_offset && party_off - sb1_party_offset + sizeof(PlayerLocationRaw) <= ewram_size) {
         sb1 = ewram + (party_off - sb1_party_offset);
     } else {
-        sb1 = ewram;
+        return false;
     }
 
     GameMemoryConfig legacy = *config;
@@ -3446,6 +3564,9 @@ bool pokemon_read_battle_stat_stages(
     uint8_t battler_index,
     int8_t out_stages[7]
 ) {
+    // This EWRAM-only API cannot reach Unbound's authoritative IWRAM gate. The H&S
+    // runtime ABI reader also deliberately remains unavailable for CFRU (including type3).
+    if (config && config->game_id == GAME_UNBOUND) return false;
     if (!ewram || !config_is_usable(config) || config->battle_mons_offset == 0 ||
         config->battle_mons_offset + ((size_t)(battler_index + 1) * config->battle_mons_size) > ewram_size) {
         return false;
@@ -3480,10 +3601,57 @@ bool pokemon_read_battle_stat_stages(
     return true;
 }
 
+bool pokemon_read_battle_stat_stages_gba(
+    DualDexGbaReadFn read,
+    void* user,
+    const uint8_t* ewram,
+    size_t ewram_size,
+    const GameMemoryConfig* config,
+    uint8_t battler_index,
+    int8_t out_stages[7]
+) {
+    if (!config || config->game_id != GAME_UNBOUND) {
+        return pokemon_read_battle_stat_stages(ewram, ewram_size, config, battler_index, out_stages);
+    }
+
+    BattleStateRaw battle;
+    if (!out_stages ||
+        pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, &battle) !=
+            BATTLE_LIFECYCLE_ACTIVE ||
+        battler_index >= battle.battlers_count || battler_index >= DUALDEX_MAX_BATTLERS) {
+        return false;
+    }
+
+    const size_t mon = config->battle_mons_offset + (size_t)battler_index * config->battle_mons_size;
+    const size_t stages_offset = config->battle_mons_stat_stages_offset;
+    if (!config->battle_mons_offset || config->battle_mons_size < 2 ||
+        mon + config->battle_mons_size > ewram_size ||
+        !stages_offset || stages_offset + 8 > config->battle_mons_size) {
+        return false;
+    }
+    const uint16_t species = read16_le(ewram + mon);
+    if (species == 0 || species >= 2000) return false;
+
+    // Skip CFRU type3 at the base, and validate everything before publishing any stages.
+    const uint8_t* stages = ewram + mon + stages_offset + 1;
+    for (size_t i = 0; i < 7; i++) {
+        if (stages[i] > 12) return false;
+    }
+    for (size_t i = 0; i < 7; i++) {
+        out_stages[i] = (int8_t)((int)stages[i] - 6);
+    }
+    return true;
+}
+
 uint32_t pokemon_read_battle_ui_gba(
     DualDexGbaReadFn read, void* user, const uint8_t* ewram, size_t ewram_size,
     const GameMemoryConfig* config
 ) {
+    if (config && config->game_id == GAME_UNBOUND) {
+        // No captured controller/menu layout; even the party menu is still inBattle.
+        return pokemon_read_battle_lifecycle(read, user, ewram, ewram_size, config, NULL) ==
+               BATTLE_LIFECYCLE_ACTIVE ? 5 : 0;
+    }
     if (config != pokemon_get_game_config(GAME_HEART_AND_SOUL)) {
         return pokemon_read_battle_ui_state(ewram, ewram_size, config);
     }
@@ -3535,6 +3703,7 @@ uint8_t pokemon_read_battle_ui_state(
     size_t ewram_size,
     const GameMemoryConfig* config
 ) {
+    if (config && config->game_id == GAME_UNBOUND) return 0; // IWRAM gate unavailable
     if (!ewram || !config_is_usable(config) || config->battle_mons_offset == 0 ||
         config->battle_mons_offset + config->battle_mons_size > ewram_size) {
         return 0; // UNKNOWN

@@ -106,7 +106,8 @@ class CalcVanillaGoldenBoundaryTest {
             headerBytes = header,
             sha256 = sha256,
             profiles = listOf(fireRed, emerald),
-            fileName = ""
+            fileName = "",
+            romLength = RomHackDetector.RETAIL_ROM_SIZE
         )
         return RuntimeRomTrust.from(compatibility, activeRomSha256 = compatibility.sha256)
     }

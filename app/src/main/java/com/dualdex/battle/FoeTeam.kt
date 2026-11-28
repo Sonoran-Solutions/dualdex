@@ -34,23 +34,24 @@ class FoeTeamTracker {
     fun reset() { seen.clear(); session = null }
 
     /**
-     * @param enemies enemy party in slot order (as published by the live reader)
+     * @param enemies enemy party indexed by native slot, with null for empty/invalid slots
      * @param activeSlot resolved active opponent slot, or null when not authoritatively known
      * @param nextSlot the trainer's announced next pick (`gBattleStruct->monToSwitchIntoId`), or
      *   null when the profile has no verified address for it
      * @param battleSession [com.dualdex.companion.CompanionViewModel.battleSessionId]
      * @return slots to show, or empty to hide the row (not a trainer battle / nothing read)
      */
-    fun build(enemies: List<ParsedPokemon>, activeSlot: Int?, nextSlot: Int?, battleSession: Long): List<FoeSlot> {
+    fun build(enemies: List<ParsedPokemon?>, activeSlot: Int?, nextSlot: Int?, battleSession: Long): List<FoeSlot> {
         // A new battle session (from the always-polled battle presence) never inherits reveals, even
         // for a rematch with identical PIDs or when the Battle tab missed the previous battle's end.
         if (battleSession != session) { seen.clear(); session = battleSession }
-        if (enemies.size < 2) return emptyList()
-        val active = activeSlot?.takeIf { it in enemies.indices }
-        val next = nextSlot?.takeIf { it in enemies.indices && it != active && enemies[it].currentHp > 0 }
+        if (enemies.count { it != null } < 2) return emptyList()
+        val active = activeSlot?.takeIf { enemies.getOrNull(it) != null }
+        val next = nextSlot?.takeIf { it != active && (enemies.getOrNull(it)?.currentHp ?: 0) > 0 }
         active?.let { seen += it }
         next?.let { seen += it }
-        return enemies.mapIndexed { i, mon ->
+        return enemies.mapIndexedNotNull { i, mon ->
+            if (mon == null) return@mapIndexedNotNull null
             val fainted = mon.currentHp <= 0
             // A fainted foe was necessarily sent out at some point, so it is no longer hidden.
             val shown = i in seen || fainted

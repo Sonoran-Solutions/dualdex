@@ -1,0 +1,545 @@
+{
+  "schema_version": 1,
+  "phase": "6E",
+  "starting_main": "b23a4eb4adc9110d02cc1fa4b2c8cfaa479d2c9f",
+  "historical_manifest_sha256": "a7cce37d265364431ea505ad8b8e515aec4c75d724522e0aa614328eda6fe131",
+  "historical_report_sha256": "0b9233ecaa829ccb08644376625e7de98e19c2733b4444eab22de88ed8923c2e",
+  "rom": {
+    "bytes": 33554432,
+    "sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3",
+    "sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "crc32": "ad252fd3"
+  },
+  "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+  "verified_private_artifacts": {
+    "fresh/two_island_saved.state": "a7b0fcaf5a61ae9524b0a5d5da04aa85d86fc533805cd26eb2336e81120a13ac",
+    "fresh/experiment.json": "05bfeec8a4c99e5e8493cf2a052461b77b7c20491cadc5ea38ab99671e0369a0",
+    "fresh/inputs.movie": "cc7cd25f76f35b22f595403470b15563b5c07bfbf5aaeb5251085b856babb92f",
+    "fresh/cartridge.sav": "187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e",
+    "fresh/report.json": "2fc6db5d9a8105328046687417435868e88f5f0cacd6e08fb6df33898dd51db5",
+    "reload/meowth_reopen-report.json": "009bcbb741bc22f47ae978661e6959a7a9e2a4b404aa52c4bb6177bfae29fde7",
+    "reload/cape_actually_saved.state": "5f54fd36f379e8ac0421bc056ed5ee08d68540989ee0c6f00fa18c00c8654364",
+    "reload/loaded.sav": "187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e",
+    "reload/experiment.json": "d348d78849c0d2999b5419f0195eff1e5452409654ce88bdf6c0c1ff06be2a63",
+    "reload/inputs.movie": "661a9c9bff6dab579b28463cd92966eb22e9a36e8d7762455283e20104b9f5e8",
+    "reload/meowth_reopen-comparison.json": "b86274233992ee20e70d5cc98d9ce9cee20a59a377b6629d844a4fdf8d456128",
+    "reload/meowth_summary-ui.json": "fe6050aea0adf8a66d6dd213e7e7c2ed43a1abe3365f8336ebf9c4f5f70479ee",
+    "reload/cartridge.sav": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "reload/before_cape_save_cartridge.sav": "187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e",
+    "reload/meowth_summary-report.json": "a80b616f3374535b0b07beb3102136b2f87781cb6c36bdbbea8f543c085be442",
+    "reload/captured_saved.state": "6876613f49014d851f2b10da224dc52c94df22a47aaa07f73e66876a21501413",
+    "reload/cape_before_capture_cartridge.sav": "7ec171e34648b983c7b293eabddc9a572ed7a253b22ef906c2b74785c43860bc",
+    "reload/cape_checkpoint.state": "84c7b4debab5cfd127390520c07daa3295cb3614195e9cec77190639ee33c113",
+    "reload/meowth_reopen-ui.json": "4b57fc7621a06cff4ae1cecb654a45447e02cca51b8e548f3436db847d23778c",
+    "reload/meowth_summary-comparison.json": "640ce225b1b97c732ecf49c97dc43e124265b05d217e4b1c5ffc4bfa3f45f562",
+    "reload/report.json": "204635b979436500438037f8b8bcf074434b717e0182fc470e65d0500a286bcb",
+    "persistence/persisted_summary.state": "5c42586d96a4fca6b38ec5d8732a9ab330136ea4a47b8f022717172c0248d72f",
+    "persistence/loaded.sav": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "persistence/inputs.movie": "6c226eebee5bd1c1cfb5552768ba49a0f9f9521152e51bdd8fab21ef59af9115",
+    "persistence/meowth_persisted-report.json": "57e8704541e66a062a61546b20a887bc31532391ba0bd6e21041409bd5da09ec",
+    "persistence/meowth_persisted-ui.json": "8c08d1a088d7ffd92b436dcdac31bcb8249e999c462df796011dee11323e605d",
+    "persistence/meowth_persisted-comparison.json": "6f050142c65fa7e82909d9a12fa129a0a601075da297580a8c53297f0078b76d",
+    "persistence/report.json": "ea3435fadd8e0f6407dab4852901d719a0ebe07242a661809a44e0b114d1f7be"
+  },
+  "serialized": {
+    "status": "SERIALIZED_REPRESENTATION_VERIFIED",
+    "sector_offset": 73728,
+    "section": 1,
+    "counter": 3,
+    "checksum": 42479,
+    "party_offset": 74296,
+    "cartridge_sha256": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "party_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+    "occupied": [
+      {
+        "slot": 0,
+        "record_sha256": "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "species": 170,
+        "form": 0
+      },
+      {
+        "slot": 1,
+        "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "species": 1560,
+        "form": 1
+      }
+    ],
+    "loader_selection_status": "NOT_VERIFIED"
+  },
+  "identity": {
+    "status": "STATIC_VERIFIED",
+    "raw_identities": [
+      {
+        "raw_stored_species_id": 1560,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      },
+      {
+        "raw_stored_species_id": 52,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      }
+    ],
+    "record_sha256": [
+      "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+    ],
+    "changed_offsets": [
+      28,
+      29
+    ],
+    "stable_decoded_fields_except_species": true,
+    "same_static_identity": true,
+    "raw_type_ids": [
+      [
+        17,
+        17
+      ],
+      [
+        17,
+        17
+      ]
+    ],
+    "runtime_confirmation": "NOT_VERIFIED"
+  },
+  "independent_ui": {
+    "source": "MANUAL_GAME_UI",
+    "label": "meowth_persisted",
+    "slot_index": 1,
+    "rgb565_sha256": "15a5625baef42b7133c43c12df91b1f590514d6cee15e1d2fc45c6c2d17d874e",
+    "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+    "species_name": "Meowth",
+    "level": 5,
+    "type_labels": "DARK (one displayed type badge)",
+    "form_cue": "Gray-blue coat, dark ear tufts, half-lidded eyes and curled tail in the summary portrait; DARK type badge, matching the regional form rather than the cream-colored Normal form.",
+    "form_cue_matches_static": true,
+    "party_summary_context": "Second occupied player slot, opened through Pokemon > Meowth > Summary; species Meowth No052; Lv5.",
+    "mode": "Fresh new game: explicitly selected Normal difficulty, saved unchanged optional modes (none enabled), Spring, 10:00 AM. No randomization/type/form mode enabled. Relevant generation flags 0x28/0x30/0x3c/0x2b and selector flag 0x470 remain clear. This verifies selected configuration, not general effective-form/level accessor semantics.",
+    "mode_verified": true,
+    "process": "persistence",
+    "checkpoint": "Fresh-game Two Island cartridge 187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e; Cape Brink ordinary capture; see process report for reload source.",
+    "observer": "Independent visual inspection of private summary screenshot by Codex; player-only pinned rowe_observe.Observer through private controls driver."
+  },
+  "prior_comparisons": [
+    {
+      "label": "meowth_summary",
+      "status": "RUNTIME_CONFIRMED",
+      "slot_index": 1,
+      "player_count": 2,
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "pid_sha256": "392e70ccb667bf1fb66a0c8c46525ee476dd72bcc88c876f81ea67b7cc5579a4",
+      "otid_sha256": "c1dd6dcb74584729620eb393912bfd9eb68be64bdf76bb8be32858cf1424ef7e",
+      "nickname_sha256": "7b9cca73bb42ad434c5855a37c4cf1ff7d6f65d0c8311d3137f05ebf2fc3c394",
+      "stored_level": 5,
+      "stored_moves": [
+        252,
+        45,
+        10,
+        44
+      ],
+      "hp": 19,
+      "max_hp": 19,
+      "static": {
+        "raw_stored_species_id": 1560,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      },
+      "raw_type_ids": [
+        17,
+        17
+      ],
+      "ui": {
+        "source": "MANUAL_GAME_UI",
+        "label": "meowth_summary",
+        "slot_index": 1,
+        "rgb565_sha256": "15a5625baef42b7133c43c12df91b1f590514d6cee15e1d2fc45c6c2d17d874e",
+        "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "species_name": "Meowth",
+        "level": 5,
+        "type_labels": "DARK (one displayed type badge)",
+        "form_cue": "Gray-blue coat, dark ear tufts, half-lidded eyes and curled tail in the summary portrait; DARK type badge, matching the regional form rather than the cream-colored Normal form.",
+        "form_cue_matches_static": true,
+        "party_summary_context": "Second occupied player slot, opened through Pokemon > Meowth > Summary; species Meowth No052; Lv5.",
+        "mode": "Fresh new game: explicitly selected Normal difficulty, saved unchanged optional modes (none enabled), Spring, 10:00 AM. No randomization/type/form mode enabled. Relevant generation flags 0x28/0x30/0x3c/0x2b and selector flag 0x470 remain clear. This verifies selected configuration, not general effective-form/level accessor semantics.",
+        "mode_verified": true,
+        "process": "reload",
+        "checkpoint": "Fresh-game Two Island cartridge 187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e; Cape Brink ordinary capture; see process report for reload source.",
+        "observer": "Independent visual inspection of private summary screenshot by Codex; player-only pinned rowe_observe.Observer through private controls driver."
+      },
+      "level_comparison": "MATCH",
+      "effective_form_status": "NOT_VERIFIED",
+      "comparison_tool_sha256": "328644e4ac2d0b1f1e3c5ecc6b581f16efde297ad2f24db55d8b728ebd653070",
+      "source_sha256": {
+        "report": "a80b616f3374535b0b07beb3102136b2f87781cb6c36bdbbea8f543c085be442",
+        "party": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+        "ui": "fe6050aea0adf8a66d6dd213e7e7c2ed43a1abe3365f8336ebf9c4f5f70479ee"
+      }
+    },
+    {
+      "label": "meowth_reopen",
+      "status": "RUNTIME_CONFIRMED",
+      "slot_index": 1,
+      "player_count": 2,
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "pid_sha256": "392e70ccb667bf1fb66a0c8c46525ee476dd72bcc88c876f81ea67b7cc5579a4",
+      "otid_sha256": "c1dd6dcb74584729620eb393912bfd9eb68be64bdf76bb8be32858cf1424ef7e",
+      "nickname_sha256": "7b9cca73bb42ad434c5855a37c4cf1ff7d6f65d0c8311d3137f05ebf2fc3c394",
+      "stored_level": 5,
+      "stored_moves": [
+        252,
+        45,
+        10,
+        44
+      ],
+      "hp": 19,
+      "max_hp": 19,
+      "static": {
+        "raw_stored_species_id": 1560,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      },
+      "raw_type_ids": [
+        17,
+        17
+      ],
+      "ui": {
+        "source": "MANUAL_GAME_UI",
+        "label": "meowth_reopen",
+        "slot_index": 1,
+        "rgb565_sha256": "12021e56919ed53131f40c34f4a6780196fdfc9007df0f6608542bf13f6f39a6",
+        "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "species_name": "Meowth",
+        "level": 5,
+        "type_labels": "DARK (one displayed type badge)",
+        "form_cue": "Gray-blue coat, dark ear tufts, half-lidded eyes and curled tail in the summary portrait; DARK type badge, matching the regional form rather than the cream-colored Normal form.",
+        "form_cue_matches_static": true,
+        "party_summary_context": "Second occupied player slot, opened through Pokemon > Meowth > Summary; species Meowth No052; Lv5.",
+        "mode": "Fresh new game: explicitly selected Normal difficulty, saved unchanged optional modes (none enabled), Spring, 10:00 AM. No randomization/type/form mode enabled. Relevant generation flags 0x28/0x30/0x3c/0x2b and selector flag 0x470 remain clear. This verifies selected configuration, not general effective-form/level accessor semantics.",
+        "mode_verified": true,
+        "process": "reload",
+        "checkpoint": "Fresh-game Two Island cartridge 187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e; Cape Brink ordinary capture; see process report for reload source.",
+        "observer": "Independent visual inspection of private summary screenshot by Codex; player-only pinned rowe_observe.Observer through private controls driver."
+      },
+      "level_comparison": "MATCH",
+      "effective_form_status": "NOT_VERIFIED",
+      "comparison_tool_sha256": "328644e4ac2d0b1f1e3c5ecc6b581f16efde297ad2f24db55d8b728ebd653070",
+      "source_sha256": {
+        "report": "009bcbb741bc22f47ae978661e6959a7a9e2a4b404aa52c4bb6177bfae29fde7",
+        "party": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+        "ui": "4b57fc7621a06cff4ae1cecb654a45447e02cca51b8e548f3436db847d23778c"
+      }
+    },
+    {
+      "label": "meowth_persisted",
+      "status": "RUNTIME_CONFIRMED",
+      "slot_index": 1,
+      "player_count": 2,
+      "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "pid_sha256": "392e70ccb667bf1fb66a0c8c46525ee476dd72bcc88c876f81ea67b7cc5579a4",
+      "otid_sha256": "c1dd6dcb74584729620eb393912bfd9eb68be64bdf76bb8be32858cf1424ef7e",
+      "nickname_sha256": "7b9cca73bb42ad434c5855a37c4cf1ff7d6f65d0c8311d3137f05ebf2fc3c394",
+      "stored_level": 5,
+      "stored_moves": [
+        252,
+        45,
+        10,
+        44
+      ],
+      "hp": 19,
+      "max_hp": 19,
+      "static": {
+        "raw_stored_species_id": 52,
+        "raw_form_id": 1,
+        "static_resolved_species_id": 1560,
+        "static_name_candidate": "Meowth",
+        "metadata_lookup_key": 1560,
+        "static_status": "STATIC_VERIFIED",
+        "runtime_effective_identity_status": "NOT_VERIFIED",
+        "runtime_display_name": null
+      },
+      "raw_type_ids": [
+        17,
+        17
+      ],
+      "ui": {
+        "source": "MANUAL_GAME_UI",
+        "label": "meowth_persisted",
+        "slot_index": 1,
+        "rgb565_sha256": "15a5625baef42b7133c43c12df91b1f590514d6cee15e1d2fc45c6c2d17d874e",
+        "record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+        "species_name": "Meowth",
+        "level": 5,
+        "type_labels": "DARK (one displayed type badge)",
+        "form_cue": "Gray-blue coat, dark ear tufts, half-lidded eyes and curled tail in the summary portrait; DARK type badge, matching the regional form rather than the cream-colored Normal form.",
+        "form_cue_matches_static": true,
+        "party_summary_context": "Second occupied player slot, opened through Pokemon > Meowth > Summary; species Meowth No052; Lv5.",
+        "mode": "Fresh new game: explicitly selected Normal difficulty, saved unchanged optional modes (none enabled), Spring, 10:00 AM. No randomization/type/form mode enabled. Relevant generation flags 0x28/0x30/0x3c/0x2b and selector flag 0x470 remain clear. This verifies selected configuration, not general effective-form/level accessor semantics.",
+        "mode_verified": true,
+        "process": "persistence",
+        "checkpoint": "Fresh-game Two Island cartridge 187705c4d1a930655fa2e18a2b1870134e62b5fd8260957c5d013142a405aa1e; Cape Brink ordinary capture; see process report for reload source.",
+        "observer": "Independent visual inspection of private summary screenshot by Codex; player-only pinned rowe_observe.Observer through private controls driver."
+      },
+      "level_comparison": "MATCH",
+      "effective_form_status": "NOT_VERIFIED",
+      "comparison_tool_sha256": "328644e4ac2d0b1f1e3c5ecc6b581f16efde297ad2f24db55d8b728ebd653070",
+      "source_sha256": {
+        "report": "57e8704541e66a062a61546b20a887bc31532391ba0bd6e21041409bd5da09ec",
+        "party": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+        "ui": "8c08d1a088d7ffd92b436dcdac31bcb8249e999c462df796011dee11323e605d"
+      }
+    }
+  ],
+  "startup_observations": [
+    {
+      "label": "before_continue_startup_only",
+      "frame": 1653,
+      "screen_sha256": "53c94dc83f67f24b3e9944c33a7607201993096f6aea1a8556411a641a18c95a",
+      "party_sha256": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+      "selected_record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "saved_copy_record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "authority": "STARTUP_ONLY_NOT_LOADED_PARTY"
+    },
+    {
+      "label": "after_continue",
+      "frame": 2044,
+      "screen_sha256": "db2bb073844b569ccca846f53210698d8e4a5e9e78d2a4f27e94b67a761bb716",
+      "party_sha256": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+      "selected_record_sha256": "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175",
+      "saved_copy_record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "authority": "COHERENT_LOADED_PLAYER_PARTY"
+    }
+  ],
+  "new_private_artifacts": {
+    "after_continue_player.party": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+    "loaded.sav": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2",
+    "after_continue.ppm": "dc2780f705dc3e1a001d9c3b26438510545d15a0b73234b5811163ab9a808ee3",
+    "before_continue_startup_only.ppm": "a9f0b852de9e8819c4c7496f05440e1864c4c7d1425f49e150474c64ab1361d0",
+    "source.gba": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3",
+    "before_continue_startup_only_player.party": "2416edc7322cb2e094a4b4d5605d1b033472eadb9eb37231f4dad7d6798b60ad",
+    "report.json": "bcaf04990a41c99a9bf93184bd69ee9f254e39065b917589144c30e7a77b73f6"
+  },
+  "instruction_spans": [
+    {
+      "name": "party_to_save_copy",
+      "address": "0x80b2dec",
+      "end_exclusive": "0x80b2e34",
+      "sha256": "1117abdfb8c001ae667eba8e26472c621ecacf7b5c769168e59e5906a6e599da",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Copy count and six unchanged 76-byte records to SaveBlock1 +0x234/+0x238; calls 0x083AEBA4.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "save_to_party_copy",
+      "address": "0x80b2e34",
+      "end_exclusive": "0x80b2e7c",
+      "sha256": "cc9a9ad20778d1adc47c0ebfa2a5f02ac83619bc7e4bf5f11ab6cb171b463318",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Copy count and six unchanged records back to player RAM; no form conversion in this function.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "restore_wrapper",
+      "address": "0x80b2f40",
+      "end_exclusive": "0x80b2f54",
+      "sha256": "5de6e66ef8862b225fa59efcea05ffc0894be6bf92d578ff32ab055cbe385159",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Calls save_to_party_copy, then 0x080B2EC8 and 0x0812728C.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "restore_caller",
+      "address": "0x81b3d28",
+      "end_exclusive": "0x81b3db0",
+      "sha256": "7ac901ee6c0f5bead6e7addb32d20ea150197731d8facc5d7ab42fa08935dba9",
+      "status": "STATIC_VERIFIED",
+      "meaning": "At 0x081B3D58 calls 0x081B3624; at 0x081B3D60 calls restore_wrapper. Full save selection remains untraced.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "party_normalization_prefix",
+      "address": "0x80a4044",
+      "end_exclusive": "0x80a4196",
+      "sha256": "10fcb369d100077340da5cb239dbf9ab771b93f07eedc7cb4bea9c31c9cac164",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Six-slot loop: nonzero species >1499 with nonnull form table becomes first entry and matching list index; setters 0x0809B57C selectors 11/89, then stats recalculation 0x08099674. Later transformations outside this initial branch remain uncharacterized.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "normalization_function",
+      "address": "0x80a4044",
+      "end_exclusive": "0x80a4358",
+      "sha256": "d9794abefe33431cebc46c1fb37deaa847a5aa1d8cfc3eb8f88031684df83a04",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Includes separate boxed loop, 21 by 30, stride 52; no boxed runtime evidence.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "normalization_caller_branch",
+      "address": "0x80300da",
+      "end_exclusive": "0x803018c",
+      "sha256": "74a14fe96f1385f72e3af17f0612a296d51918c3fa2734bfb8ee836830fba812",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Conditional startup/menu branch calls 0x080A4044 at 0x0803014A; guards not fully resolved, no executed-PC trace.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "base_species",
+      "address": "0x80a18e8",
+      "end_exclusive": "0x80a190c",
+      "sha256": "3015a3abbb24b7420cc41b591a84b16a7da43696e98987aae180cec5ba8976ba",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Input species indexes form pointer; null returns input, nonnull returns entry zero. No form argument.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "form_index",
+      "address": "0x80a18a0",
+      "end_exclusive": "0x80a18e8",
+      "sha256": "be2014363c5b37fe8a95aeaa6b5d48967559a57d816ee9480dea20f499847931",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Find stored species in its own form list until 0xffff; null yields zero, missing species yields sentinel index, no validation.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    },
+    {
+      "name": "static_resolver",
+      "address": "0x80a1874",
+      "end_exclusive": "0x80a18a0",
+      "sha256": "ce45d2569e8106a76315321d6de459952a85ae2daf59f7e61a7c6efe36f609ca",
+      "status": "STATIC_VERIFIED",
+      "meaning": "Null pointer returns stored species; nonnull indexes form without bounds checks.",
+      "executed_in_this_run": "NOT_VERIFIED"
+    }
+  ],
+  "form_tables": {
+    "52": {
+      "pointer": "0x85e69e0",
+      "values": [
+        52,
+        1560,
+        1569
+      ],
+      "sha256": "717b6fdc0ea85326d62a45b72a2c3663c3a5d5ae8b819054e9a7c60f3aa8c38e"
+    },
+    "1560": {
+      "pointer": "0x85e69e0",
+      "values": [
+        52,
+        1560,
+        1569
+      ],
+      "sha256": "717b6fdc0ea85326d62a45b72a2c3663c3a5d5ae8b819054e9a7c60f3aa8c38e"
+    }
+  },
+  "boundary": {
+    "status": "BOUNDARY_PARTIALLY_LOCALIZED",
+    "finding": "Serialized and restored SaveBlock copy retain 1560/1; live record has normalized digest by startup Continue menu, before Continue selection. Exact executed conversion PC NOT_VERIFIED.",
+    "candidate": "0x080A4044 initial party branch, called at 0x0803014A",
+    "no_universal_load_rule": true
+  },
+  "boundaries": {
+    "A": "Phase 6D captured_party, frame 10176: 1560/1",
+    "B": "Phase 6D menu_after_party, frame 12708: 1560/1",
+    "C": "Phase 6D captured_save_complete, frame 13099: 1560/1, saved copy record matches",
+    "D": "Cartridge digest verified; immediate post-export RAM NOT_VERIFIED",
+    "E": "New run frame 1653, Continue menu: startup digest only, no loaded-party authority",
+    "F": "New run frame 2044 after Continue: loaded record matches Phase 6D 52/1",
+    "G": "Reused and visually inspected Phase 6D bound Meowth summary: gray regional portrait, DARK",
+    "H": "NOT_RUN"
+  },
+  "statuses": {
+    "LIVE PRE-SAVE REPRESENTATION": "VERIFIED",
+    "LIVE POST-SAVE REPRESENTATION": "VERIFIED",
+    "SERIALIZED CARTRIDGE REPRESENTATION": "VERIFIED",
+    "FRESH-LOAD REPRESENTATION": "VERIFIED",
+    "CONVERSION BOUNDARY": "PARTIAL",
+    "IDENTITY STABILITY": "PASS",
+    "NORMALIZATION SCOPE": "STATIC_ONLY",
+    "PRODUCTION COMPATIBILITY": "HOLD",
+    "ISSUE #59": "OPEN"
+  },
+  "validation": {
+    "ci_all": "PASS",
+    "source_check": "PASS",
+    "fixture_test": "PASS: 73 replay/rejection cases; 422771 raw-decoder assertions",
+    "rowe_test": "PASS: 422771 assertions",
+    "asan_ubsan": "PASS",
+    "leak_sanitizer": "PASS outside sandbox; initial sandbox attempt failed because LSan cannot run under ptrace",
+    "rom_evidence_discovery": "PASS: 48 tests",
+    "focused_identity": "PASS: 6 tests",
+    "android_abi_exclusion": "PASS: arm64-v8a and x86_64, four shared libraries each; no rowe_raw symbols",
+    "exact_head_hosted_ci": "See PR checks for immutable head SHA"
+  },
+  "reused_boundary_observations": [
+    {
+      "label": "captured_party",
+      "frame": 10176,
+      "rgb565_sha256": "2a0147156bcb43d440b0e8954541bacfa82a4d92b8f2488a95b147973e985bff",
+      "reported_save_party_slot_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+      ],
+      "count": 2,
+      "party_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+    },
+    {
+      "label": "menu_after_party",
+      "frame": 12708,
+      "rgb565_sha256": "65fc904d34f3884b601f484b56be4e2a886d7f203ec20a170cacf607e516b918",
+      "reported_save_party_slot_sha256": [
+        "28d96c84dbc6130a0270ff6636d5e363f828c8b8311fe03c59cd6241f143bc89",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc",
+        "55fd4bb293cb50520d7bd9dd922f2ec706e1978625881389e0e2ed2063f65bdc"
+      ],
+      "count": 2,
+      "party_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+    },
+    {
+      "label": "captured_save_complete",
+      "frame": 13099,
+      "rgb565_sha256": "30927f9ad2995e74d3ab2b38965c8da5f4d1de404dceb49dd4ec44282427beb3",
+      "reported_save_party_slot_sha256": [
+        "8a0d7bb54e24cabc9153fd161804688404ee1298439fe655e8b9df98183a3f20",
+        "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+        "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+        "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+        "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9",
+        "8ea1f29e6722f6a573a4c6208da8e19a5898d79782d137853422b0a3abe310a9"
+      ],
+      "count": 2,
+      "party_sha256": "229216c6340e9957f82dd20456888eb9d5de948b763f74e14477949e95927d2c",
+      "record_sha256": "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7"
+    }
+  ],
+  "new_private_driver_sha256": "a375dc69f7991bb42cbe325513048120b6ad0d66da9cfa9f1262a910f319aaae",
+  "new_snapshot_protocol": "Occupied-only private Observer subclass; count/data/count/repeated-data/final-count; no unused-slot decoding. Historical observer unchanged."
+}

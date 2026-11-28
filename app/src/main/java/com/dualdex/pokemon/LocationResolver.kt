@@ -1,6 +1,7 @@
 package com.dualdex.pokemon
 
 import com.dualdex.pokemon.hns.Hns205MapData
+import com.dualdex.pokemon.unbound.UnboundMapTable
 import com.dualdex.romhack.RomHackProfile
 
 /**
@@ -21,6 +22,9 @@ enum class LocationStrategy(val displayName: String) {
 
     /** Exact Heart & Soul 2.0.5: pinned H&S multi-region map table. */
     HEART_AND_SOUL_205("Heart & Soul 2.0.5"),
+
+    /** Exact Unbound candidate: numeric topology, runtime names, no town-map geometry. */
+    UNBOUND("Unbound"),
 
     /**
      * The running ROM is not a build DualDex holds a location table for, so
@@ -43,6 +47,7 @@ enum class LocationStrategy(val displayName: String) {
             HEART_AND_SOUL_PROFILE_ID -> HEART_AND_SOUL_205
             VANILLA_EMERALD_PROFILE_ID -> EMERALD
             VANILLA_FIRERED_PROFILE_ID -> FIRERED
+            "unbound" -> UNBOUND
             else -> UNVERIFIED
         }
 
@@ -107,7 +112,7 @@ data class LocationResolution(
  */
 object LocationResolver {
 
-    fun resolve(strategy: LocationStrategy, location: PlayerLocation?): LocationResolution {
+    fun resolve(strategy: LocationStrategy, location: PlayerLocation?, unboundNames: Map<Int, String> = emptyMap()): LocationResolution {
         if (location == null || !location.isValid) {
             return LocationResolution.unavailable(LocationUnavailableReason.INVALID_READ)
         }
@@ -118,7 +123,24 @@ object LocationResolver {
             LocationStrategy.HEART_AND_SOUL_205 -> resolveHeartAndSoul205(location)
             LocationStrategy.EMERALD -> resolveEmerald(location)
             LocationStrategy.FIRERED -> resolveFireRed(location)
+            LocationStrategy.UNBOUND -> resolveUnbound(location, unboundNames)
         }
+    }
+
+    private fun resolveUnbound(location: PlayerLocation, names: Map<Int, String>): LocationResolution {
+        val section = UnboundMapTable.sectionId(location.mapGroup, location.mapNum)
+            ?: return LocationResolution.unavailable(LocationUnavailableReason.UNKNOWN_MAP_ID)
+        val hex = section.toString(16).uppercase()
+        return LocationResolution.resolved(
+            RegionMapSection(
+                id = "UNBOUND_SECTION_$hex",
+                name = names[section] ?: "Section 0x$hex",
+                region = null,
+                gridX = 0,
+                gridY = 0,
+                presentable = false
+            )
+        )
     }
 
     /**

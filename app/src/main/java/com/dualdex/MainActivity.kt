@@ -43,6 +43,7 @@ import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.ShaderFilter
 import com.dualdex.emulator.RomUriPermissionManager
 import com.dualdex.romhack.ProfileLoader
+import com.dualdex.romhack.RomCompatibilityMessages
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.settings.SettingsManager
@@ -385,12 +386,17 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         if (!identity.isValid) return null
         val core = LibretroCoreCoordinator.defaultInstance
         val sha = identity.sha256.lowercase()
+        // Profile-layout reads (gMain address, player location) only for the exact verified ROM, by
+        // the same gate as the companion; any other ROM keeps the IWRAM-only gMain discovery.
+        val trust = viewModel.runtimeRomTrust.value
+        val exact = SmartFastForward.mayReadProfileMemory(trust, identity.sha256)
         return SmartFastForward(
             memory = { address, length -> core.readGbaMemory(address, length) },
-            knownMainAddress = core.mainStructAddress(gameId),
+            knownMainAddress = if (exact) core.mainStructAddress(gameId) else 0,
             learned = SmartFastForward.Learned.decode(settingsManager.smartFastForwardLearned(sha)),
             location = {
-                core.readPlayerLocation(gameId)?.let { SmartFastForward.packLocation(it.mapGroup, it.mapNum, it.x, it.y) }
+                if (!exact) null
+                else core.readPlayerLocation(gameId)?.let { SmartFastForward.packLocation(it.mapGroup, it.mapNum, it.x, it.y) }
             },
             onLearned = { settingsManager.setSmartFastForwardLearned(sha, it.encode()) },
             isEnabled = { settingsManager.isSmartFastForwardEnabled },
@@ -443,7 +449,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                         emulatorView?.smartFastForward = createSmartFastForward(result.identity, result.profile.gameId)
                         Toast.makeText(
                             this@MainActivity,
-                            "Loaded: ${result.profile.name} (${result.profile.engine})",
+                            "Loaded: ${RomCompatibilityMessages.profileLabel(result.profile, viewModel.runtimeRomTrust.value.status)}" +
+                                if (result.profile.id == RomHackProfile.UNSUPPORTED.id) "" else " (${result.profile.engine})",
                             Toast.LENGTH_LONG
                         ).show()
                     }

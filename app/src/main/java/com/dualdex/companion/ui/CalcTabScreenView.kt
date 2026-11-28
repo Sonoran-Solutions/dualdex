@@ -590,7 +590,8 @@ class CalcTabScreenView(
         val challengeSettingsSnapshot = viewModel.challengeSettings.value
         val playerBattlerSnapshot = viewModel.selectedHnsPlayerObservation(selectedIdx) ?: viewModel.playerBattlerState.value
         val enemyBattlerSnapshot = chosenDoublesEnemy ?: viewModel.enemyBattlerState.value
-        val playerStagesSnapshot = viewModel.playerStatStages.value
+        // Outside a battle no stat stages exist, so neutral is a fact there, not an assumption.
+        val playerStagesSnapshot = if (inBattle) viewModel.playerStatStages.value else com.dualdex.battle.StatStages()
         val enemyStagesSnapshot = viewModel.enemyStatStages.value
 
         // Participants whose values came from the running game go through the shared production

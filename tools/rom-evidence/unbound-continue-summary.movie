@@ -1,0 +1,68 @@
+# Unbound exact-candidate Continue + party summary route (owner Thor battery copy).
+# Masks: A=256 B=1 Start=8 Right=128 Left=64 Down=32. mash = 1 pressed frame + 90 released.
+run 600
+observe title_logo
+run 600
+mash 1 8
+run 200
+observe continue_menu
+mash 1 256
+run 300
+observe overworld
+mash 1 8
+run 60
+observe start_menu
+mash 2 128
+observe start_menu_pokemon
+mash 1 256
+run 60
+observe party_menu
+mash 1 256
+observe slot1_submenu
+mash 1 256
+run 60
+observe s1_info
+mash 1 128
+observe s1_skills
+mash 1 128
+observe s1_moves
+mash 1 32
+run 30
+observe s2_moves
+mash 1 64
+observe s2_skills
+mash 1 64
+observe s2_info
+mash 1 32
+run 30
+observe s3_info
+mash 1 128
+observe s3_skills
+mash 1 128
+observe s3_moves
+mash 1 32
+run 30
+observe s4_moves
+mash 1 64
+observe s4_skills
+mash 1 64
+observe s4_info
+mash 1 32
+run 30
+observe s5_info
+mash 1 128
+observe s5_skills
+mash 1 128
+observe s5_moves
+mash 1 32
+run 30
+observe s6_moves
+mash 1 64
+observe s6_skills
+mash 1 64
+observe s6_info
+mash 1 1
+run 60
+mash 1 1
+run 60
+observe back_party_menu

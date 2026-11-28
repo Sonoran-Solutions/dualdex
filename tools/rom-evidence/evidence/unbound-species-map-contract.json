@@ -1,0 +1,1544 @@
+{
+  "accessors": {
+    "inverse_entry_trampoline": {
+      "bytes": 8,
+      "file_offset": "0x00043200",
+      "sha256": "b06070f9c4f872fbe2fff47369a87f6a52bcec4724098f69fc607c1c2339e994"
+    },
+    "inverse_search_and_bound": {
+      "bytes": 148,
+      "file_offset": "0x0165bb34",
+      "sha256": "a47a5aea921f515302e703620e2aadb20408cea50fef5c2c78629320fc7325d3"
+    },
+    "species_to_national": {
+      "bytes": 36,
+      "file_offset": "0x00043298",
+      "sha256": "f39c323ae1455155cec8e74185107905116e184420b238fb08063d3e62d95ae1"
+    }
+  },
+  "classification": {
+    "base_rule": "First internal row per positive dex; canonical default form NOT_VERIFIED",
+    "classified_rows": 1294,
+    "cosmetic_rule": "Source visual-label candidates only; mechanical equivalence NOT_VERIFIED",
+    "counts": {
+      "base_species": 905,
+      "cosmetic_form": 102,
+      "custom_unbound": 1,
+      "gigantamax": 34,
+      "mega_primal": 50,
+      "other_alternate_form": 116,
+      "regional_form": 59,
+      "reserved_hole": 27
+    },
+    "regional_rule": "Source A/G/H labels, including precursor slots; runtime purpose NOT_VERIFIED",
+    "runtime_form_semantics": "NOT_VERIFIED",
+    "status": "OBSERVED"
+  },
+  "dependency_sha256": {
+    "rowe_text.py": "58375f2c59206b2c59c202f921159f89ad7d3706ad9c7b38ed01e0f4091aa832",
+    "unbound_data.py": "6ed55b1960911da9f96f770ee66b587789bb8e1bb65cfca53e2b84015153a72f",
+    "unbound_identity.py": "ac8a36847eb16507649803ffb8d0acab036c9cf2c96e6dc5f611e1db3c437981",
+    "ups_identity.py": "51a303b7b3e7ad07c8099e37a290912722529bb759cb421441f175c59521accc"
+  },
+  "form_display_names": "NOT_VERIFIED",
+  "inspector_sha256": "88056920b8a72c5fd17bfee7fc9d457c4410ad2f6078676963f61f53b3808e34",
+  "numeric_domain": {
+    "distinct_positive_dex": 905,
+    "extra_rows_sharing_dex": 361,
+    "maximum_dex": 905,
+    "maximum_rows_per_dex": 28,
+    "minimum_positive_dex": 1,
+    "nonzero_rows": 1266,
+    "shared_dex_numbers": 194,
+    "status": "VERIFIED",
+    "zero_dex_ids": [
+      0,
+      252,
+      253,
+      254,
+      255,
+      256,
+      257,
+      258,
+      259,
+      260,
+      261,
+      262,
+      263,
+      264,
+      265,
+      266,
+      267,
+      268,
+      269,
+      270,
+      271,
+      272,
+      273,
+      274,
+      275,
+      276,
+      412,
+      706
+    ]
+  },
+  "production_support": "NOT_VERIFIED",
+  "release_label": {
+    "owner_claim": "2.1.1.1",
+    "status": "NOT_VERIFIED"
+  },
+  "representative_rows": [
+    {
+      "classification": "reserved_hole",
+      "dex": 0,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 0,
+      "name": "??????",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "NONE"
+      ]
+    },
+    {
+      "classification": "reserved_hole",
+      "dex": 0,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 252,
+      "name": "Egg",
+      "numeric_status": "VERIFIED",
+      "source_labels": []
+    },
+    {
+      "classification": "reserved_hole",
+      "dex": 0,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 254,
+      "name": "?",
+      "numeric_status": "VERIFIED",
+      "source_labels": []
+    },
+    {
+      "classification": "base_species",
+      "dex": 252,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 277,
+      "name": "Treecko",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "TREECKO"
+      ]
+    },
+    {
+      "classification": "cosmetic_form",
+      "dex": 201,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 413,
+      "name": "Unown B",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "UNOWN_B"
+      ]
+    },
+    {
+      "classification": "base_species",
+      "dex": 387,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 440,
+      "name": "Turtwig",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "TURTWIG"
+      ]
+    },
+    {
+      "classification": "custom_unbound",
+      "dex": 0,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 706,
+      "name": "Warrior",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "SHADOW_WARRIOR"
+      ]
+    },
+    {
+      "classification": "cosmetic_form",
+      "dex": 412,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 707,
+      "name": "Burmy",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "BURMY_SANDY"
+      ]
+    },
+    {
+      "classification": "other_alternate_form",
+      "dex": 479,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 713,
+      "name": "Rotom",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "ROTOM_HEAT"
+      ]
+    },
+    {
+      "classification": "other_alternate_form",
+      "dex": 555,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 737,
+      "name": "Darmanitan",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "DARMANITANZEN"
+      ]
+    },
+    {
+      "classification": "base_species",
+      "dex": 650,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 758,
+      "name": "Chespin",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "CHESPIN"
+      ]
+    },
+    {
+      "classification": "mega_primal",
+      "dex": 3,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 869,
+      "name": "Venusaur",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "VENUSAUR_MEGA"
+      ]
+    },
+    {
+      "classification": "mega_primal",
+      "dex": 383,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 909,
+      "name": "Groudon",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "GROUDON_PRIMAL"
+      ]
+    },
+    {
+      "classification": "other_alternate_form",
+      "dex": 483,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 919,
+      "name": "Dialga",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "DIALGA_ORIGIN"
+      ]
+    },
+    {
+      "classification": "other_alternate_form",
+      "dex": 484,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 920,
+      "name": "Palkia",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "PALKIA_ORIGIN"
+      ]
+    },
+    {
+      "classification": "base_species",
+      "dex": 725,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 942,
+      "name": "Litten",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "LITTEN"
+      ]
+    },
+    {
+      "classification": "base_species",
+      "dex": 785,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1002,
+      "name": "Tapu Koko",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "TAPU_KOKO"
+      ]
+    },
+    {
+      "classification": "regional_form",
+      "dex": 19,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1020,
+      "name": "Rattata",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "RATTATA_A"
+      ]
+    },
+    {
+      "classification": "regional_form",
+      "dex": 89,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1035,
+      "name": "Muk",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "MUK_A"
+      ]
+    },
+    {
+      "classification": "regional_form",
+      "dex": 102,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1036,
+      "name": "Exeggcute",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "EXEGGCUTE_A"
+      ]
+    },
+    {
+      "classification": "base_species",
+      "dex": 810,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1102,
+      "name": "Grookey",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "GROOKEY"
+      ]
+    },
+    {
+      "classification": "cosmetic_form",
+      "dex": 854,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1194,
+      "name": "Sinistea",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "SINISTEA_CHIPPED"
+      ]
+    },
+    {
+      "classification": "regional_form",
+      "dex": 52,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1212,
+      "name": "Meowth",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "MEOWTH_G"
+      ]
+    },
+    {
+      "classification": "regional_form",
+      "dex": 109,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1218,
+      "name": "Koffing",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "KOFFING_G"
+      ]
+    },
+    {
+      "classification": "regional_form",
+      "dex": 58,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1234,
+      "name": "Growlithe",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "GROWLITHE_H"
+      ]
+    },
+    {
+      "classification": "base_species",
+      "dex": 899,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1251,
+      "name": "Wyrdeer",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "WYRDEER"
+      ]
+    },
+    {
+      "classification": "base_species",
+      "dex": 902,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1254,
+      "name": "Basculegon",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "BASCULEGION_M"
+      ]
+    },
+    {
+      "classification": "other_alternate_form",
+      "dex": 902,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1255,
+      "name": "Basculegon",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "BASCULEGION_F"
+      ]
+    },
+    {
+      "classification": "gigantamax",
+      "dex": 3,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1260,
+      "name": "Venusaur",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "VENUSAUR_GIGA"
+      ]
+    },
+    {
+      "classification": "gigantamax",
+      "dex": 892,
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1293,
+      "name": "Urshifu",
+      "numeric_status": "VERIFIED",
+      "source_labels": [
+        "URSHIFU_RAPID_GIGA"
+      ]
+    }
+  ],
+  "reused_runtime_pins": {
+    "agreeing_pins": 6,
+    "evidence": "unbound-runtime-observation.json",
+    "new_core_run": false,
+    "pins": [
+      {
+        "dex": 130,
+        "id": 130
+      },
+      {
+        "dex": 186,
+        "id": 186
+      },
+      {
+        "dex": 230,
+        "id": 230
+      },
+      {
+        "dex": 725,
+        "id": 942
+      },
+      {
+        "dex": 785,
+        "id": 1002
+      },
+      {
+        "dex": 89,
+        "id": 1035
+      }
+    ],
+    "reused": true,
+    "sha256": "ce24775da4c2cafe41f716bcd1ccee3069e3c48e6171017375cc4d145f1fb147",
+    "status": "OBSERVED"
+  },
+  "rom": {
+    "bytes": 33554432,
+    "crc32": "4b3d4957",
+    "sha1": "b4776b82a4c7915d0fadeaa27e013523f99dfd94",
+    "sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+  },
+  "schema_version": 1,
+  "scope": "Static numeric mapping only; source form classes provisional; no production support",
+  "source_comparisons": {
+    "files": {
+      "cfru_dex": {
+        "commit": "b637a27898b14e25dd24d0f69a3e302f0069deb8",
+        "sha256": "5bafc6e53329ba75048848e4aa9a17e1ec20e8c4204d359d500d008b17488a51",
+        "url": "https://github.com/Skeli789/Complete-Fire-Red-Upgrade/blob/b637a27898b14e25dd24d0f69a3e302f0069deb8/include/constants/pokedex.h"
+      },
+      "cfru_species": {
+        "commit": "b637a27898b14e25dd24d0f69a3e302f0069deb8",
+        "sha256": "8c5acd30a4f06cbfe224ee282b60bac1c8a4898d3c75f632225c2200d8a59c43",
+        "url": "https://github.com/Skeli789/Complete-Fire-Red-Upgrade/blob/b637a27898b14e25dd24d0f69a3e302f0069deb8/include/constants/species.h"
+      },
+      "dpe_dex": {
+        "commit": "cdfc053a56326a13dc5311b24488445e17536b7e",
+        "sha256": "b8e1f6e288482dd150f9c851cf90d27074d4e787bba09aeb5cb72f0faef7458b",
+        "url": "https://github.com/Skeli789/Dynamic-Pokemon-Expansion/blob/cdfc053a56326a13dc5311b24488445e17536b7e/include/pokedex.h"
+      },
+      "dpe_species": {
+        "commit": "cdfc053a56326a13dc5311b24488445e17536b7e",
+        "sha256": "153baad3b2d13ad2264ddaf734cfc9b675ea82e46849c1c18ec272e79d4f0914",
+        "url": "https://github.com/Skeli789/Dynamic-Pokemon-Expansion/blob/cdfc053a56326a13dc5311b24488445e17536b7e/include/species.h"
+      },
+      "dpe_table": {
+        "commit": "cdfc053a56326a13dc5311b24488445e17536b7e",
+        "sha256": "91cfa0c092ae55da81b6cf564e385e6d6a7d549a87edcac02381117a6d659b58",
+        "url": "https://github.com/Skeli789/Dynamic-Pokemon-Expansion/blob/cdfc053a56326a13dc5311b24488445e17536b7e/src/Species_To_Pokdex_Table.c"
+      }
+    },
+    "label_disagreements": [
+      {
+        "cfru": [
+          "FARFETCHD"
+        ],
+        "dpe": [
+          "FARFETCHED",
+          "FARFETCHD"
+        ],
+        "id": 83
+      },
+      {
+        "cfru": [
+          "DIALGA_ORIGIN"
+        ],
+        "dpe": [
+          "DIALGA_PRIMAL"
+        ],
+        "id": 919
+      },
+      {
+        "cfru": [
+          "PALKIA_ORIGIN"
+        ],
+        "dpe": [
+          "PALKIA_PRIMAL"
+        ],
+        "id": 920
+      },
+      {
+        "cfru": [
+          "GROWLITHE_H"
+        ],
+        "dpe": [
+          "VENUSAUR_GIGA"
+        ],
+        "id": 1234
+      },
+      {
+        "cfru": [
+          "ARCANINE_H"
+        ],
+        "dpe": [
+          "CHARIZARD_GIGA"
+        ],
+        "id": 1235
+      },
+      {
+        "cfru": [
+          "VOLTORB_H"
+        ],
+        "dpe": [
+          "BLASTOISE_GIGA"
+        ],
+        "id": 1236
+      },
+      {
+        "cfru": [
+          "ELECTRODE_H"
+        ],
+        "dpe": [
+          "BUTTERFREE_GIGA"
+        ],
+        "id": 1237
+      },
+      {
+        "cfru": [
+          "TYPHLOSION_H"
+        ],
+        "dpe": [
+          "PIKACHU_GIGA"
+        ],
+        "id": 1238
+      },
+      {
+        "cfru": [
+          "QWILFISH_H"
+        ],
+        "dpe": [
+          "MEOWTH_GIGA"
+        ],
+        "id": 1239
+      },
+      {
+        "cfru": [
+          "SNEASEL_H"
+        ],
+        "dpe": [
+          "MACHAMP_GIGA"
+        ],
+        "id": 1240
+      },
+      {
+        "cfru": [
+          "SAMUROTT_H"
+        ],
+        "dpe": [
+          "GENGAR_GIGA"
+        ],
+        "id": 1241
+      },
+      {
+        "cfru": [
+          "LILLIGANT_H"
+        ],
+        "dpe": [
+          "KINGLER_GIGA"
+        ],
+        "id": 1242
+      },
+      {
+        "cfru": [
+          "BASCULIN_H"
+        ],
+        "dpe": [
+          "LAPRAS_GIGA"
+        ],
+        "id": 1243
+      },
+      {
+        "cfru": [
+          "ZORUA_H"
+        ],
+        "dpe": [
+          "EEVEE_GIGA"
+        ],
+        "id": 1244
+      },
+      {
+        "cfru": [
+          "ZOROARK_H"
+        ],
+        "dpe": [
+          "SNORLAX_GIGA"
+        ],
+        "id": 1245
+      },
+      {
+        "cfru": [
+          "BRAVIARY_H"
+        ],
+        "dpe": [
+          "GARBODOR_GIGA"
+        ],
+        "id": 1246
+      },
+      {
+        "cfru": [
+          "SLIGGOO_H"
+        ],
+        "dpe": [
+          "MELMETAL_GIGA"
+        ],
+        "id": 1247
+      },
+      {
+        "cfru": [
+          "GOODRA_H"
+        ],
+        "dpe": [
+          "RILLABOOM_GIGA"
+        ],
+        "id": 1248
+      },
+      {
+        "cfru": [
+          "AVALUGG_H"
+        ],
+        "dpe": [
+          "CINDERACE_GIGA"
+        ],
+        "id": 1249
+      },
+      {
+        "cfru": [
+          "DECIDUEYE_H"
+        ],
+        "dpe": [
+          "INTELEON_GIGA"
+        ],
+        "id": 1250
+      },
+      {
+        "cfru": [
+          "WYRDEER"
+        ],
+        "dpe": [
+          "CORVIKNIGHT_GIGA"
+        ],
+        "id": 1251
+      },
+      {
+        "cfru": [
+          "KLEAVOR"
+        ],
+        "dpe": [
+          "ORBEETLE_GIGA"
+        ],
+        "id": 1252
+      },
+      {
+        "cfru": [
+          "URSALUNA"
+        ],
+        "dpe": [
+          "DREDNAW_GIGA"
+        ],
+        "id": 1253
+      },
+      {
+        "cfru": [
+          "BASCULEGION_M"
+        ],
+        "dpe": [
+          "COALOSSAL_GIGA"
+        ],
+        "id": 1254
+      },
+      {
+        "cfru": [
+          "BASCULEGION_F"
+        ],
+        "dpe": [
+          "FLAPPLE_GIGA"
+        ],
+        "id": 1255
+      },
+      {
+        "cfru": [
+          "SNEASLER"
+        ],
+        "dpe": [
+          "APPLETUN_GIGA"
+        ],
+        "id": 1256
+      },
+      {
+        "cfru": [
+          "OVERQWIL"
+        ],
+        "dpe": [
+          "SANDACONDA_GIGA"
+        ],
+        "id": 1257
+      },
+      {
+        "cfru": [
+          "ENAMORUS"
+        ],
+        "dpe": [
+          "TOXTRICITY_GIGA"
+        ],
+        "id": 1258
+      },
+      {
+        "cfru": [
+          "ENAMORUS_THERIAN"
+        ],
+        "dpe": [
+          "TOXTRICITY_LOW_KEY_GIGA"
+        ],
+        "id": 1259
+      },
+      {
+        "cfru": [
+          "VENUSAUR_GIGA"
+        ],
+        "dpe": [
+          "CENTISKORCH_GIGA"
+        ],
+        "id": 1260
+      },
+      {
+        "cfru": [
+          "CHARIZARD_GIGA"
+        ],
+        "dpe": [
+          "HATTERENE_GIGA"
+        ],
+        "id": 1261
+      },
+      {
+        "cfru": [
+          "BLASTOISE_GIGA"
+        ],
+        "dpe": [
+          "GRIMMSNARL_GIGA"
+        ],
+        "id": 1262
+      },
+      {
+        "cfru": [
+          "BUTTERFREE_GIGA"
+        ],
+        "dpe": [
+          "ALCREMIE_GIGA"
+        ],
+        "id": 1263
+      },
+      {
+        "cfru": [
+          "PIKACHU_GIGA"
+        ],
+        "dpe": [
+          "COPPERAJAH_GIGA"
+        ],
+        "id": 1264
+      },
+      {
+        "cfru": [
+          "MEOWTH_GIGA"
+        ],
+        "dpe": [
+          "DURALUDON_GIGA"
+        ],
+        "id": 1265
+      },
+      {
+        "cfru": [
+          "MACHAMP_GIGA"
+        ],
+        "dpe": [
+          "URSHIFU_SINGLE_GIGA"
+        ],
+        "id": 1266
+      },
+      {
+        "cfru": [
+          "GENGAR_GIGA"
+        ],
+        "dpe": [
+          "URSHIFU_RAPID_GIGA"
+        ],
+        "id": 1267
+      }
+    ],
+    "numeric": {
+      "cfru_constants": {
+        "agreeing_ids": 1265,
+        "compared_ids": 1265,
+        "declared_species_ids": 1269,
+        "disagreements": [],
+        "method": "Longest exact canonical label or underscore-delimited suffix; no aliases/guesses",
+        "outside_rom_domain_ids": [],
+        "status": "VERIFIED",
+        "uncovered_ids": [
+          252,
+          253,
+          254,
+          255,
+          256,
+          257,
+          258,
+          259,
+          260,
+          261,
+          262,
+          263,
+          264,
+          265,
+          266,
+          267,
+          268,
+          269,
+          270,
+          271,
+          272,
+          273,
+          274,
+          275,
+          276,
+          412,
+          706,
+          737,
+          839
+        ],
+        "unresolved_label_ids": [
+          412,
+          706,
+          737,
+          839
+        ]
+      },
+      "dpe_constants": {
+        "agreeing_ids": 1205,
+        "compared_ids": 1239,
+        "declared_species_ids": 1243,
+        "disagreements": [
+          {
+            "id": 1234,
+            "rom_dex": 58,
+            "source_dex": 3
+          },
+          {
+            "id": 1235,
+            "rom_dex": 59,
+            "source_dex": 6
+          },
+          {
+            "id": 1236,
+            "rom_dex": 100,
+            "source_dex": 9
+          },
+          {
+            "id": 1237,
+            "rom_dex": 101,
+            "source_dex": 12
+          },
+          {
+            "id": 1238,
+            "rom_dex": 157,
+            "source_dex": 25
+          },
+          {
+            "id": 1239,
+            "rom_dex": 211,
+            "source_dex": 52
+          },
+          {
+            "id": 1240,
+            "rom_dex": 215,
+            "source_dex": 68
+          },
+          {
+            "id": 1241,
+            "rom_dex": 503,
+            "source_dex": 94
+          },
+          {
+            "id": 1242,
+            "rom_dex": 549,
+            "source_dex": 99
+          },
+          {
+            "id": 1243,
+            "rom_dex": 550,
+            "source_dex": 131
+          },
+          {
+            "id": 1244,
+            "rom_dex": 570,
+            "source_dex": 133
+          },
+          {
+            "id": 1245,
+            "rom_dex": 571,
+            "source_dex": 143
+          },
+          {
+            "id": 1246,
+            "rom_dex": 628,
+            "source_dex": 569
+          },
+          {
+            "id": 1247,
+            "rom_dex": 705,
+            "source_dex": 809
+          },
+          {
+            "id": 1248,
+            "rom_dex": 706,
+            "source_dex": 812
+          },
+          {
+            "id": 1249,
+            "rom_dex": 713,
+            "source_dex": 815
+          },
+          {
+            "id": 1250,
+            "rom_dex": 724,
+            "source_dex": 818
+          },
+          {
+            "id": 1251,
+            "rom_dex": 899,
+            "source_dex": 823
+          },
+          {
+            "id": 1252,
+            "rom_dex": 900,
+            "source_dex": 826
+          },
+          {
+            "id": 1253,
+            "rom_dex": 901,
+            "source_dex": 834
+          },
+          {
+            "id": 1254,
+            "rom_dex": 902,
+            "source_dex": 839
+          },
+          {
+            "id": 1255,
+            "rom_dex": 902,
+            "source_dex": 841
+          },
+          {
+            "id": 1256,
+            "rom_dex": 903,
+            "source_dex": 842
+          },
+          {
+            "id": 1257,
+            "rom_dex": 904,
+            "source_dex": 844
+          },
+          {
+            "id": 1258,
+            "rom_dex": 905,
+            "source_dex": 849
+          },
+          {
+            "id": 1259,
+            "rom_dex": 905,
+            "source_dex": 849
+          },
+          {
+            "id": 1260,
+            "rom_dex": 3,
+            "source_dex": 851
+          },
+          {
+            "id": 1261,
+            "rom_dex": 6,
+            "source_dex": 858
+          },
+          {
+            "id": 1262,
+            "rom_dex": 9,
+            "source_dex": 861
+          },
+          {
+            "id": 1263,
+            "rom_dex": 12,
+            "source_dex": 869
+          },
+          {
+            "id": 1264,
+            "rom_dex": 25,
+            "source_dex": 879
+          },
+          {
+            "id": 1265,
+            "rom_dex": 52,
+            "source_dex": 884
+          },
+          {
+            "id": 1266,
+            "rom_dex": 68,
+            "source_dex": 892
+          },
+          {
+            "id": 1267,
+            "rom_dex": 94,
+            "source_dex": 892
+          }
+        ],
+        "method": "Longest exact canonical label or underscore-delimited suffix; no aliases/guesses",
+        "outside_rom_domain_ids": [],
+        "status": "VERIFIED",
+        "uncovered_ids": [
+          252,
+          253,
+          254,
+          255,
+          256,
+          257,
+          258,
+          259,
+          260,
+          261,
+          262,
+          263,
+          264,
+          265,
+          266,
+          267,
+          268,
+          269,
+          270,
+          271,
+          272,
+          273,
+          274,
+          275,
+          276,
+          412,
+          706,
+          737,
+          839,
+          1268,
+          1269,
+          1270,
+          1271,
+          1272,
+          1273,
+          1274,
+          1275,
+          1276,
+          1277,
+          1278,
+          1279,
+          1280,
+          1281,
+          1282,
+          1283,
+          1284,
+          1285,
+          1286,
+          1287,
+          1288,
+          1289,
+          1290,
+          1291,
+          1292,
+          1293
+        ],
+        "unresolved_label_ids": [
+          412,
+          706,
+          737,
+          839
+        ]
+      },
+      "dpe_table": {
+        "agreeing_ids": 1232,
+        "compared_ids": 1267,
+        "disagreements": [
+          {
+            "id": 706,
+            "rom_dex": 0,
+            "source_dex": 488
+          },
+          {
+            "id": 1234,
+            "rom_dex": 58,
+            "source_dex": 3
+          },
+          {
+            "id": 1235,
+            "rom_dex": 59,
+            "source_dex": 6
+          },
+          {
+            "id": 1236,
+            "rom_dex": 100,
+            "source_dex": 9
+          },
+          {
+            "id": 1237,
+            "rom_dex": 101,
+            "source_dex": 12
+          },
+          {
+            "id": 1238,
+            "rom_dex": 157,
+            "source_dex": 25
+          },
+          {
+            "id": 1239,
+            "rom_dex": 211,
+            "source_dex": 52
+          },
+          {
+            "id": 1240,
+            "rom_dex": 215,
+            "source_dex": 68
+          },
+          {
+            "id": 1241,
+            "rom_dex": 503,
+            "source_dex": 94
+          },
+          {
+            "id": 1242,
+            "rom_dex": 549,
+            "source_dex": 99
+          },
+          {
+            "id": 1243,
+            "rom_dex": 550,
+            "source_dex": 131
+          },
+          {
+            "id": 1244,
+            "rom_dex": 570,
+            "source_dex": 133
+          },
+          {
+            "id": 1245,
+            "rom_dex": 571,
+            "source_dex": 143
+          },
+          {
+            "id": 1246,
+            "rom_dex": 628,
+            "source_dex": 569
+          },
+          {
+            "id": 1247,
+            "rom_dex": 705,
+            "source_dex": 809
+          },
+          {
+            "id": 1248,
+            "rom_dex": 706,
+            "source_dex": 812
+          },
+          {
+            "id": 1249,
+            "rom_dex": 713,
+            "source_dex": 815
+          },
+          {
+            "id": 1250,
+            "rom_dex": 724,
+            "source_dex": 818
+          },
+          {
+            "id": 1251,
+            "rom_dex": 899,
+            "source_dex": 823
+          },
+          {
+            "id": 1252,
+            "rom_dex": 900,
+            "source_dex": 826
+          },
+          {
+            "id": 1253,
+            "rom_dex": 901,
+            "source_dex": 834
+          },
+          {
+            "id": 1254,
+            "rom_dex": 902,
+            "source_dex": 839
+          },
+          {
+            "id": 1255,
+            "rom_dex": 902,
+            "source_dex": 841
+          },
+          {
+            "id": 1256,
+            "rom_dex": 903,
+            "source_dex": 842
+          },
+          {
+            "id": 1257,
+            "rom_dex": 904,
+            "source_dex": 844
+          },
+          {
+            "id": 1258,
+            "rom_dex": 905,
+            "source_dex": 849
+          },
+          {
+            "id": 1259,
+            "rom_dex": 905,
+            "source_dex": 849
+          },
+          {
+            "id": 1260,
+            "rom_dex": 3,
+            "source_dex": 851
+          },
+          {
+            "id": 1261,
+            "rom_dex": 6,
+            "source_dex": 858
+          },
+          {
+            "id": 1262,
+            "rom_dex": 9,
+            "source_dex": 861
+          },
+          {
+            "id": 1263,
+            "rom_dex": 12,
+            "source_dex": 869
+          },
+          {
+            "id": 1264,
+            "rom_dex": 25,
+            "source_dex": 879
+          },
+          {
+            "id": 1265,
+            "rom_dex": 52,
+            "source_dex": 884
+          },
+          {
+            "id": 1266,
+            "rom_dex": 68,
+            "source_dex": 892
+          },
+          {
+            "id": 1267,
+            "rom_dex": 94,
+            "source_dex": 892
+          }
+        ],
+        "outside_rom_domain_ids": [],
+        "status": "VERIFIED",
+        "uncovered_ids": [
+          0,
+          1268,
+          1269,
+          1270,
+          1271,
+          1272,
+          1273,
+          1274,
+          1275,
+          1276,
+          1277,
+          1278,
+          1279,
+          1280,
+          1281,
+          1282,
+          1283,
+          1284,
+          1285,
+          1286,
+          1287,
+          1288,
+          1289,
+          1290,
+          1291,
+          1292,
+          1293
+        ]
+      }
+    },
+    "reviewed_noncanonical_labels": {
+      "alias_dex_agreement": [
+        {
+          "canonical_label": "DARMANITAN",
+          "dex": 555,
+          "id": 737,
+          "label": "DARMANITANZEN"
+        },
+        {
+          "canonical_label": "GRENINJA",
+          "dex": 658,
+          "id": 839,
+          "label": "ASHGRENINJA"
+        }
+      ],
+      "reserved_egg": "Zero in ROM and DPE table",
+      "shadow_warrior": "Zero in ROM; DPE assigns Cresselia (488), not accepted"
+    },
+    "status": "OBSERVED",
+    "text_only": {
+      "cfru": {
+        "agreeing_ids": 1250,
+        "complete_domain_fraction": "1250/1294",
+        "complete_rom_domain": 1294,
+        "declared_ids": 1269,
+        "decorated_base_name_only": 334,
+        "literal": 916,
+        "meaning": "Text agreement only; form semantics NOT_VERIFIED",
+        "mismatch_ids": [
+          0,
+          412,
+          706,
+          737,
+          770,
+          839,
+          957,
+          1077,
+          1114,
+          1115,
+          1139,
+          1143,
+          1147,
+          1166,
+          1195,
+          1254,
+          1255,
+          1277,
+          1286
+        ],
+        "source_covered_fraction": "1250/1269",
+        "source_covered_rom_ids": 1269,
+        "source_out_of_domain_ids": [],
+        "source_uncovered_rom_ids": [
+          252,
+          253,
+          254,
+          255,
+          256,
+          257,
+          258,
+          259,
+          260,
+          261,
+          262,
+          263,
+          264,
+          265,
+          266,
+          267,
+          268,
+          269,
+          270,
+          271,
+          272,
+          273,
+          274,
+          275,
+          276
+        ],
+        "status": "OBSERVED"
+      },
+      "dpe": {
+        "agreeing_ids": 1194,
+        "complete_domain_fraction": "1194/1294",
+        "complete_rom_domain": 1294,
+        "declared_ids": 1243,
+        "decorated_base_name_only": 284,
+        "literal": 910,
+        "meaning": "Text agreement only; form semantics NOT_VERIFIED",
+        "mismatch_ids": [
+          0,
+          412,
+          706,
+          737,
+          770,
+          839,
+          957,
+          1077,
+          1114,
+          1115,
+          1139,
+          1143,
+          1147,
+          1166,
+          1195,
+          1234,
+          1235,
+          1236,
+          1237,
+          1238,
+          1239,
+          1240,
+          1241,
+          1242,
+          1243,
+          1244,
+          1245,
+          1246,
+          1247,
+          1248,
+          1249,
+          1250,
+          1251,
+          1252,
+          1253,
+          1254,
+          1255,
+          1256,
+          1257,
+          1258,
+          1259,
+          1260,
+          1261,
+          1262,
+          1263,
+          1264,
+          1265,
+          1266,
+          1267
+        ],
+        "source_covered_fraction": "1194/1243",
+        "source_covered_rom_ids": 1243,
+        "source_out_of_domain_ids": [],
+        "source_uncovered_rom_ids": [
+          252,
+          253,
+          254,
+          255,
+          256,
+          257,
+          258,
+          259,
+          260,
+          261,
+          262,
+          263,
+          264,
+          265,
+          266,
+          267,
+          268,
+          269,
+          270,
+          271,
+          272,
+          273,
+          274,
+          275,
+          276,
+          1268,
+          1269,
+          1270,
+          1271,
+          1272,
+          1273,
+          1274,
+          1275,
+          1276,
+          1277,
+          1278,
+          1279,
+          1280,
+          1281,
+          1282,
+          1283,
+          1284,
+          1285,
+          1286,
+          1287,
+          1288,
+          1289,
+          1290,
+          1291,
+          1292,
+          1293
+        ],
+        "status": "OBSERVED"
+      }
+    }
+  },
+  "status": "VERIFIED",
+  "table": {
+    "accessor_upper_bound": "NONE; inspector enforces internal IDs 0..1293",
+    "bytes": 2586,
+    "count_proof": "Inverse search at 0x0965bb34 uses same pointer and exclusive bound 1294",
+    "encoding": "little-endian u16",
+    "end_file_offset_exclusive": "0x01a42a06",
+    "file_offset": "0x01a41fec",
+    "index": "species - 1; species 0 returns 0 without read",
+    "logical_species_count": 1294,
+    "physical_entries": 1293,
+    "rom_address": "0x09a41fec",
+    "sha256": "412e36320450f467b0f25208f82e6e3bee89b0590ad98a0a7247b6d4da9b3d9b",
+    "status": "VERIFIED",
+    "stride": 2
+  },
+  "task_id": "unbound-species"
+}

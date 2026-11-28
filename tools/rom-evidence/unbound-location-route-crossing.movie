@@ -1,0 +1,137 @@
+# Unbound exact-candidate map-connection crossing route (owner Thor battery copy; never saves).
+# Masks: A=256 B=1 Start=8 Up=16 Down=32 Left=64 Right=128. mash = 1 pressed frame + 90 released.
+# Same boot/Continue prefix and exit warp as unbound-location-grotto-warp.movie, then:
+#  1. A on the water south of the arrival tile starts Surf (no prompt in this ROM); surf south and
+#     west around the enclosed clearing, land on the plaza island of the same map (3, 6).
+#  2. Walk north-west to the cave entrance at (10, 7); it is an arrow warp (walk onto it, then press
+#     Up again) into map group 56 (the only group >= 36 reached): observed, then `restore`.
+#  3. Start menu (icon bar, cursor defaults to the second icon; the first Right press after the menu
+#     opens is ignored) -> Pokemon list -> first slot -> Fly (field move offered without an HM) ->
+#     region map cursor Left x3, Down x2 -> A. Fly lands in city (3, 105) at (14, 10).
+#  4. Hold Left along row 10: tile x=0 is still (3, 105); the step onto x=-1 crosses the west map
+#     connection into (3, 104), where pos is rebased by that map's width (118).
+# Run/walk speed in these outdoor maps is 8 frames per tile (auto-run); the grotto is 16.
+run 600
+run 600
+mash 1 8
+run 200
+mash 1 256
+run 300
+observe start_map
+run 80 32
+observe walk_south_80
+run 16 32
+observe walk_south_96
+run 8
+observe warp_8
+run 24
+observe warp_32
+run 32
+observe warp_64
+run 64
+observe outside
+run 16 32
+run 8
+observe step_south
+mash 1 256
+observe surf_start
+run 200 32
+observe surf_s1
+run 8 64
+run 8
+observe surf_w1
+run 60 32
+observe surf_s2
+run 220 64
+observe land_w
+run 48 16
+run 8
+observe isl_n1
+run 112 64
+run 8
+observe isl_w1
+run 180 16
+observe isl_n2
+run 8 32
+run 8
+observe isl_s2
+run 32 64
+run 8
+observe isl_w2
+run 120 16
+observe isl_nw
+save
+run 8 32
+run 8
+run 24 64
+run 8
+observe cave_door
+run 16 16
+run 8
+observe cave_on_tile
+run 16 16
+run 8
+observe cave_8
+run 24
+observe cave_32
+run 32
+observe cave_64
+run 60
+observe cave_124
+restore
+mash 1 8
+run 60
+run 8 128
+run 30
+run 8 128
+run 30
+mash 1 256
+run 30
+mash 1 256
+run 8 32
+run 20
+run 8 32
+run 20
+mash 1 256
+run 60
+observe fly_map
+run 8 64
+run 20
+run 8 64
+run 20
+run 8 64
+run 20
+run 8 32
+run 20
+run 8 32
+run 20
+run 8 256
+run 200
+observe fly_landing_200
+run 200
+observe fly_landing_400
+run 96 64
+run 8
+observe west_x3
+run 8 64
+run 8
+observe west_x2
+run 8 64
+run 8
+observe west_x1
+run 8 64
+run 8
+observe edge_x0
+run 8 64
+observe cross_step_8
+run 8
+observe cross_step_16
+run 16
+observe cross_step_32
+run 32
+observe cross_step_64
+run 56
+observe cross_step_120
+run 16 64
+run 8
+observe neighbour_walk

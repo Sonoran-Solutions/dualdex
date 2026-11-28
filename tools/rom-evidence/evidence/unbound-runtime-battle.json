@@ -1,0 +1,3194 @@
+{
+  "addresses": {
+    "gActiveBattler": "0x2023bc4",
+    "gBattleMons": "0x2023be4",
+    "gBattleOutcome": "0x2023e8a",
+    "gBattleTypeFlags": "0x2022b4c",
+    "gBattlerPartyIndexes": "0x2023bce",
+    "gBattlerPositions": "0x2023bd6",
+    "gBattlersCount": "0x2023bcc",
+    "gEnemyParty": "0x202402c",
+    "gEnemyPartyCount": "0x202402a",
+    "sLearningMoveTableID": "0x2024028"
+  },
+  "inputs": {
+    "adapter_binary_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+    "adapter_source_revision": "37eec9cba83f68115d8bd4d01c96bfaf51c8a682",
+    "battery_sha256": "a561cab2c9f4ecd32997d34a6f6b82ca592ec71f28d8713a16c9950e797e5236",
+    "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+    "helper_sha256": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+    "identity_helper_sha256": "51a303b7b3e7ad07c8099e37a290912722529bb759cb421441f175c59521accc",
+    "movie_sha256": "607d75f9d00e9b66e1ee0d033390841941879ad526d62466b26ffdd6143b2a12",
+    "observer_sha256": "9f0f1803f45d0ff6d6bbbe7892d4e5918601d8c5342669a8a2a4b5250480c189",
+    "private_report_sha256": "48885addc93f1e1df087b63f1548b2071f2d6f426e46572d8024c80c10c7d707",
+    "rom_sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+  },
+  "player_party_species_words": [
+    130,
+    230,
+    186,
+    1002,
+    1035,
+    942
+  ],
+  "regression_of_attempt3_route": {
+    "attempt3_observer_sha256": "0c57a1bdc98666a808228c8b708cae04b686a4acf0d1e0c50a1745614b9c474a",
+    "current_observer_sha256": "9f0f1803f45d0ff6d6bbbe7892d4e5918601d8c5342669a8a2a4b5250480c189",
+    "movie": "unbound-continue-summary.movie",
+    "observations": 26,
+    "party_save_copy_rows_identical_to_attempt3": true,
+    "private_report_sha256": "bc39e3f308d6a48733d71fcf90a8aa59e0614f059a7e06039b7d7b8c2fc9633f"
+  },
+  "release_label": "NOT_VERIFIED (owner claim v2.1.1.1)",
+  "schema_version": 1,
+  "scope": "One wild single battle (Jellicent Lv58, on water south of Hidden Grotto) from a private copy of the Thor battery; pinned host core; no in-game save.",
+  "static": {
+    "battle_spans": [
+      {
+        "end_exclusive": "0x8040cc4",
+        "finding": "Byte count at 0202402a cleared/incremented; 0..5 loop indexes 0202402c by 100 bytes.",
+        "sha256": "96aaea0697f47d8ab3a387fb59e91bc4646ef14d10dc70e92d85b804cda04a71",
+        "start": "0x8040c80"
+      }
+    ],
+    "literal_references": {
+      "gActiveBattler": {
+        "address": "0x2023bc4",
+        "first_access": {
+          "ldrb": 1121,
+          "str": 1,
+          "strb": 276
+        },
+        "nearby_stride_constants": {
+          "0x58": 114,
+          "0x64": 187
+        },
+        "pc_literal_loads": 1439
+      },
+      "gBattleMons": {
+        "address": "0x2023be4",
+        "first_access": {
+          "ldr": 65,
+          "ldrb": 257,
+          "ldrh": 342,
+          "ldrsb": 10,
+          "str": 9,
+          "strb": 8,
+          "strh": 4
+        },
+        "nearby_stride_constants": {
+          "0x58": 1725,
+          "0x64": 20
+        },
+        "pc_literal_loads": 1856
+      },
+      "gBattleOutcome": {
+        "address": "0x2023e8a",
+        "first_access": {
+          "ldrb": 42,
+          "strb": 9
+        },
+        "nearby_stride_constants": {
+          "0x58": 0,
+          "0x64": 1
+        },
+        "pc_literal_loads": 58
+      },
+      "gBattleTypeFlags": {
+        "address": "0x2022b4c",
+        "first_access": {
+          "ldr": 873,
+          "ldrb": 4,
+          "str": 34
+        },
+        "nearby_stride_constants": {
+          "0x58": 137,
+          "0x64": 11
+        },
+        "pc_literal_loads": 936
+      },
+      "gBattlerPartyIndexes": {
+        "address": "0x2023bce",
+        "first_access": {
+          "ldr": 4,
+          "ldrb": 7,
+          "ldrh": 48,
+          "strh": 3
+        },
+        "nearby_stride_constants": {
+          "0x58": 5,
+          "0x64": 214
+        },
+        "pc_literal_loads": 448
+      },
+      "gBattlerPositions": {
+        "address": "0x2023bd6",
+        "first_access": {
+          "ldrb": 13,
+          "strb": 9
+        },
+        "nearby_stride_constants": {
+          "0x58": 0,
+          "0x64": 0
+        },
+        "pc_literal_loads": 32
+      },
+      "gBattlersCount": {
+        "address": "0x2023bcc",
+        "first_access": {
+          "ldrb": 360,
+          "strb": 4
+        },
+        "nearby_stride_constants": {
+          "0x58": 39,
+          "0x64": 3
+        },
+        "pc_literal_loads": 402
+      },
+      "gEnemyParty": {
+        "address": "0x202402c",
+        "first_access": {
+          "ldr": 4,
+          "ldrb": 8,
+          "ldrh": 3,
+          "str": 3,
+          "strb": 6
+        },
+        "nearby_stride_constants": {
+          "0x58": 6,
+          "0x64": 479
+        },
+        "pc_literal_loads": 551
+      },
+      "gEnemyPartyCount": {
+        "address": "0x202402a",
+        "first_access": {
+          "ldrb": 2,
+          "strb": 1
+        },
+        "nearby_stride_constants": {
+          "0x58": 0,
+          "0x64": 0
+        },
+        "pc_literal_loads": 3
+      },
+      "sLearningMoveTableID": {
+        "address": "0x2024028",
+        "first_access": {
+          "ldrb": 2,
+          "strb": 2
+        },
+        "nearby_stride_constants": {
+          "0x58": 0,
+          "0x64": 0
+        },
+        "pc_literal_loads": 4
+      }
+    },
+    "literal_references_method": "Thumb ldr-pc literal loads per aligned literal word; first rd load/store width within 6 instructions; movs #0x58/#0x64 within +-16 bytes (unbound_observe.literal_references, exact ROM)",
+    "public_cfru_names": {
+      "0x2024028": "sLearningMoveTableID (commented in ram_locs.h)",
+      "0x202402a": "gEnemyPartyCount (ram_locs.h)"
+    },
+    "public_cfru_pin": "b637a27898b14e25dd24d0f69a3e302f0069deb8 BPRE.ld and include/new/ram_locs.h (approximate source)",
+    "status": "VERIFIED"
+  },
+  "status": "OBSERVED",
+  "support_verdict": "NONE",
+  "task": "unbound-battle (#60 section C)",
+  "timeline": [
+    {
+      "battlers": [],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "e782bfe3ee232868110c3130b411330f3cc44261563ee6292b21b6c4f6c18089",
+      "enemy_records": [],
+      "frame": 1882,
+      "gActiveBattler": 0,
+      "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+      "gBattleTypeFlags": "0x0",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlersCount": 0,
+      "label": "grotto_overworld",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+      "rgb565_sha256": "d8a71e29ccb42319f740a30e7b0ffba07c6a6f7304aac5c91ba0289b919cda5b",
+      "ui_transcription": "Hidden Grotto overworld; no battle UI."
+    },
+    {
+      "battlers": [],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "e782bfe3ee232868110c3130b411330f3cc44261563ee6292b21b6c4f6c18089",
+      "enemy_records": [],
+      "frame": 2106,
+      "gActiveBattler": 0,
+      "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+      "gBattleTypeFlags": "0x0",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlersCount": 0,
+      "label": "outside_grotto",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+      "rgb565_sha256": "62683ff5c0be39c3b7b820ef45e01855a39fc7c132d1d2be7a95d37f48baa6e2",
+      "ui_transcription": "Overworld outside the grotto; location banner \"Cube Corp.\"."
+    },
+    {
+      "battlers": [],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "e782bfe3ee232868110c3130b411330f3cc44261563ee6292b21b6c4f6c18089",
+      "enemy_records": [],
+      "frame": 2718,
+      "gActiveBattler": 0,
+      "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+      "gBattleTypeFlags": "0x0",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlersCount": 0,
+      "label": "pre_battle_overworld",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+      "rgb565_sha256": "e8ecb49f7b78bce06ad70535bf7ac739b317e5a4ded3848c965b7ebe3f136bfd",
+      "ui_transcription": "Player on water below the shore; no battle UI."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 22,
+          "battler": 0,
+          "byte_18": 6,
+          "hp_word": 195,
+          "item_word": 457,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 332,
+          "moves_words": [
+            127,
+            349,
+            242,
+            182
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            10,
+            20,
+            15,
+            10
+          ],
+          "side": "player",
+          "species_word": 130,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 349,
+            "defense": 194,
+            "sp_attack": 140,
+            "sp_defense": 236,
+            "speed": 287
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            2
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 6,
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "189a731f2e9b10ae06ee6ad9d4cdc47d1bd246ae4698098e51ffb628f6ffe38f",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 201,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              5,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x618e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc58a"
+        }
+      ],
+      "frame": 5212,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "dbdbb2d150ae2a375d61945b8631135df263de01e11f9669f0aa86933996a37c",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "battle_start",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "d9b3aeb2a8bbe39ec1623ee1dc437a7898d96d1af6d174e3292408caad6c76ca",
+      "rgb565_sha256": "a5f47eb14f2a39b83b60bfcff6e8bd9a33ba67f35059302c40d13cb27b5f617d",
+      "ui_transcription": "Battle transition wipe; no healthboxes yet."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 22,
+          "battler": 0,
+          "byte_18": 6,
+          "hp_word": 195,
+          "item_word": 457,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 332,
+          "moves_words": [
+            127,
+            349,
+            242,
+            182
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            10,
+            20,
+            15,
+            10
+          ],
+          "side": "player",
+          "species_word": 130,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 349,
+            "defense": 194,
+            "sp_attack": 140,
+            "sp_defense": 236,
+            "speed": 287
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            2
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 6,
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "189a731f2e9b10ae06ee6ad9d4cdc47d1bd246ae4698098e51ffb628f6ffe38f",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 201,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              5,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x618e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc58a"
+        }
+      ],
+      "frame": 5812,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "dbdbb2d150ae2a375d61945b8631135df263de01e11f9669f0aa86933996a37c",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "wild_appeared",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "d9b3aeb2a8bbe39ec1623ee1dc437a7898d96d1af6d174e3292408caad6c76ca",
+      "rgb565_sha256": "0d8f4a0cd9b9787d5248ca2aac0b3120db3bfe2d927ab891a8370dd2c1d42767",
+      "ui_transcription": "\"A wild Jellicent appeared!\"; enemy box Jellicent (male) Lv58, HP bar full, green."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 22,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 195,
+          "item_word": 457,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 332,
+          "moves_words": [
+            127,
+            349,
+            242,
+            182
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            10,
+            20,
+            15,
+            10
+          ],
+          "side": "player",
+          "species_word": 130,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 349,
+            "defense": 194,
+            "sp_attack": 140,
+            "sp_defense": 236,
+            "speed": 287
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            2
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "189a731f2e9b10ae06ee6ad9d4cdc47d1bd246ae4698098e51ffb628f6ffe38f",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 201,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              5,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x618e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc58a"
+        }
+      ],
+      "frame": 6203,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "feefa4afec5e48da77049bcb07617954b57e8c5e6c8b214fc69a75b3eaffc975",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "intimidate",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "d9b3aeb2a8bbe39ec1623ee1dc437a7898d96d1af6d174e3292408caad6c76ca",
+      "rgb565_sha256": "28d1f5ee2abbdcd18c60fb3b7b4f36585125c2f3549a151c276f3e60ea5ce061",
+      "ui_transcription": "Player box Gary Lv100 HP 195/332; ability banner \"Gary's Intimidate\"; Jellicent Lv58, full bar."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 22,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 195,
+          "item_word": 457,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 332,
+          "moves_words": [
+            127,
+            349,
+            242,
+            182
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            10,
+            20,
+            15,
+            10
+          ],
+          "side": "player",
+          "species_word": 130,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 349,
+            "defense": 194,
+            "sp_attack": 140,
+            "sp_defense": 236,
+            "speed": 287
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            2
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "189a731f2e9b10ae06ee6ad9d4cdc47d1bd246ae4698098e51ffb628f6ffe38f",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 201,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              5,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x618e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc58a"
+        }
+      ],
+      "frame": 6603,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "feefa4afec5e48da77049bcb07617954b57e8c5e6c8b214fc69a75b3eaffc975",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "first_turn_menu",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "d9b3aeb2a8bbe39ec1623ee1dc437a7898d96d1af6d174e3292408caad6c76ca",
+      "rgb565_sha256": "42f825c4066f76be7b6860fd99bb99324a1ad75f2f5d7ed8d5acab68a2384108",
+      "ui_transcription": "\"What will Gary do?\"; Fight / Cube / Pokemon / Run; Gary Lv100 195/332; Jellicent bar 48/48 px green."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 22,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 195,
+          "item_word": 457,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 332,
+          "moves_words": [
+            127,
+            349,
+            242,
+            182
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            10,
+            20,
+            15,
+            10
+          ],
+          "side": "player",
+          "species_word": 130,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 349,
+            "defense": 194,
+            "sp_attack": 140,
+            "sp_defense": 236,
+            "speed": 287
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            2
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "189a731f2e9b10ae06ee6ad9d4cdc47d1bd246ae4698098e51ffb628f6ffe38f",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 201,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 201,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              5,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x618e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc58a"
+        }
+      ],
+      "frame": 6724,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "feefa4afec5e48da77049bcb07617954b57e8c5e6c8b214fc69a75b3eaffc975",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "move_menu",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "d9b3aeb2a8bbe39ec1623ee1dc437a7898d96d1af6d174e3292408caad6c76ca",
+      "rgb565_sha256": "aeb80f38f58bfe07516926c8bfb12019fde11019c0dda24110ac784b1ce99d35",
+      "ui_transcription": "Waterfall / Dragon Dance / Crunch / Protect; WATER, PP 10/15."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 22,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 195,
+          "item_word": 457,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 332,
+          "moves_words": [
+            127,
+            349,
+            242,
+            182
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            9,
+            20,
+            15,
+            10
+          ],
+          "side": "player",
+          "species_word": 130,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 349,
+            "defense": 194,
+            "sp_attack": 140,
+            "sp_defense": 236,
+            "speed": 287
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            2
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "dcb153e1042cd006379ab67f3828641ae924581c9aef9c64ad53af16e51d091b",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 48,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              5,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x618e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc58a"
+        }
+      ],
+      "frame": 8015,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "b7dd4d5b215c4227e6b22a329b7d224d2b9dd4035f5ae9d1ab4b2d45b55e4cd2",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "after_move",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "4a771ef51690e68b9bf9045e64c99ce5536cf248195e00943ccf0df8633fa6fc",
+      "rgb565_sha256": "a01857c7e6048865c07af1a308e77761648fa7a89b73a5fd2cc81d24c8e1cd68",
+      "ui_transcription": "\"What will Gary do?\"; Gary 195/332; Jellicent bar 11/48 px yellow (48/201 HP -> 11.5 px)."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 22,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 195,
+          "item_word": 457,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 332,
+          "moves_words": [
+            127,
+            349,
+            242,
+            182
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            9,
+            20,
+            15,
+            10
+          ],
+          "side": "player",
+          "species_word": 130,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 349,
+            "defense": 194,
+            "sp_attack": 140,
+            "sp_defense": 236,
+            "speed": 287
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            2
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "dcb153e1042cd006379ab67f3828641ae924581c9aef9c64ad53af16e51d091b",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 48,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              5,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x618e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc58a"
+        }
+      ],
+      "frame": 8378,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "b7dd4d5b215c4227e6b22a329b7d224d2b9dd4035f5ae9d1ab4b2d45b55e4cd2",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "switch_party_menu",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "4a771ef51690e68b9bf9045e64c99ce5536cf248195e00943ccf0df8633fa6fc",
+      "rgb565_sha256": "35b83b05b1f14eb959078c00b612d3b486262d99d5c7eded78962531868d9299",
+      "ui_transcription": "Party menu: Gary Lv100 195/332, Reyna Lv100 291/291, Toady Lv100 177/384 (cursor), Trippy Lv70 199/199, Frank Lv100 389/389, Litten Lv45 104/104."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 22,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 195,
+          "item_word": 457,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 332,
+          "moves_words": [
+            127,
+            349,
+            242,
+            182
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            9,
+            20,
+            15,
+            10
+          ],
+          "side": "player",
+          "species_word": 130,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 349,
+            "defense": 194,
+            "sp_attack": 140,
+            "sp_defense": 236,
+            "speed": 287
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            2
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "dcb153e1042cd006379ab67f3828641ae924581c9aef9c64ad53af16e51d091b",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            5,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 48,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              5,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x618e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc58a"
+        }
+      ],
+      "frame": 8499,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "b7dd4d5b215c4227e6b22a329b7d224d2b9dd4035f5ae9d1ab4b2d45b55e4cd2",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "shift_submenu",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "4a771ef51690e68b9bf9045e64c99ce5536cf248195e00943ccf0df8633fa6fc",
+      "rgb565_sha256": "aec9205e20cd3d33ceedbff071b772267b0cd7e9d15ce6547df56fc90014e542",
+      "ui_transcription": "Toady submenu: Shift / Summary / Cancel."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 2,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 177,
+          "item_word": 241,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 384,
+          "moves_words": [
+            459,
+            227,
+            196,
+            270
+          ],
+          "party_index": 2,
+          "pp_bytes": [
+            14,
+            5,
+            13,
+            20
+          ],
+          "side": "player",
+          "species_word": 186,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 167,
+            "defense": 273,
+            "sp_attack": 216,
+            "sp_defense": 236,
+            "speed": 176
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            11
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x2000000",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "11bb0ca2c247f500aff855ba5cc1ab761c3705c9c787979468937aefbc2ab97e",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 48,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              4,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x608e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc68a"
+        }
+      ],
+      "frame": 10090,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "8ae660285186bca70cd1b3d6508040b725c51bb1307584527e808c23a49e0e99",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        2,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "after_switch",
+      "outcome": 0,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "4a771ef51690e68b9bf9045e64c99ce5536cf248195e00943ccf0df8633fa6fc",
+      "rgb565_sha256": "f4482f98c4cc417ad8495dfde1cdbf2164b0518bb5ba4ec0364d112e0e61ffcc",
+      "ui_transcription": "\"What will Toady do?\"; Toady Lv100 177/384; Jellicent bar 11/48 px yellow."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 2,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 177,
+          "item_word": 241,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 384,
+          "moves_words": [
+            459,
+            227,
+            196,
+            270
+          ],
+          "party_index": 2,
+          "pp_bytes": [
+            14,
+            5,
+            13,
+            20
+          ],
+          "side": "player",
+          "species_word": 186,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 167,
+            "defense": 273,
+            "sp_attack": 216,
+            "sp_defense": 236,
+            "speed": 176
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            11
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x2000000",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "11bb0ca2c247f500aff855ba5cc1ab761c3705c9c787979468937aefbc2ab97e",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 48,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              4,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x608e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc68a"
+        }
+      ],
+      "frame": 10963,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "8ae660285186bca70cd1b3d6508040b725c51bb1307584527e808c23a49e0e99",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        2,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "got_away",
+      "outcome": 4,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "4a771ef51690e68b9bf9045e64c99ce5536cf248195e00943ccf0df8633fa6fc",
+      "rgb565_sha256": "79ae43349f262e45e3b9fa7796954ced4ae65c64a142a1999c549a348cbfde02",
+      "ui_transcription": "\"Got away safely!\"; Toady 177/384 still drawn."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 2,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 177,
+          "item_word": 241,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 384,
+          "moves_words": [
+            459,
+            227,
+            196,
+            270
+          ],
+          "party_index": 2,
+          "pp_bytes": [
+            14,
+            5,
+            13,
+            20
+          ],
+          "side": "player",
+          "species_word": 186,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 167,
+            "defense": 273,
+            "sp_attack": 216,
+            "sp_defense": 236,
+            "speed": 176
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            11
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x2000000",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "11bb0ca2c247f500aff855ba5cc1ab761c3705c9c787979468937aefbc2ab97e",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 48,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              4,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x608e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc68a"
+        }
+      ],
+      "frame": 11454,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "8ae660285186bca70cd1b3d6508040b725c51bb1307584527e808c23a49e0e99",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        2,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "overworld_after_exit",
+      "outcome": 4,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "4a771ef51690e68b9bf9045e64c99ce5536cf248195e00943ccf0df8633fa6fc",
+      "rgb565_sha256": "7ad225cb63bf4ce3fc016425ac8571eaa23dd0b5a24fc31f1d33cc8313bccf28",
+      "ui_transcription": "Overworld on water, same tile as before the battle."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 2,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 177,
+          "item_word": 241,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 384,
+          "moves_words": [
+            459,
+            227,
+            196,
+            270
+          ],
+          "party_index": 2,
+          "pp_bytes": [
+            14,
+            5,
+            13,
+            20
+          ],
+          "side": "player",
+          "species_word": 186,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 167,
+            "defense": 273,
+            "sp_attack": 216,
+            "sp_defense": 236,
+            "speed": 176
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            11
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x2000000",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "11bb0ca2c247f500aff855ba5cc1ab761c3705c9c787979468937aefbc2ab97e",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 48,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              4,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x608e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc68a"
+        }
+      ],
+      "frame": 12054,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "8ae660285186bca70cd1b3d6508040b725c51bb1307584527e808c23a49e0e99",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        2,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "overworld_later",
+      "outcome": 4,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "4a771ef51690e68b9bf9045e64c99ce5536cf248195e00943ccf0df8633fa6fc",
+      "rgb565_sha256": "3cc3862713a7ca0d386252f9bc2372c88488e91cbba5153a32e643ad6bc9825c",
+      "ui_transcription": "Overworld, 600 frames later."
+    },
+    {
+      "battlers": [
+        {
+          "ability_byte": 2,
+          "battler": 0,
+          "byte_18": 20,
+          "hp_word": 177,
+          "item_word": 241,
+          "level_byte": 100,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 384,
+          "moves_words": [
+            459,
+            227,
+            196,
+            270
+          ],
+          "party_index": 2,
+          "pp_bytes": [
+            14,
+            5,
+            13,
+            20
+          ],
+          "side": "player",
+          "species_word": 186,
+          "stat_stage_bytes": [
+            6,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 167,
+            "defense": 273,
+            "sp_attack": 216,
+            "sp_defense": 236,
+            "speed": 176
+          },
+          "status1": "0x0",
+          "status2": "0x0",
+          "type_bytes": [
+            11,
+            11
+          ]
+        },
+        {
+          "ability_byte": 120,
+          "battler": 1,
+          "byte_18": 20,
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "matches_party_record": {
+            "experience": true,
+            "hp": true,
+            "item": true,
+            "level": true,
+            "max_hp": true,
+            "moves": true,
+            "otid": true,
+            "personality": true,
+            "pp": true,
+            "species": true,
+            "stats": true
+          },
+          "max_hp_word": 201,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "party_index": 0,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "side": "enemy",
+          "species_word": 646,
+          "stat_stage_bytes": [
+            5,
+            6,
+            6,
+            6,
+            6,
+            6,
+            6
+          ],
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "status1": "0x0",
+          "status2": "0x2000000",
+          "type_bytes": [
+            11,
+            7
+          ]
+        }
+      ],
+      "enemy_count_bytes": {
+        "0x2024028": 0,
+        "0x202402a": 0
+      },
+      "enemy_party_sha256": "11bb0ca2c247f500aff855ba5cc1ab761c3705c9c787979468937aefbc2ab97e",
+      "enemy_records": [
+        {
+          "checksum_word": "0x0",
+          "hp_word": 48,
+          "item_word": 0,
+          "level_byte": 58,
+          "moves_words": [
+            56,
+            194,
+            247,
+            526
+          ],
+          "pid_mod24": 19,
+          "pid_order_raw_species_word": 56,
+          "pid_order_xor_species_word": 54199,
+          "pp_bytes": [
+            5,
+            4,
+            15,
+            5
+          ],
+          "production": {
+            "accepted": true,
+            "hp": 48,
+            "level": 58,
+            "moves": [
+              56,
+              194,
+              247,
+              526
+            ],
+            "nickname": "Jellicent",
+            "ot_name": "Annie",
+            "pp": [
+              5,
+              4,
+              15,
+              5
+            ],
+            "species": 646,
+            "stats": {
+              "attack": 89,
+              "defense": 98,
+              "max_hp": 201,
+              "sp_attack": 105,
+              "sp_defense": 141,
+              "speed": 75
+            }
+          },
+          "raw_sum16": "0x608e",
+          "slot": 0,
+          "species_word": 646,
+          "stats_words": {
+            "attack": 89,
+            "defense": 98,
+            "max_hp": 201,
+            "sp_attack": 105,
+            "sp_defense": 141,
+            "speed": 75
+          },
+          "xor_sum16": "0xc68a"
+        }
+      ],
+      "frame": 12538,
+      "gActiveBattler": 2,
+      "gBattleMons_sha256": "8ae660285186bca70cd1b3d6508040b725c51bb1307584527e808c23a49e0e99",
+      "gBattleTypeFlags": "0x4",
+      "gBattlerPartyIndexes": [
+        2,
+        0,
+        0,
+        0
+      ],
+      "gBattlerPositions": [
+        0,
+        1,
+        255,
+        255
+      ],
+      "gBattlersCount": 2,
+      "label": "party_menu_after",
+      "outcome": 4,
+      "player_checksum_words": [
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0",
+        "0x0"
+      ],
+      "player_count": 6,
+      "player_party_sha256": "4a771ef51690e68b9bf9045e64c99ce5536cf248195e00943ccf0df8633fa6fc",
+      "rgb565_sha256": "c5fe5d276a4ea852053b86980bc793e76b1ac5c577d306cc0910c40a7b38c06f",
+      "ui_transcription": "Party menu after exit: Gary, Reyna, Toady, Trippy, Frank, Litten (order unchanged); Gary 195/332, Toady 177/384."
+    }
+  ]
+}

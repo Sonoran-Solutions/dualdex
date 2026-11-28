@@ -3,6 +3,8 @@ package com.dualdex.pokemon.hns
 import com.dualdex.companion.CompanionViewModel
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.emulator.bindSyntheticRom
+import com.dualdex.emulator.syntheticRomBridge
 import com.dualdex.pokemon.hns.HnsChallengeSettingsSnapshot.Companion.fromNativeArray
 import com.dualdex.romhack.ProfileMatchMethod
 import com.dualdex.romhack.RomCompatibility
@@ -178,7 +180,7 @@ class HnsChallengeSettingsTest {
         reason = "header title matched",
     )
 
-    private class RecordingCoordinator : LibretroCoreCoordinator() {
+    private class RecordingCoordinator : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
         var challengeReads = 0
         var nextSnapshot: HnsChallengeSettingsSnapshot? = null
 
@@ -230,6 +232,7 @@ class HnsChallengeSettingsTest {
             ),
             RomIdentity(exactHash, "H&S 2.0.5")
         )
+        bindSyntheticRom(coordinator, RomIdentity(exactHash, "H&S 2.0.5"))
         vm.pollTick()
 
         assertEquals("the exact-trusted ROM must be read", 1, coordinator.challengeReads)
@@ -253,6 +256,7 @@ class HnsChallengeSettingsTest {
             ),
             RomIdentity(exactHash, "H&S 2.0.5")
         )
+        bindSyntheticRom(coordinator, RomIdentity(exactHash, "H&S 2.0.5"))
         vm.pollTick()
         assertNotNull(vm.challengeSettings.value)
 
@@ -281,6 +285,7 @@ class HnsChallengeSettingsTest {
             ),
             RomIdentity(exactHash, "H&S 2.0.5")
         )
+        bindSyntheticRom(coordinator, RomIdentity(exactHash, "H&S 2.0.5"))
 
         coordinator.nextSnapshot = observedSnapshot(optionStyle = 1, fairy = 1, levelCap = 0)
         vm.pollTick()

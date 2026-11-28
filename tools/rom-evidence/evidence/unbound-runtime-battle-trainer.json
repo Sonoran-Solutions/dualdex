@@ -1,0 +1,5360 @@
+{
+ "battle_addresses": {
+  "gActiveBattler": "0x2023bc4",
+  "gBattleMons": "0x2023be4",
+  "gBattleOutcome": "0x2023e8a",
+  "gBattleTypeFlags": "0x2022b4c",
+  "gBattlerPartyIndexes": "0x2023bce",
+  "gBattlerPositions": "0x2023bd6",
+  "gBattlersCount": "0x2023bcc",
+  "gEnemyParty": "0x202402c",
+  "gEnemyPartyCount": "0x202402a",
+  "sLearningMoveTableID": "0x2024028"
+ },
+ "battle_main_cb2": "0x8011101",
+ "in_battle_bit": {
+  "bit": 1,
+  "byte": "0x3003529"
+ },
+ "inputs": {
+  "adapter_binary_sha256": "d693404bf35c5d075b3f70fc1839a70e3d84a5a47df9301214c893907c5cb361",
+  "adapter_source_revision": "ff51c01d38d650d8917fcd45c8061971ddd8a798",
+  "battle_observer_sha256": "626067deff30ac63070e0da602cebf74e3ba2e29206ae90fcae981cd05b09e99",
+  "bootstrap": "OWNER_BATTERY_COPY",
+  "bootstrap_sha256": "a561cab2c9f4ecd32997d34a6f6b82ca592ec71f28d8713a16c9950e797e5236",
+  "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "helper_sha256": "992be2acc8a92909eba5db1ab4334ad5de1eafe90600702f8ca4069c0d671941",
+  "identity_helper_sha256": "51a303b7b3e7ad07c8099e37a290912722529bb759cb421441f175c59521accc",
+  "movie_sha256": "b8d61539c72dd5c8b11c9264f6f8d16da168df2ef93b4ecc2511a6f63a5a2a8d",
+  "observer_sha256": "32c673bc543ac33b5fac475508f8b50aa82c4ee9024bbb3f97ba99f54eb77260",
+  "private_report_sha256": "934a1daf462d1576f0919881c70e8d16901243cba29e7e1e850c6823f8e65fc6",
+  "rom_sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+ },
+ "lifecycle_addresses": {
+  "gAbsentBattlerFlags": "0x2023d70",
+  "gBattleMainFunc": "0x3004f84",
+  "gMain": "0x30030f0",
+  "gTrainerBattleOpponent_A": "0x20386ae"
+ },
+ "map_group_table": {
+  "address": "0x8b70498",
+  "lookup": "hooked Overworld_GetMapHeaderByGroupAndId 0x8055238 -> 0x9ed15d4",
+  "note": "used only to plan the route; not a reader input",
+  "pointer_xor_key": "0xb749de"
+ },
+ "release_label": "NOT_VERIFIED (owner claim v2.1.1.1)",
+ "repeat_run": {
+  "battle_party_lifecycle_identical": true,
+  "observations": 27,
+  "private_report_sha256": "934a1daf462d1576f0919881c70e8d16901243cba29e7e1e850c6823f8e65fc6",
+  "screen_hash_differences": []
+ },
+ "schema_version": 1,
+ "scope": "One two-opponent trainer DOUBLE battle (gTrainerBattleOpponent_A 341) in the cave behind map 3.6 warp (10,7), from a private copy of the owner battery save: send-out, Intimidate, two enemy faints, two replacements, a player Shift (party slot 3 into battler 0), win, overworld. Single-opponent trainer battle, player faint/forced replacement, wild double: NOT_RUN.",
+ "source_pins": {
+  "cfru": "b637a27898b14e25dd24d0f69a3e302f0069deb8",
+  "references": ["include/constants/battle.h BATTLE_TYPE_*", "BPRE.ld gBattleTypeFlags gBattlerPartyIndexes gBattlerPositions gAbsentBattlerFlags gBattleMainFunc gMain BattleMainCB2", "include/new/ram_locs_battle.h gTrainerBattleOpponent_A", "include/main.h struct Main inBattle (0x439 bit 1)", "src/battle_util.c LoadPartyRange", "src/wild_encounter.c FLAG_DOUBLE_WILD_BATTLE / TILE_FLAG_WILD_DOUBLE", "src/overworld.c trainer flags FLAG_TRAINER_FLAG_START + id"]
+ },
+ "static": {
+  "battle_literal_references": {
+   "gActiveBattler": {
+    "address": "0x2023bc4",
+    "first_access": {
+     "ldrb": 1121,
+     "str": 1,
+     "strb": 276
+    },
+    "nearby_stride_constants": {
+     "0x58": 114,
+     "0x64": 187
+    },
+    "pc_literal_loads": 1439
+   },
+   "gBattleMons": {
+    "address": "0x2023be4",
+    "first_access": {
+     "ldr": 65,
+     "ldrb": 257,
+     "ldrh": 342,
+     "ldrsb": 10,
+     "str": 9,
+     "strb": 8,
+     "strh": 4
+    },
+    "nearby_stride_constants": {
+     "0x58": 1725,
+     "0x64": 20
+    },
+    "pc_literal_loads": 1856
+   },
+   "gBattleOutcome": {
+    "address": "0x2023e8a",
+    "first_access": {
+     "ldrb": 42,
+     "strb": 9
+    },
+    "nearby_stride_constants": {
+     "0x58": 0,
+     "0x64": 1
+    },
+    "pc_literal_loads": 58
+   },
+   "gBattleTypeFlags": {
+    "address": "0x2022b4c",
+    "first_access": {
+     "ldr": 873,
+     "ldrb": 4,
+     "str": 34
+    },
+    "nearby_stride_constants": {
+     "0x58": 137,
+     "0x64": 11
+    },
+    "pc_literal_loads": 936
+   },
+   "gBattlerPartyIndexes": {
+    "address": "0x2023bce",
+    "first_access": {
+     "ldr": 4,
+     "ldrb": 7,
+     "ldrh": 48,
+     "strh": 3
+    },
+    "nearby_stride_constants": {
+     "0x58": 5,
+     "0x64": 214
+    },
+    "pc_literal_loads": 448
+   },
+   "gBattlerPositions": {
+    "address": "0x2023bd6",
+    "first_access": {
+     "ldrb": 13,
+     "strb": 9
+    },
+    "nearby_stride_constants": {
+     "0x58": 0,
+     "0x64": 0
+    },
+    "pc_literal_loads": 32
+   },
+   "gBattlersCount": {
+    "address": "0x2023bcc",
+    "first_access": {
+     "ldrb": 360,
+     "strb": 4
+    },
+    "nearby_stride_constants": {
+     "0x58": 39,
+     "0x64": 3
+    },
+    "pc_literal_loads": 402
+   },
+   "gEnemyParty": {
+    "address": "0x202402c",
+    "first_access": {
+     "ldr": 4,
+     "ldrb": 8,
+     "ldrh": 3,
+     "str": 3,
+     "strb": 6
+    },
+    "nearby_stride_constants": {
+     "0x58": 6,
+     "0x64": 479
+    },
+    "pc_literal_loads": 551
+   },
+   "gEnemyPartyCount": {
+    "address": "0x202402a",
+    "first_access": {
+     "ldrb": 2,
+     "strb": 1
+    },
+    "nearby_stride_constants": {
+     "0x58": 0,
+     "0x64": 0
+    },
+    "pc_literal_loads": 3
+   },
+   "sLearningMoveTableID": {
+    "address": "0x2024028",
+    "first_access": {
+     "ldrb": 2,
+     "strb": 2
+    },
+    "nearby_stride_constants": {
+     "0x58": 0,
+     "0x64": 0
+    },
+    "pc_literal_loads": 4
+   }
+  },
+  "battle_spans": [
+   {
+    "end_exclusive": "0x8040cc4",
+    "finding": "Byte count at 0202402a cleared/incremented; 0..5 loop indexes 0202402c by 100 bytes.",
+    "sha256": "96aaea0697f47d8ab3a387fb59e91bc4646ef14d10dc70e92d85b804cda04a71",
+    "start": "0x8040c80"
+   }
+  ],
+  "lifecycle_literal_references": {
+   "BattleMainCB2": {
+    "address": "0x8011101",
+    "first_access": {
+     "ldrb": 8
+    },
+    "nearby_stride_constants": {
+     "0x58": 0,
+     "0x64": 1
+    },
+    "pc_literal_loads": 18
+   },
+   "gAbsentBattlerFlags": {
+    "address": "0x2023d70",
+    "first_access": {
+     "ldrb": 131,
+     "strb": 3
+    },
+    "nearby_stride_constants": {
+     "0x58": 11,
+     "0x64": 0
+    },
+    "pc_literal_loads": 140
+   },
+   "gBattleMainFunc": {
+    "address": "0x3004f84",
+    "first_access": {
+     "ldr": 4,
+     "str": 48
+    },
+    "nearby_stride_constants": {
+     "0x58": 0,
+     "0x64": 0
+    },
+    "pc_literal_loads": 62
+   },
+   "gMain": {
+    "address": "0x30030f0",
+    "first_access": {
+     "ldr": 56,
+     "ldrb": 136,
+     "ldrh": 358,
+     "str": 63,
+     "strb": 33,
+     "strh": 9
+    },
+    "nearby_stride_constants": {
+     "0x58": 0,
+     "0x64": 4
+    },
+    "pc_literal_loads": 756
+   },
+   "gTrainerBattleOpponent_A": {
+    "address": "0x20386ae",
+    "first_access": {
+     "ldrh": 76,
+     "strh": 8
+    },
+    "nearby_stride_constants": {
+     "0x58": 0,
+     "0x64": 0
+    },
+    "pc_literal_loads": 84
+   }
+  }
+ },
+ "status": "OBSERVED",
+ "support_verdict": "NONE",
+ "task": "E2 unbound battle trainer/double/faint/switch (#60 section C follow-up)",
+ "timeline": [
+  {
+   "battler_map": [],
+   "battlers": [],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "e782bfe3ee232868110c3130b411330f3cc44261563ee6292b21b6c4f6c18089",
+   "enemy_records": [],
+   "frame": 1882,
+   "gActiveBattler": 0,
+   "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x0",
+   "gBattlerPartyIndexes": [0, 0, 0, 0],
+   "gBattlerPositions": [0, 0, 0, 0],
+   "gBattlersCount": 0,
+   "label": "grotto_overworld",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 0,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134571317,
+    "main_callback2": 134571445,
+    "main_in_battle": 0,
+    "trainer_opponent_a": 0
+   },
+   "player_count": 6,
+   "player_party_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+   "rgb565_sha256": "6191ef65c082029e485a462bffde17fa42c9b0367219935aba893745ad85836f",
+   "type_flag_names": []
+  },
+  {
+   "battler_map": [],
+   "battlers": [],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "e782bfe3ee232868110c3130b411330f3cc44261563ee6292b21b6c4f6c18089",
+   "enemy_records": [],
+   "frame": 2106,
+   "gActiveBattler": 0,
+   "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x0",
+   "gBattlerPartyIndexes": [0, 0, 0, 0],
+   "gBattlerPositions": [0, 0, 0, 0],
+   "gBattlersCount": 0,
+   "label": "outside_grotto",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 0,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134571317,
+    "main_callback2": 134571445,
+    "main_in_battle": 0,
+    "trainer_opponent_a": 0
+   },
+   "player_count": 6,
+   "player_party_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+   "rgb565_sha256": "15742d1c0b9fe89a713e79a7c94e35c5ebbaa4281eda339d9cc7ceabf15066b2",
+   "type_flag_names": []
+  },
+  {
+   "battler_map": [],
+   "battlers": [],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "e782bfe3ee232868110c3130b411330f3cc44261563ee6292b21b6c4f6c18089",
+   "enemy_records": [],
+   "frame": 2718,
+   "gActiveBattler": 0,
+   "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x0",
+   "gBattlerPartyIndexes": [0, 0, 0, 0],
+   "gBattlerPositions": [0, 0, 0, 0],
+   "gBattlersCount": 0,
+   "label": "water_start",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 0,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134571317,
+    "main_callback2": 134571445,
+    "main_in_battle": 0,
+    "trainer_opponent_a": 0
+   },
+   "player_count": 6,
+   "player_party_sha256": "759409856dead02d8b599ffe91370935ef00b9f53144cfd6bde59c402d119148",
+   "rgb565_sha256": "c4482ed2174ecdc1b8b209ddb34c141f242a09e6025fa38b1373c4830df2dc2d",
+   "type_flag_names": []
+  },
+  {
+   "battler_map": [],
+   "battlers": [],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "e782bfe3ee232868110c3130b411330f3cc44261563ee6292b21b6c4f6c18089",
+   "enemy_records": [],
+   "frame": 4232,
+   "gActiveBattler": 0,
+   "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x0",
+   "gBattlerPartyIndexes": [0, 0, 0, 0],
+   "gBattlerPositions": [0, 0, 0, 0],
+   "gBattlersCount": 0,
+   "label": "cave_before_trainers",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 0,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134571317,
+    "main_callback2": 134571445,
+    "main_in_battle": 0,
+    "trainer_opponent_a": 0
+   },
+   "player_count": 6,
+   "player_party_sha256": "b92934154034110d92bf8de9915bc3355543d32e58fc40a03482716c5faa37c7",
+   "rgb565_sha256": "e63bb0e0a6b1cc53a5f8628fdb9233985c33f814a0ac00b44eb5af965733dffc",
+   "type_flag_names": []
+  },
+  {
+   "battler_map": [],
+   "battlers": [],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "e782bfe3ee232868110c3130b411330f3cc44261563ee6292b21b6c4f6c18089",
+   "enemy_records": [],
+   "frame": 4494,
+   "gActiveBattler": 0,
+   "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x0",
+   "gBattlerPartyIndexes": [0, 0, 0, 0],
+   "gBattlerPositions": [0, 0, 0, 0],
+   "gBattlersCount": 0,
+   "label": "trainers_spotted",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 0,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134571317,
+    "main_callback2": 134571445,
+    "main_in_battle": 0,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "b92934154034110d92bf8de9915bc3355543d32e58fc40a03482716c5faa37c7",
+   "rgb565_sha256": "360ba8d45cd05d3fdffd9fd3bd8630459d3e8ed6d11aee22f5d514b2e8065d2d",
+   "type_flag_names": []
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 0,
+     "level": 0,
+     "matches_party_record": {
+      "experience": false,
+      "hp": false,
+      "item": false,
+      "level": false,
+      "max_hp": false,
+      "moves": false,
+      "otid": false,
+      "personality": false,
+      "pp": false,
+      "species": false,
+      "stats": false
+     },
+     "max_hp": 0,
+     "party_index": 0,
+     "pp": [0, 0, 0, 0],
+     "side": "player",
+     "species_word": 0,
+     "stat_stages": [0, 0, 0, 0, 0, 0, 0],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 0,
+     "matches_party_record": {
+      "experience": false,
+      "hp": false,
+      "item": true,
+      "level": false,
+      "max_hp": false,
+      "moves": false,
+      "otid": false,
+      "personality": false,
+      "pp": false,
+      "species": false,
+      "stats": false
+     },
+     "max_hp": 0,
+     "party_index": 0,
+     "pp": [0, 0, 0, 0],
+     "side": "enemy",
+     "species_word": 0,
+     "stat_stages": [0, 0, 0, 0, 0, 0, 0],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 0,
+     "level": 0,
+     "matches_party_record": {
+      "experience": false,
+      "hp": false,
+      "item": false,
+      "level": false,
+      "max_hp": false,
+      "moves": false,
+      "otid": false,
+      "personality": false,
+      "pp": false,
+      "species": false,
+      "stats": false
+     },
+     "max_hp": 0,
+     "party_index": 1,
+     "pp": [0, 0, 0, 0],
+     "side": "player",
+     "species_word": 0,
+     "stat_stages": [0, 0, 0, 0, 0, 0, 0],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 0,
+     "level": 0,
+     "matches_party_record": {
+      "experience": false,
+      "hp": false,
+      "item": true,
+      "level": false,
+      "max_hp": false,
+      "moves": false,
+      "otid": false,
+      "personality": false,
+      "pp": false,
+      "species": false,
+      "stats": false
+     },
+     "max_hp": 0,
+     "party_index": 3,
+     "pp": [0, 0, 0, 0],
+     "side": "enemy",
+     "species_word": 0,
+     "stat_stages": [0, 0, 0, 0, 0, 0, 0],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "911191e729f5adff02510423246593ea46d54fa9005ef797123d4109ef106b9a",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 242,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 240,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 5041,
+   "gActiveBattler": 0,
+   "gBattleMons_sha256": "627f6149015f853f26db2f3dffba1b7c30b3b74b87c5cfb9f346c1616e3636d0",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "battle_start",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134292417,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134571317,
+    "main_callback2": 134284553,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "b92934154034110d92bf8de9915bc3355543d32e58fc40a03482716c5faa37c7",
+   "rgb565_sha256": "e2cc2a1fa6131cf4d86faa3baf78851f35a36853e2467c257b3df9d89e85cce5",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [10, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 242,
+     "level": 95,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 242,
+     "party_index": 0,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 353,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [10, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 240,
+     "level": 94,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 240,
+     "party_index": 3,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 354,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "911191e729f5adff02510423246593ea46d54fa9005ef797123d4109ef106b9a",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 242,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 240,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 5942,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "e4c655150db65b20f85278ec7aaba4b48e55c109d292f1f57db24e456a92814a",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "trainers_sent_out",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134296937,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "b92934154034110d92bf8de9915bc3355543d32e58fc40a03482716c5faa37c7",
+   "rgb565_sha256": "db238237dc2a448b232586beadab22aae97f15659b5751c2a6109967706a88f3",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [10, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 242,
+     "level": 95,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 242,
+     "party_index": 0,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 353,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [10, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 240,
+     "level": 94,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 240,
+     "party_index": 3,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 354,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "911191e729f5adff02510423246593ea46d54fa9005ef797123d4109ef106b9a",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 242,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 240,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 6816,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "0d83957ae5a6f0cd722080691d048ee334c0ad53ac68b0c0b28d116929962cd1",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "intimidate",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134306933,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "b92934154034110d92bf8de9915bc3355543d32e58fc40a03482716c5faa37c7",
+   "rgb565_sha256": "224117824651e3d7c88c2240fa532f4e686acb1d2ab66fa905d97b1eadffcd06",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [10, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 242,
+     "level": 95,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 242,
+     "party_index": 0,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 353,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [10, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 240,
+     "level": 94,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 240,
+     "party_index": 3,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 354,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "911191e729f5adff02510423246593ea46d54fa9005ef797123d4109ef106b9a",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 242,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 240,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 7417,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "4639baa7d8f97ae5abec5ff7e5c78b721aea6435ff024daf1de1023da3f65fd7",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "first_turn_menu",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "b92934154034110d92bf8de9915bc3355543d32e58fc40a03482716c5faa37c7",
+   "rgb565_sha256": "f58b391b369284ac27caa2b846d6a725464313b7a47beb23f161b2dc9fcfbb6d",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [10, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 242,
+     "level": 95,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 242,
+     "party_index": 0,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 353,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [10, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 240,
+     "level": 94,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 240,
+     "party_index": 3,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 354,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "911191e729f5adff02510423246593ea46d54fa9005ef797123d4109ef106b9a",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 242,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 240,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 7751,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "4639baa7d8f97ae5abec5ff7e5c78b721aea6435ff024daf1de1023da3f65fd7",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "second_battler_menu",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "b92934154034110d92bf8de9915bc3355543d32e58fc40a03482716c5faa37c7",
+   "rgb565_sha256": "a6e6d157f3935a8e6b4a4c12fc161070fc3823e9e571eeef5c694dfac782897c",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [9, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 242,
+     "level": 95,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 242,
+     "party_index": 0,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 353,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [10, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 240,
+     "level": 94,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 240,
+     "party_index": 3,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 354,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "911191e729f5adff02510423246593ea46d54fa9005ef797123d4109ef106b9a",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 242,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 240,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 7964,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "a951313d3de0fc026d93b225743c205e1957657dc879cd85f53c8e4f6d5a85eb",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "turn1_running",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134305225,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "3b803fb17af5070c771e9b69408eb9e1233466cba49d6d618a69ad282780889a",
+   "rgb565_sha256": "5236c1e0e1060003445a387def9d5788c4c6d9cdb6e99b3e2116ade9bfc906e5",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [9, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 95,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 242,
+     "party_index": 0,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 353,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [10, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 240,
+     "level": 94,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 240,
+     "party_index": 3,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 354,
+     "stat_stages": [5, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "a414b81252db3d72e864810cc9d7b07093ba76d33fc02a3aa5096d3a1001e3c6",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 240,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 9465,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "e6724eb38f2f37f495a63f7c8e9c25103d49c4b5f24c5a957dea1aa1746358fd",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "first_enemy_fainted",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134305225,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "3b803fb17af5070c771e9b69408eb9e1233466cba49d6d618a69ad282780889a",
+   "rgb565_sha256": "5573a0f578e6e06c297bf7c2d14c6494f2dfea296edda69995100eba28e5de58",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [9, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 95,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 242,
+     "party_index": 0,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 353,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [9, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 0,
+     "level": 94,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 240,
+     "party_index": 3,
+     "pp": [40, 29, 10, 20],
+     "side": "enemy",
+     "species_word": 354,
+     "stat_stages": [5, 6, 8, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "91b80e3796baf696d30492aa9c6eea7f56124eaa8aa7be597bca31fe5ec79d65",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 10457,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "063e7e0ff9eff77b4552224d7c638f9eb1ab7b376454db8ee41ddee550766829",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "second_enemy_fainted",
+   "lifecycle": {
+    "absent_battler_flags": 2,
+    "battle_main_func": 134305225,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "480a50613b5c53c9c0e4effea18226cca0ea9452a737b4f7537c0234935fd6b4",
+   "rgb565_sha256": "7b81f70481e86ea6388b2e10ffbeaec75da426d4d625794497855bf118c65604",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 0,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 3,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [9, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 95,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 242,
+     "party_index": 0,
+     "pp": [40, 30, 10, 20],
+     "side": "enemy",
+     "species_word": 353,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [9, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 0,
+     "level": 94,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 240,
+     "party_index": 3,
+     "pp": [40, 29, 10, 20],
+     "side": "enemy",
+     "species_word": 354,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 0,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "91b80e3796baf696d30492aa9c6eea7f56124eaa8aa7be597bca31fe5ec79d65",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 11422,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "f97bd07dda54a30ca5cb6aa5970305290b4b521cd3a6603da2470447e74f15e0",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 0, 1, 3],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "exp_text",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134306817,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "100bad72aa4c973a5557904e4b72099c82d575ae7ac4a197c9c253e8d7c82a81",
+   "rgb565_sha256": "bb0e83b698f5817a63a0d51603524458948549905d014b51a8e8e349fcf8273c",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 5,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [9, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 276,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [9, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 247,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 247,
+     "party_index": 5,
+     "pp": [20, 30, 15, 10],
+     "side": "enemy",
+     "species_word": 26,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "91b80e3796baf696d30492aa9c6eea7f56124eaa8aa7be597bca31fe5ec79d65",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 12451,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "38db91eeddd3023976ce21906f22072068f62db56bac6ccfab71905ba2ebae0c",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 1, 1, 5],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "replacements_sent",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "cf7ec98fe47286e1cc93c0ab5d187ac76e6145364ddb54cdf4c11e190be0461e",
+   "rgb565_sha256": "531b65acb7e62a23b03a21ee2a592c1de0750ad941c7888bc4d973b69470f90a",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 5,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [9, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 276,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [9, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 247,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 247,
+     "party_index": 5,
+     "pp": [20, 30, 15, 10],
+     "side": "enemy",
+     "species_word": 26,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "91b80e3796baf696d30492aa9c6eea7f56124eaa8aa7be597bca31fe5ec79d65",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 12815,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "38db91eeddd3023976ce21906f22072068f62db56bac6ccfab71905ba2ebae0c",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 1, 1, 5],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "switch_party_menu",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134292453,
+    "main_callback2": 135392161,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "cf7ec98fe47286e1cc93c0ab5d187ac76e6145364ddb54cdf4c11e190be0461e",
+   "rgb565_sha256": "3351b2fe800f91d433782c5d080cfcb5958e82b76fca532d311c02ca4a3f9c2c",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 0,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 5,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 195,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 332,
+     "party_index": 0,
+     "pp": [9, 20, 15, 10],
+     "side": "player",
+     "species_word": 130,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 276,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [9, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 247,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 247,
+     "party_index": 5,
+     "pp": [20, 30, 15, 10],
+     "side": "enemy",
+     "species_word": 26,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "91b80e3796baf696d30492aa9c6eea7f56124eaa8aa7be597bca31fe5ec79d65",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 276,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 13148,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "38db91eeddd3023976ce21906f22072068f62db56bac6ccfab71905ba2ebae0c",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [0, 1, 1, 5],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "after_switch_choice",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "cf7ec98fe47286e1cc93c0ab5d187ac76e6145364ddb54cdf4c11e190be0461e",
+   "rgb565_sha256": "42458320d242297e3e9623dc91a23514c56232fa7b93c5873eef4a42fe66da4b",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 5,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [8, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 247,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 247,
+     "party_index": 5,
+     "pp": [20, 30, 15, 10],
+     "side": "enemy",
+     "species_word": 26,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "c43e6cf0d78cd6d6859cc6494f2ecf7ebd083feb1dc2b96b9cff0e86be93c742",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 247,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 15331,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "fe120b92716ae636415e36ca9b83de55cb3ef0d7e7ac020d941416eb4812cc09",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 5],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "after_switch_turn2",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134305225,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "25dc01dfda6d99dea4ffc6f5f4dd38dfc8b76e3d7314ae21c3af62c86bf102de",
+   "rgb565_sha256": "678db16b333e21f9ab5848fdecfe370feb066654ae9963619e8335d5ccdbe945",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 5,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [8, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 247,
+     "party_index": 5,
+     "pp": [20, 30, 15, 10],
+     "side": "enemy",
+     "species_word": 26,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "a3155985e3aab78e74f0b39de6280736070ee3bff145c67bc4e796a7dced91c1",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 16178,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "3c181a873ee6308d339e885c12ffed3b0b2f992341deb236ef8c7fc5c524cc7a",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 5],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "turn2_text",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134306817,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "5d066d1e62f1e0ba6d5231d5aac553dddc7dd1b77640be21bc6521a33d5a0dc6",
+   "rgb565_sha256": "56e1e15b9491bb26ea250a17225f5c889f34826022b50ffc937a5a8f799e8ac8",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 4,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [8, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 245,
+     "level": 96,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 245,
+     "party_index": 4,
+     "pp": [15, 10, 15, 5],
+     "side": "enemy",
+     "species_word": 399,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "a3155985e3aab78e74f0b39de6280736070ee3bff145c67bc4e796a7dced91c1",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 17207,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "b20cf6dd0a904ddc156b680b1ff5b6fc19ed2636f83ece05925093e8f7be74dc",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 4],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "trainer_a_out",
+   "lifecycle": {
+    "absent_battler_flags": 2,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "dff2d57d02dfceab885c729fe4c48dbcd904f135157de3a6d6cb84c992773686",
+   "rgb565_sha256": "037cd08138c342a7db396276f981a4f71fba059870d3a409e796045d85e174e1",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 4,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [8, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 245,
+     "level": 96,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 245,
+     "party_index": 4,
+     "pp": [15, 10, 15, 5],
+     "side": "enemy",
+     "species_word": 399,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "a3155985e3aab78e74f0b39de6280736070ee3bff145c67bc4e796a7dced91c1",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 17450,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "b20cf6dd0a904ddc156b680b1ff5b6fc19ed2636f83ece05925093e8f7be74dc",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 4],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "move_menu_turn3",
+   "lifecycle": {
+    "absent_battler_flags": 2,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "dff2d57d02dfceab885c729fe4c48dbcd904f135157de3a6d6cb84c992773686",
+   "rgb565_sha256": "64911939fed60b0f3efa9460d502023881ffa0dece722aead9082f12f08d19d3",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 4,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [8, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 245,
+     "level": 96,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 245,
+     "party_index": 4,
+     "pp": [15, 10, 15, 5],
+     "side": "enemy",
+     "species_word": 399,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "a3155985e3aab78e74f0b39de6280736070ee3bff145c67bc4e796a7dced91c1",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 17602,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "b20cf6dd0a904ddc156b680b1ff5b6fc19ed2636f83ece05925093e8f7be74dc",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 4],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "partner_menu_turn3",
+   "lifecycle": {
+    "absent_battler_flags": 2,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "dff2d57d02dfceab885c729fe4c48dbcd904f135157de3a6d6cb84c992773686",
+   "rgb565_sha256": "2fe6edccb3a0fe67b4b5f19bd5f004f1e7e6e9378c33a2105f8980a1a4f92492",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 4,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [8, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 245,
+     "level": 96,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 245,
+     "party_index": 4,
+     "pp": [15, 10, 15, 5],
+     "side": "enemy",
+     "species_word": 399,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "a3155985e3aab78e74f0b39de6280736070ee3bff145c67bc4e796a7dced91c1",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 245,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 17754,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "b20cf6dd0a904ddc156b680b1ff5b6fc19ed2636f83ece05925093e8f7be74dc",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 4],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "partner_moves_turn3",
+   "lifecycle": {
+    "absent_battler_flags": 2,
+    "battle_main_func": 134299713,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "dff2d57d02dfceab885c729fe4c48dbcd904f135157de3a6d6cb84c992773686",
+   "rgb565_sha256": "20a439eaf33786feb3aecfb4caaefab71a1a43916f933716e266953400f3e5b6",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 4,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [7, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 0,
+     "level": 96,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 245,
+     "party_index": 4,
+     "pp": [15, 10, 15, 5],
+     "side": "enemy",
+     "species_word": 399,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "18f0dbd872d30655d6df39bbee401dc0c0fea67e70bed6ad555236d6ac1a8521",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 19846,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "a339be667dce16ae72453077347fc873e29a6988dda206c6436cdc74fc00367f",
+   "gBattleOutcome": 0,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 4],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "turn3_resolved",
+   "lifecycle": {
+    "absent_battler_flags": 2,
+    "battle_main_func": 134305225,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "aaa55461bbcf2896a5d54d1ed71d5db2702ea642ab5c5a07e2cb68992050d45d",
+   "rgb565_sha256": "fd4cb7968ed2f048f847591c3ad2c4bda872e8104cf06f01d75917f1b361a23e",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 4,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [7, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 0,
+     "level": 96,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 245,
+     "party_index": 4,
+     "pp": [15, 10, 15, 5],
+     "side": "enemy",
+     "species_word": 399,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "18f0dbd872d30655d6df39bbee401dc0c0fea67e70bed6ad555236d6ac1a8521",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 21057,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "b09c93bb2ca3a3089252472cb1964e661e18df4c3aa2c7085c036dff99326da4",
+   "gBattleOutcome": 1,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 4],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "battle_won",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134306065,
+    "callback2_is_battle_main": true,
+    "main_callback1": 134292453,
+    "main_callback2": 134287617,
+    "main_in_battle": 1,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "5991610619b057222b7fa4b295d8eaabec3704d824b1740cdc176d505c134565",
+   "rgb565_sha256": "3cf4bc7691e9b37f6b13e4dc622218f70ff97f39d437379cbeea061b855e5c75",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 4,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [7, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 0,
+     "level": 96,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 245,
+     "party_index": 4,
+     "pp": [15, 10, 15, 5],
+     "side": "enemy",
+     "species_word": 399,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "18f0dbd872d30655d6df39bbee401dc0c0fea67e70bed6ad555236d6ac1a8521",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 22568,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "b09c93bb2ca3a3089252472cb1964e661e18df4c3aa2c7085c036dff99326da4",
+   "gBattleOutcome": 1,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 4],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "overworld_after_battle",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134306649,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134571317,
+    "main_callback2": 134571445,
+    "main_in_battle": 0,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "5991610619b057222b7fa4b295d8eaabec3704d824b1740cdc176d505c134565",
+   "rgb565_sha256": "220090e0264feb662bfe0a0f0652c70fedcbc9f3f0fc5b5b924ecdd501314fba",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  },
+  {
+   "battler_map": [
+    {
+     "battler": 0,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 2,
+     "position": "PLAYER_LEFT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 1,
+     "flank": "left",
+     "index_in_owner_range": true,
+     "owner": "opponent_a",
+     "party_index": 1,
+     "position": "OPPONENT_LEFT",
+     "side": "opponent",
+     "slot_range": [0, 3]
+    },
+    {
+     "battler": 2,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "player",
+     "party_index": 1,
+     "position": "PLAYER_RIGHT",
+     "side": "player",
+     "slot_range": [0, 6]
+    },
+    {
+     "battler": 3,
+     "flank": "right",
+     "index_in_owner_range": true,
+     "owner": "opponent_b",
+     "party_index": 4,
+     "position": "OPPONENT_RIGHT",
+     "side": "opponent",
+     "slot_range": [3, 6]
+    }
+   ],
+   "battlers": [
+    {
+     "battler": 0,
+     "hp": 177,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 384,
+     "party_index": 2,
+     "pp": [14, 5, 13, 20],
+     "side": "player",
+     "species_word": 186,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 1,
+     "hp": 0,
+     "level": 97,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 276,
+     "party_index": 1,
+     "pp": [10, 10, 15, 15],
+     "side": "enemy",
+     "species_word": 576,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 2,
+     "hp": 291,
+     "level": 100,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 291,
+     "party_index": 1,
+     "pp": [7, 8, 10, 10],
+     "side": "player",
+     "species_word": 230,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    },
+    {
+     "battler": 3,
+     "hp": 0,
+     "level": 96,
+     "matches_party_record": {
+      "experience": true,
+      "hp": true,
+      "item": true,
+      "level": true,
+      "max_hp": true,
+      "moves": true,
+      "otid": true,
+      "personality": true,
+      "pp": true,
+      "species": true,
+      "stats": true
+     },
+     "max_hp": 245,
+     "party_index": 4,
+     "pp": [15, 10, 15, 5],
+     "side": "enemy",
+     "species_word": 399,
+     "stat_stages": [6, 6, 6, 6, 6, 6, 6],
+     "status1": 0,
+     "status2": 0
+    }
+   ],
+   "enemy_count_bytes": {
+    "0x2024028": 16,
+    "0x202402a": 0
+   },
+   "enemy_party_sha256": "18f0dbd872d30655d6df39bbee401dc0c0fea67e70bed6ad555236d6ac1a8521",
+   "enemy_records": [
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 95,
+     "max_hp": 242,
+     "production_accepted": true,
+     "slot": 0,
+     "species_word": 353
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 276,
+     "production_accepted": true,
+     "slot": 1,
+     "species_word": 576
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 94,
+     "max_hp": 240,
+     "production_accepted": true,
+     "slot": 3,
+     "species_word": 354
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 96,
+     "max_hp": 245,
+     "production_accepted": true,
+     "slot": 4,
+     "species_word": 399
+    },
+    {
+     "checksum_word": 0,
+     "hp": 0,
+     "level": 97,
+     "max_hp": 247,
+     "production_accepted": true,
+     "slot": 5,
+     "species_word": 26
+    }
+   ],
+   "frame": 23168,
+   "gActiveBattler": 4,
+   "gBattleMons_sha256": "b09c93bb2ca3a3089252472cb1964e661e18df4c3aa2c7085c036dff99326da4",
+   "gBattleOutcome": 1,
+   "gBattleTypeFlags": "0x20000d",
+   "gBattlerPartyIndexes": [2, 1, 1, 4],
+   "gBattlerPositions": [0, 1, 2, 3],
+   "gBattlersCount": 4,
+   "label": "overworld_later",
+   "lifecycle": {
+    "absent_battler_flags": 0,
+    "battle_main_func": 134306649,
+    "callback2_is_battle_main": false,
+    "main_callback1": 134571317,
+    "main_callback2": 134571445,
+    "main_in_battle": 0,
+    "trainer_opponent_a": 341
+   },
+   "player_count": 6,
+   "player_party_sha256": "5991610619b057222b7fa4b295d8eaabec3704d824b1740cdc176d505c134565",
+   "rgb565_sha256": "220090e0264feb662bfe0a0f0652c70fedcbc9f3f0fc5b5b924ecdd501314fba",
+   "type_flag_names": ["DOUBLE", "IS_MASTER", "TRAINER", "TWO_OPPONENTS"]
+  }
+ ]
+}

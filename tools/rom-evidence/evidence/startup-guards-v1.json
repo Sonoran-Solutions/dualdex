@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "phase": "6G",
+  "status": "BLOCKED",
+  "starting_main_sha": "e535a4777338dc7c3b6e95f2316c3f7eef788d1b",
+  "starting_main_tree_sha": "4884d4eecebf5c1774e4f4e21d003ff034c1017d",
+  "phase_6f_head": "23e2ad66efa15fdc31d93980174e10133dc48dbe",
+  "phase_6f_tree_sha": "4884d4eecebf5c1774e4f4e21d003ff034c1017d",
+  "phase_6f_pull_request": {
+    "number": 200,
+    "state": "MERGED",
+    "merge_commit": "e535a4777338dc7c3b6e95f2316c3f7eef788d1b",
+    "senior_review": "TECHNICAL_PASS_WITH_NONBLOCKING_P3_FINDINGS"
+  },
+  "source_identity": {
+    "rom_name": "Pok\u00e9mon R.O.W.E. 2.1.9.1 Experimental",
+    "rom_sha1": "81bd0f4bfa1c04ab2c6faab1bddd10e8a390ea77",
+    "rom_sha256": "fdf6a69e9556efd4b7ff96829c0fba85072e6d91c3ec96faed744765c4a772d3",
+    "reference_core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+    "diagnostic_core_sha256": "ca73e52df7d4c699c43c0f1d58dc757b9f40455f02bcc4db6f15f5566748eceb",
+    "diagnostic_source_revision": "e31759b24e7a4e3899285ff720d7b573ac328ae7",
+    "diagnostic_patch_sha256": "586a45758cd487bbd1d18a89ac88120453528e3bc8ae7dea53c8814a6b494a33",
+    "adapter_sha256": "aeefe0a47b5350e8c006d50eba5db2ef4227c23beb6449fc0b006ccdfc5f0c99",
+    "cartridge_sha256": "e626ee3675b51b5e07b86983f44c5770789edf1a09d7105de49a3cdad0d62cb2"
+  },
+  "guard_investigation": {
+    "caller_address": "0x0803014A",
+    "normalization_entry": "0x080A4044",
+    "caller_control_flow": "NOT_VERIFIED",
+    "guard_operand_sources": "NOT_VERIFIED",
+    "normal_configuration_provenance": "PARTIAL",
+    "normal_mode_guard_execution": "NOT_VERIFIED",
+    "false_branch_conditions": "NOT_VERIFIED",
+    "static_guard_instructions": [],
+    "instruction_span_hashes": [],
+    "runtime_guard_events": [],
+    "reason_blocked": "Exact ROM bytes and private Phase 6F capture artifacts were not available in the inspected task workspace; no caller compare/test or branch destination can be established from the callsite event alone."
+  },
+  "configuration_observations": {
+    "ui_setup_reported_by_phase_6d": {
+      "difficulty": "Normal",
+      "additional_modes": "none enabled",
+      "season": "Spring",
+      "starting_clock": "10:00 AM",
+      "starter": "Chinchou",
+      "starting_location": "Two Island",
+      "evidence_classification": "HISTORICAL_SETUP_ONLY_NOT_LINKED_TO_CALLER_GUARDS"
+    },
+    "clear_flags_reported_by_prior_evidence": {
+      "flags": [
+        "0x28",
+        "0x30",
+        "0x3C",
+        "0x2B",
+        "0x470"
+      ],
+      "evidence_classification": "NOT_ESTABLISHED_AS_CALLER_OPERANDS"
+    },
+    "alternate_configurations": "ALTERNATE_CONFIGURATION_NOT_VERIFIED"
+  },
+  "phase_6f_normalization": {
+    "status": "EXECUTED_PATH_VERIFIED",
+    "scope": "single observed Normal-mode cartridge/startup",
+    "callsite_event": "0x0803014A",
+    "normalization_entry_event": "0x080A4044",
+    "species_setter_pc": "0x0809B980",
+    "species_form": [
+      [
+        1560,
+        1
+      ],
+      [
+        52,
+        1
+      ]
+    ],
+    "record_sha256": [
+      "af20b2255c921973b4ad9c4229256058b67679f8e707a42e480284aeec5e84d7",
+      "db78be9c01606da1caa7718662fad661a95c84052df5d784b07e196ddbb5a175"
+    ],
+    "changed_record_offsets": [
+      28,
+      29
+    ],
+    "packed_word_transition": [
+      "0x38581618",
+      "0x38581034"
+    ],
+    "reference_core_parity": "PASS_IN_PHASE_6F; NOT_REPEATED_FOR_PHASE_6G"
+  },
+  "prior_evidence": {
+    "report": "docs/ROWE_2_1_9_1_STARTUP_NORMALIZATION_TRACE.md",
+    "manifest": "tools/rom-evidence/evidence/startup-normalization-v1.json",
+    "manifest_sha256": "23a5036cf0a6d5554764947ef24f6313d4be7cf812da9348a27bc9b93e7d2dc5",
+    "private_trace_artifacts": "Hashes remain in the unchanged Phase 6F manifest; no private trace was available or added in Phase 6G."
+  },
+  "validator_p3_fixes": {
+    "status": "PASS",
+    "partial_cli_exit": "NONZERO_BY_DEFAULT; --allow-partial permits only known partial statuses while retaining JSON status",
+    "stale_output": "VALID_PRIVATE_DESTINATION_REMOVED_BEFORE_EVIDENCE_ADMISSION",
+    "input_aliases": "RESOLVED_PATH_AND_HARDLINK_ALIASES_REJECTED",
+    "symlinks_and_checkout_privacy": "OUTPUT_SYMLINKS_REJECTED; PRIVATE_PATH_GUARDS_RETAINED",
+    "publication": "ATOMIC_OS_REPLACE_WITH_TEMPORARY_FILE",
+    "unsafe_output_rule": "REFUSE_BEFORE_INVALIDATION; unsafe paths cannot be changed safely",
+    "synthetic_tests": [
+      "partial CLI status",
+      "stale output after failed admission",
+      "hardlink alias",
+      "symlink output",
+      "invalid private output path",
+      "invalid private evidence input"
+    ]
+  },
+  "integration_contract": {
+    "status": "PARTIAL",
+    "verified": [
+      "Phase 6F observed 76-byte player-party record and narrow Meowth conversion",
+      "Phase 6F runtime UI identity for the observed regional Meowth",
+      "Phase 6F diagnostic/reference-core parity at recorded checkpoints"
+    ],
+    "conditional_or_unsupported": [
+      "caller guards and their operand/configuration provenance",
+      "other game modes and configuration combinations",
+      "general species/forms and invalid form tables",
+      "effective forms/stats outside the observed subject",
+      "boxed Pok\u00e9mon normalization",
+      "party reordering and unexercised lifecycle changes",
+      "enemy-party/battle mappings",
+      "calculator mechanics",
+      "broad ROM compatibility"
+    ],
+    "production_compatibility": "HOLD",
+    "issue_59": "OPEN"
+  },
+  "diagnostic_build_created_for_phase_6g": false,
+  "new_private_artifacts": [],
+  "new_trace_source_sha256": "8adf5b5dfc7d1081e614a978f1279f843218357e87c4a7fea49b4af1bd6836d6"
+}

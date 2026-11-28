@@ -1,0 +1,242 @@
+# Unbound exact-candidate TRAINER DOUBLE (two opponents) battle route (owner Thor battery copy; never saves).
+# Masks: A=256 B=1 Start=8 Up=16 Down=32 Left=64 Right=128. mash = 1 pressed frame + 90 released.
+# Boot/Continue and the grotto-to-water prefix are the wild-battle movie prefix. Then surf south/west
+# to shore, walk to the cave warp, approach two facing trainers (two-opponent double), turn 1 attack,
+# both lead foes faint, replacements, turn 2 player Shift to party slot 3, turn 3 win, overworld.
+# Recorded from a closed-loop private exploration driver; inputs replay open-loop, deterministic.
+run 600
+run 600
+mash 1 8
+run 200
+mash 1 256
+run 300
+observe grotto_overworld
+run 96 32
+run 8
+run 120
+observe outside_grotto
+run 16 32
+run 8
+run 16 32
+run 8
+run 4 128
+run 8
+mash 1 256
+run 60
+run 3 32
+run 8
+mash 1 256
+run 60
+mash 1 256
+run 60
+run 20 32
+run 8
+run 60
+observe water_start
+run 132 32
+run 8 64
+run 34 32
+run 170 64
+run 43 16
+run 21
+run 9 16
+run 9 64
+run 9 16
+run 27 64
+run 9 16
+run 8 64
+run 24 16
+run 8 64
+run 32 16
+run 49 64
+run 114 16
+run 1
+run 30 16
+run 121
+run 9 64
+run 48 16
+run 16 64
+run 20
+run 30 16
+run 151
+run 73 16
+run 8 64
+run 8 16
+run 72 64
+run 221
+observe cave_before_trainers
+run 1 64
+run 261
+observe trainers_spotted
+run 1 256
+run 90
+run 1 256
+run 90
+run 1 256
+run 90
+run 1 256
+run 90
+run 1 256
+run 90
+run 1 256
+run 91
+observe battle_start
+run 901
+observe trainers_sent_out
+run 1 256
+run 90
+run 1 256
+run 90
+run 1 256
+run 691
+observe intimidate
+run 601
+observe first_turn_menu
+run 1 256
+run 90
+run 1 256
+run 90
+run 1 256
+run 151
+observe second_battler_menu
+run 1 256
+run 90
+run 1 256
+run 121
+observe turn1_running
+run 1501
+observe first_enemy_fainted
+run 1 256
+run 991
+observe second_enemy_fainted
+run 1 256
+run 90
+run 1 256
+run 90
+run 1 256
+run 90
+run 1 256
+run 691
+observe exp_text
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 391
+observe replacements_sent
+run 1 32
+run 90
+run 1 256
+run 150
+run 1 32
+run 121
+observe switch_party_menu
+run 1 256
+run 120
+run 1 256
+run 211
+observe after_switch_choice
+run 1 256
+run 90
+run 1 256
+run 2091
+observe after_switch_turn2
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 391
+observe turn2_text
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 391
+observe trainer_a_out
+run 1 256
+run 90
+run 1 256
+run 151
+observe move_menu_turn3
+run 1 256
+run 151
+observe partner_menu_turn3
+run 1 256
+run 151
+observe partner_moves_turn3
+run 1 256
+run 2091
+observe turn3_resolved
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 391
+observe battle_won
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 90
+run 1 1
+run 691
+observe overworld_after_battle
+run 600
+observe overworld_later

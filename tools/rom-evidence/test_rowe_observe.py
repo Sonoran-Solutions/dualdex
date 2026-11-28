@@ -58,20 +58,53 @@ class ObserveTest(unittest.TestCase):
             struct.pack_into('<I', record, 0, pid)
             struct.pack_into('<I', record, 28, species)
         data = bytes(a+b+stale+bytearray(228))
-        host.read = unittest.mock.Mock(side_effect=[b'\x02',data,b'\x02',data])
+        host.read = unittest.mock.Mock(side_effect=[b'\x02',data,b'\x02',data,b'\x02'])
         raw, before = host.party_snapshot('Player')
         self.assertEqual(len(raw),456)
         self.assertEqual([s['pid'] for s in before['slots']],[0xabcdef01,0x76543210])
         self.assertEqual(before['unused_species'],[999,0,0,0])
         swapped = bytes(b+a+stale+bytearray(228))
-        host.read = unittest.mock.Mock(side_effect=[b'\x02',swapped,b'\x02',swapped])
+        host.read = unittest.mock.Mock(side_effect=[b'\x02',swapped,b'\x02',swapped,b'\x02'])
         after = host.party_snapshot('Player')[1]
         self.assertEqual(after['slot_sha256'][:2], before['slot_sha256'][:2][::-1])
-        for reads in [[b'\x07'],[b'\x02',data,b'\x01'],[b'\x02',data,b'\x02',swapped]]:
+        for reads in [[b'\x07'],[b'\x02',data,b'\x01',data,b'\x01'],[b'\x02',data,b'\x02',swapped,b'\x02'],[b'\x02',data,b'\x02',data,b'\x01']]:
             host.read = unittest.mock.Mock(side_effect=reads)
             with self.assertRaises(ValueError):host.party_snapshot('Player')
-        host.read = unittest.mock.Mock(side_effect=[b'\x00',data,b'\x00',data])
+        host.read = unittest.mock.Mock(side_effect=[b'\x00',data,b'\x00',data,b'\x00'])
         self.assertEqual(host.party_snapshot('Player')[1]['slots'],[])
+
+    def test_player_only_capture_does_not_read_enemy_party(self):
+        host = Observer.__new__(Observer)
+        host.player_only, host.frames = True, 0
+        host.symbols = {'gSaveBlock1Ptr': 1, 'gSaveBlock2Ptr': 2}
+        host.party_snapshot = unittest.mock.Mock(return_value=(bytes(456), {}))
+        host.read = unittest.mock.Mock(return_value=bytes(4))
+        host.host = unittest.mock.Mock()
+        host.host.libretro_host_get_video_frame.return_value = False
+        with self.assertRaisesRegex(ValueError, 'video'): host.observe('synthetic', None)
+        host.party_snapshot.assert_called_once_with('Player')
+
+    def test_partial_success_is_cleared_on_later_observation_failure(self):
+        import rowe_observe
+        raw = b'invented input'
+        movie = b'observe first\nobserve second\n'
+        host = unittest.mock.Mock()
+        host.observe.side_effect = [{'label': 'first', 'parties': {'player': 'synthetic'}},
+                                    ValueError('incoherent paused party snapshot')]
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)/'report.json'
+            argv = ['rowe_observe', '--rom', str(Path(folder)/'rom'), '--core', str(Path(folder)/'core'),
+                    '--movie', str(Path(folder)/'movie'), '--output', str(output), '--player-only']
+            def read(path, size): return movie if Path(path).name == 'movie' else raw
+            with patch.object(sys, 'argv', argv), patch.object(rowe_observe, 'read_local', side_effect=read), \
+                 patch.object(rowe_observe, 'inspect_rom', return_value={'symbols': {}}), \
+                 patch.object(rowe_observe, 'CORE_SHA256', hashlib.sha256(raw).hexdigest()), \
+                 patch.object(rowe_observe, 'verify_adapter', return_value={'source_revision': 'synthetic'}), \
+                 patch.object(rowe_observe, 'Observer', return_value=host):
+                self.assertEqual(rowe_observe.main(), 1)
+            report = json.loads(output.read_text())
+            self.assertEqual(report['status'], 'FAIL')
+            self.assertEqual(report['observations'], [])
 
     def test_adapter_pin_fails_closed(self):
         import rowe_observe

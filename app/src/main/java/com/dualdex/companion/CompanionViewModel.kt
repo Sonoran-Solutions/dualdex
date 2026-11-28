@@ -2,6 +2,7 @@ package com.dualdex.companion
 
 import android.net.Uri
 import com.dualdex.emulator.LibretroCoreCoordinator
+import com.dualdex.emulator.LoadedRomStatus
 import com.dualdex.emulator.RomIdentity
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.LocationResolution
@@ -10,6 +11,7 @@ import com.dualdex.pokemon.LocationUnavailableReason
 import com.dualdex.pokemon.PlayerLocation
 import com.dualdex.pokemon.RegionMapDatabase
 import com.dualdex.pokemon.RegionMapSection
+import com.dualdex.pokemon.unbound.UnboundMapNames
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
@@ -32,6 +34,13 @@ data class RomItem(
     val profileName: String = ""
 )
 
+internal data class SessionObservationToken(
+    val romSha256: String,
+    val coreGeneration: Long,
+    val sessionRevision: Long,
+    val compatibility: RuntimeRomTrust
+)
+
 enum class CompanionTab(val title: String) {
     // Existing screen identities remain stable for direct navigation callers.
     HOME("Library"),
@@ -51,6 +60,15 @@ class CompanionViewModel(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
     var coreCoordinator: LibretroCoreCoordinator = LibretroCoreCoordinator.defaultInstance
 ) {
+    /**
+     * Session setters and observation publication share this monitor. Polling takes the core
+     * lock first, then this monitor; setters never acquire the core lock. This makes publication
+     * atomic against session invalidation without a reverse lock edge.
+     */
+    private val observationSessionLock = Any()
+    private var observationSessionRevision = 0L
+    private var lastObservedCoreGeneration: Long? = null
+
     private val _selectedTab = MutableStateFlow(CompanionTab.HOME)
     val selectedTab: StateFlow<CompanionTab> = _selectedTab.asStateFlow()
 
@@ -60,8 +78,9 @@ class CompanionViewModel(
     private val _playerParty = MutableStateFlow<List<ParsedPokemon>>(emptyList())
     val playerParty: StateFlow<List<ParsedPokemon>> = _playerParty.asStateFlow()
 
-    private val _enemyParty = MutableStateFlow<List<ParsedPokemon>>(emptyList())
-    val enemyParty: StateFlow<List<ParsedPokemon>> = _enemyParty.asStateFlow()
+    /** Indexed by native party slot; empty/invalid records stay null instead of shifting slots. */
+    private val _enemyParty = MutableStateFlow<List<ParsedPokemon?>>(emptyList())
+    val enemyParty: StateFlow<List<ParsedPokemon?>> = _enemyParty.asStateFlow()
 
     private val _selectedMemberIndex = MutableStateFlow(0)
     val selectedMemberIndex: StateFlow<Int> = _selectedMemberIndex.asStateFlow()
@@ -114,11 +133,12 @@ class CompanionViewModel(
     private val _runtimeRomTrust = MutableStateFlow(RuntimeRomTrust())
     val runtimeRomTrust: StateFlow<RuntimeRomTrust> = _runtimeRomTrust.asStateFlow()
 
-    private val _playerStatStages = MutableStateFlow(com.dualdex.battle.StatStages())
-    val playerStatStages: StateFlow<com.dualdex.battle.StatStages> = _playerStatStages.asStateFlow()
+    // null means no battle stat stages were observed, including outside a battle.
+    private val _playerStatStages = MutableStateFlow<com.dualdex.battle.StatStages?>(null)
+    val playerStatStages: StateFlow<com.dualdex.battle.StatStages?> = _playerStatStages.asStateFlow()
 
-    private val _enemyStatStages = MutableStateFlow(com.dualdex.battle.StatStages())
-    val enemyStatStages: StateFlow<com.dualdex.battle.StatStages> = _enemyStatStages.asStateFlow()
+    private val _enemyStatStages = MutableStateFlow<com.dualdex.battle.StatStages?>(null)
+    val enemyStatStages: StateFlow<com.dualdex.battle.StatStages?> = _enemyStatStages.asStateFlow()
 
     private val _battleUiSnapshot = MutableStateFlow(com.dualdex.battle.BattleUiSnapshot())
     val battleUiSnapshot: StateFlow<com.dualdex.battle.BattleUiSnapshot> = _battleUiSnapshot.asStateFlow()
@@ -130,28 +150,58 @@ class CompanionViewModel(
         stateReader = { readBattleUiSnapshot() }
     )
 
-    private fun readBattleUiSnapshot(): com.dualdex.battle.BattleUiSnapshot? {
-        val trust = _runtimeRomTrust.value
-        if (!trust.exactRuntimeVerified) return com.dualdex.battle.BattleUiSnapshot()
-        val raw = com.dualdex.battle.BattleUiSnapshot.fromNativePacked(
-            coreCoordinator.readBattleUiState(_activeProfile.value.gameId) ?: return null
-        )
-        if (trust != _runtimeRomTrust.value) return com.dualdex.battle.BattleUiSnapshot()
-        return com.dualdex.battle.BattleInteractionPolicy.evaluate(
-            profile = _activeProfile.value,
-            runtimeTrust = trust,
-            userEnabled = _isInteractiveBattleControlsEnabled.value,
-            inBattle = _isInBattle.value,
-            uiState = raw.state,
-            selectedActionIndex = raw.selectedActionIndex,
-            selectedMoveIndex = raw.selectedMoveIndex,
-            battlerIndex = raw.battlerIndex,
-            playerBattlerCount = raw.playerBattlerCount
-        )
+    internal fun readBattleUiSnapshot(): com.dualdex.battle.BattleUiSnapshot? = try {
+        coreCoordinator.executeExclusive(50L) {
+            synchronized(observationSessionLock) {
+                val identity = _activeRomIdentity.value
+                val trust = _runtimeRomTrust.value
+                val loaded = coreCoordinator.loadedRomSnapshotLocked()
+                if (loaded.coreGeneration != lastObservedCoreGeneration) {
+                    observationSessionRevision++
+                    clearLiveMemoryObservationsLocked()
+                    lastObservedCoreGeneration = loaded.coreGeneration
+                }
+                if (identity == null || !trust.mayReadLiveMemory ||
+                    loaded.status != LoadedRomStatus.BOUND ||
+                    !loaded.sha256.equals(identity.sha256, ignoreCase = true) ||
+                    !loaded.sha256.equals(trust.activeRomSha256, ignoreCase = true)
+                ) {
+                    invalidateMismatchedLoadedSessionLocked(loaded.coreGeneration)
+                    return@synchronized com.dualdex.battle.BattleUiSnapshot()
+                }
+
+                val profile = _activeProfile.value
+                val raw = com.dualdex.battle.BattleUiSnapshot.fromNativePacked(
+                    coreCoordinator.readBattleUiState(profile.gameId) ?: return@synchronized null
+                )
+                com.dualdex.battle.BattleInteractionPolicy.evaluate(
+                    profile = profile,
+                    runtimeTrust = trust,
+                    userEnabled = _isInteractiveBattleControlsEnabled.value,
+                    inBattle = _isInBattle.value,
+                    uiState = raw.state,
+                    selectedActionIndex = raw.selectedActionIndex,
+                    selectedMoveIndex = raw.selectedMoveIndex,
+                    battlerIndex = raw.battlerIndex,
+                    playerBattlerCount = raw.playerBattlerCount
+                )
+            }
+        }
+    } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
+        null
     }
 
-    val activeGameDataPack: com.dualdex.pokemon.GameDataPack
-        get() = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(_activeProfile.value)
+    @Volatile
+    var activeGameDataPack: com.dualdex.pokemon.GameDataPack =
+        com.dualdex.pokemon.GameDataPackRegistry.getForProfile(_activeProfile.value, _activeRomIdentity.value?.sha256)
+        private set
+
+    /** Called under observationSessionLock whenever the profile or loaded identity changes. */
+    private fun publishGameDataPackLocked() {
+        activeGameDataPack = com.dualdex.pokemon.GameDataPackRegistry.getForProfile(
+            _activeProfile.value, _activeRomIdentity.value?.sha256
+        )
+    }
 
     private val _playerLocation = MutableStateFlow<PlayerLocation?>(null)
     val playerLocation: StateFlow<PlayerLocation?> = _playerLocation.asStateFlow()
@@ -173,6 +223,7 @@ class CompanionViewModel(
      * selection: it is never changed by which region the user is browsing.
      */
     private val _locationStrategy = MutableStateFlow(LocationStrategy.UNVERIFIED)
+    private val unboundMapNames = UnboundMapNames()
     val locationStrategy: StateFlow<LocationStrategy> = _locationStrategy.asStateFlow()
 
     /**
@@ -212,6 +263,7 @@ class CompanionViewModel(
     val enemyBattlerState: StateFlow<BattlerRuntimeObservation?> = _enemyBattlerState.asStateFlow()
 
     private var pollingJob: Job? = null
+    private var generationWatcherJob: Job? = null
     private val battlePresenceStabilizer = com.dualdex.battle.BattlePresenceStabilizer()
 
     private val playerPartyStabilizer = LiveObservationStabilizer()
@@ -248,28 +300,38 @@ class CompanionViewModel(
     }
 
     fun setRomInfo(gameId: Int, romTitle: String, profile: RomHackProfile? = null) {
-        _activeGameId.value = gameId
-        _activeRomTitle.value = romTitle
-        if (profile != null) {
-            _activeProfile.value = profile
-            _activeGameId.value = profile.gameId
+        synchronized(observationSessionLock) {
+            unboundMapNames.reset()
+            observationSessionRevision++
+            _activeGameId.value = gameId
+            _activeRomTitle.value = romTitle
+            if (profile != null) {
+                _activeProfile.value = profile
+                _activeGameId.value = profile.gameId
+            }
+            // No compatibility evidence was supplied, so live memory stays disabled.
+            _runtimeRomTrust.value = RuntimeRomTrust()
+            publishGameDataPackLocked()
+            publishLocationStrategy()
+            clearLiveMemoryObservationsLocked()
         }
-        // No compatibility evidence was supplied, so live memory stays disabled.
-        _runtimeRomTrust.value = RuntimeRomTrust()
-        publishLocationStrategy()
-        clearLiveMemoryObservations()
     }
 
     fun setRomIdentity(identity: RomIdentity?) {
-        _activeRomIdentity.value = identity
-        _activeRomTitle.value = identity?.displayName.orEmpty()
-        _runtimeRomTrust.value = RuntimeRomTrust()
-        if (identity == null) {
-            _activeProfile.value = RomHackProfile.UNSUPPORTED
-            _activeGameId.value = 0
+        synchronized(observationSessionLock) {
+            unboundMapNames.reset()
+            observationSessionRevision++
+            _activeRomIdentity.value = identity
+            _activeRomTitle.value = identity?.displayName.orEmpty()
+            _runtimeRomTrust.value = RuntimeRomTrust()
+            if (identity == null) {
+                _activeProfile.value = RomHackProfile.UNSUPPORTED
+                _activeGameId.value = 0
+            }
+            publishGameDataPackLocked()
+            publishLocationStrategy()
+            clearLiveMemoryObservationsLocked()
         }
-        publishLocationStrategy()
-        clearLiveMemoryObservations()
     }
 
     /**
@@ -277,22 +339,26 @@ class CompanionViewModel(
      * published so a consumer can never see the new ROM paired with data read from the previous one.
      */
     fun setRomSession(compatibility: RomCompatibility, identity: RomIdentity) {
-        clearLiveMemoryObservations()
+        synchronized(observationSessionLock) {
+            unboundMapNames.reset()
+            observationSessionRevision++
+            clearLiveMemoryObservationsLocked()
 
-        _activeProfile.value = compatibility.profile
-        _activeGameId.value = compatibility.profile.gameId
-        _activeRomIdentity.value = identity
-        _activeRomTitle.value = identity.displayName
-        _runtimeRomTrust.value = RuntimeRomTrust.from(compatibility, identity.sha256)
+            _activeProfile.value = compatibility.profile
+            _activeGameId.value = compatibility.profile.gameId
+            _activeRomIdentity.value = identity
+            _activeRomTitle.value = identity.displayName
+            _runtimeRomTrust.value = RuntimeRomTrust.from(compatibility, identity.sha256)
 
-        // The strategy follows the newly published profile, and publishing it
-        // drops observations taken under the previous one.
-        publishLocationStrategy()
+            // The strategy follows the newly published profile, and publishing it
+            // drops observations taken under the previous one.
+            publishGameDataPackLocked()
+            publishLocationStrategy()
 
-        // A ROM that is not exactly verified never authorizes memory parsing, even if a poller was
-        // already running. Re-assert the cleared state after publishing the new trust value.
-        if (!_runtimeRomTrust.value.mayReadLiveMemory) {
-            clearLiveMemoryObservations()
+            // A ROM that is not exactly verified never authorizes memory parsing.
+            if (!_runtimeRomTrust.value.mayReadLiveMemory) {
+                clearLiveMemoryObservationsLocked()
+            }
         }
     }
 
@@ -301,27 +367,49 @@ class CompanionViewModel(
      * Used after a failed load that already tore the previous session down.
      */
     fun clearRomSession() {
-        clearLiveMemoryObservations()
-        battlePresenceStabilizer.reset()
-        _runtimeRomTrust.value = RuntimeRomTrust()
-        _activeRomIdentity.value = null
-        _activeRomTitle.value = ""
-        _activeProfile.value = RomHackProfile.UNSUPPORTED
-        _activeGameId.value = 0
-        publishLocationStrategy()
+        synchronized(observationSessionLock) {
+            unboundMapNames.reset()
+            observationSessionRevision++
+            clearLiveMemoryObservationsLocked()
+            battlePresenceStabilizer.reset()
+            _runtimeRomTrust.value = RuntimeRomTrust()
+            _activeRomIdentity.value = null
+            _activeRomTitle.value = ""
+            _activeProfile.value = RomHackProfile.UNSUPPORTED
+            _activeGameId.value = 0
+            publishGameDataPackLocked()
+            publishLocationStrategy()
+        }
     }
 
     fun setProfile(profile: RomHackProfile) {
-        _activeProfile.value = profile
-        _activeGameId.value = profile.gameId
-        _activeRomTitle.value = profile.name
-        _runtimeRomTrust.value = RuntimeRomTrust()
-        publishLocationStrategy()
-        clearLiveMemoryObservations()
+        synchronized(observationSessionLock) {
+            unboundMapNames.reset()
+            observationSessionRevision++
+            _activeProfile.value = profile
+            _activeGameId.value = profile.gameId
+            _activeRomTitle.value = profile.name
+            _runtimeRomTrust.value = RuntimeRomTrust()
+            publishGameDataPackLocked()
+            publishLocationStrategy()
+            clearLiveMemoryObservationsLocked()
+        }
     }
 
     fun startPolling(intervalMs: Long = 200L) {
         if (pollingJob?.isActive == true) return
+
+        generationWatcherJob = scope.launch {
+            coreCoordinator.stateGenerationFlow.collect { generation ->
+                synchronized(observationSessionLock) {
+                    if (lastObservedCoreGeneration != generation) {
+                        observationSessionRevision++
+                        clearLiveMemoryObservationsLocked()
+                        lastObservedCoreGeneration = generation
+                    }
+                }
+            }
+        }
 
         pollingJob = scope.launch(Dispatchers.IO) {
             while (isActive) {
@@ -343,10 +431,64 @@ class CompanionViewModel(
      * Useful for deterministic testing of the compatibility gate and stabilizers.
      */
     internal fun pollTick() {
-        if (_runtimeRomTrust.value.mayReadLiveMemory) {
-            pollVerifiedRomMemory()
-        } else {
-            clearLiveMemoryObservations()
+        val (revision, identity, trust) = synchronized(observationSessionLock) {
+            Triple(observationSessionRevision, _activeRomIdentity.value, _runtimeRomTrust.value)
+        }
+        if (!trust.mayReadLiveMemory || identity == null) {
+            synchronized(observationSessionLock) {
+                if (revision == observationSessionRevision) clearLiveMemoryObservationsLocked()
+            }
+            return
+        }
+
+        try {
+            // One core transaction makes every native observation belong to one runtime
+            // generation. The timeout bounds lock acquisition only, not transaction duration.
+            coreCoordinator.executeExclusive(50L) {
+                synchronized(observationSessionLock) {
+                    if (revision != observationSessionRevision ||
+                        trust != _runtimeRomTrust.value || identity != _activeRomIdentity.value
+                    ) return@executeExclusive
+
+                    val loaded = coreCoordinator.loadedRomSnapshotLocked()
+                    if (loaded.status != LoadedRomStatus.BOUND ||
+                        !loaded.sha256.equals(identity.sha256, ignoreCase = true) ||
+                        !loaded.sha256.equals(trust.activeRomSha256, ignoreCase = true)
+                    ) {
+                        invalidateMismatchedLoadedSessionLocked(loaded.coreGeneration)
+                        return@executeExclusive
+                    }
+
+                    if (lastObservedCoreGeneration != loaded.coreGeneration) {
+                        observationSessionRevision++
+                        clearLiveMemoryObservationsLocked()
+                        lastObservedCoreGeneration = loaded.coreGeneration
+                    }
+                    val token = SessionObservationToken(
+                        romSha256 = loaded.sha256!!,
+                        coreGeneration = loaded.coreGeneration,
+                        sessionRevision = observationSessionRevision,
+                        compatibility = trust
+                    )
+                    // The token remains valid through the complete reader/transformation/
+                    // publication batch because both core and session owners stay locked.
+                    check(token.coreGeneration == coreCoordinator.stateGeneration)
+
+                    pollVerifiedRomMemory()
+                }
+            }
+        } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
+            // No observation was admitted; retain only the stabilizer's same-session behavior.
+        }
+    }
+
+    /** Caller holds the core lock, then [observationSessionLock]. */
+    private fun invalidateMismatchedLoadedSessionLocked(generation: Long) {
+        if (lastObservedCoreGeneration != generation) {
+            unboundMapNames.reset()
+            observationSessionRevision++
+            clearLiveMemoryObservationsLocked()
+            lastObservedCoreGeneration = generation
         }
     }
 
@@ -395,10 +537,7 @@ class CompanionViewModel(
             }
         } else {
             enemyPartyStabilizer.onValidRead()
-            val enemyList = enemyPartyRaw.filterNotNull().filter { !it.isEmpty && it.isValid }
-            if (enemyList != _enemyParty.value) {
-                _enemyParty.value = enemyList
-            }
+            publishEnemyPartySlots(enemyPartyRaw.asList())
         }
 
         val presence = if (battleStateReadable) {
@@ -427,7 +566,7 @@ class CompanionViewModel(
             // resolves, which is a temporary UNKNOWN rather than the previous enemy.
             val enemyResolution = coreCoordinator.resolveActiveEnemy(gameId)
             val resolvedSlot = enemyResolution.partySlot
-                ?.takeIf { !enemyResolution.isFainted && it in _enemyParty.value.indices }
+                ?.takeIf { !enemyResolution.isFainted && _enemyParty.value.getOrNull(it) != null }
                 ?: -1
             if (resolvedSlot != _activeEnemyMemberIndex.value) {
                 _activeEnemyMemberIndex.value = resolvedSlot
@@ -460,8 +599,8 @@ class CompanionViewModel(
                 _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             }
             _activePlayerBattlerIndex.value = -1
-            _playerStatStages.value = com.dualdex.battle.StatStages()
-            _enemyStatStages.value = com.dualdex.battle.StatStages()
+            _playerStatStages.value = null
+            _enemyStatStages.value = null
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
             // Live battler ability/types die with the battle: nothing is retained
             // through teardown, and the reader cannot serve stale gBattleMons words.
@@ -559,8 +698,11 @@ class CompanionViewModel(
      */
     private fun publishResolvedLocation(loc: PlayerLocation) {
         _playerLocation.value = loc
+        val names = if (_locationStrategy.value == LocationStrategy.UNBOUND) {
+            unboundMapNames.names(_runtimeRomTrust.value, coreCoordinator::readGbaMemory)
+        } else emptyMap()
         val resolution: LocationResolution =
-            RegionMapDatabase.resolveLocationDetailed(_locationStrategy.value, loc)
+            RegionMapDatabase.resolveLocationDetailed(_locationStrategy.value, loc, names)
         _resolvedLocation.value = resolution.section
         _locationUnavailableReason.value = resolution.reason
     }
@@ -579,6 +721,13 @@ class CompanionViewModel(
      * this on every poll tick while the compatibility gate is closed.
      */
     fun clearLiveMemoryObservations() {
+        synchronized(observationSessionLock) {
+            observationSessionRevision++
+            clearLiveMemoryObservationsLocked()
+        }
+    }
+
+    private fun clearLiveMemoryObservationsLocked() {
         _hnsBattlers.value = emptyList()
         _selectedHnsEnemyBattler.value = null
         if (_playerParty.value.isNotEmpty()) _playerParty.value = emptyList()
@@ -593,8 +742,8 @@ class CompanionViewModel(
         if (_battlePresence.value != com.dualdex.battle.BattlePresence.UNKNOWN) {
             _battlePresence.value = com.dualdex.battle.BattlePresence.UNKNOWN
         }
-        if (!_playerStatStages.value.isNeutral) _playerStatStages.value = com.dualdex.battle.StatStages()
-        if (!_enemyStatStages.value.isNeutral) _enemyStatStages.value = com.dualdex.battle.StatStages()
+        _playerStatStages.value = null
+        _enemyStatStages.value = null
         if (_battleUiSnapshot.value != com.dualdex.battle.BattleUiSnapshot()) {
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
@@ -617,6 +766,8 @@ class CompanionViewModel(
     fun stopPolling() {
         pollingJob?.cancel()
         pollingJob = null
+        generationWatcherJob?.cancel()
+        generationWatcherJob = null
     }
 
     fun setBattleAutoOpenEnabled(enabled: Boolean) {
@@ -637,7 +788,7 @@ class CompanionViewModel(
 
     fun setActiveEnemyMemberIndex(index: Int) {
         // Manual selection (parity with the manual party editor). The authoritative resolution is
-        // marked SLOT so the UI treats an explicitly chosen enemy as chosen, not as tracked.
+        // marked SLOT; index is a physical party slot, including when preceding slots are empty.
         _activeEnemyMemberIndex.value = index
         _activeEnemyResolution.value = if (index in 0..5) {
             com.dualdex.battle.ActiveEnemyResolution(
@@ -672,8 +823,8 @@ class CompanionViewModel(
             _activeEnemyMemberIndex.value = -1
             _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             _activePlayerBattlerIndex.value = -1
-            _playerStatStages.value = com.dualdex.battle.StatStages()
-            _enemyStatStages.value = com.dualdex.battle.StatStages()
+            _playerStatStages.value = null
+            _enemyStatStages.value = null
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
     }
@@ -682,16 +833,21 @@ class CompanionViewModel(
         _playerParty.value = party
     }
 
-    fun updateEnemyParty(party: List<ParsedPokemon>) {
-        _enemyParty.value = party
-        val inBattle = party.isNotEmpty()
+    private fun publishEnemyPartySlots(party: List<ParsedPokemon?>) {
+        val slots = party.map { mon -> mon?.takeIf { !it.isEmpty && it.isValid } }
+        _enemyParty.value = if (slots.any { it != null }) slots else emptyList()
+    }
+
+    fun updateEnemyParty(party: List<ParsedPokemon?>) {
+        publishEnemyPartySlots(party)
+        val inBattle = _enemyParty.value.isNotEmpty()
         updateCoverageBattlePresence(inBattle)
         if (!inBattle) {
             _activeEnemyMemberIndex.value = -1
             _activeEnemyResolution.value = com.dualdex.battle.ActiveEnemyResolution()
             _activePlayerBattlerIndex.value = -1
-            _playerStatStages.value = com.dualdex.battle.StatStages()
-            _enemyStatStages.value = com.dualdex.battle.StatStages()
+            _playerStatStages.value = null
+            _enemyStatStages.value = null
             _battleUiSnapshot.value = com.dualdex.battle.BattleUiSnapshot()
         }
     }

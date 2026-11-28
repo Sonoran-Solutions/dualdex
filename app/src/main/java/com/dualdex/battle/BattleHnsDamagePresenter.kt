@@ -81,8 +81,8 @@ data class BattleMovePresentationCacheKey(
     val defender: BattlePokemonPresentationKey?,
     val profile: RomHackProfile,
     val runtimeTrust: RuntimeRomTrust,
-    val playerStages: StatStages,
-    val enemyStages: StatStages,
+    val playerStages: StatStages?,
+    val enemyStages: StatStages?,
     val activeBattle: Boolean,
     val coverageSession: Long?,
     val activePlayerSlot: Int,
@@ -97,8 +97,8 @@ data class BattleMovePresentationCacheKey(
             defender: ParsedPokemon?,
             profile: RomHackProfile,
             runtimeTrust: RuntimeRomTrust,
-            playerStages: StatStages,
-            enemyStages: StatStages,
+            playerStages: StatStages?,
+            enemyStages: StatStages?,
             context: BattleHnsCalculationContext
         ) = BattleMovePresentationCacheKey(
             attacker = BattlePokemonPresentationKey.from(attacker),
@@ -164,8 +164,8 @@ object BattleHnsDamagePresenter {
         runtimeTrust: RuntimeRomTrust?,
         context: BattleHnsCalculationContext?,
         calculator: BattleDamageCalculator,
-        attackerStages: StatStages,
-        defenderStages: StatStages,
+        attackerStages: StatStages?,
+        defenderStages: StatStages?,
         coverageLogger: com.dualdex.coverage.HnsCalcCoverageLogger = com.dualdex.coverage.HnsCoverage.logger
     ): BattleHnsDamagePresentation {
         val rules = CalcRequestBoundary.resolveHnsRuntimeRules(

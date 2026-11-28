@@ -210,6 +210,9 @@ class RomDurableResumeTest {
         )
 
         assertTrue("ROM switch should succeed", res is SwitchResult.Success)
+        val success = res as SwitchResult.Success
+        assertEquals(LoadedRomStatus.BOUND, sessionManager.coreCoordinator.loadedRomSnapshot().status)
+        assertEquals(success.identity.sha256, sessionManager.coreCoordinator.loadedRomSnapshot().sha256)
         assertEquals("Durable direct-open must record lastPlayedRomUri", uriStr, settingsManager.lastPlayedRomUri)
         assertEquals("Durable direct-open must record lastPlayedRomTitle", "Pokemon Emerald", settingsManager.lastPlayedRomTitle)
     }
@@ -478,6 +481,7 @@ class RomDurableResumeTest {
         )
 
         assertTrue("ROM B switch should fail due to core rejection", result is SwitchResult.Failure)
+        assertEquals(LoadedRomStatus.UNLOADED, sessionManager.coreCoordinator.loadedRomSnapshot().status)
         val failure = result as SwitchResult.Failure
         assertFalse("Core rejection should not be marked as access error", failure.isAccessError)
 
@@ -502,6 +506,30 @@ class RomDurableResumeTest {
         assertNull("Old Continue URI must NOT be released when new ROM load fails", releasedUri)
         assertEquals("Old Continue target URI must remain intact", uriStrA, settingsManager.lastPlayedRomUri)
         assertEquals("Old Continue target Title must remain intact", "Game A", settingsManager.lastPlayedRomTitle)
+    }
+
+    @Test
+    fun failedOldSaveFlushPreservesExistingLoadedRomBinding() = runBlocking {
+        val cacheDir = File(testBaseDir, "cache").apply { mkdirs() }
+        val romA = createRomFile("preserve_a.gba", 0x31)
+        val romB = createRomFile("preserve_b.gba", 0x32)
+        val sessionManager = RomSessionManager(
+            saveStateManager = saveStateManager,
+            settingsManager = settingsManager,
+            customRomCacheDir = cacheDir,
+            coreBridge = testBridge
+        )
+
+        val first = sessionManager.switchRomFile(romA, emptyList(), preferredTitle = "A") as SwitchResult.Success
+        assertEquals(first.identity.sha256, sessionManager.coreCoordinator.loadedRomSnapshot().sha256)
+        testBridge.flushSaveRamResult = false
+
+        val failed = sessionManager.switchRomFile(romB, emptyList(), preferredTitle = "B")
+        assertTrue(failed is SwitchResult.Failure)
+        val loaded = sessionManager.coreCoordinator.loadedRomSnapshot()
+        assertEquals(LoadedRomStatus.BOUND, loaded.status)
+        assertEquals("an abort before unload preserves the old core image", first.identity.sha256, loaded.sha256)
+        assertEquals(first.identity.sha256, saveStateManager.activeIdentity?.sha256)
     }
 
     /**

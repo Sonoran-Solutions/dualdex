@@ -1,0 +1,154 @@
+# Unbound exact-candidate wild-battle lifecycle route (owner Thor battery copy; never saves).
+# Masks: A=256 B=1 Start=8 Up=16 Down=32 Left=64 Right=128. mash = 1 pressed frame + 90 released.
+# Hidden Grotto -> south exit -> shore -> water (wild encounters), one wild battle:
+# Fight/move 1, Pokemon/slot 3/Shift, Run, back to the overworld.
+run 600
+run 600
+mash 1 8
+run 200
+mash 1 256
+run 300
+observe grotto_overworld
+run 96 32
+run 8
+run 120
+observe outside_grotto
+run 16 32
+run 8
+run 16 32
+run 8
+run 4 128
+run 8
+mash 1 256
+run 60
+run 3 32
+run 8
+mash 1 256
+run 60
+mash 1 256
+run 60
+run 20 32
+run 8
+run 60
+observe pre_battle_overworld
+# Walk down/up on water, two tiles each way, until the encounter (deterministic from boot).
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 32 16
+run 32 32
+run 30
+observe battle_start
+run 600
+observe wild_appeared
+mash 1 256
+run 300
+observe intimidate
+run 400
+observe first_turn_menu
+mash 1 256
+run 30
+observe move_menu
+mash 1 256
+run 1200
+observe after_move
+mash 1 32
+mash 1 256
+run 60
+mash 1 32
+run 30
+observe switch_party_menu
+mash 1 256
+run 30
+observe shift_submenu
+mash 1 256
+run 1500
+observe after_switch
+mash 1 128
+mash 1 32
+mash 1 256
+run 600
+observe got_away
+mash 1 256
+run 400
+observe overworld_after_exit
+run 600
+observe overworld_later
+mash 1 8
+run 60
+mash 2 128
+mash 1 256
+run 60
+observe party_menu_after

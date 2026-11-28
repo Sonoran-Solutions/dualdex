@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  *     adb shell setprop debug.dualdex.ffdiag 1
  *     adb shell setprop debug.dualdex.ffdiag 0
  *
- * The property is sampled once per reporting window, so it can be toggled live.
+ * The property is sampled once at process startup; restart the app after changing it.
  * This file is intended to be deleted (or left permanently disabled) once the
  * fast-forward regression is closed.
  */

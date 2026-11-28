@@ -11,7 +11,7 @@ Any agent working in this repository is expected to:
 - **Stay in scope**: work only on the task you were given. Don't make unrelated refactors, drive-by changes, or modifications outside this project.
 - **Work on a branch**: never push to `main`. All changes go through a pull request.
 - **Get human approval to merge**: a human reviewer has final review and merge authority. Don't merge without approval
-- **Verify before handing off**: run the canonical build and test contract below and confirm it passes before requesting review.
+- **Verify before handing off**: run the focused `ci.sh` targets your change can affect during development, and make sure the candidate has one valid `./ci.sh all` result before review (see section 2a for who runs it and when evidence can be reused).
 
 ---
 
@@ -20,6 +20,11 @@ Any agent working in this repository is expected to:
 All agents **MUST** use the canonical CI script at the repository root. Do not invent custom Gradle or CMake commands.
 
 ```bash
+# Focused targets (prefer these while iterating; pick by the behavior you changed)
+./ci.sh fixture-test    # ROM-free production replay, ROWE raw decoder, identity adapter
+./ci.sh rowe-test       # host-only raw decoder + identity adapter synthetic tests
+./ci.sh coverage-test   # H&S debug coverage tests + structural release proof
+
 # Run the full test suite (native, calculator, H&S tooling, and Kotlin unit tests)
 ./ci.sh test
 
@@ -36,6 +41,23 @@ See the header comment in `ci.sh` for exactly which suites each target runs. `./
 - **Git Submodules**: `native/quickjs` is a submodule required to build **and** to run the calculator suite. `./ci.sh test`, `build`, and `all` check it out at the exact commit recorded by the superproject and fail (rather than degrade) if it is missing, stale, or wrong.
 - **Fail-closed**: every command is deterministic and non-interactive. A missing prerequisite, a failing native, calculator, or Kotlin test, or a failing build all return a non-zero exit code — nothing is silently skipped.
 - **Calculator goldens**: `native/tests/test_js_calc.c` asserts exact Gen III damage values with documented provenance; see [docs/QUICKJS_CALCULATOR_TESTS.md](docs/QUICKJS_CALCULATOR_TESTS.md) before changing fixtures or `tools/calc-bundler/entry.js`.
+
+---
+
+## 2a. Validation policy
+
+Follow the global validation and job-supervision rules (and the `validation-supervision` skill) for risk-based check selection, evidence reuse, host-slot limits, and bounded supervision.
+Repo specifics: `ci.sh` is the only command vocabulary; the agent opening or updating the PR owns the candidate's `./ci.sh all` (hosted CI on the same SHA counts), and supervised jobs must clean up any Gradle daemons or emulator/core processes they start.
+
+Gates that remain explicit: human merge approval (section 1), release signing (section 4), the byte-for-byte generated-artifact checks in `./ci.sh test`, and calculator golden provenance (`docs/QUICKJS_CALCULATOR_TESTS.md`).
+
+| Behavior area | Verified command | Expected result | Normal duration | Broader-validation trigger |
+|---|---|---|---|---|
+| Docs, audits, evidence | diff review only | n/a | n/a | never for inert files |
+| Memory fixtures, ROWE decoder, identity adapter | `./ci.sh fixture-test` / `./ci.sh rowe-test` (`rowe-sanitize` for memory-safety concerns) | exit 0 | TBD (not yet baselined) | profile JSON or `pokemon_reader.*` offsets changed → `./ci.sh test` |
+| H&S coverage and release proof | `./ci.sh coverage-test` | exit 0 | TBD (not yet baselined) | coverage-affecting UI or battle console changes |
+| Everything (native, calculator, oracle, generators, Kotlin) | `./ci.sh test` | exit 0 | TBD (not yet baselined) | any cross-boundary change; required once per candidate via `all` |
+| Candidate APK | `./ci.sh build` / `./ci.sh all` | `app-debug.apk` produced, exit 0 | TBD (not yet baselined) | once per review candidate, by the integration owner |
 
 ---
 
@@ -61,7 +83,7 @@ acceptance: |
 ```
 
 ### Handing Off for Review
-After implementing the changes and confirming `./ci.sh all` succeeds:
+After implementing the changes and confirming the candidate has a valid `./ci.sh all` result (yours, or reused per section 2a):
 1. Push branch to `origin feat/<feature-name>`.
 2. Open or update PR against `main`.
 3. Post the review handoff block in the PR description:
@@ -75,7 +97,8 @@ repo: Sonoran-Solutions/dualdex
 branch: feat/<feature-name>
 action: review
 summary: |
-  Implementation complete. Tested with ./ci.sh all.
+  Implementation complete. ./ci.sh all passed on <tested sha>; later revisions
+  (if any) and why that evidence still applies.
 pr_url: https://github.com/Sonoran-Solutions/dualdex/pull/<number>
 ---
 ```

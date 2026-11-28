@@ -1,0 +1,524 @@
+{
+ "base_revision": "e6184b20470df541c76aa9a840d059a3a33e66ee",
+ "battle": [
+  {
+   "base_ability_triple": [
+    22,
+    0,
+    118
+   ],
+   "battle_ability_byte": 22,
+   "first_label": "battle_start",
+   "iv_bit31": 0,
+   "matches": true,
+   "observations": 8,
+   "party_index": 0,
+   "pid_bit0": 0,
+   "predicted_ability": 22,
+   "predicted_selector": "ability1",
+   "side": "player",
+   "species_word": 130,
+   "vanilla_bit31_slot_ability": 22
+  },
+  {
+   "base_ability_triple": [
+    11,
+    120,
+    6
+   ],
+   "battle_ability_byte": 120,
+   "first_label": "battle_start",
+   "iv_bit31": 0,
+   "matches": true,
+   "observations": 13,
+   "party_index": 0,
+   "pid_bit0": 1,
+   "predicted_ability": 120,
+   "predicted_selector": "ability2",
+   "side": "enemy",
+   "species_word": 646,
+   "vanilla_bit31_slot_ability": 11
+  },
+  {
+   "base_ability_triple": [
+    11,
+    6,
+    2
+   ],
+   "battle_ability_byte": 2,
+   "first_label": "after_switch",
+   "iv_bit31": 1,
+   "matches": true,
+   "observations": 5,
+   "party_index": 2,
+   "pid_bit0": 0,
+   "predicted_ability": 2,
+   "predicted_selector": "hidden",
+   "side": "player",
+   "species_word": 186,
+   "vanilla_bit31_slot_ability": 6
+  }
+ ],
+ "inputs": {
+  "adapter_binary_sha256": "d693404bf35c5d075b3f70fc1839a70e3d84a5a47df9301214c893907c5cb361",
+  "adapter_source_revision": "ff51c01d38d650d8917fcd45c8061971ddd8a798",
+  "battery_sha256": "a561cab2c9f4ecd32997d34a6f6b82ca592ec71f28d8713a16c9950e797e5236",
+  "core_sha256": "fc7394f718d213131d5ec9002ddea6c72a9cd2094e0a2993c3ea3c9c964f203e",
+  "movie": "tools/rom-evidence/unbound-battle-wild-run.movie",
+  "movie_sha256": "607d75f9d00e9b66e1ee0d033390841941879ad526d62466b26ffdd6143b2a12",
+  "observer_sha256": "32c673bc543ac33b5fac475508f8b50aa82c4ee9024bbb3f97ba99f54eb77260",
+  "party_manifest": "tools/rom-evidence/evidence/unbound-runtime-observation.json",
+  "party_manifest_sha256": "ce24775da4c2cafe41f716bcd1ccee3069e3c48e6171017375cc4d145f1fb147",
+  "public_source": {
+   "cfru": "b637a27898b14e25dd24d0f69a3e302f0069deb8",
+   "dpe": "cdfc053a56326a13dc5311b24488445e17536b7e",
+   "use": "naming and cross-check only; exact-ROM bytes are authoritative"
+  },
+  "semantics_tool_sha256": "a30256959761e46e1535d531d6a64d7983be974841dfd981dbb446d295a553cc"
+ },
+ "party": [
+  {
+   "base_ability_triple": [
+    22,
+    0,
+    118
+   ],
+   "checksum_word": 0,
+   "discriminates_ability2_rule": false,
+   "iv_bit31": 0,
+   "nature_pid_mod25": 13,
+   "pid_bit0": 0,
+   "predicted_ability": 22,
+   "predicted_default_name_equals_ui": true,
+   "predicted_selector": "ability1",
+   "predicted_shiny": true,
+   "shiny_matches_ui": true,
+   "shiny_value": 15,
+   "slot": 1,
+   "species_word": 130,
+   "ui_shiny_star": true,
+   "vanilla_shiny_lt8": false
+  },
+  {
+   "base_ability_triple": [
+    33,
+    85,
+    6
+   ],
+   "checksum_word": 0,
+   "discriminates_ability2_rule": false,
+   "iv_bit31": 0,
+   "nature_pid_mod25": 15,
+   "pid_bit0": 0,
+   "predicted_ability": 33,
+   "predicted_default_name_equals_ui": true,
+   "predicted_selector": "ability1",
+   "predicted_shiny": true,
+   "shiny_matches_ui": true,
+   "shiny_value": 5,
+   "slot": 2,
+   "species_word": 230,
+   "ui_shiny_star": true,
+   "vanilla_shiny_lt8": true
+  },
+  {
+   "base_ability_triple": [
+    11,
+    6,
+    2
+   ],
+   "checksum_word": 0,
+   "discriminates_ability2_rule": false,
+   "iv_bit31": 1,
+   "nature_pid_mod25": 5,
+   "pid_bit0": 0,
+   "predicted_ability": 2,
+   "predicted_default_name_equals_ui": true,
+   "predicted_selector": "hidden",
+   "predicted_shiny": false,
+   "shiny_matches_ui": true,
+   "shiny_value": 50580,
+   "slot": 3,
+   "species_word": 186,
+   "ui_shiny_star": false,
+   "vanilla_shiny_lt8": false
+  },
+  {
+   "base_ability_triple": [
+    181,
+    0,
+    226
+   ],
+   "checksum_word": 0,
+   "discriminates_ability2_rule": false,
+   "iv_bit31": 0,
+   "nature_pid_mod25": 10,
+   "pid_bit0": 0,
+   "predicted_ability": 181,
+   "predicted_default_name_equals_ui": true,
+   "predicted_selector": "ability1",
+   "predicted_shiny": false,
+   "shiny_matches_ui": true,
+   "shiny_value": 2596,
+   "slot": 4,
+   "species_word": 1002,
+   "ui_shiny_star": false,
+   "vanilla_shiny_lt8": false
+  },
+  {
+   "base_ability_triple": [
+    209,
+    222,
+    234
+   ],
+   "checksum_word": 0,
+   "discriminates_ability2_rule": false,
+   "iv_bit31": 0,
+   "nature_pid_mod25": 1,
+   "pid_bit0": 0,
+   "predicted_ability": 209,
+   "predicted_default_name_equals_ui": true,
+   "predicted_selector": "ability1",
+   "predicted_shiny": false,
+   "shiny_matches_ui": true,
+   "shiny_value": 41573,
+   "slot": 5,
+   "species_word": 1035,
+   "ui_shiny_star": false,
+   "vanilla_shiny_lt8": false
+  },
+  {
+   "base_ability_triple": [
+    66,
+    0,
+    22
+   ],
+   "checksum_word": 0,
+   "discriminates_ability2_rule": false,
+   "iv_bit31": 0,
+   "nature_pid_mod25": 13,
+   "pid_bit0": 1,
+   "predicted_ability": 66,
+   "predicted_default_name_equals_ui": true,
+   "predicted_selector": "ability1",
+   "predicted_shiny": false,
+   "shiny_matches_ui": true,
+   "shiny_value": 16064,
+   "slot": 6,
+   "species_word": 942,
+   "ui_shiny_star": false,
+   "vanilla_shiny_lt8": false
+  }
+ ],
+ "private_reports": {
+  "battle_report_sha256": "5f2189f5aa4d1ac8d62e7bb3e1ef5ca65dae6cf236d521be54a795a4e4639a88",
+  "directory": "/home/dq/dualdex-private/unbound/e1-semantics",
+  "semantics_report_sha256": "b66d7fae9e5ef6085f54c9333a5319d3ceb8eec23420b1b3d9b3b8c2a1926cf7"
+ },
+ "production_support": "NOT_VERIFIED",
+ "release_label": "NOT_VERIFIED",
+ "rom_sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7",
+ "runtime_run": {
+  "deterministic_vs_prior_run": "16/16 frames and player-party digests equal to the battle-lifecycle run02; gBattleMons digests equal for 11/16, the 5 after the switch differ only in battler-0 bytes 0x23 and 0x36..0x3A (unused byte and name-buffer tail after the terminator); every compared field and the ability byte agree",
+  "exit_code": 0,
+  "observations": 16,
+  "status": "OBSERVED",
+  "wall_seconds": 16.2
+ },
+ "schema_version": 1,
+ "scope": "Exact candidate ROM only; static exact-ROM inspection plus one wild-battle capture and the committed six-slot summary transcription. Recommendations only; production code unchanged.",
+ "static": {
+  "box_storage": {
+   "box_base_addresses": [
+    "0x2029318",
+    "0x20299e4",
+    "0x202a0b0",
+    "0x202a77c",
+    "0x202ae48",
+    "0x202b514",
+    "0x202bbe0",
+    "0x202c2ac",
+    "0x202c978",
+    "0x202d044",
+    "0x202d710",
+    "0x202dddc",
+    "0x202e4a8",
+    "0x202eb74",
+    "0x202f240",
+    "0x202f90c",
+    "0x202ffd8",
+    "0x20306a4",
+    "0x2030d70",
+    "0x203cb44",
+    "0x203d210",
+    "0x203d8dc",
+    "0x2027434",
+    "0x2027b00",
+    "0x2024638"
+   ],
+   "boxes": 25,
+   "record_bytes": 58,
+   "slots_per_box": 30
+  },
+  "checksum_function_references": {
+   "aligned_literal_words": [
+    "0x8825c98"
+   ],
+   "any_alignment_words": 1,
+   "bl_sites": [
+    "0x803db9e",
+    "0x8040ae2"
+   ]
+  },
+  "checksum_writer_routine": {
+   "any_alignment_words": 10,
+   "bl_sites": [],
+   "entry": "0x8825a30",
+   "script_callasm_sites": [
+    "0x87404c5",
+    "0x8740f5e",
+    "0x8792aea",
+    "0x87945e0",
+    "0x8794630",
+    "0x8794680",
+    "0x87c4a11",
+    "0x87ee725",
+    "0x87ef385",
+    "0x88cee97"
+   ]
+  },
+  "literal_loads": [
+   {
+    "load_at": "0x803dad2",
+    "meaning": "CreateBoxMon hook target",
+    "value": "0x89a43c5"
+   },
+   {
+    "load_at": "0x803e47c",
+    "meaning": "CalculateMonStats hook target",
+    "value": "0x89c4475"
+   },
+   {
+    "load_at": "0x8040d38",
+    "meaning": "GetMonAbility hook target",
+    "value": "0x89c51b9"
+   },
+   {
+    "load_at": "0x808ba18",
+    "meaning": "GetBoxMonDataAt hook target",
+    "value": "0x8a04955"
+   },
+   {
+    "load_at": "0x8825a98",
+    "meaning": "inserted routine loads CalculateBoxMonChecksum",
+    "value": "0x803e3e9"
+   },
+   {
+    "load_at": "0x8825aa8",
+    "meaning": "inserted routine loads SetBoxMonData (field 9 = checksum)",
+    "value": "0x80404d1"
+   },
+   {
+    "load_at": "0x8825ab0",
+    "meaning": "inserted routine loads EncryptBoxMon",
+    "value": "0x803f8f9"
+   },
+   {
+    "load_at": "0x89a43da",
+    "meaning": "CreateBoxMon hook return (after the vanilla checksum store)",
+    "value": "0x803dd85"
+   },
+   {
+    "load_at": "0x89c456e",
+    "meaning": "hooked CalculateMonStats loads GetNature",
+    "value": "0x8042e9d"
+   },
+   {
+    "load_at": "0x89c51d6",
+    "meaning": "GetMonAbility: address of the gBaseStats pointer",
+    "value": "0x80001bc"
+   },
+   {
+    "load_at": "0x8a0496a",
+    "meaning": "box accessor loads the box pointer table",
+    "value": "0x8a6cb2c"
+   },
+   {
+    "load_at": "0x8a13b48",
+    "meaning": "TryRandomizeAbility: FlagGet",
+    "value": "0x806e6d1"
+   },
+   {
+    "load_at": "0x8a13b4a",
+    "meaning": "TryRandomizeAbility: ability-randomizer flag id",
+    "value": "0x1522"
+   }
+  ],
+  "shiny_compare_immediate": 15,
+  "shiny_threshold_exclusive": 16,
+  "spans": {
+   "ability": [
+    {
+     "end_exclusive": "0x8040d40",
+     "finding": "Vanilla GetMonAbility entry is a hook: ldr r1,=0x089C51B9; bx r1.",
+     "sha256": "d3d5019088e648d1e0681e98fd874c890b12eb3d0ca0d48b554b5b0b04895207",
+     "start": "0x8040d38"
+    },
+    {
+     "end_exclusive": "0x89c5220",
+     "finding": "GetMonAbility: species via GetMonData(11); if record byte 0x4B > 0x7F (IV word bit 31) and base[species]+0x1A != 0 -> hidden; else if personality bit 0 and base+0x17 != 0 -> ability2; else ability1.",
+     "sha256": "7ecd23875b23f7129136d26457ddb5537cd9cd6ebb91c1938962e56f7f89ad20",
+     "start": "0x89c51b8"
+    },
+    {
+     "end_exclusive": "0x8a13f70",
+     "finding": "GetAbility1/2/Hidden read base[species] bytes 0x16/0x17/0x1A (stride 28, table via pointer 0x080001BC) and pass them through TryRandomizeAbility.",
+     "sha256": "558518662ff785db0cded540d261896809b3b3fe2494f58751bd33ff905a83e7",
+     "start": "0x8a13f1c"
+    },
+    {
+     "end_exclusive": "0x8a13b70",
+     "finding": "TryRandomizeAbility returns the table value unless FlagGet(0x1522) and !FlagGet(0x9F0) and the ability is not ban-listed (save-dependent override).",
+     "sha256": "0b27d75ed657928a6dc9aa596ecf456d85ca5e98e54957c53356ede5a78120d9",
+     "start": "0x8a13b44"
+    }
+   ],
+   "box": [
+    {
+     "end_exclusive": "0x808ba20",
+     "finding": "GetBoxMonDataAt is hooked: ldr r3,=0x08A04955; bx r3.",
+     "sha256": "6181e76b0050d0d13ddb884a34d8644fc5716aa1c60e6944a4af90fc4fe2446c",
+     "start": "0x808ba18"
+    },
+    {
+     "end_exclusive": "0x8a0499a",
+     "finding": "Box accessor: box < 25, position < 30, record stride 0x3A (58), base from the 25-pointer table at 0x08A6CB2C; species = halfword at +0x1C.",
+     "sha256": "aaa09988ccb536e8923fae02ff9ac5b495d22ae41be07ab7b48d0cfb62ba729f",
+     "start": "0x8a04954"
+    },
+    {
+     "end_exclusive": "0x8a047d2",
+     "finding": "Compressed->BoxPokemon: zero 0x50 bytes, copy 0x1C header bytes (checksum +0x1C excluded), 11 G bytes to +0x20, 6 EVs to +0x38, 8 misc bytes (incl. IV word) to +0x44.",
+     "sha256": "856206caba341056089ef11a3bd34ffe750563616764dfda05b538b6cb2d58dd",
+     "start": "0x8a0478c"
+    }
+   ],
+   "checksum": [
+    {
+     "end_exclusive": "0x803e47c",
+     "finding": "CalculateBoxMonChecksum is vanilla: 16-bit sum of the 24 halfwords of G/A/E/M (substructure lookup forces fixed order).",
+     "sha256": "15aa7ab0d75814ea88f0cf9028c50991677b1a9950491fa6b6ad704b3e96484b",
+     "start": "0x803e3e8"
+    },
+    {
+     "end_exclusive": "0x8040aee",
+     "finding": "SetBoxMonData tail: checksum computed for fields > 10 but the store is a no-op (0x08040AE6); EncryptBoxMon follows (its XORs are no-ops).",
+     "sha256": "441365b471d5f98bf5e2e63424cf625ef182a569db5965634aa36c2277837727",
+     "start": "0x8040ada"
+    },
+    {
+     "end_exclusive": "0x8040532",
+     "finding": "SetBoxMonData checksum validation replaced by no-ops and an unconditional branch.",
+     "sha256": "8d6e71a8b2e60adc1b7f5dbab02191a8cba24ab32f874600111e01b38d34d15b",
+     "start": "0x804051e"
+    },
+    {
+     "end_exclusive": "0x8825ab6",
+     "finding": "Inserted routine (entry 0x08825A30): stores CalculateBoxMonChecksum via SetBoxMonData(mon, 9 /*checksum*/), then EncryptBoxMon.",
+     "sha256": "359a7f7519b5221128af62b1b19eecd09ba9d4a0e1ece8b8b2bc0fbfd779a7ec",
+     "start": "0x8825a96"
+    },
+    {
+     "end_exclusive": "0x88cee9c",
+     "finding": "Script bytecode: callasm (0x23) 0x08825A31 (one of the sites listed by callasm_sites).",
+     "sha256": "55e9e115b06e83274f5abc0a83eb1fd5fc6275e59b5772889846b26da6df8844",
+     "start": "0x88cee97"
+    }
+   ],
+   "nature": [
+    {
+     "end_exclusive": "0x8042ec4",
+     "finding": "GetNature = GetMonData(mon, 0 /*personality*/) % 25; GetNatureFromPersonality = p % 25 (both unhooked).",
+     "sha256": "1368e2fb46801b0d393cad2ed075208b47eaa464fe1a01a61bfa86ba04298f83",
+     "start": "0x8042e9c"
+    },
+    {
+     "end_exclusive": "0x803e484",
+     "finding": "CalculateMonStats is hooked to 0x089C4475; that function loads GetNature at 0x089C456E.",
+     "sha256": "7aca883e037eb2a7d4805fa404eecb4a71e5b1ef28ed01eab361648ca939e845",
+     "start": "0x803e47c"
+    }
+   ],
+   "shiny": [
+    {
+     "end_exclusive": "0x80444c4",
+     "finding": "IsMonShiny passes OT ID and personality to IsShinyOtIdPersonality, which returns (tid ^ sid ^ pid_hi ^ pid_lo) <= 15 (cmp #0xF; bhi). No stored flag is read.",
+     "sha256": "7ca0f1664ed86ec612689c15d2872c29cc6364cfb5551957d5507481449b8ea8",
+     "start": "0x8044470"
+    },
+    {
+     "end_exclusive": "0x803dadc",
+     "finding": "CreateBoxMon body is hooked: ldr r0,=0x089A43C5; bx r0.",
+     "sha256": "e6dec2f33feef4f6142702de9025dd9a334db3f78404d5e961afae66d4c36e34",
+     "start": "0x803dad2"
+    },
+    {
+     "end_exclusive": "0x89a43de",
+     "finding": "Hook calls the inserted CreateBoxMon and resumes at 0x0803DD85, skipping the vanilla body (including its checksum store at 0x0803DB9E).",
+     "sha256": "28a20906a7096bdf831a25ca60abe69dbb8ed3d3cc1c68b7f5e13d9957107ac1",
+     "start": "0x89a43c4"
+    }
+   ]
+  }
+ },
+ "status": "VERIFIED_STATIC_AND_OBSERVED_SELECTED",
+ "task_id": "E1-party-semantics",
+ "verdicts": {
+  "ability": {
+   "basis": [
+    "exact-ROM GetMonAbility 0x089C51B8 (hooked from 0x08040D38)",
+    "runtime gBattleMons ability byte 3/3 battlers",
+    "summary screen 6/6 slots"
+   ],
+   "override": "TryRandomizeAbility: table value replaced only when flag 0x1522 is set and flag 0x9F0 clear (save-dependent; observed values equal the table, flag state itself NOT_VERIFIED)",
+   "rule": "hidden if IV word bit 31 (record byte 0x4B bit 7) and base[0x1A] != 0; else ability2 if personality bit 0 and base[0x17] != 0; else ability1 (base[0x16]); base = gBaseStats row, stride 28",
+   "status": "VERIFIED"
+  },
+  "box_storage": {
+   "basis": [
+    "exact-ROM 0x08A04954 and 0x08A0478C"
+   ],
+   "layout": "25 boxes x 30 slots of 58-byte packed records via a pointer table; header 0x00..0x1B (no checksum), G 11 bytes, 10-bit moves, 6 EVs, 8 misc bytes incl. IV word",
+   "runtime": "NOT_RUN; packed move/metInfo bit layout from CFRU source only",
+   "status": "VERIFIED"
+  },
+  "checksum": {
+   "basis": [
+    "exact-ROM census: CalculateBoxMonChecksum has 2 BL sites and 1 literal word (any alignment) in the ROM",
+    "GetBoxMonData/SetBoxMonData validation no-oped",
+    "runtime: 0x0000 in 6/6 party and the wild enemy record (prior evidence and this run)"
+   ],
+   "meaning": "not an encryption or validity signal; engine never validates it; normal creation, SetBoxMonData and PC storage never write it (PC records do not store it; withdrawal zeroes it); one inserted routine (0x08825A30), reached only from 10 script callasm sites, builds a Pokemon from script variables, stores the plaintext raw 16-bit sum via SetBoxMonData(9), then hands the record to 0x08040B15 (vanilla GiveMonToPlayer address; name NOT_VERIFIED); later SetBoxMonData edits leave that word stale",
+   "runtime_nonzero": "NOT_RUN (no such record in this save)",
+   "status": "VERIFIED"
+  },
+  "nature": {
+   "basis": [
+    "exact-ROM GetNature 0x08042E9C unhooked",
+    "hooked CalculateMonStats loads GetNature",
+    "summary nature and stat colours 6/6"
+   ],
+   "rule": "personality % 25; no stored or hidden nature",
+   "status": "VERIFIED"
+  },
+  "shiny": {
+   "basis": [
+    "exact-ROM IsShinyOtIdPersonality 0x0804449C cmp #15",
+    "summary star 6/6 incl. value 15"
+   ],
+   "charm_generation_effect": "source-only (CFRU b637a27)",
+   "rule": "(tid ^ sid ^ pid_hi ^ pid_lo) < 16; no stored shiny flag; shiny charm/forced-shiny flag act only at generation (CreateBoxMon hook)",
+   "status": "VERIFIED"
+  }
+ }
+}

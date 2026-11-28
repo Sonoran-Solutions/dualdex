@@ -1,0 +1,47 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1030 +1030 @@
+-	set(LIBRETRO_CORE_SRC ${CORE_SRC})
++	set(LIBRETRO_CORE_SRC ${CORE_SRC} ${DEBUGGER_SRC})
+@@ -1105 +1105 @@
+-	set_target_properties(${BINARY_NAME}_libretro PROPERTIES PREFIX "" C_EXTENSIONS ON COMPILE_DEFINITIONS "__LIBRETRO__;_GNU_SOURCE;${LIBRETRO_COLOR_DEFINES};DISABLE_THREADING;MGBA_STANDALONE;${OS_DEFINES};${FUNCTION_DEFINES};ENABLE_VFS;ENABLE_DIRECTORIES;MINIMAL_CORE=2;${LIBRETRO_EXTRA_DEFINES}")
++	set_target_properties(${BINARY_NAME}_libretro PROPERTIES PREFIX "" C_EXTENSIONS ON COMPILE_DEFINITIONS "ENABLE_DEBUGGERS;__LIBRETRO__;_GNU_SOURCE;${LIBRETRO_COLOR_DEFINES};DISABLE_THREADING;MGBA_STANDALONE;${OS_DEFINES};${FUNCTION_DEFINES};ENABLE_VFS;ENABLE_DIRECTORIES;MINIMAL_CORE=2;${LIBRETRO_EXTRA_DEFINES}")
+--- a/src/platform/libretro/libretro.c
++++ b/src/platform/libretro/libretro.c
+@@ -86,0 +87,33 @@
++#include <mgba/debugger/debugger.h>
++#include <mgba/internal/arm/arm.h>
++static struct mDebugger roweDebugger;
++static struct mDebuggerModule roweModule;
++static bool roweTracing;
++static void (*roweEvent)(unsigned, unsigned, unsigned, unsigned, unsigned, const int32_t*);
++static void roweEntered(struct mDebuggerModule* module, enum mDebuggerEntryReason reason, struct mDebuggerEntryInfo* info) {
++    struct ARMCore* cpu = core->cpu;
++    if (info && roweEvent) roweEvent(reason, info->address, reason == DEBUGGER_ENTER_WATCHPOINT ? info->width : 0,
++        reason == DEBUGGER_ENTER_WATCHPOINT ? info->type.wp.oldValue : 0,
++        reason == DEBUGGER_ENTER_WATCHPOINT ? info->type.wp.newValue : 0, cpu->gprs);
++    module->isPaused = false;
++}
++bool retro_rowe_trace_enable(void (*callback)(unsigned, unsigned, unsigned, unsigned, unsigned, const int32_t*)) {
++    if (!core || roweTracing || !callback) return false;
++    roweEvent = callback;
++    mDebuggerInit(&roweDebugger);
++    roweModule.type = DEBUGGER_CUSTOM;
++    roweModule.entered = roweEntered;
++    mDebuggerAttachModule(&roweDebugger, &roweModule);
++    mDebuggerAttach(&roweDebugger, core);
++    unsigned pcs[] = {0x0803014a,0x0803014e,0x080a4044,0x080a4062,0x080a407c,
++       0x080a4092,0x080a18e8,0x080a4098,0x080a18a0,0x080a40a2,
++       0x080a40aa,0x0809b57c,0x080a40ae,0x080a40b4,0x080a40b8,0x08099674};
++    for (unsigned i=0; i<sizeof(pcs)/sizeof(*pcs); ++i) {
++        struct mBreakpoint point = {.address=pcs[i], .segment=-1, .type=BREAKPOINT_HARDWARE};
++        if (roweDebugger.platform->setBreakpoint(roweDebugger.platform, &roweModule, &point)<0) return false;
++    }
++    struct mWatchpoint wp = {.segment=-1, .minAddress=0x02025190, .maxAddress=0x02025194, .type=WATCHPOINT_WRITE};
++    if (roweDebugger.platform->setWatchpoint(roweDebugger.platform, &roweModule, &wp)<0) return false;
++    roweTracing = true;
++    return true;
++}
+@@ -1672 +1705 @@
+-	core->runFrame(core);
++	if (roweTracing) mDebuggerRunFrame(&roweDebugger); else core->runFrame(core);

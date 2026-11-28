@@ -1,0 +1,679 @@
+{
+  "accessors": {
+    "ability_name_x17_default_path": {
+      "bytes": 44,
+      "file_offset": "0x009a9cb4",
+      "sha256": "055ed80ed187e84674883628c25c73bdbebf4be21e556884c79a839796a3126b"
+    },
+    "base_stats_x28_gender": {
+      "bytes": 64,
+      "file_offset": "0x0003f78c",
+      "sha256": "9c22a1176cea51270fd19978fb318b8a7dfd4fadd1ebdea4afae4c102f7ba814"
+    },
+    "item_clamp_x44_indirect_name": {
+      "bytes": 72,
+      "file_offset": "0x009f3240",
+      "sha256": "8f784d9a2e92faf2573f299b83dc816c41067618dfe80ab6c20cac9eaa12c7ef"
+    },
+    "move_name_x13": {
+      "bytes": 14,
+      "file_offset": "0x00030858",
+      "sha256": "176760a7da332dfe623b25cf8189f7a444094a12c722aaa7ad85f8832d11f986"
+    },
+    "species_name_x11": {
+      "bytes": 74,
+      "file_offset": "0x00040fd0",
+      "sha256": "2770a9c070f208f2a5e93441be2ce4665742b351e673b3d0c92e042945eccd70"
+    },
+    "species_search_exclusive_bound": {
+      "bytes": 116,
+      "file_offset": "0x0165bb50",
+      "sha256": "4fcba6e1e15d0e703d1eac348b09bddc25a732b17b8132d93f0b47724e57bfa0"
+    }
+  },
+  "inspector_sha256": "6ed55b1960911da9f96f770ee66b587789bb8e1bb65cfca53e2b84015153a72f",
+  "pointers": [
+    {
+      "file_offset": "0x00000144",
+      "value": "0x0966a98c"
+    },
+    {
+      "file_offset": "0x00040fec",
+      "value": "0x0966a98c"
+    },
+    {
+      "file_offset": "0x000001bc",
+      "value": "0x099e0c9c"
+    },
+    {
+      "file_offset": "0x0003f7c8",
+      "value": "0x099e0c9c"
+    },
+    {
+      "file_offset": "0x00000148",
+      "value": "0x08a40a10"
+    },
+    {
+      "file_offset": "0x000308a4",
+      "value": "0x08a40a10"
+    },
+    {
+      "file_offset": "0x000001c0",
+      "value": "0x08a36398"
+    },
+    {
+      "file_offset": "0x009a9cdc",
+      "value": "0x08a36398"
+    },
+    {
+      "file_offset": "0x000001c8",
+      "value": "0x08876200"
+    },
+    {
+      "file_offset": "0x009f3284",
+      "value": "0x080001c8"
+    },
+    {
+      "file_offset": "0x0009a8a8",
+      "value": "0x089f3241"
+    },
+    {
+      "file_offset": "0x0009a8c0",
+      "value": "0x089f324d"
+    }
+  ],
+  "production_support": "NOT_VERIFIED",
+  "rom": {
+    "bytes": 33554432,
+    "crc32": "4b3d4957",
+    "sha1": "b4776b82a4c7915d0fadeaa27e013523f99dfd94",
+    "sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+  },
+  "runtime_forms": "NOT_VERIFIED",
+  "schema_version": 1,
+  "scope": "Exact static bytes only; not a production mapping or runtime identity",
+  "selected_species": [
+    {
+      "decoded_name": "??????",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 0,
+      "lookup": {
+        "name": null,
+        "reason": "reserved_or_placeholder",
+        "status": "NOT_VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "reserved"
+    },
+    {
+      "decoded_name": "Egg",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 252,
+      "lookup": {
+        "name": null,
+        "reason": "reserved_or_placeholder",
+        "status": "NOT_VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "egg"
+    },
+    {
+      "decoded_name": "MISSINGNO.",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 253,
+      "lookup": {
+        "name": null,
+        "reason": "reserved_or_placeholder",
+        "status": "NOT_VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "missingno"
+    },
+    {
+      "decoded_name": "?",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 254,
+      "lookup": {
+        "name": null,
+        "reason": "reserved_or_placeholder",
+        "status": "NOT_VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "placeholder"
+    },
+    {
+      "decoded_name": "Treecko",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 277,
+      "lookup": {
+        "name": "Treecko",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "gen3"
+    },
+    {
+      "decoded_name": "Bad Egg",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 412,
+      "lookup": {
+        "name": null,
+        "reason": "reserved_or_placeholder",
+        "status": "NOT_VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "bad_egg"
+    },
+    {
+      "decoded_name": "Unown B",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 413,
+      "lookup": {
+        "name": "Unown B",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "unown_form"
+    },
+    {
+      "decoded_name": "Turtwig",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 440,
+      "lookup": {
+        "name": "Turtwig",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "gen4"
+    },
+    {
+      "decoded_name": "Snivy",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 548,
+      "lookup": {
+        "name": "Snivy",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "gen5"
+    },
+    {
+      "decoded_name": "Warrior",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 706,
+      "lookup": {
+        "name": "Warrior",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "custom_shadow_warrior_candidate"
+    },
+    {
+      "decoded_name": "Chespin",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 758,
+      "lookup": {
+        "name": "Chespin",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "gen6"
+    },
+    {
+      "decoded_name": "Venusaur",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 869,
+      "lookup": {
+        "name": "Venusaur",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "mega_candidate"
+    },
+    {
+      "decoded_name": "Dialga",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 919,
+      "lookup": {
+        "name": "Dialga",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "conflicting_source_form_labels"
+    },
+    {
+      "decoded_name": "Rowlet",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 939,
+      "lookup": {
+        "name": "Rowlet",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "gen7"
+    },
+    {
+      "decoded_name": "Rattata",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1020,
+      "lookup": {
+        "name": "Rattata",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "alolan_candidate"
+    },
+    {
+      "decoded_name": "Grookey",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1102,
+      "lookup": {
+        "name": "Grookey",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "gen8_above_national_dex_range"
+    },
+    {
+      "decoded_name": "Meowth",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1212,
+      "lookup": {
+        "name": "Meowth",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "galarian_candidate"
+    },
+    {
+      "decoded_name": "Growlithe",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1234,
+      "lookup": {
+        "name": "Growlithe",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "hisuian_candidate"
+    },
+    {
+      "decoded_name": "Venusaur",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1260,
+      "lookup": {
+        "name": "Venusaur",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "gigantamax_candidate"
+    },
+    {
+      "decoded_name": "Urshifu",
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1293,
+      "lookup": {
+        "name": "Urshifu",
+        "status": "VERIFIED"
+      },
+      "name_status": "VERIFIED",
+      "role": "last_table_row"
+    },
+    {
+      "form_semantics": "NOT_VERIFIED",
+      "id": 1294,
+      "lookup": {
+        "name": null,
+        "reason": "out_of_domain",
+        "status": "NOT_VERIFIED"
+      },
+      "role": "out_of_domain"
+    }
+  ],
+  "source_comparison_status": "OBSERVED",
+  "source_comparisons": {
+    "cfru": {
+      "agreeing_ids": 1250,
+      "commit": "b637a27898b14e25dd24d0f69a3e302f0069deb8",
+      "complete_domain_fraction": "1250/1294",
+      "complete_rom_domain": 1294,
+      "declared_ids": 1269,
+      "decorated_base_name_only": 334,
+      "literal": 916,
+      "meaning": "Text agreement only; form semantics NOT_VERIFIED",
+      "mismatch_ids": [
+        0,
+        412,
+        706,
+        737,
+        770,
+        839,
+        957,
+        1077,
+        1114,
+        1115,
+        1139,
+        1143,
+        1147,
+        1166,
+        1195,
+        1254,
+        1255,
+        1277,
+        1286
+      ],
+      "sha256": "8c5acd30a4f06cbfe224ee282b60bac1c8a4898d3c75f632225c2200d8a59c43",
+      "source_covered_fraction": "1250/1269",
+      "source_covered_rom_ids": 1269,
+      "source_out_of_domain_ids": [],
+      "source_uncovered_rom_ids": [
+        252,
+        253,
+        254,
+        255,
+        256,
+        257,
+        258,
+        259,
+        260,
+        261,
+        262,
+        263,
+        264,
+        265,
+        266,
+        267,
+        268,
+        269,
+        270,
+        271,
+        272,
+        273,
+        274,
+        275,
+        276
+      ],
+      "status": "OBSERVED",
+      "url": "https://github.com/Skeli789/Complete-Fire-Red-Upgrade/blob/b637a27898b14e25dd24d0f69a3e302f0069deb8/include/constants/species.h"
+    },
+    "dpe": {
+      "agreeing_ids": 1194,
+      "commit": "cdfc053a56326a13dc5311b24488445e17536b7e",
+      "complete_domain_fraction": "1194/1294",
+      "complete_rom_domain": 1294,
+      "declared_ids": 1243,
+      "decorated_base_name_only": 284,
+      "literal": 910,
+      "meaning": "Text agreement only; form semantics NOT_VERIFIED",
+      "mismatch_ids": [
+        0,
+        412,
+        706,
+        737,
+        770,
+        839,
+        957,
+        1077,
+        1114,
+        1115,
+        1139,
+        1143,
+        1147,
+        1166,
+        1195,
+        1234,
+        1235,
+        1236,
+        1237,
+        1238,
+        1239,
+        1240,
+        1241,
+        1242,
+        1243,
+        1244,
+        1245,
+        1246,
+        1247,
+        1248,
+        1249,
+        1250,
+        1251,
+        1252,
+        1253,
+        1254,
+        1255,
+        1256,
+        1257,
+        1258,
+        1259,
+        1260,
+        1261,
+        1262,
+        1263,
+        1264,
+        1265,
+        1266,
+        1267
+      ],
+      "sha256": "153baad3b2d13ad2264ddaf734cfc9b675ea82e46849c1c18ec272e79d4f0914",
+      "source_covered_fraction": "1194/1243",
+      "source_covered_rom_ids": 1243,
+      "source_out_of_domain_ids": [],
+      "source_uncovered_rom_ids": [
+        252,
+        253,
+        254,
+        255,
+        256,
+        257,
+        258,
+        259,
+        260,
+        261,
+        262,
+        263,
+        264,
+        265,
+        266,
+        267,
+        268,
+        269,
+        270,
+        271,
+        272,
+        273,
+        274,
+        275,
+        276,
+        1268,
+        1269,
+        1270,
+        1271,
+        1272,
+        1273,
+        1274,
+        1275,
+        1276,
+        1277,
+        1278,
+        1279,
+        1280,
+        1281,
+        1282,
+        1283,
+        1284,
+        1285,
+        1286,
+        1287,
+        1288,
+        1289,
+        1290,
+        1291,
+        1292,
+        1293
+      ],
+      "status": "OBSERVED",
+      "url": "https://github.com/Skeli789/Dynamic-Pokemon-Expansion/blob/cdfc053a56326a13dc5311b24488445e17536b7e/include/species.h"
+    }
+  },
+  "species_domain": {
+    "count": 1294,
+    "maximum_table_id": 1293,
+    "nonreserved_name_rows": 1267,
+    "placeholder_range": [
+      254,
+      276
+    ],
+    "reserved_ids": [
+      0,
+      252,
+      253,
+      412
+    ],
+    "runtime_legal_ids": "NOT_VERIFIED",
+    "status": "VERIFIED"
+  },
+  "status": "VERIFIED",
+  "tables": {
+    "ability_names": {
+      "bytes": 4981,
+      "count": 293,
+      "effective_name": "NOT_VERIFIED: caller has species-dependent overrides",
+      "file_offset": "0x00a36398",
+      "rom_address": "0x08a36398",
+      "sha256": "cea2dd9cf7a94caca02343f6ee8d1e1adee5795ba3215ca92b1d52843f251904",
+      "status": "VERIFIED",
+      "stride": 17
+    },
+    "base_stats": {
+      "bytes": 36232,
+      "count": 1294,
+      "field_semantics": "NOT_VERIFIED except accessor stride and gender byte +16",
+      "file_offset": "0x019e0c9c",
+      "rom_address": "0x099e0c9c",
+      "sha256": "beed70bc8ff0136bec0a8ba1ca3fcd1128a5b25a4d7f79155232ee92c97e13c1",
+      "status": "VERIFIED",
+      "stride": 28
+    },
+    "items": {
+      "bytes": 32076,
+      "count": 729,
+      "effects": "NOT_VERIFIED",
+      "file_offset": "0x00876200",
+      "name_outcomes": {
+        "VERIFIED": 682,
+        "inline": 696,
+        "nonpadding_suffix": 47,
+        "pointer": 33
+      },
+      "record_id_mismatch_ids": [
+        102,
+        339,
+        340,
+        341,
+        342,
+        343,
+        344,
+        345,
+        346,
+        375,
+        376,
+        377,
+        378,
+        379,
+        380,
+        381,
+        382,
+        383,
+        384,
+        385,
+        386,
+        387,
+        388,
+        389,
+        390,
+        391,
+        392,
+        393,
+        394,
+        395,
+        396,
+        397,
+        398,
+        399,
+        400,
+        401,
+        402,
+        403,
+        404,
+        405,
+        406,
+        407,
+        408,
+        409,
+        410,
+        411,
+        412,
+        413,
+        414,
+        415,
+        416,
+        417,
+        418,
+        419,
+        420,
+        421,
+        422,
+        423,
+        424,
+        425,
+        426,
+        427,
+        428,
+        429,
+        430,
+        431,
+        432,
+        433,
+        434,
+        435,
+        436,
+        437,
+        438,
+        439,
+        440,
+        441,
+        442,
+        443,
+        444,
+        445,
+        513,
+        520,
+        608
+      ],
+      "rom_address": "0x08876200",
+      "sha256": "95016c36d620f7c592f4d33011fc373a8206fef0c6eb4a08806f076615b7ed18",
+      "status": "VERIFIED",
+      "stride": 44
+    },
+    "move_names": {
+      "bytes": 11999,
+      "count": 923,
+      "file_offset": "0x00a40a10",
+      "rom_address": "0x08a40a10",
+      "sha256": "bda7540376436fad2225ef9943780b342ec903fd59a3219143a8c52456e7c3f1",
+      "status": "VERIFIED",
+      "stride": 13
+    },
+    "species_names": {
+      "bytes": 14234,
+      "count": 1294,
+      "file_offset": "0x0166a98c",
+      "rom_address": "0x0966a98c",
+      "sha256": "faac38467ee8455189b7aa81e9ba73ef209b752a90c5712c683aa53c4793f7f2",
+      "status": "VERIFIED",
+      "stride": 11
+    }
+  },
+  "task_id": "unbound-static"
+}

@@ -1,0 +1,41 @@
+# Unbound exact-candidate location route (owner Thor battery copy; never saves).
+# Masks: A=256 B=1 Start=8 Up=16 Down=32 Left=64 Right=128. mash = 1 pressed frame + 90 released.
+# Continue -> walk south out of the starting map through its exit warp -> step south and back,
+# then the A-button field script north of the arrival tile warps back into the starting map.
+# Same boot/Continue prefix and southward walk as unbound-battle-wild-run.movie.
+run 600
+run 600
+mash 1 8
+run 200
+mash 1 256
+run 300
+observe start_map
+run 80 32
+observe walk_south_80
+run 16 32
+observe walk_south_96
+run 8
+observe warp_8
+run 24
+observe warp_32
+run 32
+observe warp_64
+run 64
+observe outside
+# Step one tile south onto the grass, then hold Up back onto the arrival warp tile and into it.
+run 16 32
+run 8
+observe step_south
+run 48 16
+observe facing_north
+# Interact (A) with the tile north of the arrival warp, then A again.
+mash 1 256
+observe interact_1
+mash 1 256
+run 32
+observe interact_2_32
+run 120
+observe interact_2_152
+mash 1 256
+run 200
+observe back_inside

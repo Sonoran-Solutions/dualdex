@@ -8,12 +8,47 @@ import com.dualdex.companion.LiveObservationDecision
 import com.dualdex.companion.LiveObservationStabilizer
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.emulator.bindSyntheticRom
+import com.dualdex.emulator.syntheticRomBridge
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PlayerLocation
 import org.junit.Assert.*
 import org.junit.Test
 
 class RomCompatibilityTest {
+
+    @Test
+    fun profilelessExpandedHackUsesLibraryWordingOnLoadedSurfaces() {
+        for (base in listOf("Pokemon FireRed", "Pokemon Emerald")) {
+            val result = RomCompatibility.recognizedUnverified(
+                null, "unverified", ProfileMatchMethod.BASE_GAME_FALLBACK, "Expanded hack", base
+            )
+            assertEquals(RomCompatibilityMessages.badge(result.status),
+                RomCompatibilityMessages.profileLabel(result.profile, result.status))
+            assertEquals("Unverified version", RomCompatibilityMessages.profileLabel(result.profile, result.status))
+            assertFalse(result.mayReadLiveMemory)
+        }
+        val unsupported = RomCompatibility.unsupported("unknown")
+        assertEquals("Unsupported ROM", RomCompatibilityMessages.profileLabel(unsupported.profile, unsupported.status))
+        assertEquals(fireRedProfile.name, RomCompatibilityMessages.profileLabel(fireRedProfile, RomCompatibilityStatus.VERIFIED))
+    }
+
+    @Test
+    fun activeDataPackUsesLoadedIdentityRatherThanProfileHashes() {
+        val vm = CompanionViewModel()
+        val sha = com.dualdex.pokemon.unbound.UnboundSpeciesTable.ROM_SHA256
+        val profile = fireRedProfile.copy(gameDataPackId = "unbound_exact")
+        val compat = RomCompatibility.recognizedUnverified(profile, sha, ProfileMatchMethod.HEADER_TITLE, "unverified")
+        vm.setRomSession(compat, RomIdentity(sha, "Renamed hack"))
+        assertSame(com.dualdex.pokemon.unbound.UnboundDataPack, vm.activeGameDataPack)
+        assertFalse(vm.runtimeRomTrust.value.mayReadLiveMemory)
+        vm.setRomSession(compat, RomIdentity("0".repeat(64), "Other hack"))
+        assertNull(vm.activeGameDataPack.getSpecies(277))
+        assertFalse(vm.activeGameDataPack.allowGlobalFallback)
+        vm.clearRomSession()
+        vm.setProfile(profile)
+        assertNull(vm.activeGameDataPack.getSpecies(277))
+    }
 
     private val fireRedSha = "111122223333444455556666777788889999aaaabbbbccccddddeeeeffff0000"
     private val emeraldSha = "aaaabbbbccccddddeeeeffff0000111122223333444455556666777788889999"
@@ -150,7 +185,8 @@ class RomCompatibilityTest {
         val resultTitle = RomHackDetector.detectCompatibilityFromBytes(
             headerBytes = headerWithTitle,
             sha256 = unknownSha,
-            profiles = testProfiles
+            profiles = testProfiles,
+            romLength = RomHackDetector.RETAIL_ROM_SIZE
         )
         assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, resultTitle.status)
         assertFalse(resultTitle.isVerified)
@@ -163,7 +199,8 @@ class RomCompatibilityTest {
         val resultCode = RomHackDetector.detectCompatibilityFromBytes(
             headerBytes = headerWithCodeOnly,
             sha256 = unknownSha,
-            profiles = testProfiles
+            profiles = testProfiles,
+            romLength = RomHackDetector.RETAIL_ROM_SIZE
         )
         assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, resultCode.status)
         assertFalse(resultCode.isVerified)
@@ -251,7 +288,7 @@ class RomCompatibilityTest {
         assertEquals(BattlePresence.UNKNOWN, vm.battlePresence.value)
         assertNull("Location must be cleared immediately", vm.playerLocation.value)
         assertNull("Resolved location must be cleared", vm.resolvedLocation.value)
-        assertTrue("Stat stages must be neutral", vm.playerStatStages.value.isNeutral)
+        assertNull("Stat stages must be unobserved", vm.playerStatStages.value)
         assertEquals(BattleUiSnapshot(), vm.battleUiSnapshot.value)
         assertFalse("Live memory polling must be disabled", vm.runtimeRomTrust.value.mayReadLiveMemory)
     }
@@ -381,7 +418,7 @@ class RomCompatibilityTest {
         var readLocationCalls = 0
         var readPresenceCalls = 0
 
-        val trackingCoordinator = object : LibretroCoreCoordinator() {
+        val trackingCoordinator = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
             override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? {
                 readPartyCalls++
                 return null
@@ -426,7 +463,9 @@ class RomCompatibilityTest {
 
         // 3. Switch to VERIFIED -> readers must now be invoked
         val verifiedCompat = RomCompatibility.verified(fireRedProfile, fireRedSha)
-        vm.setRomSession(verifiedCompat, RomIdentity(fireRedSha, "Pokemon FireRed"))
+        val identity = RomIdentity(fireRedSha, "Pokemon FireRed")
+        vm.setRomSession(verifiedCompat, identity)
+        bindSyntheticRom(trackingCoordinator, identity)
         assertTrue(vm.runtimeRomTrust.value.mayReadLiveMemory)
 
         vm.pollTick()
@@ -441,7 +480,7 @@ class RomCompatibilityTest {
     fun enemyReadSemantics_distinguishFailureNullFromLegitimateEmptyArray() {
         var enemyPartyToReturn: Array<ParsedPokemon>? = null
 
-        val trackingCoordinator = object : LibretroCoreCoordinator() {
+        val trackingCoordinator = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
             override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = arrayOf(createMon(1))
             override fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = enemyPartyToReturn
             override fun readBattlePresence(gameId: Int): Int = 1 // In battle
@@ -449,13 +488,15 @@ class RomCompatibilityTest {
 
         val vm = CompanionViewModel(coreCoordinator = trackingCoordinator)
         val verifiedCompat = RomCompatibility.verified(fireRedProfile, fireRedSha)
-        vm.setRomSession(verifiedCompat, RomIdentity(fireRedSha, "Pokemon FireRed"))
+        val identity = RomIdentity(fireRedSha, "Pokemon FireRed")
+        vm.setRomSession(verifiedCompat, identity)
+        bindSyntheticRom(trackingCoordinator, identity)
 
         // Establish an initial observed enemy
         enemyPartyToReturn = arrayOf(createMon(150))
         vm.pollTick()
         assertEquals(1, vm.enemyParty.value.size)
-        assertEquals(150, vm.enemyParty.value[0].species)
+        assertEquals(150, vm.enemyParty.value[0]?.species)
 
         // Reader failure (returns null): stabilizer retains observed enemy for 1..4 ticks
         enemyPartyToReturn = null
@@ -609,7 +650,7 @@ class RomCompatibilityTest {
         var readPresenceCalls = 0
         var readStatStageCalls = 0
 
-        val coordinator = object : LibretroCoreCoordinator() {
+        val coordinator = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
             override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? {
                 readPartyCalls++
                 return arrayOf(createMon(1))
@@ -643,6 +684,7 @@ class RomCompatibilityTest {
             RomCompatibility.verified(vanillaProfile, fireRedSha),
             RomIdentity(fireRedSha, "Pokemon FireRed")
         )
+        bindSyntheticRom(coordinator, RomIdentity(fireRedSha, "Pokemon FireRed"))
 
         val trust = vm.runtimeRomTrust.value
         assertTrue("an exact hash must still authorize live memory", trust.mayReadLiveMemory)
@@ -669,7 +711,7 @@ class RomCompatibilityTest {
     @Test
     fun provenBattleStateAddressesKeepTheBattleReadsOpen() {
         var readPresenceCalls = 0
-        val coordinator = object : LibretroCoreCoordinator() {
+        val coordinator = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
             override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = arrayOf(createMon(1))
 
             override fun readBattlePresence(gameId: Int): Int {
@@ -683,6 +725,7 @@ class RomCompatibilityTest {
             RomCompatibility.verified(provenProfile, fireRedSha),
             RomIdentity(fireRedSha, "Pokemon FireRed")
         )
+        bindSyntheticRom(coordinator, RomIdentity(fireRedSha, "Pokemon FireRed"))
         assertTrue(vm.runtimeRomTrust.value.mayReadBattleState)
         vm.pollTick()
         assertTrue("presence must be read when the addresses are proven", readPresenceCalls > 0)

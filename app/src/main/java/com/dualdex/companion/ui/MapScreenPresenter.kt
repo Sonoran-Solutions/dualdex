@@ -286,7 +286,7 @@ object MapScreenPresenter {
         LocationStrategy.HEART_AND_SOUL_205 -> RegionId.JOHTO
         LocationStrategy.EMERALD -> RegionId.HOENN
         LocationStrategy.FIRERED -> RegionId.KANTO
-        LocationStrategy.UNVERIFIED -> RegionId.JOHTO
+        LocationStrategy.UNBOUND, LocationStrategy.UNVERIFIED -> RegionId.JOHTO
     }
 
     /**

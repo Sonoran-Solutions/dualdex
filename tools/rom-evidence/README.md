@@ -35,6 +35,27 @@ Refuses other ROM hashes. Bounds-checks all 150 pointer/address records and ASCI
 duplicates/unterminated names, and emits only six relevant symbols. It does not dereference
 symbol target addresses, extract game tables, or claim field widths/runtime authority.
 
+## Inspect R.O.W.E. data and text structures
+
+```bash
+python3 tools/rom-evidence/rowe_data.py --rom /private/rowe-2.1.9.1.gba \
+  > /tmp/rowe-data-contract.json
+```
+
+`rowe_data.py` reuses the pinned identity and embedded-symbol readers, then checks exact-ROM
+accessor instructions and bounded species, move, form, base-stat, battle-move, item, type-chart,
+and region-map spans. It emits only sanitized metadata, counts, refusals, selected evidence
+correlations, and hashes; it does not emit a full mapping table. The exact target hash is required.
+Species holes, reserved IDs, moves outside the safe 1–942 name prefix, invalid forms, unsupported
+glyphs/controls, and unresolved targets have no fallback. Static nonzero-form mappings remain
+runtime-unverified. No production support or battle/map behavior is enabled by this inspector.
+
+`rowe_text.py` is a bounded decoder for the evidence domains only. It preserves raw bytes and
+refuses unknown glyphs, malformed controls, bad termination, and unsupported domains. Its glyph
+set is intentionally partial; passing synthetic tests does not prove full game text behavior.
+See [the exact-release data/text matrix](../../docs/ROWE_2_1_9_1_DATA_TEXT_EVIDENCE.md) for source
+revision, status classifications, hashes, and remaining gates.
+
 ## Read-only runtime observations
 
 Use the existing native developer adapter and a legally built local mGBA core:
@@ -141,7 +162,10 @@ It never loads a Downloads or personal save by default.
 
 [adapter-pin.json](adapter-pin.json) checks the existing adapter's source/build inputs and
 expected binary before CDLL/core initialization. It intentionally refuses another compiler's
-output until separately reviewed; the pin is diagnostic only. Count/data/count plus repeated
+output until separately reviewed; the pin is diagnostic only. After a production native-reader change,
+rebuild and deliberately re-pin the current adapter, verifying identical hashes from two absolute paths.
+Preserve the previous pin in [adapter-pin-history.json](adapter-pin-history.json), keyed by source revision;
+committed evidence remains bound to that historical adapter without being rewritten. Count/data/count plus repeated
 456-byte reads fail on any mismatch while stepping is paused. All six slot digests and excluded
 species are recorded as diagnostics; only counted slots are parsed as occupied. Counts >6 fail;
 a zero enemy count with nonzero excluded species does not authorize enemy scanning.
@@ -160,3 +184,79 @@ linked worktrees and symlinks resolving into one. The guard runs before ROM/core
 again at observation. Historical v3 source pins remain those at reviewed #192, rather than
 being rewritten after hygiene changes. See [the isolated raw decoder contract](../../docs/ROWE_2_1_9_1_RAW_DECODER.md)
 for the host-only C implementation and stack-reconciliation CI cleanup requirement.
+
+## Nonzero-form runtime comparison (Phase 6)
+
+Use `rowe_observe.py --player-only` for this investigation. New snapshots add a final count
+recheck after the repeated 456-byte read; any failed run clears all report observations.
+`rowe_form_observe.py` compares a selected occupied record from that capture with the existing
+exact-ROM resolver and an independently transcribed, hash-bound game UI observation. It keeps
+stored species/form, resolved ID, metadata key, numeric types and UI evidence separate; missing
+UI/invalid mapping refuses, and contradictory UI remains `CONTRADICTED`. Name equality alone
+does not confirm a form; distinctive-cue comparison requires an explicit human assessment.
+All comparison inputs/outputs containing private capture details must remain outside Git.
+
+See [the revision-1 form runtime report](../../docs/ROWE_2_1_9_1_FORM_RUNTIME_EVIDENCE.md) for
+commands, the UI JSON schema, source identities, the bounded failed Route 101 acquisition movie,
+and the `BLOCKED`/`NOT_VERIFIED` finding. No nonzero-form runtime confirmation is claimed.
+
+## Pokémon Unbound exact-candidate evidence (#60, #26)
+
+Same rules as above: host-only, standard library, no downloads, no production profile, hash,
+reader or data-pack change. Each tool refuses any ROM other than the candidate
+SHA-256 `7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7` (owner-stated
+v2.1.1.1; publisher patch-to-ROM identity is NOT_VERIFIED). Findings and limits:
+[release](../../docs/UNBOUND_RELEASE_EVIDENCE.md), [data/text](../../docs/UNBOUND_DATA_TEXT_EVIDENCE.md),
+[party layout](../../docs/UNBOUND_PARTY_LAYOUT_EVIDENCE.md),
+[calculator inventory](../../docs/UNBOUND_CALCULATOR_CAPABILITY_INVENTORY.md),
+[existing-support audit](../../docs/UNBOUND_EXISTING_SUPPORT_AUDIT.md),
+[species mapping](../../docs/UNBOUND_SPECIES_MAPPING_EVIDENCE.md) and
+[battle lifecycle](../../docs/UNBOUND_BATTLE_LIFECYCLE_EVIDENCE.md).
+
+```bash
+python3 tools/rom-evidence/unbound_identity.py --rom /private/unbound.gba \
+  --base /private/firered-usa-rev0.gba > /tmp/unbound-identity.json
+# --source-dir holds the pinned public CFRU/DPE species headers (optional comparison)
+python3 tools/rom-evidence/unbound_data.py --rom /private/unbound.gba \
+  --source-dir /private/unbound-src > /tmp/unbound-data-contract.json
+./tools/vanilla-runtime-probe/build.sh
+python3 tools/rom-evidence/unbound_observe.py --rom /private/unbound.gba \
+  --core /private/mgba_libretro.so --battery-save /private/own-unbound.sav \
+  --movie tools/rom-evidence/unbound-continue-summary.movie \
+  --private-dir /private/unbound-run --output /private/unbound-run.json
+# same observer, wild battle: --movie tools/rom-evidence/unbound-battle-wild-run.movie
+python3 tools/rom-evidence/unbound_species_map.py --rom /private/unbound.gba \
+  --source-root /private/unbound-src > /tmp/unbound-species-map.json
+```
+
+Trainer/double/faint/switch battles ([trainer battle evidence](../../docs/UNBOUND_BATTLE_TRAINER_EVIDENCE.md))
+use `unbound_battle_observe.py`. It takes the same arguments as `unbound_observe.py` and composes it.
+On top it records `gMain.inBattle`/`callback2`, `gAbsentBattlerFlags` and `gTrainerBattleOpponent_A`,
+decodes the CFRU `gBattleTypeFlags` bits, maps battlers through CFRU `LoadPartyRange`, and counts the
+enemy party by `0x0202402A`. Use it with `--movie tools/rom-evidence/unbound-battle-trainer-double.movie`.
+`--summary REPORT [--repeat REPORT2]` prints the numeric-only manifest.
+
+`unbound_data.py` emits counts, offsets, table hashes and selected representative rows only, never
+a full copied table. `unbound_observe.py` performs no RAM writes, loads a private copy of the battery
+save (the original is never written) and never confirms an in-game save; `--initial-state` replaces
+`--battery-save` for an mGBA state. Private directories must be outside any Git checkout. Overworld
+and menu screen hashes vary between runs (animated scenes); summary-screen evidence is what binds.
+
+`unbound_location.py` ([location evidence](../../docs/UNBOUND_LOCATION_EVIDENCE.md)) decodes the
+exact-ROM SaveBlock1, map-header (XOR group table) and map-name paths, emitting numbers and hashes
+only (`--static-only`), and with `--core --battery-save --movie
+unbound-location-grotto-warp.movie --private-dir` records SaveBlock1 warp fields, `gMapHeader` and
+the resolved ROM header across two map transitions. Same no-write, private-directory rules.
+
+Party-record semantics (ability, shiny, nature, checksum; findings in
+[party semantics](../../docs/UNBOUND_PARTY_SEMANTICS_EVIDENCE.md)):
+
+```bash
+python3 tools/rom-evidence/unbound_semantics.py --rom /private/unbound.gba \
+  --battle-report /private/unbound-battle-run.json > /private/unbound-semantics.json
+```
+
+`unbound_semantics.py` rechecks pinned exact-ROM spans and pool literals, decodes the shiny
+compare immediate, the checksum BL/literal census and the script `callasm` sites of the routine
+that writes it, then compares the ability rule with `gBattleMons` bytes from an `unbound_observe.py`
+battle report and with the committed party manifest. It prints numbers, hashes and booleans only.

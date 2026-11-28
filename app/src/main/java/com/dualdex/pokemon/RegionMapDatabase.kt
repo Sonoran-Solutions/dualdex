@@ -1875,8 +1875,8 @@ object RegionMapDatabase {
                 RegionId.KANTO -> legacySections(region)
                 else -> emptyList()
             }
-            // No map table at all, so no canvas.
-            LocationStrategy.UNVERIFIED -> emptyList()
+            // Neither strategy has verified town-map geometry.
+            LocationStrategy.UNBOUND, LocationStrategy.UNVERIFIED -> emptyList()
         }
 
     /**
@@ -1926,8 +1926,12 @@ object RegionMapDatabase {
     /**
      * Resolve with the reason preserved, for callers that must explain the state.
      */
-    fun resolveLocationDetailed(strategy: LocationStrategy, loc: PlayerLocation?): LocationResolution =
-        LocationResolver.resolve(strategy, loc)
+    fun resolveLocationDetailed(
+        strategy: LocationStrategy,
+        loc: PlayerLocation?,
+        unboundNames: Map<Int, String> = emptyMap()
+    ): LocationResolution =
+        LocationResolver.resolve(strategy, loc, unboundNames)
 
     /**
      * Resolve the player's live memory location into a high-level RegionMapSection.

@@ -1,0 +1,1354 @@
+{
+  "build_switches": {
+    "BADGE_BOOSTS": {
+      "defined": null,
+      "status": "UNVERIFIED"
+    },
+    "FROSTBITE": {
+      "defined": true,
+      "probes": [
+        "burn",
+        "nonphysical_path",
+        "parental_bond"
+      ],
+      "status": "VERIFIED"
+    },
+    "NO_MOLD_BREAKERS": {
+      "defined": null,
+      "helper": "0x89a9520",
+      "helper_status": "VERIFIED",
+      "probes": [
+        "ability_bypass"
+      ],
+      "status": "UNVERIFIED"
+    },
+    "OLD_ATE_BOOST": {
+      "defined": true,
+      "probes": [
+        "ate_dispatch",
+        "ate_result",
+        "ate_multiplier"
+      ],
+      "status": "VERIFIED"
+    },
+    "OLD_CRIT_DAMAGE": {
+      "defined": false,
+      "probes": [
+        "crit_neutral",
+        "crit_boost",
+        "crit_divisor"
+      ],
+      "status": "VERIFIED"
+    },
+    "OLD_GEM_BOOST": {
+      "defined": true,
+      "probes": [
+        "consumed_gem",
+        "held_gem"
+      ],
+      "status": "VERIFIED"
+    },
+    "OLD_MOVE_SPLIT": {
+      "defined": false,
+      "probes": [
+        "move_split"
+      ],
+      "status": "VERIFIED"
+    },
+    "OLD_TERRAIN_BOOST": {
+      "defined": false,
+      "probes": [
+        "terrain_read",
+        "terrain_electric",
+        "terrain_grassy",
+        "terrain_psychic"
+      ],
+      "status": "VERIFIED"
+    },
+    "PORTAL_POWER": {
+      "defined": true,
+      "probes": [
+        "portal_dispatch",
+        "portal_arithmetic"
+      ],
+      "status": "VERIFIED"
+    }
+  },
+  "cfru_commit": "b637a27898b14e25dd24d0f69a3e302f0069deb8",
+  "constants": {
+    "probes": {
+      "ate": [
+        "ate_dispatch",
+        "ate_result",
+        "ate_multiplier"
+      ],
+      "burn": [
+        "burn"
+      ],
+      "critical": [
+        "crit_neutral",
+        "crit_boost",
+        "crit_divisor"
+      ],
+      "fairy": [
+        "fairy_type"
+      ],
+      "frostbite": [
+        "nonphysical_path",
+        "burn"
+      ],
+      "gem": [
+        "consumed_gem",
+        "held_gem"
+      ],
+      "portal": [
+        "portal_dispatch",
+        "portal_arithmetic"
+      ],
+      "random": [
+        "random"
+      ],
+      "screens": [
+        "screen_masks",
+        "screen_arithmetic",
+        "screen_single"
+      ],
+      "stab": [
+        "stab_check",
+        "stab"
+      ],
+      "terrain": [
+        "terrain_electric",
+        "terrain_grassy",
+        "terrain_psychic"
+      ],
+      "weather": [
+        "weather_masks",
+        "rain_arithmetic",
+        "sun_arithmetic",
+        "primal_weather"
+      ]
+    },
+    "status": "VERIFIED",
+    "values": {
+      "adaptability": {
+        "denominator": 1,
+        "numerator": 2
+      },
+      "ate": {
+        "denominator": 10,
+        "numerator": 13
+      },
+      "burn": {
+        "denominator": 2,
+        "numerator": 1
+      },
+      "burn_status": 16,
+      "critical_multiplier": {
+        "denominator": 10,
+        "numerator": 15
+      },
+      "doubles_screen": {
+        "denominator": 3,
+        "numerator": 2
+      },
+      "fairy_type": 23,
+      "frostbite": {
+        "denominator": 2,
+        "numerator": 1
+      },
+      "frostbite_status": 32,
+      "gem": {
+        "denominator": 10,
+        "numerator": 15
+      },
+      "light_screen": 2,
+      "neutral_critical_multiplier": 10,
+      "portal": {
+        "denominator": 100,
+        "numerator": 75
+      },
+      "rain_mask": 4103,
+      "random": {
+        "denominator": 100,
+        "minimum_nonzero": 1,
+        "numerator_max": 100,
+        "numerator_min": 85
+      },
+      "reflect": 1,
+      "sand_mask": 16408,
+      "singles_screen": {
+        "denominator": 2,
+        "numerator": 1
+      },
+      "stab": {
+        "denominator": 10,
+        "numerator": 15
+      },
+      "sun_mask": 2144,
+      "terrain": {
+        "denominator": 10,
+        "numerator": 13
+      },
+      "weather_boost": {
+        "denominator": 10,
+        "numerator": 15
+      },
+      "weather_cut": {
+        "denominator": 2,
+        "numerator": 1
+      }
+    }
+  },
+  "control_flow_edges": [
+    {
+      "pc": "0x89d3406",
+      "target": "0x89d1940"
+    },
+    {
+      "pc": "0x89d3446",
+      "target": "0x89d1940"
+    },
+    {
+      "pc": "0x89d1c74",
+      "target": "0x89d06b4"
+    },
+    {
+      "pc": "0x89d1c7c",
+      "target": "0x89cd4e4"
+    },
+    {
+      "pc": "0x89cef5a",
+      "target": "0x89cd33c"
+    },
+    {
+      "pc": "0x89cef60",
+      "target": "0x89cdfbc"
+    },
+    {
+      "pc": "0x89cdcb8",
+      "target": "0x89c1f50"
+    },
+    {
+      "pc": "0x89d1ebe",
+      "target": "0x89e6eec"
+    },
+    {
+      "pc": "0x89d208e",
+      "target": "0x89e6eec"
+    },
+    {
+      "pc": "0x89ce162",
+      "target": "0x89da900"
+    },
+    {
+      "pc": "0x89d25d6",
+      "target": "0x89d9edc"
+    },
+    {
+      "pc": "0x89d27be",
+      "target": "0x89d18d4"
+    },
+    {
+      "pc": "0x89d1982",
+      "target": "0x89a9520"
+    },
+    {
+      "pc": "0x89d1b58",
+      "target": "0x89c0584"
+    },
+    {
+      "pc": "0x89d27d4",
+      "target": "0x89d27de"
+    },
+    {
+      "pc": "0x89d256a",
+      "target": "0x89d27de"
+    },
+    {
+      "pc": "0x89cd834",
+      "target": "0x89cd620"
+    },
+    {
+      "pc": "0x89cd7a8",
+      "target": "0x89cd6fc"
+    },
+    {
+      "pc": "0x89cd9bc",
+      "target": "0x89cd924"
+    },
+    {
+      "pc": "0x89cd92a",
+      "target": "0x89cd8f4"
+    },
+    {
+      "pc": "0x806e6d8",
+      "target": "0x806e5c0"
+    },
+    {
+      "pc": "0x89a2f76",
+      "target": "0x8a0722c"
+    },
+    {
+      "pc": "0x806e570",
+      "target": "0x806e454"
+    },
+    {
+      "pc": "0x89a2f4e",
+      "target": "0x8a0727c"
+    },
+    {
+      "pc": "0x89cd622",
+      "target": "0x89cd6fc"
+    },
+    {
+      "pc": "0x89cd692",
+      "target": "0x89cd468"
+    },
+    {
+      "pc": "0x89d27dc",
+      "target": "0x89d2568"
+    },
+    {
+      "pc": "0x89d27da",
+      "target": "0x89d27de"
+    }
+  ],
+  "globals": {
+    "gBattleCircusFlags": {
+      "access": {
+        "base_register": 3,
+        "offset_bytes": 0,
+        "operation": "ldr",
+        "register": 3,
+        "width_bits": 32
+      },
+      "access_pc": "0x89c1f6c",
+      "address": "0x203e044",
+      "literal_pool": "0x89c1f84",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x203e044",
+        "first_access": {
+          "ldr": 39,
+          "str": 3
+        },
+        "nearby_stride_constants": {
+          "0x58": 1,
+          "0x64": 0
+        },
+        "pc_literal_loads": 42
+      },
+      "load_pc": "0x89c1f6a",
+      "routine": "IsInverseBattle",
+      "routine_address": "0x89c1f50",
+      "status": "VERIFIED"
+    },
+    "gBattleResources": {
+      "access": {
+        "base_register": 3,
+        "offset_bytes": 0,
+        "operation": "ldr",
+        "register": 3,
+        "width_bits": 32
+      },
+      "access_pc": "0x89d1cc4",
+      "address": "0x2023ff4",
+      "flags": {
+        "element_width_bits": 32,
+        "mask": 1,
+        "pointer_offset_bytes": 4,
+        "probe": "flash_fire",
+        "status": "VERIFIED",
+        "stride_bytes": 4
+      },
+      "literal_pool": "0x89d1d10",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023ff4",
+        "first_access": {
+          "ldr": 219,
+          "str": 1,
+          "strb": 1
+        },
+        "nearby_stride_constants": {
+          "0x58": 12,
+          "0x64": 4
+        },
+        "pc_literal_loads": 222
+      },
+      "load_pc": "0x89d1cc2",
+      "routine": "CalculateBaseDamage",
+      "routine_address": "0x89d1940",
+      "status": "VERIFIED"
+    },
+    "gBattleStruct": {
+      "access": {
+        "base_register": 3,
+        "offset_bytes": 0,
+        "operation": "ldr",
+        "register": 6,
+        "width_bits": 32
+      },
+      "access_pc": "0x89d3330",
+      "address": "0x2023fe8",
+      "literal_pool": "0x89d346c",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023fe8",
+        "first_access": {
+          "ldr": 510,
+          "ldrb": 2,
+          "str": 1,
+          "strh": 1
+        },
+        "nearby_stride_constants": {
+          "0x58": 25,
+          "0x64": 22
+        },
+        "pc_literal_loads": 538
+      },
+      "load_pc": "0x89d332e",
+      "routine": "atk05_damagecalc",
+      "routine_address": "0x89d3310",
+      "status": "VERIFIED"
+    },
+    "gBattleWeather": {
+      "access": {
+        "base_register": 3,
+        "offset_bytes": 0,
+        "operation": "ldrh",
+        "register": 2,
+        "width_bits": 16
+      },
+      "access_pc": "0x89d1dc6",
+      "address": "0x2023f1c",
+      "literal_pool": "0x89d20a4",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023f1c",
+        "first_access": {
+          "ldr": 1,
+          "ldrb": 2,
+          "ldrh": 160,
+          "strh": 6
+        },
+        "nearby_stride_constants": {
+          "0x58": 3,
+          "0x64": 0
+        },
+        "pc_literal_loads": 173
+      },
+      "load_pc": "0x89d1dc4",
+      "routine": "CalculateBaseDamage",
+      "routine_address": "0x89d1940",
+      "status": "VERIFIED"
+    },
+    "gCritMultiplier": {
+      "access": {
+        "base_register": 3,
+        "offset_bytes": 0,
+        "operation": "strb",
+        "register": 2,
+        "width_bits": 8
+      },
+      "access_pc": "0x89ce406",
+      "address": "0x2023d71",
+      "literal_pool": "0x89ce628",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023d71",
+        "first_access": {
+          "ldrb": 17,
+          "strb": 21
+        },
+        "nearby_stride_constants": {
+          "0x58": 2,
+          "0x64": 2
+        },
+        "pc_literal_loads": 40
+      },
+      "load_pc": "0x89ce404",
+      "routine": "atk04_critcalc",
+      "routine_address": "0x89ce360",
+      "status": "VERIFIED"
+    },
+    "gDisableStructs": {
+      "access": {
+        "base_register": 3,
+        "offset_bytes": 17,
+        "operation": "ldrb",
+        "register": 3,
+        "width_bits": 8
+      },
+      "access_pc": "0x89d08b6",
+      "address": "0x2023e0c",
+      "allocation_extent_status": "UNVERIFIED",
+      "index_bound": 4,
+      "literal_pool": "0x89d09f0",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023e0c",
+        "first_access": {
+          "ldr": 1,
+          "ldrb": 82,
+          "ldrh": 9,
+          "strb": 6,
+          "strh": 1
+        },
+        "nearby_stride_constants": {
+          "0x58": 17,
+          "0x64": 1
+        },
+        "pc_literal_loads": 212
+      },
+      "load_pc": "0x89d08b0",
+      "routine": "GetBasePower",
+      "routine_address": "0x89d06b4",
+      "status": "VERIFIED",
+      "stride_bytes": 28
+    },
+    "gNewBS": {
+      "access": {
+        "base_register": 6,
+        "offset_bytes": 0,
+        "operation": "ldr",
+        "register": 3,
+        "width_bits": 32
+      },
+      "access_pc": "0x89d3342",
+      "address": "0x203e038",
+      "literal_pool": "0x89d3470",
+      "literal_register": 6,
+      "literal_search": {
+        "address": "0x203e038",
+        "first_access": {
+          "ldr": 1266,
+          "str": 21
+        },
+        "nearby_stride_constants": {
+          "0x58": 42,
+          "0x64": 9
+        },
+        "pc_literal_loads": 1330
+      },
+      "load_pc": "0x89d3340",
+      "routine": "atk05_damagecalc",
+      "routine_address": "0x89d3310",
+      "selected_offsets": {
+        "consumed_gem_byte": 262,
+        "consumed_gem_mask": 2,
+        "critical_multiplier": 416,
+        "damage_taken": 384,
+        "dynamax_counter": 490
+      },
+      "status": "VERIFIED"
+    },
+    "gProtectStructs": {
+      "access": {
+        "base_register": 2,
+        "offset_register": 3,
+        "operation": "ldrb",
+        "register": 3,
+        "width_bits": 8
+      },
+      "access_pc": "0x89d23e6",
+      "address": "0x2023e8c",
+      "allocation_extent_status": "UNVERIFIED",
+      "index_bound": 4,
+      "literal_pool": "0x89d26b4",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023e8c",
+        "first_access": {
+          "ldr": 3,
+          "ldrb": 26,
+          "str": 2
+        },
+        "nearby_stride_constants": {
+          "0x58": 14,
+          "0x64": 0
+        },
+        "pc_literal_loads": 137
+      },
+      "load_pc": "0x89d23e2",
+      "routine": "CalculateBaseDamage",
+      "routine_address": "0x89d1940",
+      "status": "VERIFIED",
+      "stride_bytes": 16
+    },
+    "gSideStatuses": {
+      "access": {
+        "base_register": 2,
+        "offset_register": 3,
+        "operation": "ldrh",
+        "register": 2,
+        "width_bits": 16
+      },
+      "access_pc": "0x89cf2be",
+      "address": "0x2023dde",
+      "allocation_extent_status": "UNVERIFIED",
+      "index_bound": 2,
+      "literal_pool": "0x89cf4e8",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023dde",
+        "first_access": {
+          "ldr": 3,
+          "ldrh": 12,
+          "strh": 3
+        },
+        "nearby_stride_constants": {
+          "0x58": 1,
+          "0x64": 0
+        },
+        "pc_literal_loads": 96
+      },
+      "load_pc": "0x89cf2ba",
+      "routine": "PopulateDamageCalcStructWithBaseDefenderData",
+      "routine_address": "0x89cf1bc",
+      "status": "VERIFIED",
+      "stride_bytes": 2
+    },
+    "gSideTimers": {
+      "access": {
+        "base_register": 3,
+        "offset_bytes": 10,
+        "operation": "ldrb",
+        "register": 3,
+        "width_bits": 8
+      },
+      "access_pc": "0x89cf0c6",
+      "address": "0x2023de4",
+      "allocation_extent_status": "UNVERIFIED",
+      "index_bound": 2,
+      "literal_pool": "0x89cf1b0",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023de4",
+        "first_access": {
+          "ldr": 1,
+          "ldrb": 55,
+          "strb": 3
+        },
+        "nearby_stride_constants": {
+          "0x58": 1,
+          "0x64": 0
+        },
+        "pc_literal_loads": 115
+      },
+      "load_pc": "0x89cf0c2",
+      "routine": "PopulateDamageCalcStructWithBaseAttackerData",
+      "routine_address": "0x89cefec",
+      "status": "VERIFIED",
+      "stride_bytes": 12
+    },
+    "gStatuses3": {
+      "access": {
+        "base_register": 2,
+        "offset_register": 3,
+        "operation": "ldr",
+        "register": 3,
+        "width_bits": 32
+      },
+      "access_pc": "0x89cdd2c",
+      "address": "0x2023dfc",
+      "allocation_extent_status": "UNVERIFIED",
+      "index_bound": 4,
+      "literal_pool": "0x89cdee8",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x2023dfc",
+        "first_access": {
+          "ldr": 13,
+          "ldrb": 2,
+          "str": 1
+        },
+        "nearby_stride_constants": {
+          "0x58": 22,
+          "0x64": 1
+        },
+        "pc_literal_loads": 222
+      },
+      "load_pc": "0x89cdd28",
+      "routine": "ModulateDmgByType",
+      "routine_address": "0x89cdc9e",
+      "status": "VERIFIED",
+      "stride_bytes": 4
+    },
+    "gTerrainType": {
+      "access": {
+        "base_register": 3,
+        "offset_bytes": 0,
+        "operation": "ldrb",
+        "register": 0,
+        "width_bits": 8
+      },
+      "access_pc": "0x89cd5c6",
+      "address": "0x203e028",
+      "literal_pool": "0x89cd860",
+      "literal_register": 3,
+      "literal_search": {
+        "address": "0x203e028",
+        "first_access": {
+          "ldrb": 62,
+          "strb": 2
+        },
+        "nearby_stride_constants": {
+          "0x58": 4,
+          "0x64": 0
+        },
+        "pc_literal_loads": 65
+      },
+      "load_pc": "0x89cd5c4",
+      "routine": "AdjustBasePower",
+      "routine_address": "0x89cd4e4",
+      "status": "VERIFIED"
+    }
+  },
+  "oracle": {
+    "constants": {
+      "burn_status": {
+        "agrees": true,
+        "comparison": "EQUAL",
+        "compiled": 16,
+        "oracle": 16,
+        "status": "VERIFIED"
+      },
+      "critical_multiplier": {
+        "agrees": true,
+        "comparison": "EQUAL",
+        "compiled": 15,
+        "oracle": 15,
+        "status": "VERIFIED"
+      },
+      "fairy_type": {
+        "agrees": true,
+        "comparison": "EQUAL",
+        "compiled": 23,
+        "oracle": 23,
+        "status": "VERIFIED"
+      },
+      "light_screen": {
+        "agrees": true,
+        "comparison": "EQUAL",
+        "compiled": 2,
+        "oracle": 2,
+        "status": "VERIFIED"
+      },
+      "rain_weather": {
+        "agrees": true,
+        "comparison": "NONZERO_SUBSET_OF_COMPILED_MASK",
+        "compiled": 4103,
+        "oracle": 1,
+        "status": "VERIFIED"
+      },
+      "reflect": {
+        "agrees": true,
+        "comparison": "EQUAL",
+        "compiled": 1,
+        "oracle": 1,
+        "status": "VERIFIED"
+      },
+      "sun_weather": {
+        "agrees": true,
+        "comparison": "NONZERO_SUBSET_OF_COMPILED_MASK",
+        "compiled": 2144,
+        "oracle": 32,
+        "status": "VERIFIED"
+      }
+    },
+    "corpus_sha256": "395a4c2116d08c2d2f23d1eaef87ec8fe7b28ca94c5e6ffa4216b71ab0b93619"
+  },
+  "probes": {
+    "ability_bypass": {
+      "halfword_count": 18,
+      "pc": "0x89a9524",
+      "sha256": "50a23bb90691ab4419842834908f1593dd1e1e8fe973dab4cc53e64b5b1846e1"
+    },
+    "ate_dispatch": {
+      "halfword_count": 28,
+      "pc": "0x89cd662",
+      "sha256": "a20147b7c83a5aa4125527663224745a9c358fc9c3d8eb407518a2c7a70dd646"
+    },
+    "ate_multiplier": {
+      "halfword_count": 2,
+      "pc": "0x89cd620",
+      "sha256": "f2908c8a097521225f8c0e767d7274705d3c52121926c39090efaf85d44e653a"
+    },
+    "ate_result": {
+      "halfword_count": 4,
+      "pc": "0x89cd830",
+      "sha256": "fd1edcba8d986035e7eea9fe21101364be1ac25a94700da4d2009b2d1252e36b"
+    },
+    "burn": {
+      "halfword_count": 22,
+      "pc": "0x89d2540",
+      "sha256": "6e66cffacba028c0e589a92ba188767431c2f817dc8b6f3e95cc6ffde1332b69"
+    },
+    "consumed_gem": {
+      "halfword_count": 14,
+      "pc": "0x89cd586",
+      "sha256": "42f731c9a9c32b853d15fa9233b143553858aeb23cb4b9ad10c7839f52fbae12"
+    },
+    "crit_boost": {
+      "halfword_count": 3,
+      "pc": "0x89ce5f8",
+      "sha256": "46888a79a0b4e5e18dbcb2c44e5ef09b4bf308ec56f75fa29d91abb5651e63d7"
+    },
+    "crit_divisor": {
+      "halfword_count": 6,
+      "pc": "0x89d344c",
+      "sha256": "a6ecefe27dbd2a0d887b8cd24ad854e0c4fa126a6f9374bcc0b5d996588c3582"
+    },
+    "crit_neutral": {
+      "halfword_count": 3,
+      "pc": "0x89ce402",
+      "sha256": "92d523b61e86773049a70694d763e02644ed25df33bf59a4acba1a8f16bf1bc7"
+    },
+    "disable_stride": {
+      "halfword_count": 9,
+      "pc": "0x89d08aa",
+      "sha256": "913456822f03bdea2205d09891f9f2aeea832e0f497e7264dd912b0fe2896980"
+    },
+    "dynamax_counter": {
+      "halfword_count": 11,
+      "pc": "0x89d9edc",
+      "sha256": "8f608bb8c262d8de5fec37040fb95989063417616d8ab7b1ad61bd4dc7cb778a"
+    },
+    "fairy_type": {
+      "halfword_count": 5,
+      "pc": "0x89d2438",
+      "sha256": "45a4cb7241c9195ce26efe2c346bf1c48c604583084513392da9fc1a80d9fc3f"
+    },
+    "flag_decode": {
+      "halfword_count": 20,
+      "pc": "0x806e6d0",
+      "sha256": "49d50efbb3670f05c0416641c20bdcb740c8167d2c41929500dd8620851d9e2b"
+    },
+    "flag_extended": {
+      "halfword_count": 13,
+      "pc": "0x8a0722c",
+      "sha256": "03bbe415a848419655421cff6ed62187a6079c97948cf6f2bbc0956786ab680e"
+    },
+    "flag_fallback": {
+      "halfword_count": 7,
+      "pc": "0x806e644",
+      "sha256": "271eb3a83c6a08e915436d77777343c76a2e452b71496e68e51f68ec13b29f07"
+    },
+    "flag_hook": {
+      "halfword_count": 11,
+      "pc": "0x89a2f6c",
+      "sha256": "5b5761f662aebe53a4193e1287835c6574d6d19ac7fb68f2fbf2bdae79a4e01f"
+    },
+    "flash_fire": {
+      "halfword_count": 9,
+      "pc": "0x89d1cc2",
+      "sha256": "bf1732929de91cc47925ea96a9b02c1565c001d18516d26909ff4a46e2e67d06"
+    },
+    "held_gem": {
+      "halfword_count": 13,
+      "pc": "0x89cd9a4",
+      "sha256": "eacd881ff0dc151cb335b27075230803410c856dcfdb9795094ce0bbf6bf0727"
+    },
+    "held_power_divide": {
+      "halfword_count": 5,
+      "pc": "0x89cd8f4",
+      "sha256": "287ff55a0238c10eef42b86ec5423ec8d79861b1ec123e5834031b0afea8aab4"
+    },
+    "held_power_multiply": {
+      "halfword_count": 4,
+      "pc": "0x89cd924",
+      "sha256": "ced8de3708944246e3cddf13faafdc427e3f4b7ac1a985820e0d0b58ce78db7b"
+    },
+    "inverse": {
+      "halfword_count": 19,
+      "pc": "0x89c1f50",
+      "sha256": "d40524a624795502038c4541936b00ace769b807899c8f2664ce5811b31930bb"
+    },
+    "move_split": {
+      "halfword_count": 7,
+      "pc": "0x89c0610",
+      "sha256": "0ccda068f6df11281fb80952c52373abebf71c37a52c4bd52d31f491f40511f1"
+    },
+    "newbs_crit": {
+      "halfword_count": 10,
+      "pc": "0x89ce430",
+      "sha256": "d86eeb7ed15023b6a3f312a00722be3dad9d5fddfc5a1c1d705159da6d0eedb4"
+    },
+    "newbs_damage": {
+      "halfword_count": 15,
+      "pc": "0x89d3382",
+      "sha256": "bd795595c1278182205fabe578478b31bcb1336c73cda531843e02b74dab7da3"
+    },
+    "nonphysical_path": {
+      "halfword_count": 7,
+      "pc": "0x89d27d2",
+      "sha256": "b08d5c0ea2253fa8f8f0e2f14be91ffada58b625e5079f5ba3dff4922c6d6d30"
+    },
+    "normal_power_path": {
+      "halfword_count": 7,
+      "pc": "0x89cd538",
+      "sha256": "a20869d9bd622fb815f235547562f6eb265bc86524717fa8925872779cbd2b33"
+    },
+    "parental_bond": {
+      "halfword_count": 9,
+      "pc": "0x89d27de",
+      "sha256": "c6a5c05307c49a63a160023df9dc91cb17b6c9d8479d87ecbe922bbfb81c2922"
+    },
+    "portal_arithmetic": {
+      "halfword_count": 14,
+      "pc": "0x89d200c",
+      "sha256": "f5d39162b4c117a120d34746525596fb792f1b2b209c088a1b2bff4572c9e3ea"
+    },
+    "portal_dispatch": {
+      "halfword_count": 15,
+      "pc": "0x89d1fee",
+      "sha256": "136eaa4dca1264317f0719507af2eda419c045a78857dec87b6b41528e037679"
+    },
+    "power_divide": {
+      "halfword_count": 4,
+      "pc": "0x89cd76c",
+      "sha256": "4a276bf3a97714c035827078e4415554e06b263c2db2d3f2d0875b835ccbe15f"
+    },
+    "power_multiply": {
+      "halfword_count": 5,
+      "pc": "0x89cd6fa",
+      "sha256": "2d249ccb02c374382bbc8194c4aae589a5528a0b5a29761458e0ef0afe0752d4"
+    },
+    "primal_weather": {
+      "halfword_count": 10,
+      "pc": "0x89d1dbc",
+      "sha256": "d6dcdafa833de991431a68b1d10bbff5dc0a4e40b6aaa68ad3aefc22f9829ab5"
+    },
+    "protect_stride": {
+      "halfword_count": 7,
+      "pc": "0x89d23e0",
+      "sha256": "fa75b31ea207fd0c8cb5fc3b4131a859195528d5ad89529839ff32e36eea988f"
+    },
+    "raid": {
+      "halfword_count": 15,
+      "pc": "0x89da900",
+      "sha256": "726de47cdf18bca3da8fe30d572c6ab7d2192f60c7e2b408a2c3ee52f41ed310"
+    },
+    "rain_arithmetic": {
+      "halfword_count": 8,
+      "pc": "0x89d2638",
+      "sha256": "de14ca86d356c77053a3c6996a495287d8322cb10593a38e857a85807a679226"
+    },
+    "random": {
+      "halfword_count": 23,
+      "pc": "0x89cd33e",
+      "sha256": "6d29e2194dd6d2f12b6b48ebd65efd67b1859be668679db3fcbf20a2b35bd732"
+    },
+    "scalemons": {
+      "halfword_count": 22,
+      "pc": "0x89e6eec",
+      "sha256": "6e5d4c25bf5ae7e83616e193963ce2933d2388864eb8a1787e8d6ff8faa3cd27"
+    },
+    "screen_arithmetic": {
+      "halfword_count": 13,
+      "pc": "0x89d18fa",
+      "sha256": "47777d79603d888a8d83f5d734d49a118d2d6a4ed23a41f620b46ca7d33a7bfa"
+    },
+    "screen_crit": {
+      "halfword_count": 4,
+      "pc": "0x89d18e0",
+      "sha256": "2850382b7488a1fd68dec2aedafde0e6ab77e3689de7abc741a696b04c738f50"
+    },
+    "screen_masks": {
+      "halfword_count": 18,
+      "pc": "0x89d27ae",
+      "sha256": "ae5fb3692715b02d4f1c116f35743b1d01b3008f6a995f1935a95a9166bb0ff6"
+    },
+    "screen_single": {
+      "halfword_count": 2,
+      "pc": "0x89d192c",
+      "sha256": "676725e69db88144b513eede337ef0f0dc39bd1fc683e7cfaa61f9d3eb168d47"
+    },
+    "side_statuses": {
+      "halfword_count": 7,
+      "pc": "0x89cf2ba",
+      "sha256": "cdda2d8ad116f8d21e3c6ba5998bcc7b58624a545d097bb6b35fd44b5e70e3db"
+    },
+    "side_timers": {
+      "halfword_count": 9,
+      "pc": "0x89cf0bc",
+      "sha256": "e2bae47a8137fc6939354ed1e8ac318ccb90247c61c85b76f34f56d2adfb0540"
+    },
+    "stab": {
+      "halfword_count": 7,
+      "pc": "0x89ceab6",
+      "sha256": "5421bb7c08bcf90524a0b70a66b38391364c7271ee3d8c05be2a6f1386aaa374"
+    },
+    "stab_check": {
+      "halfword_count": 18,
+      "pc": "0x89ce990",
+      "sha256": "85e78bae60540d9ab9d7884925a4db680e5c1b104d2c184aa2fd541b983a11cb"
+    },
+    "statuses3": {
+      "halfword_count": 5,
+      "pc": "0x89cdd28",
+      "sha256": "9794057e09bc70d9e001f1672035ef72b2e55846b6b5eb38b8bedacc34dfc527"
+    },
+    "sun_arithmetic": {
+      "halfword_count": 16,
+      "pc": "0x89d264a",
+      "sha256": "75cf43875c5e4e1ea30b9daf9ec9c4a611907d96c5684d9e3ed58885ad0058d2"
+    },
+    "terrain_electric": {
+      "halfword_count": 15,
+      "pc": "0x89cd9ce",
+      "sha256": "bbc37efaed71093e116d6539c7992bb8eb34cb8c5bc98ccac246b346709e408b"
+    },
+    "terrain_grassy": {
+      "halfword_count": 16,
+      "pc": "0x89cda06",
+      "sha256": "20723c07c16330b38cde048a4dcc225a04054b6adebd3e1f1733c650c4e80dd4"
+    },
+    "terrain_psychic": {
+      "halfword_count": 9,
+      "pc": "0x89cda52",
+      "sha256": "233376070d35fed2d45e80a315f719e125b7bd30bc4b160263d6a75dcacb671f"
+    },
+    "terrain_read": {
+      "halfword_count": 6,
+      "pc": "0x89cd5c4",
+      "sha256": "dcdfbb938b0cffb787e0de37f3c817ef942d07db2f136baeb49d07333e958acd"
+    },
+    "var_extended": {
+      "halfword_count": 11,
+      "pc": "0x8a0727c",
+      "sha256": "e1e19fb4d90f51716c432bdefe3596ae0872280177d5cbbff3684e48b9462f7f"
+    },
+    "var_hook": {
+      "halfword_count": 16,
+      "pc": "0x89a2f44",
+      "sha256": "fbc878fae1fb9b63d7dcfdd4bcba45a8bdbfe442065eb8b983c0cf4841ec8e7e"
+    },
+    "weather_masks": {
+      "halfword_count": 14,
+      "pc": "0x89d2410",
+      "sha256": "a6fca4c21726b6a7a5e48ae1358ab5fa2b7c35102087948cb06155a61f974825"
+    }
+  },
+  "rom": {
+    "bytes": 33554432,
+    "crc32": "4b3d4957",
+    "sha1": "b4776b82a4c7915d0fadeaa27e013523f99dfd94",
+    "sha256": "7aa25bbf568f7cfcf6ee1cf2e9e6ff637350b3d0705c2375cabb6baa7d9739f7"
+  },
+  "routines": {
+    "AbilityCanChangeTypeAndBoost": {
+      "entry": "0x89cd468",
+      "inspected_end_exclusive": "0x89cd4e4",
+      "sha256": "b2323f48f3be8d098cabd5780f43facad1b494e819e7c8850fb178cfb0a56da9",
+      "status": "VERIFIED"
+    },
+    "AdjustBasePower": {
+      "entry": "0x89cd4e4",
+      "inspected_end_exclusive": "0x89cdab0",
+      "sha256": "24c23095e5c0cc951d10d9ea3d6e007b11c3befa99bd19116c4139e6b2ce4b08",
+      "status": "VERIFIED"
+    },
+    "AdjustDamage": {
+      "entry": "0x89cdfbc",
+      "inspected_end_exclusive": "0x89ce360",
+      "sha256": "d766821356b7d088e35440fd7b03874104219eab869f61c9f4eb8988b0192d1a",
+      "status": "VERIFIED"
+    },
+    "ApplyRandomDmgMultiplier": {
+      "entry": "0x89cd33c",
+      "inspected_end_exclusive": "0x89cd374",
+      "sha256": "295b3cd109393ae761be15e65986b1060744f8528f577ddd8c2ad60c3b729b9e",
+      "status": "VERIFIED"
+    },
+    "CalcMoveSplit": {
+      "entry": "0x89c0584",
+      "inspected_end_exclusive": "0x89c063c",
+      "sha256": "fa763e488b76c1f37e7d2f274923f3a129e6ae4f8844fc85b600267d77964b38",
+      "status": "VERIFIED"
+    },
+    "CalculateBaseDamage": {
+      "entry": "0x89d1940",
+      "inspected_end_exclusive": "0x89d28c4",
+      "sha256": "a2fa57d779b9a69a890aa69e7c5f2249a5d9567f853de2b5403a690142864887",
+      "status": "VERIFIED"
+    },
+    "DivisionVeneers": {
+      "entry": "0x8964b0e",
+      "inspected_end_exclusive": "0x8964b16",
+      "sha256": "5aee0a38836848ee9233df21cf02ba6972cfb52cc2fe859d59bc17acd44ed3b3",
+      "status": "VERIFIED"
+    },
+    "ExtendedFlagResolver": {
+      "entry": "0x8a0722c",
+      "inspected_end_exclusive": "0x8a0727c",
+      "sha256": "c48b525b7e735bd36b4590bc40436097cdebdc29bc9ee09663803caab371fca6",
+      "status": "VERIFIED"
+    },
+    "ExtendedVarResolver": {
+      "entry": "0x8a0727c",
+      "inspected_end_exclusive": "0x8a072b8",
+      "sha256": "8c2f285d0f1116693b14b4d482f6d156ec2c2b6006f6deec64b84f670e146cd9",
+      "status": "VERIFIED"
+    },
+    "FlagGet": {
+      "entry": "0x806e6d0",
+      "inspected_end_exclusive": "0x806e6fc",
+      "sha256": "e76fe63ce7357e14ade8b78ccefc0493f95123f0f5daf4ecaa13ed0ea85edafb",
+      "status": "VERIFIED"
+    },
+    "FlagResolverFallback": {
+      "entry": "0x806e5c0",
+      "inspected_end_exclusive": "0x806e680",
+      "sha256": "4f3e86727395d60ca6d4a04d135319719efce7777782888e41ad09f96b29bf4a",
+      "status": "VERIFIED"
+    },
+    "FlagResolverHook": {
+      "entry": "0x89a2f6c",
+      "inspected_end_exclusive": "0x89a2f88",
+      "sha256": "4ee5612cec72a9e85f33bc3c2f9539dda72d3f6b5eba02f7a61b27be00febab1",
+      "status": "VERIFIED"
+    },
+    "GetBasePower": {
+      "entry": "0x89d06b4",
+      "inspected_end_exclusive": "0x89d16bc",
+      "sha256": "2970f4c3a97771931dff33308751071a5ca48e4df907348123c1b58a6dc135f8",
+      "status": "VERIFIED"
+    },
+    "IsDynamaxed": {
+      "entry": "0x89d9edc",
+      "inspected_end_exclusive": "0x89d9ef8",
+      "sha256": "c2ecb6bdfd491cd01a85cb9323d796d08b37d2bb5755f062f99970e4b01d838a",
+      "status": "VERIFIED"
+    },
+    "IsInverseBattle": {
+      "entry": "0x89c1f50",
+      "inspected_end_exclusive": "0x89c1f88",
+      "sha256": "52b9721976cde0b9cbcf39c5c4c0aebec58b22a7c737c8491df6f1a9ed8eae05",
+      "status": "VERIFIED"
+    },
+    "IsRaidBattle": {
+      "entry": "0x89da900",
+      "inspected_end_exclusive": "0x89da92c",
+      "sha256": "a09805ee240533936d0fbaab988dcb24e8a0b687c87cdd1b0a7c3c15de9a3a84",
+      "status": "VERIFIED"
+    },
+    "IsScaleMonsBattle": {
+      "entry": "0x89e6eec",
+      "inspected_end_exclusive": "0x89e6f28",
+      "sha256": "a0d68778787c2db23b2b8839aa36bdfb962e6bf35b6d1029aa50e317e6129e3a",
+      "status": "VERIFIED"
+    },
+    "IsTargetAbilityIgnored": {
+      "entry": "0x89a9520",
+      "inspected_end_exclusive": "0x89a9554",
+      "sha256": "eaf18eb8af309d5d35e49376979a3df603e7bd138efea9a68708f9e493f82477",
+      "status": "VERIFIED"
+    },
+    "ModulateDmgByType": {
+      "entry": "0x89cdc9e",
+      "inspected_end_exclusive": "0x89cdf0c",
+      "sha256": "f5b0f5372cae2a08009b758f9c5374fa6b3abe5bc8d78cb1fc20764d8e9ee194",
+      "status": "VERIFIED"
+    },
+    "PopulateDamageCalcStructWithBaseAttackerData": {
+      "entry": "0x89cefec",
+      "inspected_end_exclusive": "0x89cf1bc",
+      "sha256": "d537562c374c54345645248bd049b3e0514bb7fd348a678bbfd086ad03d26a31",
+      "status": "VERIFIED"
+    },
+    "PopulateDamageCalcStructWithBaseDefenderData": {
+      "entry": "0x89cf1bc",
+      "inspected_end_exclusive": "0x89cf508",
+      "sha256": "80a32151d2f96deccec488fabfa49a0138e81e710a312daf38bce60b0258bb50",
+      "status": "VERIFIED"
+    },
+    "ScreensWeakenDamage": {
+      "entry": "0x89d18d4",
+      "inspected_end_exclusive": "0x89d1940",
+      "sha256": "27c0fa034de974421ed6e2c87e38cf2d7d13ae2570f342b21f4d972daa80533b",
+      "status": "VERIFIED"
+    },
+    "VarGet": {
+      "entry": "0x806e568",
+      "inspected_end_exclusive": "0x806e584",
+      "sha256": "117970004516ef3e86cab382ec57912f8a331fe9a9c76924d7ff5ebac3dde4dd",
+      "status": "VERIFIED"
+    },
+    "VarResolverFallback": {
+      "entry": "0x806e454",
+      "inspected_end_exclusive": "0x806e528",
+      "sha256": "555a69e333c4152f5ca7c8fb33727691adc7a3f497d6e55b40ed73bd66a80710",
+      "status": "VERIFIED"
+    },
+    "VarResolverHook": {
+      "entry": "0x89a2f44",
+      "inspected_end_exclusive": "0x89a2f6c",
+      "sha256": "227d65273b90380210f39c2dcc76cfd219a3ade210289627388a108758c2fd22",
+      "status": "VERIFIED"
+    },
+    "atk04_critcalc": {
+      "entry": "0x89ce360",
+      "inspected_end_exclusive": "0x89ce64c",
+      "sha256": "f6a7028dd79117886f37e9002e23cf7c5630d1a659cb40ae4c94f3e6bbed9ec1",
+      "status": "VERIFIED"
+    },
+    "atk05_damagecalc": {
+      "entry": "0x89d3310",
+      "inspected_end_exclusive": "0x89d3494",
+      "sha256": "c021e39f8895a55290e5928a696245790bc1397c9f443456bb74b627204a0cd1",
+      "status": "VERIFIED"
+    },
+    "atk06_typecalc": {
+      "entry": "0x89ce8e4",
+      "inspected_end_exclusive": "0x89cec48",
+      "sha256": "ab8a4a66cf67d64438bde07e22091c3f62797ce85e93650874502e46e9ffd241",
+      "status": "VERIFIED"
+    },
+    "atk07_adjustnormaldamage": {
+      "entry": "0x89cef58",
+      "inspected_end_exclusive": "0x89cef66",
+      "sha256": "0019b69f74953888c39a27ccca9241ed41fada07fe6fa1583852aabd8e97eb97",
+      "status": "VERIFIED"
+    }
+  },
+  "rule_reads": {
+    "dynamax": {
+      "battler_byte_offset": 490,
+      "caller_pcs": [
+        "0x89d25d6"
+      ],
+      "pointer_address": "0x203e038",
+      "routine": "0x89d9edc",
+      "saveblock_enable_flag_status": "UNVERIFIED",
+      "signed": true,
+      "status": "VERIFIED",
+      "width_bits": 8
+    },
+    "inverse": {
+      "caller_pcs": [
+        "0x89cdcb8"
+      ],
+      "circus_battle_type_mask": 67108864,
+      "circus_mask": 131072,
+      "flags": [
+        {
+          "id": 573,
+          "mask": 32,
+          "offset_bytes": 3879,
+          "pointer_address": "0x3005008",
+          "width_bits": 8
+        }
+      ],
+      "routine": "0x89c1f50",
+      "status": "VERIFIED"
+    },
+    "raid": {
+      "caller_pcs": [
+        "0x89ce162"
+      ],
+      "excluded_battle_type_mask": 8,
+      "flags": [
+        {
+          "id": 766,
+          "mask": 64,
+          "offset_bytes": 3903,
+          "pointer_address": "0x3005008",
+          "width_bits": 8
+        }
+      ],
+      "routine": "0x89da900",
+      "status": "VERIFIED"
+    },
+    "scalemons": {
+      "caller_pcs": [
+        "0x89d1ebe",
+        "0x89d208e"
+      ],
+      "flags": [
+        {
+          "address": "0x203b192",
+          "id": 2544,
+          "mask": 1,
+          "width_bits": 8
+        },
+        {
+          "address": "0x203b330",
+          "id": 5858,
+          "mask": 4,
+          "width_bits": 8
+        }
+      ],
+      "routine": "0x89e6eec",
+      "status": "VERIFIED",
+      "vars": [
+        {
+          "address": "0x203b4fc",
+          "comparison": 11,
+          "id": 20676,
+          "width_bits": 16
+        }
+      ]
+    },
+    "storage": {
+      "extended_flag_resolver": "0x8a0722c",
+      "extended_var_resolver": "0x8a0727c",
+      "flag_get": "0x806e6d0",
+      "flag_hook": "0x89a2f6c",
+      "save_blocks": {
+        "function": "0x804c058",
+        "gPokemonStoragePtr": "0x3005010",
+        "gSaveBlock1Ptr": "0x3005008",
+        "gSaveBlock2Ptr": "0x300500c",
+        "offset_register": "CONSTANT_ZERO",
+        "pokemon_storage": "0x2029314",
+        "save_block1": "0x202552c",
+        "save_block2": "0x2024588",
+        "sha256": "ba5ee39b04c93637499888a4df2077e2295968965ff8c40382e304446973de06"
+      },
+      "status": "VERIFIED",
+      "var_get": "0x806e568",
+      "var_hook": "0x89a2f44"
+    }
+  },
+  "runtime_status": "UNVERIFIED",
+  "schema_version": 1,
+  "scope": "STATIC_SELECTED_PATHS_ONLY",
+  "script_dispatch": {
+    "commands": {
+      "atk04_critcalc": {
+        "command_id": 4,
+        "table_slot": "0x89a000c",
+        "thumb_pointer": "0x89ce361"
+      },
+      "atk05_damagecalc": {
+        "command_id": 5,
+        "table_slot": "0x89a0010",
+        "thumb_pointer": "0x89d3311"
+      },
+      "atk06_typecalc": {
+        "command_id": 6,
+        "table_slot": "0x89a0014",
+        "thumb_pointer": "0x89ce8e5"
+      },
+      "atk07_adjustnormaldamage": {
+        "command_id": 7,
+        "table_slot": "0x89a0018",
+        "thumb_pointer": "0x89cef59"
+      }
+    },
+    "pointer_locations": [
+      "0x8014c1c",
+      "0x8015a28",
+      "0x8015c6c",
+      "0x8015c98",
+      "0x801d054"
+    ],
+    "table": "0x899fffc"
+  },
+  "source_status": "SOURCE_APPROXIMATE",
+  "status": "VERIFIED",
+  "tool_sha256": "a8e2e83e6b861495cfdcbb573ecabfac8a02d30278eda08aaacb20653e38d5b1"
+}

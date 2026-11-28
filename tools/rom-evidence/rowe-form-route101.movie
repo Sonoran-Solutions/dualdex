@@ -1,0 +1,79 @@
+# Bounded failed acquisition attempt from the private #192 two-slot checkpoint.
+# No RAM writes; labels describe checkpoints, not successful form acquisition.
+run 1
+observe start
+run 20 64
+run 20 128
+run 20 64
+run 20 128
+run 120
+observe encounter1
+run 60 64
+run 60 128
+run 60 64
+run 120
+observe encounter2
+run 24 32
+run 60 128
+run 60 64
+run 60 128
+run 60 64
+run 180
+observe encounter3
+mash 2
+run 300
+run 1 32
+run 90
+run 1 128
+run 90
+mash 2
+run 120
+observe flee1
+mash 3
+run 1 32
+run 90
+run 1 128
+run 90
+mash 1
+run 300
+observe flee2
+mash 3
+run 60 128
+run 60 64
+run 60 128
+run 60 64
+run 300
+observe encounter4
+run 60 128
+run 60 64
+run 60 128
+run 60 64
+run 60 128
+run 300
+observe encounter5
+run 1 256
+run 400
+observe battle_menu
+run 1 32
+run 90
+run 1 128
+run 90
+run 1 256
+run 180
+observe escape
+run 1 256
+run 180
+run 60 64
+run 60 128
+run 60 64
+run 60 128
+run 60 64
+run 300
+observe encounter6
+run 60 128
+run 60 64
+run 60 128
+run 60 64
+run 60 128
+run 300
+observe encounter7

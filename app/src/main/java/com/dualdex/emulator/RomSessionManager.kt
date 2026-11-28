@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import com.dualdex.cheats.CheatManager
 import com.dualdex.companion.CompanionViewModel
+import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.settings.SettingsManager
@@ -131,6 +132,7 @@ open class RomSessionManager(
         onEmulationResume: (() -> Unit)? = null
     ): SwitchResult = withContext(Dispatchers.IO) {
         sessionMutex.withLock {
+            var coreMutationStarted = false
             try {
                 // 1. Prepare new ROM in cache before touching running session
                 val tmpIncoming = File(romCacheDir, "incoming_${System.currentTimeMillis()}.tmp")
@@ -289,10 +291,12 @@ open class RomSessionManager(
 
                 val detection = RomHackDetector.detectCompatibility(cachedRomFile, loadedProfiles, preferredTitle)
                 val profile = detection.profile
-                val gameTitle = preferredTitle ?: profile.name.ifEmpty { "current_game" }
+                val gameTitle = sessionTitle(preferredTitle, detection)
                 val newIdentity = RomIdentity.fromFile(cachedRomFile, gameTitle)
 
-                if (!newIdentity.isValid) {
+                if (!newIdentity.isValid || !newIdentity.sha256.equals(finalHash, ignoreCase = true) ||
+                    !detection.sha256.equals(finalHash, ignoreCase = true)
+                ) {
                     return@withLock SwitchResult.Failure("Computed invalid ROM identity for ${cachedRomFile.name}")
                 }
 
@@ -319,10 +323,11 @@ open class RomSessionManager(
                             saveStateManager.saveAutoResume(oldIdentity)
                         }
 
+                        coreMutationStarted = true
                         coreCoordinator.unloadRom()
                         coreCoordinator.clearAudio()
 
-                        val ok = coreCoordinator.loadRom(cachedRomFile.absolutePath)
+                        val ok = coreCoordinator.loadVerifiedRom(cachedRomFile.absolutePath, newIdentity)
                         if (!ok) {
                             Log.e(TAG, "Core failed to load ROM: ${cachedRomFile.absolutePath}")
                             coreCoordinator.unloadRom()
@@ -382,6 +387,13 @@ open class RomSessionManager(
                 return@withLock SwitchResult.Success(newIdentity, profile)
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected exception during ROM switch: ${e.message}", e)
+                // An exception before unload leaves the old core/session intact. Once the
+                // transaction started mutating the core, never keep UI identity claiming it.
+                if (coreMutationStarted) {
+                    saveStateManager.activeIdentity = null
+                    viewModel?.clearRomSession()
+                    viewModel?.stopPolling()
+                }
                 return@withLock SwitchResult.Failure(
                     reason = "Exception during ROM switch: ${e.message}",
                     isAccessError = false,
@@ -396,5 +408,13 @@ open class RomSessionManager(
 
     companion object {
         private const val TAG = "RomSessionManager"
+
+        /**
+         * Session title, which is also the display name in [RomIdentity.legacyStorageKey]. An
+         * expanded FireRed/Emerald-based hack keeps the vanilla name it had before it stopped being
+         * presented as vanilla, so pre-SHA save folders are still found by migration.
+         */
+        internal fun sessionTitle(preferredTitle: String?, detection: RomCompatibility): String =
+            preferredTitle ?: (detection.baseGameProfileName ?: detection.profile.name).ifEmpty { "current_game" }
     }
 }

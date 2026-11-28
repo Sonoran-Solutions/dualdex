@@ -89,7 +89,6 @@ open class SaveStateManager(
     private var romSessionGeneration: Long = 0L
     private val _preservedAutoResume = MutableStateFlow<PreservedAutoResume?>(null)
     val preservedAutoResume: StateFlow<PreservedAutoResume?> = _preservedAutoResume.asStateFlow()
-    private val unverifiedRecoveredResumeFiles = mutableSetOf<String>()
     private var failedAutoResumePreservationGeneration: Long? = null
 
     var activeIdentity: RomIdentity? = null
@@ -99,7 +98,6 @@ open class SaveStateManager(
                 _preservedAutoResume.value?.romSha256?.equals(value.sha256, ignoreCase = true) != true
             ) {
                 _preservedAutoResume.value = null
-                unverifiedRecoveredResumeFiles.clear()
                 failedAutoResumePreservationGeneration = null
             }
         }
@@ -121,7 +119,6 @@ open class SaveStateManager(
             activeProfileName = profileName
             activeProfileId = profileId
             _preservedAutoResume.value = null
-            unverifiedRecoveredResumeFiles.clear()
             failedAutoResumePreservationGeneration = null
             if (identity.isValid) {
                 migrateOldBranchDirIfPresent(identity)
@@ -232,7 +229,7 @@ open class SaveStateManager(
         if (!oldDir.exists() || !oldDir.isDirectory) return false
 
         val oldFiles = oldDir.listFiles { f ->
-            f.isFile && !f.name.endsWith(".tmp") && !f.name.endsWith(".bak")
+            f.isFile && !AtomicSaveFile.isInternalSidecarName(f.name)
         } ?: return false
 
         if (oldFiles.isEmpty()) return false
@@ -283,9 +280,7 @@ open class SaveStateManager(
         val ok = nativeSaveState(stagingFile.absolutePath)
         if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) return null
         val canonicalFile = getCanonicalFile(identity, fileName)
-        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it) }?.also {
-            unverifiedRecoveredResumeFiles.remove(fileName)
-        }
+        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it) }
     }
 
     /**
@@ -336,8 +331,11 @@ open class SaveStateManager(
         if (refuse("loadSlot", identity)) return false
         val fileName = SaveStateFiles.slotState(slotIndex)
         val loaded = loadStateFile(identity, fileName, snapshotUndo = true)
-        if (loaded && preservedAutoResumeFor(identity)?.resumeFileName == fileName) {
-            clearPreservedAutoResumeLocked(identity)
+        if (loaded) {
+            AtomicSaveFile.clearAutoLoadExcluded(getCanonicalFile(identity, fileName))
+            if (preservedAutoResumeFor(identity)?.resumeFileName == fileName) {
+                clearPreservedAutoResumeLocked(identity)
+            }
         }
         return loaded
     }
@@ -395,17 +393,23 @@ open class SaveStateManager(
     ): Boolean = synchronized(globalSaveLock) {
         if (refuse("quickLoad", identity)) return false
         val loaded = loadStateFile(identity, SaveStateFiles.QUICK_SAVE, snapshotUndo = true)
-        if (loaded && preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.QUICK_SAVE) {
-            clearPreservedAutoResumeLocked(identity)
+        if (loaded) {
+            AtomicSaveFile.clearAutoLoadExcluded(getCanonicalFile(identity, SaveStateFiles.QUICK_SAVE))
+            if (preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.QUICK_SAVE) {
+                clearPreservedAutoResumeLocked(identity)
+            }
         }
         return loaded
     }
 
     private fun deleteDurablePreservedMarkerLocked(identity: RomIdentity) {
         val dir = getCanonicalRomDir(identity)
-        File(dir, SaveStateFiles.PRESERVED_AUTO_RESUME).delete()
+        val markerFile = File(dir, SaveStateFiles.PRESERVED_AUTO_RESUME)
+        markerFile.delete()
         File(dir, "${SaveStateFiles.PRESERVED_AUTO_RESUME}.bak").delete()
         File(dir, "${SaveStateFiles.PRESERVED_AUTO_RESUME}.tmp").delete()
+        AtomicSaveFile.backupProvenanceFile(markerFile).delete()
+        AtomicSaveFile.autoLoadExcludedFile(markerFile).delete()
     }
 
     private fun clearPreservedAutoResumeLocked(identity: RomIdentity) {
@@ -425,10 +429,7 @@ open class SaveStateManager(
             val candidate = File(dir, name)
             val bak = File(dir, "$name.bak")
             if (candidate.exists() || bak.exists()) {
-                val outcome = AtomicSaveFile.recoverInterruptedDetailed(candidate, expectedSize)
-                if (outcome == AtomicSaveFile.RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP) {
-                    unverifiedRecoveredResumeFiles.add(name)
-                }
+                AtomicSaveFile.recoverInterruptedDetailed(candidate, expectedSize)
             }
         }
     }
@@ -447,15 +448,12 @@ open class SaveStateManager(
         val target = File(dir, fileName)
         val expectedSize = if (isLoadedRom(identity)) nativeGetSaveStateSize().takeIf { it > 0 } else null
         val outcome = AtomicSaveFile.recoverInterruptedDetailed(target, expectedSize)
-        if (outcome == AtomicSaveFile.RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP) {
-            // Backup restored without establishing its original mtime: keep eligible only for
-            // explicit restoration and never allow automatic boot selection over battery.sav.
-            unverifiedRecoveredResumeFiles.add(fileName)
-        }
+        val isAutoLoadExcluded =
+            outcome == AtomicSaveFile.RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP ||
+                AtomicSaveFile.isAutoLoadExcluded(target)
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified()
         val invalidatedByBarrier = barrier > 0L && (
-            outcome == AtomicSaveFile.RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP ||
-                target.lastModified() <= barrier
+            isAutoLoadExcluded || target.lastModified() <= barrier
             )
         if (!target.isFile || target.length() == 0L || invalidatedByBarrier) {
             deleteDurablePreservedMarkerLocked(identity)
@@ -522,8 +520,7 @@ open class SaveStateManager(
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
         val newest = SaveStateFiles.newestResumeState(
             dir = dir,
-            barrierMs = barrier,
-            excludedNames = unverifiedRecoveredResumeFiles
+            barrierMs = barrier
         )
         if (newest == null) {
             failedAutoResumePreservationGeneration = null
@@ -565,6 +562,7 @@ open class SaveStateManager(
         if (record != expected) return false
         val loaded = loadStateFile(identity, record.resumeFileName, snapshotUndo = true)
         if (loaded) {
+            AtomicSaveFile.clearAutoLoadExcluded(getCanonicalFile(identity, record.resumeFileName))
             clearPreservedAutoResumeLocked(identity)
         }
         return loaded
@@ -602,8 +600,11 @@ open class SaveStateManager(
     fun loadAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (refuse("loadAutoResume", identity)) return false
         val loaded = loadStateFile(identity, SaveStateFiles.AUTO_RESUME, snapshotUndo = false)
-        if (loaded && preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.AUTO_RESUME) {
-            clearPreservedAutoResumeLocked(identity)
+        if (loaded) {
+            AtomicSaveFile.clearAutoLoadExcluded(getCanonicalFile(identity, SaveStateFiles.AUTO_RESUME))
+            if (preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.AUTO_RESUME) {
+                clearPreservedAutoResumeLocked(identity)
+            }
         }
         return loaded
     }
@@ -621,8 +622,7 @@ open class SaveStateManager(
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
         val newest = SaveStateFiles.newestResumeState(
             dir = dir,
-            barrierMs = barrier,
-            excludedNames = unverifiedRecoveredResumeFiles
+            barrierMs = barrier
         ) ?: return null
         val loadedName = newest.name.takeIf { loadStateFile(identity, it, snapshotUndo = false) }
         if (loadedName != null && preservedAutoResumeFor(identity)?.resumeFileName == loadedName) {
@@ -640,7 +640,10 @@ open class SaveStateManager(
         if (!identity.isValid) return false
         clearPreservedAutoResumeLocked(identity)
         val dir = getCanonicalRomDir(identity)
-        File(dir, SaveStateFiles.AUTO_RESUME).delete()
+        val autoResumeFile = File(dir, SaveStateFiles.AUTO_RESUME)
+        autoResumeFile.delete()
+        AtomicSaveFile.autoLoadExcludedFile(autoResumeFile).delete()
+        AtomicSaveFile.backupProvenanceFile(autoResumeFile).delete()
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER)
         return try {
             barrier.writeText(System.currentTimeMillis().toString())

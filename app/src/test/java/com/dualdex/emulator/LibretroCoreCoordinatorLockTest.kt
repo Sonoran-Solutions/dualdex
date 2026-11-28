@@ -800,4 +800,195 @@ class LibretroCoreCoordinatorLockTest {
             ControllerInputRouter.reset()
         }
     }
+
+    @Test fun generationBoundaryReconcilesNativeMaskWhenReleaseAlreadyClearedRouterMask() = runBlocking {
+        val previousProvider = ControllerInputRouter.coordinatorProvider
+        ControllerInputRouter.reset()
+        try {
+            val liveNativeMask = java.util.concurrent.atomic.AtomicInteger(0)
+            val sampledFrames = java.util.Collections.synchronizedList(mutableListOf<Int>())
+            var pressLanded = CountDownLatch(1)
+            var releaseClearedRouter = CountDownLatch(1)
+            var allowReleaseWrite = CountDownLatch(1)
+
+            val bridge = object : LibretroCoreBridge {
+                override fun loadRom(romPath: String) = true
+                override fun loadState(statePath: String) = true
+                override fun stepFrame(): Boolean {
+                    sampledFrames += liveNativeMask.get()
+                    return true
+                }
+            }
+            val core = object : LibretroCoreCoordinator(bridge = bridge) {
+                override fun setInputButtons(buttonMask: Int) {
+                    liveNativeMask.set(buttonMask)
+                    if ((buttonMask and InputManager.BTN_A) != 0) {
+                        pressLanded.countDown()
+                    }
+                }
+            }
+            ControllerInputRouter.coordinatorProvider = { core }
+            ControllerInputRouter.beforeAutomatedReleaseWriteHook = {
+                releaseClearedRouter.countDown()
+                allowReleaseWrite.await(5, TimeUnit.SECONDS)
+            }
+            assertTrue(core.loadRom("synthetic.gba"))
+            val dispatcher = DefaultBattleInputDispatcher { core }
+
+            // Case 1: no physical button held; pause release right after router clears automatedMask
+            // and before the release callback acquires core.lock.
+            val gen1 = core.stateGeneration
+            val press1 = async(Dispatchers.Default) {
+                dispatcher.sendAuthorizedButton(
+                    buttonMask = InputManager.BTN_A,
+                    durationMs = 10L,
+                    delayMs = 0L,
+                    expectedGeneration = gen1
+                )
+            }
+            assertTrue("Automated press 1 did not land", pressLanded.await(5, TimeUnit.SECONDS))
+            assertTrue("Release did not reach post-clear pause hook", releaseClearedRouter.await(5, TimeUnit.SECONDS))
+            assertEquals("Router already cleared automated mask to 0", 0, ControllerInputRouter.getEffectiveMask())
+            assertEquals("Native mask still holds automated BTN_A before generation change", InputManager.BTN_A, liveNativeMask.get())
+
+            assertTrue(core.loadState("replacement-1.state"))
+            assertTrue(core.stepFrame())
+            assertEquals(
+                "First replacement frame must see 0 even when release already cleared router mask",
+                0,
+                sampledFrames.last()
+            )
+            assertEquals(0, liveNativeMask.get())
+            allowReleaseWrite.countDown()
+            press1.await()
+            assertEquals(0, liveNativeMask.get())
+
+            // Case 2: physical BTN_B held across the same post-clear release pause -> first
+            // replacement frame must drop automated BTN_A while preserving physical BTN_B.
+            ControllerInputRouter.setPhysicalMask(InputManager.BTN_B)
+            pressLanded = CountDownLatch(1)
+            releaseClearedRouter = CountDownLatch(1)
+            allowReleaseWrite = CountDownLatch(1)
+            val gen2 = core.stateGeneration
+            val press2 = async(Dispatchers.Default) {
+                dispatcher.sendAuthorizedButton(
+                    buttonMask = InputManager.BTN_A,
+                    durationMs = 10L,
+                    delayMs = 0L,
+                    expectedGeneration = gen2
+                )
+            }
+            assertTrue("Automated press 2 did not land", pressLanded.await(5, TimeUnit.SECONDS))
+            assertTrue("Release 2 did not reach post-clear pause hook", releaseClearedRouter.await(5, TimeUnit.SECONDS))
+            assertEquals("Router already cleared automated BTN_A leaving BTN_B", InputManager.BTN_B, ControllerInputRouter.getEffectiveMask())
+            assertEquals(
+                "Native mask still holds combined BTN_A | BTN_B before generation change",
+                InputManager.BTN_A or InputManager.BTN_B,
+                liveNativeMask.get()
+            )
+
+            assertTrue(core.loadState("replacement-2.state"))
+            assertTrue(core.stepFrame())
+            assertEquals(
+                "First replacement frame must drop automated BTN_A and preserve physical BTN_B",
+                InputManager.BTN_B,
+                sampledFrames.last()
+            )
+            assertEquals(InputManager.BTN_B, liveNativeMask.get())
+            allowReleaseWrite.countDown()
+            press2.await()
+            assertEquals(InputManager.BTN_B, liveNativeMask.get())
+
+            ControllerInputRouter.setPhysicalMask(0)
+            assertEquals(0, liveNativeMask.get())
+        } finally {
+            ControllerInputRouter.coordinatorProvider = previousProvider
+            ControllerInputRouter.reset()
+        }
+    }
+
+    @Test fun exclusiveMacroTeardownPreservesFreshPhysicalPressAfterClearingExclusive() = runBlocking {
+        val previousProvider = ControllerInputRouter.coordinatorProvider
+        ControllerInputRouter.reset()
+        try {
+            val core = EdgeWriteCore()
+            ControllerInputRouter.coordinatorProvider = { core }
+            val dispatcher = DefaultBattleInputDispatcher { core }
+
+            // Part A: normal locked teardown after a fresh physical press lands in the window
+            // between clearing exclusive=false and the teardown native write.
+            var hookRan = false
+            ControllerInputRouter.beforeExclusiveTeardownWriteHook = {
+                hookRan = true
+                // Inject fresh BTN_RIGHT on a separate thread to confirm the fast path does not
+                // block on dispatchLock and reaches native input before teardown writes.
+                val pressThread = Thread {
+                    ControllerInputRouter.setPhysicalMask(InputManager.BTN_LEFT or InputManager.BTN_RIGHT)
+                }
+                pressThread.start()
+                pressThread.join(5_000)
+                assertFalse("Physical fast-path thread must not deadlock", pressThread.isAlive)
+                assertEquals(
+                    "Fresh physical BTN_RIGHT must reach native while latched BTN_LEFT stays suppressed",
+                    InputManager.BTN_RIGHT,
+                    core.heldMask
+                )
+            }
+
+            dispatcher.withExclusiveAutomation {
+                // Hold BTN_LEFT during exclusive automation so teardown latches BTN_LEFT.
+                ControllerInputRouter.setPhysicalMask(InputManager.BTN_LEFT)
+                assertEquals(0, ControllerInputRouter.getEffectiveMask())
+            }
+
+            assertTrue(hookRan)
+            assertEquals(
+                "Teardown write must apply live physical mask and never erase fresh BTN_RIGHT to 0",
+                InputManager.BTN_RIGHT,
+                core.heldMask
+            )
+            assertEquals(InputManager.BTN_RIGHT, ControllerInputRouter.getEffectiveMask())
+            assertEquals(InputManager.BTN_RIGHT to true, core.writes.last())
+
+            // Part B: even when core.lock times out during teardown, the unlocked fallback must
+            // still read and apply the live physical mask under leaf router lock.
+            ControllerInputRouter.reset()
+            core.attempts.clear()
+            core.writes.clear()
+            core.heldMask = 0
+            core.failure = { mask, _ ->
+                if (mask == InputManager.BTN_UP) {
+                    LibretroCoreCoordinator.LockTimeoutException("Synthetic teardown lock timeout")
+                } else {
+                    null
+                }
+            }
+            ControllerInputRouter.beforeExclusiveTeardownWriteHook = {
+                val pressThread = Thread {
+                    ControllerInputRouter.setPhysicalMask(InputManager.BTN_UP)
+                }
+                pressThread.start()
+                pressThread.join(5_000)
+                assertFalse("Physical fast-path thread must not deadlock", pressThread.isAlive)
+                assertEquals(InputManager.BTN_UP, core.heldMask)
+            }
+
+            var caughtTimeout = false
+            try {
+                dispatcher.withExclusiveAutomation { }
+            } catch (_: LibretroCoreCoordinator.LockTimeoutException) {
+                caughtTimeout = true
+            }
+            assertTrue("Expected teardown lock timeout to propagate", caughtTimeout)
+            assertEquals(
+                "Unlocked teardown fallback must preserve fresh physical BTN_UP instead of writing 0",
+                InputManager.BTN_UP,
+                core.heldMask
+            )
+            assertEquals(InputManager.BTN_UP to false, core.writes.last())
+        } finally {
+            ControllerInputRouter.coordinatorProvider = previousProvider
+            ControllerInputRouter.reset()
+        }
+    }
 }

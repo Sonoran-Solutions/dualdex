@@ -47,7 +47,13 @@ object SaveStateFiles {
         return allResumeStateNames
             .filter { it !in excludedNames }
             .map { File(dir, it) }
-            .filter { it.isFile && it.length() > 0L && it.lastModified() > barrierMs && it.lastModified() >= batteryMs }
+            .filter {
+                it.isFile &&
+                    it.length() > 0L &&
+                    !AtomicSaveFile.isAutoLoadExcluded(it) &&
+                    it.lastModified() > barrierMs &&
+                    it.lastModified() >= batteryMs
+            }
             .maxByOrNull { it.lastModified() }
     }
 

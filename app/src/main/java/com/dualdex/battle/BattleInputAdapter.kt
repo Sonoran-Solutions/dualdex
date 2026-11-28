@@ -192,7 +192,7 @@ class DefaultBattleInputDispatcher(
                 try {
                     core.executeExclusive(timeoutMs) {
                         if (mask == 0) {
-                            core.setInputButtons(0)
+                            ControllerInputRouter.writeLiveMaskFor(core)
                         } else {
                             // Check under the same lock as load/switch/Hardcore: a queued press cannot cross a boundary.
                             check(coordinator() === core &&
@@ -216,8 +216,9 @@ class DefaultBattleInputDispatcher(
                 }
             }
         } catch (e: Exception) {
-            // A stalled core must not retain automation, even if its lock cannot be acquired.
-            if (mask == 0) core.setInputButtons(0)
+            // A stalled core must not retain automation, even if its lock cannot be acquired,
+            // while preserving any live physical press under leaf router lock.
+            if (mask == 0) ControllerInputRouter.writeLiveMaskFor(core)
             throw e
         }
     }

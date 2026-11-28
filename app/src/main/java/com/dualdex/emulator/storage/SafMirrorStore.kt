@@ -171,7 +171,7 @@ open class SafMirrorStore(private val context: Context? = null) {
         var count = 0
 
         val files = canonicalDir.listFiles { f ->
-            f.isFile && !f.name.endsWith(".tmp") && !f.name.endsWith(".bak")
+            f.isFile && !AtomicSaveFile.isInternalSidecarName(f.name)
         } ?: return 0
 
         for (file in files) {

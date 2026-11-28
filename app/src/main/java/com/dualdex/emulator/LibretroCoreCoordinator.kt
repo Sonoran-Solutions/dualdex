@@ -462,6 +462,9 @@ open class LibretroCoreCoordinator(
             (!raHardcorePolicy.mayUseInteractiveBattleControls || stateGeneration != expectedGeneration)) {
             return false
         }
+        if (buttonMask != 0) {
+            ControllerInputRouter.markAutomatedNativeDirty(this)
+        }
         setInputButtons(buttonMask)
         return true
     }

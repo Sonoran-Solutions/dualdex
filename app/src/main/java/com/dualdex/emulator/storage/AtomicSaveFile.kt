@@ -26,6 +26,159 @@ object AtomicSaveFile {
     @Volatile
     var preserveTimestampHook: ((File, Long) -> Boolean)? = null
 
+    fun backupProvenanceFile(targetFile: File): File =
+        File(targetFile.parentFile, "${targetFile.name}.bak.mtime")
+
+    fun autoLoadExcludedFile(targetFile: File): File =
+        File(targetFile.parentFile, "${targetFile.name}.no_autoload")
+
+    fun isAutoLoadExcluded(targetFile: File): Boolean =
+        autoLoadExcludedFile(targetFile).exists()
+
+    fun clearAutoLoadExcluded(targetFile: File): Boolean {
+        val file = autoLoadExcludedFile(targetFile)
+        return !file.exists() || file.delete()
+    }
+
+    fun isInternalSidecarName(fileName: String): Boolean =
+        fileName.endsWith(".tmp") ||
+            fileName.endsWith(".bak") ||
+            fileName.endsWith(".bak.mtime") ||
+            fileName.endsWith(".no_autoload")
+
+    private fun applyLastModified(file: File, mtime: Long): Boolean {
+        val hook = preserveTimestampHook
+        return if (hook != null) {
+            hook(file, mtime)
+        } else {
+            file.setLastModified(mtime)
+        }
+    }
+
+    private fun moveFileAtomically(src: File, dst: File): Boolean = try {
+        Files.move(
+            src.toPath(),
+            dst.toPath(),
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING
+        )
+        true
+    } catch (e: Exception) {
+        Log.w(TAG, "Atomic move failed, falling back to REPLACE_EXISTING move: ${e.message}")
+        try {
+            Files.move(
+                src.toPath(),
+                dst.toPath(),
+                StandardCopyOption.REPLACE_EXISTING
+            )
+            true
+        } catch (e2: Exception) {
+            Log.w(TAG, "Replace move failed, falling back to rename without delete: ${e2.message}")
+            // Never delete dst beforehand to avoid leaving an empty window!
+            src.renameTo(dst)
+        }
+    }
+
+    private fun writeSidecarAtomically(sidecarFile: File, content: String): Boolean {
+        val parent = sidecarFile.parentFile ?: return false
+        if (!parent.exists() && !parent.mkdirs()) return false
+        val bytes = content.toByteArray(Charsets.UTF_8)
+        if (bytes.isEmpty()) return false
+        val tmpFile = File(parent, "${sidecarFile.name}.tmp")
+        return try {
+            FileOutputStream(tmpFile).use { fos ->
+                fos.write(bytes)
+                fos.flush()
+                val hook = syncHook
+                if (hook != null) {
+                    hook(fos)
+                } else {
+                    fos.fd.sync()
+                }
+            }
+            if (!tmpFile.exists() || tmpFile.length() != bytes.size.toLong()) {
+                if (tmpFile.exists()) tmpFile.delete()
+                return false
+            }
+            val moved = moveFileAtomically(tmpFile, sidecarFile)
+            if (moved && sidecarFile.exists() && sidecarFile.length() == bytes.size.toLong()) {
+                true
+            } else {
+                if (tmpFile.exists()) tmpFile.delete()
+                false
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to write sidecar ${sidecarFile.name}: ${e.message}")
+            if (tmpFile.exists()) tmpFile.delete()
+            false
+        }
+    }
+
+    private fun readVerifiedBackupMtime(targetFile: File, bakFile: File, expectedSize: Long): Long? {
+        val provenanceFile = backupProvenanceFile(targetFile)
+        if (!provenanceFile.isFile || provenanceFile.length() == 0L) return null
+        val raw = runCatching { provenanceFile.readText(Charsets.UTF_8).trim() }.getOrNull() ?: return null
+        val parts = raw.split(':')
+        if (parts.size != 2) return null
+        val recordedMtime = parts[0].toLongOrNull() ?: return null
+        val recordedSize = parts[1].toLongOrNull() ?: return null
+        if (recordedMtime <= 0L || recordedSize != expectedSize) return null
+        if (bakFile.lastModified() != recordedMtime) return null
+        return recordedMtime
+    }
+
+    /**
+     * Rotates the existing canonical [targetFile] into [bakFile].
+     * Deletes any stale provenance sidecar before mutating [bakFile], and publishes
+     * `<target>.bak.mtime` ONLY after verifying that [targetFile] was not auto-load excluded and
+     * that [bakFile] retained [targetFile]'s exact original modification timestamp.
+     */
+    private fun rotateBackup(targetFile: File, bakFile: File): Boolean {
+        val origSize = targetFile.length()
+        val origMtime = targetFile.lastModified()
+        val origExcluded = isAutoLoadExcluded(targetFile)
+        val provenanceFile = backupProvenanceFile(targetFile)
+
+        if (provenanceFile.exists() && !provenanceFile.delete()) {
+            Log.e(TAG, "Aborting backup rotation for ${targetFile.name}: could not clear stale backup provenance")
+            return false
+        }
+
+        val backupOk = try {
+            val hook = backupHook
+            if (hook != null) {
+                hook(targetFile, bakFile)
+            } else {
+                targetFile.copyTo(bakFile, overwrite = true)
+                val copiedOk = bakFile.exists() && bakFile.isFile && bakFile.length() == origSize
+                if (copiedOk && !origExcluded && origMtime > 0L) {
+                    val mtimePreserved = applyLastModified(bakFile, origMtime) &&
+                        bakFile.lastModified() == origMtime
+                    if (mtimePreserved) {
+                        val provenanceWritten = writeSidecarAtomically(
+                            provenanceFile,
+                            "$origMtime:$origSize"
+                        )
+                        if (!provenanceWritten && provenanceFile.exists()) {
+                            provenanceFile.delete()
+                        }
+                    } else if (provenanceFile.exists()) {
+                        provenanceFile.delete()
+                    }
+                }
+                copiedOk
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create backup copy: ${e.message}")
+            if (provenanceFile.exists()) provenanceFile.delete()
+            false
+        }
+        if (!backupOk && provenanceFile.exists()) {
+            provenanceFile.delete()
+        }
+        return backupOk
+    }
+
     /**
      * Atomically write a byte array to targetFile with durability and previous-good backup (.bak).
      */
@@ -67,24 +220,7 @@ object AtomicSaveFile {
 
             // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created)
             if (targetFile.exists() && targetFile.length() > 0L) {
-                val origSize = targetFile.length()
-                val origMtime = targetFile.lastModified()
-                val backupOk = try {
-                    val hook = backupHook
-                    if (hook != null) {
-                        hook(targetFile, bakFile)
-                    } else {
-                        targetFile.copyTo(bakFile, overwrite = true)
-                        if (origMtime > 0L) {
-                            bakFile.setLastModified(origMtime)
-                        }
-                        bakFile.exists() && bakFile.isFile && bakFile.length() == origSize
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to create backup copy: ${e.message}")
-                    false
-                }
-                if (!backupOk) {
+                if (!rotateBackup(targetFile, bakFile)) {
                     Log.e(TAG, "Aborting atomic write: failed to create verified previous-good backup")
                     if (tmpFile.exists()) tmpFile.delete()
                     return false
@@ -92,32 +228,11 @@ object AtomicSaveFile {
             }
 
             // 4. Atomically replace canonical
-            val moved = try {
-                Files.move(
-                    tmpFile.toPath(),
-                    targetFile.toPath(),
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING
-                )
-                true
-            } catch (e: Exception) {
-                Log.w(TAG, "Atomic move failed, falling back to REPLACE_EXISTING move: ${e.message}")
-                try {
-                    Files.move(
-                        tmpFile.toPath(),
-                        targetFile.toPath(),
-                        StandardCopyOption.REPLACE_EXISTING
-                    )
-                    true
-                } catch (e2: Exception) {
-                    Log.w(TAG, "Replace move failed, falling back to rename without delete: ${e2.message}")
-                    // Never delete targetFile beforehand to avoid leaving an empty window!
-                    tmpFile.renameTo(targetFile)
-                }
-            }
+            val moved = moveFileAtomically(tmpFile, targetFile)
 
             // 5. Verify final file exists and has expected size
             if (moved && targetFile.exists() && targetFile.length() == expectedSize) {
+                clearAutoLoadExcluded(targetFile)
                 return true
             }
 
@@ -177,24 +292,7 @@ object AtomicSaveFile {
 
             // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created)
             if (targetFile.exists() && targetFile.length() > 0L) {
-                val origSize = targetFile.length()
-                val origMtime = targetFile.lastModified()
-                val backupOk = try {
-                    val hook = backupHook
-                    if (hook != null) {
-                        hook(targetFile, bakFile)
-                    } else {
-                        targetFile.copyTo(bakFile, overwrite = true)
-                        if (origMtime > 0L) {
-                            bakFile.setLastModified(origMtime)
-                        }
-                        bakFile.exists() && bakFile.isFile && bakFile.length() == origSize
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to create backup copy: ${e.message}")
-                    false
-                }
-                if (!backupOk) {
+                if (!rotateBackup(targetFile, bakFile)) {
                     Log.e(TAG, "Aborting atomic staging copy: failed to create verified previous-good backup")
                     if (tmpFile.exists()) tmpFile.delete()
                     return false
@@ -202,31 +300,11 @@ object AtomicSaveFile {
             }
 
             // 4. Atomically replace canonical
-            val moved = try {
-                Files.move(
-                    tmpFile.toPath(),
-                    targetFile.toPath(),
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING
-                )
-                true
-            } catch (e: Exception) {
-                Log.w(TAG, "Atomic move failed, falling back to REPLACE_EXISTING move: ${e.message}")
-                try {
-                    Files.move(
-                        tmpFile.toPath(),
-                        targetFile.toPath(),
-                        StandardCopyOption.REPLACE_EXISTING
-                    )
-                    true
-                } catch (e2: Exception) {
-                    Log.w(TAG, "Replace move failed, falling back to rename without delete: ${e2.message}")
-                    tmpFile.renameTo(targetFile)
-                }
-            }
+            val moved = moveFileAtomically(tmpFile, targetFile)
 
             // 5. Verify final file
             if (moved && targetFile.exists() && targetFile.length() == expectedSize) {
+                clearAutoLoadExcluded(targetFile)
                 return true
             }
 
@@ -243,35 +321,51 @@ object AtomicSaveFile {
     }
 
     /**
-     * Restore canonical targetFile from its .bak sibling, preserving the backup's original
-     * modification timestamp so recovered backups never masquerade as fresher than newer saves.
+     * Restore canonical targetFile from its .bak sibling, preserving the backup's verified
+     * original modification timestamp so recovered backups never masquerade as fresher than
+     * newer saves.
+     *
+     * Writes a durable `<target>.no_autoload` exclusion sidecar BEFORE copying any `.bak` bytes
+     * into `targetFile`, and removes it ONLY after verifying both backup provenance (`.bak.mtime`)
+     * and the restored file's exact original timestamp. Any backup with unknown provenance (such
+     * as pre-fix backups or failed rotation timestamps) or failed restore timestamp preservation
+     * stays durably excluded from automatic boot loading across all callers and reopens, while
+     * remaining available for explicit user restoration.
      */
     fun restoreBackupDetailed(targetFile: File): RecoveryOutcome {
         val bakFile = File(targetFile.parentFile, "${targetFile.name}.bak")
-        if (!bakFile.exists() || bakFile.length() == 0L) {
+        if (!bakFile.exists() || !bakFile.isFile || bakFile.length() == 0L) {
             return RecoveryOutcome.UNAVAILABLE
         }
+        val expectedSize = bakFile.length()
+        val verifiedOriginalMtime = readVerifiedBackupMtime(targetFile, bakFile, expectedSize)
+
+        val excludeFile = autoLoadExcludedFile(targetFile)
+        if (!writeSidecarAtomically(excludeFile, "1")) {
+            Log.e(TAG, "Aborting backup restore for ${targetFile.name}: could not write durable auto-load exclusion marker")
+            return RecoveryOutcome.UNAVAILABLE
+        }
+
         return try {
-            val backupMtime = bakFile.lastModified()
             bakFile.copyTo(targetFile, overwrite = true)
-            if (!targetFile.exists() || targetFile.length() != bakFile.length()) {
+            if (!targetFile.exists() || targetFile.length() != expectedSize) {
                 return RecoveryOutcome.UNAVAILABLE
             }
-            val timestampPreserved = if (backupMtime > 0L) {
-                val hook = preserveTimestampHook
-                val ok = if (hook != null) {
-                    hook(targetFile, backupMtime)
-                } else {
-                    targetFile.setLastModified(backupMtime)
-                }
-                ok && targetFile.lastModified() in 1L..backupMtime
+            val timestampPreserved = if (verifiedOriginalMtime != null) {
+                applyLastModified(targetFile, verifiedOriginalMtime) &&
+                    targetFile.lastModified() == verifiedOriginalMtime
             } else {
                 false
             }
             if (timestampPreserved) {
-                RecoveryOutcome.RESTORED_WITH_ORIGINAL_TIMESTAMP
+                if (clearAutoLoadExcluded(targetFile)) {
+                    RecoveryOutcome.RESTORED_WITH_ORIGINAL_TIMESTAMP
+                } else {
+                    Log.w(TAG, "Restored ${targetFile.name} with verified timestamp but could not clear auto-load exclusion marker")
+                    RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP
+                }
             } else {
-                Log.w(TAG, "Restored ${targetFile.name} from .bak without establishing original timestamp")
+                Log.w(TAG, "Restored ${targetFile.name} from .bak without verified original timestamp; keeping durable auto-load exclusion")
                 RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP
             }
         } catch (e: Exception) {

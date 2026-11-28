@@ -3,6 +3,8 @@ package com.dualdex.emulator
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.Collections
+import java.util.IdentityHashMap
 
 /** Physical state is retained; move macros exclusively own the effective input mask. */
 object ControllerInputRouter {
@@ -18,6 +20,12 @@ object ControllerInputRouter {
     private var automatedMask = 0
     private var automatedGeneration: Long? = null
     private var automatedCoordinator: LibretroCoreCoordinator? = null
+    // Tracks cores whose native button mask may still hold an automated bit (including after
+    // router automatedMask has been cleared to 0 while the release write is still acquiring
+    // core.lock). Guarded exclusively by leaf [lock].
+    private val dirtyAutomatedCores: MutableSet<LibretroCoreCoordinator> =
+        Collections.newSetFromMap(IdentityHashMap())
+    private var dirtyAutomatedAny = false
     private var latchedMask = 0
     private var exclusive = false
 
@@ -25,33 +33,49 @@ object ControllerInputRouter {
         LibretroCoreCoordinator.defaultInstance
     }
 
+    @Volatile internal var beforeAutomatedReleaseWriteHook: (() -> Unit)? = null
+    @Volatile internal var beforeExclusiveTeardownWriteHook: (() -> Unit)? = null
+
     class PhysicalButtonHeld : RuntimeException()
 
     private fun physicalEffectiveMask() = if (exclusive) 0 else (physicalMask and latchedMask.inv())
 
     private fun effectiveMask() = physicalEffectiveMask() or automatedMask
 
+    internal fun markAutomatedNativeDirty(coordinator: LibretroCoreCoordinator) {
+        synchronized(lock) {
+            dirtyAutomatedCores.add(coordinator)
+        }
+    }
+
     /**
-     * Clears any active automated bits belonging to [coordinator] (or unbound) and, when an
-     * automated mask was live, immediately reconciles the native button mask to the current
-     * effective physical mask inside [lock]. Executing the native write under leaf [lock]
-     * guarantees that generation revocation and Hardcore activation are totally ordered with
-     * physical input updates and never leave automated bits live for the first replacement frame.
+     * Clears any active automated bits belonging to [coordinator] (or unbound) and, whenever
+     * an automated mask was live OR a prior automated write/in-progress release has not yet
+     * synced zero automated bits to native, immediately reconciles the native button mask to the
+     * current effective physical mask inside leaf [lock]. Executing the native write under leaf
+     * [lock] preserves `core.lock -> lock`, totally orders generation revocation and Hardcore
+     * activation with physical input updates, and guarantees the first replacement frame never
+     * observes stale automated bits even when a timed release already cleared [automatedMask].
      */
     internal fun revokeAutomatedMaskAndSync(coordinator: LibretroCoreCoordinator): Int = synchronized(lock) {
         val matches = automatedCoordinator == null || automatedCoordinator === coordinator
         val hadAutomated = matches && automatedMask != 0
+        val needsNativeSync = hadAutomated || dirtyAutomatedAny || coordinator in dirtyAutomatedCores
         if (matches) {
             automatedMask = 0
             automatedGeneration = null
             automatedCoordinator = null
         }
         val physical = physicalEffectiveMask()
-        if (hadAutomated) {
+        if (needsNativeSync) {
             try {
                 coordinator.setInputButtons(physical)
             } catch (_: UnsatisfiedLinkError) {
                 // Host JVM checks do not load the native library.
+            }
+            dirtyAutomatedCores.remove(coordinator)
+            if (dirtyAutomatedCores.isEmpty() && automatedMask == 0) {
+                dirtyAutomatedAny = false
             }
         }
         physical
@@ -70,10 +94,19 @@ object ControllerInputRouter {
         synchronized(lock) {
             val physical = physicalEffectiveMask()
             val effective = if (includeAutomated) physical or automatedMask else physical
+            if (includeAutomated && automatedMask != 0) {
+                dirtyAutomatedCores.add(coordinator)
+            }
             try {
                 coordinator.setInputButtons(effective)
             } catch (_: UnsatisfiedLinkError) {
                 // Host JVM checks do not load the native library.
+            }
+            if (!includeAutomated || automatedMask == 0) {
+                dirtyAutomatedCores.remove(coordinator)
+                if (dirtyAutomatedCores.isEmpty() && this.automatedMask == 0) {
+                    dirtyAutomatedAny = false
+                }
             }
         }
     }
@@ -113,6 +146,7 @@ object ControllerInputRouter {
                 } catch (_: UnsatisfiedLinkError) {
                     // Host JVM checks do not load the native library.
                 }
+                dirtyAutomatedCores.remove(targetCore)
                 return
             }
             needsAutomatedDispatch = true
@@ -133,6 +167,7 @@ object ControllerInputRouter {
                         } catch (_: UnsatisfiedLinkError) {
                             // Host JVM checks do not load the native library.
                         }
+                        dirtyAutomatedCores.remove(targetCore)
                         return
                     }
                 }
@@ -174,6 +209,7 @@ object ControllerInputRouter {
                 try {
                     coordinator.setInputButtons(physicalEffectiveMask())
                 } catch (_: UnsatisfiedLinkError) {}
+                dirtyAutomatedCores.remove(coordinator)
             }
             return
         } catch (_: UnsatisfiedLinkError) {
@@ -187,15 +223,29 @@ object ControllerInputRouter {
 
     private fun setAutomatedMask(mask: Int, setButtons: (Int) -> Unit) {
         synchronized(dispatchLock) {
+            val clearedAutomated: Boolean
             val effective = synchronized(lock) {
+                clearedAutomated = mask == 0 && automatedMask != 0
                 automatedMask = mask
-                if (mask == 0) {
+                if (mask != 0) {
+                    dirtyAutomatedAny = true
+                } else {
                     automatedGeneration = null
                     automatedCoordinator = null
                 }
                 effectiveMask()
             }
+            if (clearedAutomated) {
+                beforeAutomatedReleaseWriteHook?.invoke()
+            }
             setButtons(effective)
+            if (mask == 0) {
+                synchronized(lock) {
+                    if (automatedMask == 0 && dirtyAutomatedCores.isEmpty()) {
+                        dirtyAutomatedAny = false
+                    }
+                }
+            }
         }
     }
 
@@ -207,18 +257,42 @@ object ControllerInputRouter {
     ) {
         synchronized(dispatchLock) {
             val physical: Int
+            val clearedAutomated: Boolean
             synchronized(lock) {
+                clearedAutomated = mask == 0 && automatedMask != 0
                 automatedMask = mask
                 automatedGeneration = if (mask != 0) expectedGeneration else null
                 automatedCoordinator = if (mask != 0) coordinator else null
+                if (mask != 0) {
+                    if (coordinator != null) {
+                        dirtyAutomatedCores.add(coordinator)
+                    } else {
+                        dirtyAutomatedAny = true
+                    }
+                }
                 physical = physicalEffectiveMask()
             }
+            if (clearedAutomated) {
+                beforeAutomatedReleaseWriteHook?.invoke()
+            }
             setCombinedButtons(physical, mask)
+            if (mask == 0) {
+                synchronized(lock) {
+                    if (automatedMask == 0) {
+                        if (coordinator != null) {
+                            dirtyAutomatedCores.remove(coordinator)
+                        }
+                        if (dirtyAutomatedCores.isEmpty()) {
+                            dirtyAutomatedAny = false
+                        }
+                    }
+                }
+            }
         }
     }
 
     suspend fun <T> withExclusiveAutomation(
-        setButtons: (Int) -> Unit = ::dispatchEffectiveMask,
+        setButtons: (Int) -> Unit = defaultDispatch,
         block: suspend () -> T
     ): T = automationMutex.withLock {
         synchronized(lock) {
@@ -230,16 +304,22 @@ object ControllerInputRouter {
             block()
         } finally {
             synchronized(dispatchLock) {
-                val effective = synchronized(lock) {
+                synchronized(lock) {
                     automatedMask = 0
                     automatedGeneration = null
                     automatedCoordinator = null
                     latchedMask = latchedMask or physicalMask
                     exclusive = false
-                    effectiveMask()
                 }
+                beforeExclusiveTeardownWriteHook?.invoke()
                 // Restore physical routing, but held buttons need release/repress for JOY_NEW.
-                setButtons(effective)
+                // Read and apply the live physical mask under leaf [lock] so a fresh physical press
+                // arriving after clearing [exclusive] is never erased by a stale zero snapshot.
+                if (setButtons === defaultDispatch) {
+                    writeLiveMaskFor(coordinatorProvider())
+                } else {
+                    setButtons(0)
+                }
             }
         }
     }
@@ -265,7 +345,7 @@ object ControllerInputRouter {
                 delay(durationMs)
             } finally {
                 if (useDefaultDispatch) {
-                    setAutomatedState(0, null, null) { _, _ ->
+                    setAutomatedState(0, null, core) { _, _ ->
                         dispatchCombinedMask(core, 0, null)
                     }
                 } else {
@@ -295,7 +375,7 @@ object ControllerInputRouter {
                 setAutomatedState(buttonMask, expectedGeneration, coordinator, setCombinedButtons)
                 delay(durationMs)
             } finally {
-                setAutomatedState(0, null, null, setCombinedButtons)
+                setAutomatedState(0, null, coordinator, setCombinedButtons)
             }
             if (delayMs > 0) delay(delayMs)
             true
@@ -307,7 +387,7 @@ object ControllerInputRouter {
         buttonMask: Int,
         settleFrames: Int,
         waitFrames: suspend (Int) -> Boolean,
-        setButtons: (Int) -> Unit = ::dispatchEffectiveMask
+        setButtons: (Int) -> Unit = defaultDispatch
     ): Boolean = inputMutex.withLock {
         if (synchronized(lock) { !exclusive && physicalMask and buttonMask != 0 }) return@withLock false
         try {
@@ -322,12 +402,16 @@ object ControllerInputRouter {
     suspend fun <T> withRouterLock(action: suspend () -> T): T = inputMutex.withLock { action() }
 
     fun reset() {
+        beforeAutomatedReleaseWriteHook = null
+        beforeExclusiveTeardownWriteHook = null
         synchronized(dispatchLock) {
             synchronized(lock) {
                 physicalMask = 0
                 automatedMask = 0
                 automatedGeneration = null
                 automatedCoordinator = null
+                dirtyAutomatedCores.clear()
+                dirtyAutomatedAny = false
                 latchedMask = 0
                 exclusive = false
                 dispatchEffectiveMask(0)

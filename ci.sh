@@ -18,6 +18,7 @@
 #   ./ci.sh rowe-sanitize # same focused suite with ASan + UBSan (compiler required)
 #   ./ci.sh coverage-test # focused H&S debug coverage tests + structural release proof
 #   ./ci.sh build    # assemble the debug APK
+#   ./ci.sh backup-acceptance # build the opt-in synthetic Android device harness
 #   ./ci.sh all      # test then build (default)
 #   ./ci.sh release  # assemble the production-signed release APK (requires
 #                    # external signing credentials; fails closed if missing)
@@ -708,6 +709,38 @@ gradle_build() {
   echo "== gradle assembleDebug =="
   init_submodules
   ./gradlew assembleDebug
+  verify_ordinary_debug_manifest
+}
+
+verify_ordinary_debug_manifest() {
+  local merged_manifest=""
+  local candidate
+  for candidate in \
+    app/build/intermediates/merged_manifest/debug/processDebugMainManifest/AndroidManifest.xml \
+    app/build/intermediates/merged_manifest/debug/AndroidManifest.xml \
+    app/build/intermediates/merged_manifests/debug/processDebugManifest/AndroidManifest.xml \
+    app/build/intermediates/merged_manifests/debug/AndroidManifest.xml; do
+    if [ -f "$candidate" ]; then
+      merged_manifest="$candidate"
+      break
+    fi
+  done
+  if [ -z "$merged_manifest" ]; then
+    echo "error: merged ordinary debug AndroidManifest.xml not found after assembleDebug" >&2
+    return 1
+  fi
+  python3 - "$merged_manifest" <<'PY'
+import sys, xml.etree.ElementTree as ET
+path = sys.argv[1]
+raw = open(path, encoding='utf-8').read()
+root = ET.fromstring(raw)
+app = root.find('application')
+ns = '{http://schemas.android.com/apk/res/android}'
+if root.get('package') != 'com.dualdex' or app is None:
+    raise SystemExit(f'error: unexpected package or missing <application> in {path}')
+if app.get(ns + 'backupAgent') is not None or 'backupAgent' in raw or 'QuotaAwareBackupAgent' in raw:
+    raise SystemExit(f'error: ordinary debug manifest {path} must not declare android:backupAgent')
+PY
 }
 
 gradle_release() {
@@ -729,7 +762,8 @@ case "${1:-all}" in
   source-check) source_check ;;
   build)        gradle_build ;;
   all)          native_test; fixture_test; tracker_selftest; calc_test; hns_damage_oracle_test; unbound_damage_oracle_test; calc_goldens_check; hns_map_data_check; unbound_data_pack_check; hns_generator_test; gradle_test; gradle_build ;;
+  backup-acceptance) python3 tools/android-backup/test_acceptance.py; init_submodules; ./gradlew -Pdualdex.backupAcceptance=true -Pdualdex.acceptanceBackup="${DUALDEX_ACCEPTANCE_BACKUP:-true}" assembleBackupAcceptanceDebug ;;
   release)      gradle_release ;;
-  *)            echo "usage: $0 [test|fixture-test|rowe-test|rowe-sanitize|coverage-test|source-check|build|all|release]" >&2; exit 2 ;;
+  *)            echo "usage: $0 [test|fixture-test|rowe-test|rowe-sanitize|coverage-test|source-check|build|backup-acceptance|all|release]" >&2; exit 2 ;;
 esac
 fi

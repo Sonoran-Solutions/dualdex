@@ -74,6 +74,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     private var restoreBottomScreenBtn: TextView? = null
     private var loadedProfiles: List<RomHackProfile> = emptyList()
     private val audioDriver = AudioDriver(32768)
+    private var romScanJob: kotlinx.coroutines.Job? = null
 
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
@@ -139,7 +140,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 Log.w("DualDex", "Could not take persistable URI permission: ${e.message}")
             }
             settingsManager.romsFolderUri = uri.toString()
-            scanRomsDirectory(uri)
+            scanCurrentLibrary()
         }
     }
 
@@ -230,8 +231,12 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
-    private fun scanRomsDirectory(folderUri: Uri) {
-        CoroutineScope(Dispatchers.IO).launch {
+    private fun scanCurrentLibrary() {
+        val folderUri = settingsManager.romsFolderUri
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { Uri.parse(it) }.getOrNull() }
+        romScanJob?.cancel()
+        romScanJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val romList = com.dualdex.library.LibraryScanner.scan(applicationContext, folderUri, loadedProfiles)
                 withContext(Dispatchers.Main) {
@@ -239,8 +244,10 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                     companionPresentation?.refreshHomeScreen()
                     currentCompanionScreenView?.refreshHomeScreen()
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Log.e("DualDex", "Error scanning ROMs directory: ${e.message}", e)
+                Log.e("DualDex", "Error scanning ROMs library: ${e.message}", e)
             }
         }
     }
@@ -249,7 +256,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         val sha = pendingCoverSha ?: return@registerForActivityResult
         pendingCoverSha = null
         if (uri != null && com.dualdex.library.CoverArt.setFromUri(this, sha, uri)) {
-            settingsManager.romsFolderUri?.let { scanRomsDirectory(Uri.parse(it)) }
+            scanCurrentLibrary()
         }
     }
     private var pendingCoverSha: String? = null
@@ -351,22 +358,24 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                     emulatorView?.setSpeedMultiplier(settingsManager.romSpeed(id?.takeIf { it.isValid }?.storageKey))
                 }
             }
+            val patchRefreshTracker = com.dualdex.library.PatchRefreshTracker(
+                com.dualdex.library.PatchFlow.status.value as? com.dualdex.library.PatchFlow.Status.Saved
+            )
             lifecycleScope.launch {
                 com.dualdex.library.PatchFlow.status.collect { st ->
-                    if (st is com.dualdex.library.PatchFlow.Status.Saved) {
-                        st.linkedFolder?.let { scanRomsDirectory(it) }
-                    }
+                    patchRefreshTracker.onPatchStatus(
+                        status = st,
+                        currentFolderUri = { settingsManager.romsFolderUri },
+                        triggerScan = { scanCurrentLibrary() }
+                    )
                 }
             }
 
-            // 7. Scan saved ROMs folder if available
-            val savedFolder = settingsManager.romsFolderUri
-            if (!savedFolder.isNullOrBlank()) {
-                try {
-                    scanRomsDirectory(Uri.parse(savedFolder))
-                } catch (e: Exception) {
-                    Log.w("DualDex", "Failed to scan saved ROMs folder: ${e.message}")
-                }
+            // 7. Scan saved ROMs folder and private patched ROMs
+            try {
+                scanCurrentLibrary()
+            } catch (e: Exception) {
+                Log.w("DualDex", "Failed to scan ROM library: ${e.message}")
             }
 
             // 7.5 Check and migrate legacy saves from previous app version on first open
@@ -744,9 +753,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             onChooseRomsFolderRequested = { chooseFolderLauncher.launch(null) },
             onRefreshRomsRequested = {
                 val folder = settingsManager.romsFolderUri
-                if (!folder.isNullOrBlank()) {
-                    scanRomsDirectory(Uri.parse(folder))
-                } else {
+                scanCurrentLibrary()
+                if (folder.isNullOrBlank()) {
                     chooseFolderLauncher.launch(null)
                 }
             },
@@ -789,9 +797,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 onChooseRomsFolderRequested = { chooseFolderLauncher.launch(null) },
                 onRefreshRomsRequested = {
                     val folder = settingsManager.romsFolderUri
-                    if (!folder.isNullOrBlank()) {
-                        scanRomsDirectory(Uri.parse(folder))
-                    } else {
+                    scanCurrentLibrary()
+                    if (folder.isNullOrBlank()) {
                         chooseFolderLauncher.launch(null)
                     }
                 },

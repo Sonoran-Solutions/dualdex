@@ -236,14 +236,18 @@ open class SaveStateManager(
 
         Log.i(TAG, "Migrating old branch save directory from $oldKey to canonical ${identity.storageKey}")
         var migratedAny = false
+        var allMigrated = true
         for (file in oldFiles) {
             val target = File(canonicalDir, file.name)
-            if (AtomicSaveFile.copyFromStaging(file, target)) {
+            val sourceExcluded = AtomicSaveFile.isAutoLoadExcluded(file)
+            if (AtomicSaveFile.copyFromStaging(file, target, markAutoLoadExcluded = sourceExcluded)) {
                 migratedAny = true
+            } else {
+                allMigrated = false
             }
         }
 
-        if (migratedAny) {
+        if (migratedAny && allMigrated) {
             val bakDir = File(fallbackBaseDir, "${oldKey}.migrated.bak")
             oldDir.renameTo(bakDir)
         }
@@ -286,12 +290,25 @@ open class SaveStateManager(
     /**
      * Validates and loads [fileName]. With [snapshotUndo] the current state is first written to
      * `undo_load.state`, so an accidental load can be reverted with [undoLoad].
+     * When [allowRecovery] is false (used by automatic boot resume after candidate recovery and
+     * eligibility checks have already completed under [globalSaveLock]), refuses to retry backup
+     * recovery or load any file marked `.no_autoload`.
      */
-    private fun loadStateFile(identity: RomIdentity, fileName: String, snapshotUndo: Boolean): Boolean {
+    private fun loadStateFile(
+        identity: RomIdentity,
+        fileName: String,
+        snapshotUndo: Boolean,
+        allowRecovery: Boolean = true
+    ): Boolean {
         if (!coreCoordinator.raHardcorePolicy.mayLoadSaveState) return false
         val canonicalFile = getCanonicalFile(identity, fileName)
         val expectedSize = nativeGetSaveStateSize()
-        AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
+        if (allowRecovery) {
+            AtomicSaveFile.recoverInterrupted(canonicalFile, if (expectedSize > 0) expectedSize else null)
+        } else if (AtomicSaveFile.isAutoLoadExcluded(canonicalFile)) {
+            Log.w(TAG, "Refusing automatic load of $fileName: durable auto-load exclusion marker present")
+            return false
+        }
         if (!canonicalFile.exists() || canonicalFile.length() == 0L) return false
         if (expectedSize > 0 && canonicalFile.length() != expectedSize) {
             Log.e(TAG, "$fileName size mismatch: expected $expectedSize, got ${canonicalFile.length()}")
@@ -424,14 +441,21 @@ open class SaveStateManager(
     private fun hasFailedAutoResumePreservationLocked(identity: RomIdentity): Boolean =
         identity.isValid && isLoadedRom(identity) && failedAutoResumePreservationGeneration == romSessionGeneration
 
-    private fun recoverResumeCandidatesLocked(dir: File, expectedSize: Long?) {
+    private fun recoverResumeCandidatesLocked(dir: File, expectedSize: Long?): Set<String> {
+        val excluded = mutableSetOf<String>()
         for (name in SaveStateFiles.allResumeStateNames) {
             val candidate = File(dir, name)
             val bak = File(dir, "$name.bak")
             if (candidate.exists() || bak.exists()) {
-                AtomicSaveFile.recoverInterruptedDetailed(candidate, expectedSize)
+                val outcome = AtomicSaveFile.recoverInterruptedDetailed(candidate, expectedSize)
+                if (outcome == AtomicSaveFile.RecoveryOutcome.UNAVAILABLE ||
+                    outcome == AtomicSaveFile.RecoveryOutcome.RESTORED_WITHOUT_ORIGINAL_TIMESTAMP
+                ) {
+                    excluded += name
+                }
             }
         }
+        return excluded
     }
 
     private fun readDurablePreservedFileNameLocked(identity: RomIdentity): String? {
@@ -516,11 +540,12 @@ open class SaveStateManager(
         }
         val dir = getCanonicalRomDir(identity)
         val expectedSize = nativeGetSaveStateSize().takeIf { it > 0 }
-        recoverResumeCandidatesLocked(dir, expectedSize)
+        val excludedNames = recoverResumeCandidatesLocked(dir, expectedSize)
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
         val newest = SaveStateFiles.newestResumeState(
             dir = dir,
-            barrierMs = barrier
+            barrierMs = barrier,
+            excludedNames = excludedNames
         )
         if (newest == null) {
             failedAutoResumePreservationGeneration = null
@@ -618,13 +643,16 @@ open class SaveStateManager(
         if (refuse("loadNewestResumeState", identity)) return null
         val dir = getCanonicalRomDir(identity)
         val expectedSize = nativeGetSaveStateSize().takeIf { it > 0 }
-        recoverResumeCandidatesLocked(dir, expectedSize)
+        val excludedNames = recoverResumeCandidatesLocked(dir, expectedSize)
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
         val newest = SaveStateFiles.newestResumeState(
             dir = dir,
-            barrierMs = barrier
+            barrierMs = barrier,
+            excludedNames = excludedNames
         ) ?: return null
-        val loadedName = newest.name.takeIf { loadStateFile(identity, it, snapshotUndo = false) }
+        val loadedName = newest.name.takeIf {
+            loadStateFile(identity, it, snapshotUndo = false, allowRecovery = false)
+        }
         if (loadedName != null && preservedAutoResumeFor(identity)?.resumeFileName == loadedName) {
             clearPreservedAutoResumeLocked(identity)
         }
@@ -735,34 +763,35 @@ open class SaveStateManager(
         return getFileInfo(identity, "battery.sav", slotIndex = 0)
     }
 
-    private fun getFileInfo(identity: RomIdentity, fileName: String, slotIndex: Int): SaveSlotInfo {
-        val canonicalFile = getCanonicalFile(identity, fileName)
-        val expectedSize = if (fileName == "battery.sav") {
-            nativeGetSaveRamSize().takeIf { it > 0 }
-        } else if (fileName.endsWith(".state")) {
-            nativeGetSaveStateSize().takeIf { it > 0 }
-        } else null
-        AtomicSaveFile.recoverInterrupted(canonicalFile, expectedSize)
-        return if (canonicalFile.exists() && canonicalFile.length() > 0L) {
-            val ts = canonicalFile.lastModified()
-            val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
-            SaveSlotInfo(
-                slotIndex = slotIndex,
-                exists = true,
-                timestampMs = ts,
-                formattedDate = dateStr,
-                sizeBytes = canonicalFile.length()
-            )
-        } else {
-            SaveSlotInfo(
-                slotIndex = slotIndex,
-                exists = false,
-                timestampMs = 0L,
-                formattedDate = if (slotIndex == 0) "No .sav file" else "Empty",
-                sizeBytes = 0L
-            )
+    private fun getFileInfo(identity: RomIdentity, fileName: String, slotIndex: Int): SaveSlotInfo =
+        synchronized(globalSaveLock) {
+            val canonicalFile = getCanonicalFile(identity, fileName)
+            val expectedSize = if (fileName == "battery.sav") {
+                nativeGetSaveRamSize().takeIf { it > 0 }
+            } else if (fileName.endsWith(".state")) {
+                nativeGetSaveStateSize().takeIf { it > 0 }
+            } else null
+            AtomicSaveFile.recoverInterrupted(canonicalFile, expectedSize)
+            if (canonicalFile.exists() && canonicalFile.length() > 0L) {
+                val ts = canonicalFile.lastModified()
+                val dateStr = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(ts))
+                SaveSlotInfo(
+                    slotIndex = slotIndex,
+                    exists = true,
+                    timestampMs = ts,
+                    formattedDate = dateStr,
+                    sizeBytes = canonicalFile.length()
+                )
+            } else {
+                SaveSlotInfo(
+                    slotIndex = slotIndex,
+                    exists = false,
+                    timestampMs = 0L,
+                    formattedDate = if (slotIndex == 0) "No .sav file" else "Empty",
+                    sizeBytes = 0L
+                )
+            }
         }
-    }
 
     // ---------------------------------------------------------
     // Cartridge Battery Save (.sav) Management

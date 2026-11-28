@@ -11,6 +11,9 @@ import com.dualdex.emulator.RomSessionManager
 import com.dualdex.emulator.SaveStateManager
 import com.dualdex.emulator.SwitchResult
 import com.dualdex.emulator.storage.AtomicSaveFile
+import com.dualdex.emulator.storage.LegacyCandidate
+import com.dualdex.emulator.storage.LegacySaveCatalog
+import com.dualdex.emulator.storage.MigrationResult
 import com.dualdex.emulator.storage.SaveStateFiles
 import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.runBlocking
@@ -19,6 +22,10 @@ import org.junit.Test
 import java.io.File
 import java.io.IOException
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 class RetroAchievementsTest {
     @Test
@@ -1005,6 +1012,222 @@ class RetroAchievementsTest {
             assertNotNull(ssm.activeIdentity)
         } finally {
             AtomicSaveFile.syncHook = null
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun concurrentSlotInspectionCannotInterleaveWithSaveSlotToOverwriteFreshSave() {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_slot_info_race_").toFile()
+        try {
+            val romFile = File(tempRoot, "romSlotRace.gba").apply { writeBytes(ByteArray(4096) { 0x67 }) }
+            val romIdentity = RomIdentity.fromFile(romFile, "Rom Slot Race")
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = File(tempRoot, "saves"), customCoordinator = core)
+            assertTrue(core.loadVerifiedRom(romFile.absolutePath, romIdentity))
+            ssm.setActiveGame(romIdentity)
+
+            val slot1File = ssm.getCanonicalFile(romIdentity, SaveStateFiles.slotState(1))
+            val preFixBakBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x22 }
+            File(slot1File.parentFile, "${slot1File.name}.bak").writeBytes(preFixBakBytes)
+            assertFalse(slot1File.exists())
+
+            val enteredRestore = CountDownLatch(1)
+            val allowRestoreFinish = CountDownLatch(1)
+            val saveCompleted = CountDownLatch(1)
+            val saveSucceeded = AtomicBoolean(false)
+            AtomicSaveFile.beforeRestoreCopyHook = { target ->
+                if (target.name == slot1File.name) {
+                    enteredRestore.countDown()
+                    assertTrue(allowRestoreFinish.await(5, TimeUnit.SECONDS))
+                }
+            }
+
+            val inspectThread = Thread {
+                ssm.getSlotInfo(romIdentity, 1)
+            }
+            inspectThread.start()
+            assertTrue("getSlotInfo must reach backup recovery", enteredRestore.await(5, TimeUnit.SECONDS))
+
+            bridge.nextSavedStateByte = 0x77
+            val saveThread = Thread {
+                saveSucceeded.set(ssm.saveSlot(romIdentity, 1))
+                saveCompleted.countDown()
+            }
+            saveThread.start()
+
+            // saveSlot must stay serialized behind getSlotInfo under globalSaveLock.
+            assertFalse(
+                "saveSlot must not interleave with getSlotInfo recovery",
+                saveCompleted.await(150, TimeUnit.MILLISECONDS)
+            )
+
+            allowRestoreFinish.countDown()
+            inspectThread.join(5_000)
+            saveThread.join(5_000)
+            assertFalse(inspectThread.isAlive)
+            assertFalse(saveThread.isAlive)
+            assertTrue(saveSucceeded.get())
+
+            // Fresh save bytes win cleanly; old backup was rotated, not copied back over fresh save.
+            assertArrayEquals(ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x77 }, slot1File.readBytes())
+            assertFalse(AtomicSaveFile.isAutoLoadExcluded(slot1File))
+            assertArrayEquals(preFixBakBytes, File(slot1File.parentFile, "${slot1File.name}.bak").readBytes())
+        } finally {
+            AtomicSaveFile.beforeRestoreCopyHook = null
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun oneShotExclusionMarkerFailureDuringBootNeverRetriesRecoveryToAutoLoadOlderBackup() {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_oneshot_boot_").toFile()
+        try {
+            val romFile = File(tempRoot, "romOneShotBoot.gba").apply { writeBytes(ByteArray(4096) { 0x68 }) }
+            val romIdentity = RomIdentity.fromFile(romFile, "Rom OneShot Boot")
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = File(tempRoot, "saves"), customCoordinator = core)
+            assertTrue(core.loadVerifiedRom(romFile.absolutePath, romIdentity))
+            ssm.setActiveGame(romIdentity)
+
+            val now = System.currentTimeMillis()
+            val olderBackupMtime = now - 60_000L
+            val newerBatteryMtime = now - 5_000L
+            val truncatedMtime = now
+
+            val batteryFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.BATTERY).apply {
+                writeBytes(ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 0x55 })
+                setLastModified(newerBatteryMtime)
+            }
+            val autoResumeFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.AUTO_RESUME).apply {
+                // Nonempty truncated target with a recent timestamp.
+                writeBytes(ByteArray(64) { 0x11 })
+                setLastModified(truncatedMtime)
+            }
+            val oldBackupBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x3A }
+            File(autoResumeFile.parentFile, "${autoResumeFile.name}.bak").apply {
+                writeBytes(oldBackupBytes)
+                setLastModified(olderBackupMtime)
+            }
+
+            // Fail ONLY the first sync (during recoverResumeCandidatesLocked's .no_autoload write);
+            // a hypothetical retry inside loadStateFile would succeed if not prevented.
+            val failuresRemaining = AtomicInteger(1)
+            AtomicSaveFile.syncHook = {
+                if (failuresRemaining.getAndDecrement() > 0) {
+                    throw IOException("One-shot exclusion marker write failure")
+                }
+            }
+
+            assertNull(
+                "Boot resume must exclude failed recovery and never retry recovery inside loadStateFile",
+                ssm.loadNewestResumeState(romIdentity)
+            )
+            assertTrue("No stale backup bytes may be auto-loaded", bridge.loadedStates.isEmpty())
+            assertEquals(64L, autoResumeFile.length())
+            assertTrue(batteryFile.exists())
+        } finally {
+            AtomicSaveFile.syncHook = null
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun legacyMigrationRejectsInternalSidecarsAndPreservesAutoLoadExclusion() {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_legacy_sidecar_").toFile()
+        try {
+            // Part A: LegacySaveCatalog ignores internal sidecars at discovery and refuses assignment,
+            // and preserves .no_autoload when assigning an excluded state.
+            val romFileA = File(tempRoot, "romLegacyA.gba").apply { writeBytes(ByteArray(4096) { 0x69 }) }
+            val identityA = RomIdentity.fromFile(romFileA, "Rom Legacy A")
+            val savesDirA = File(tempRoot, "savesA")
+            val fallbackDirA = File(tempRoot, "saves_fallbackA")
+            val legacyFolder = File(fallbackDirA, "legacy_RomLegacyA").apply { mkdirs() }
+            val legacyStateBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x4C }
+            val legacyState = File(legacyFolder, SaveStateFiles.AUTO_RESUME).apply { writeBytes(legacyStateBytes) }
+            val legacyNoAutoload = AtomicSaveFile.autoLoadExcludedFile(legacyState).apply { writeText("1") }
+            val legacyBak = File(legacyFolder, "${SaveStateFiles.AUTO_RESUME}.bak").apply { writeBytes(legacyStateBytes) }
+            val legacyBakMtime = AtomicSaveFile.backupProvenanceFile(legacyState).apply { writeText("1000:${legacyStateBytes.size}") }
+
+            val catalog = LegacySaveCatalog(
+                context = null,
+                customLegacyDir = File(tempRoot, "legacyRootA"),
+                customFallbackDir = fallbackDirA
+            )
+            val discovered = catalog.discoverCandidates()
+            assertEquals(listOf(SaveStateFiles.AUTO_RESUME), discovered.map { it.targetFileName })
+
+            val canonicalDirA = File(savesDirA, identityA.storageKey).apply { mkdirs() }
+            for (sidecar in listOf(legacyNoAutoload, legacyBak, legacyBakMtime)) {
+                val bogus = LegacyCandidate(
+                    sourceFile = sidecar,
+                    baseName = "RomLegacyA",
+                    suggestedTitle = "RomLegacyA",
+                    targetFileName = sidecar.name,
+                    sizeBytes = sidecar.length(),
+                    isAssigned = false,
+                    assignedRomHash = null
+                )
+                assertEquals(
+                    "Internal sidecar ${sidecar.name} must never be assignable",
+                    MigrationResult.FAILURE,
+                    catalog.assignCandidateToRom(bogus, identityA, canonicalDirA)
+                )
+                assertFalse(File(canonicalDirA, sidecar.name).exists())
+            }
+
+            assertEquals(
+                MigrationResult.SUCCESS,
+                catalog.assignCandidateToRom(discovered.single(), identityA, canonicalDirA)
+            )
+            val assignedState = File(canonicalDirA, SaveStateFiles.AUTO_RESUME)
+            assertArrayEquals(legacyStateBytes, assignedState.readBytes())
+            assertTrue(
+                "Assigned excluded state must preserve durable .no_autoload marker",
+                AtomicSaveFile.isAutoLoadExcluded(assignedState)
+            )
+
+            // Part B: SaveStateManager.migrateOldBranchDirIfPresent skips internal sidecars and
+            // preserves .no_autoload so migrated excluded state is never auto-loaded at boot.
+            val romFileB = File(tempRoot, "romLegacyB.gba").apply { writeBytes(ByteArray(4096) { 0x6A }) }
+            val identityB = RomIdentity.fromFile(romFileB, "Rom Legacy B")
+            val savesDirB = File(tempRoot, "savesB")
+            val fallbackDirB = File(savesDirB, "saves_fallback")
+            val oldBranchDir = File(fallbackDirB, identityB.legacyStorageKey).apply { mkdirs() }
+            val migratedStateBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x4E }
+            val oldState = File(oldBranchDir, SaveStateFiles.AUTO_RESUME).apply { writeBytes(migratedStateBytes) }
+            AtomicSaveFile.autoLoadExcludedFile(oldState).writeText("1")
+            AtomicSaveFile.backupProvenanceFile(oldState).writeText("1000:${migratedStateBytes.size}")
+
+            val bridgeB = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val coreB = LibretroCoreCoordinator(bridge = bridgeB)
+            val ssmB = SaveStateManager(
+                customBaseDir = savesDirB,
+                customCoordinator = coreB
+            )
+            assertTrue(coreB.loadVerifiedRom(romFileB.absolutePath, identityB))
+            ssmB.setActiveGame(identityB)
+
+            val canonicalStateB = ssmB.getCanonicalFile(identityB, SaveStateFiles.AUTO_RESUME)
+            assertArrayEquals(migratedStateBytes, canonicalStateB.readBytes())
+            assertFalse(AtomicSaveFile.backupProvenanceFile(canonicalStateB).exists())
+            assertTrue(
+                "Old-branch migration must preserve durable .no_autoload marker",
+                AtomicSaveFile.isAutoLoadExcluded(canonicalStateB)
+            )
+            assertNull(
+                "Migrated excluded state must not be auto-loaded at boot",
+                ssmB.loadNewestResumeState(identityB)
+            )
+            assertTrue(bridgeB.loadedStates.isEmpty())
+
+            // Explicit restore still succeeds.
+            assertTrue(ssmB.loadAutoResume(identityB))
+            assertEquals(1, bridgeB.loadedStates.size)
+            assertArrayEquals(migratedStateBytes, bridgeB.loadedStates[0])
+        } finally {
             tempRoot.deleteRecursively()
         }
     }

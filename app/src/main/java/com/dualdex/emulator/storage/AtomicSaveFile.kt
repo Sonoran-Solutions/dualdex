@@ -26,6 +26,9 @@ object AtomicSaveFile {
     @Volatile
     var preserveTimestampHook: ((File, Long) -> Boolean)? = null
 
+    @Volatile
+    var beforeRestoreCopyHook: ((File) -> Unit)? = null
+
     fun backupProvenanceFile(targetFile: File): File =
         File(targetFile.parentFile, "${targetFile.name}.bak.mtime")
 
@@ -251,8 +254,14 @@ object AtomicSaveFile {
 
     /**
      * Atomically copy a staging file to targetFile with durability and previous-good backup (.bak).
+     * When [markAutoLoadExcluded] is true (e.g. migrating an already excluded state), writes
+     * `<target>.no_autoload` durably before committing [targetFile] and preserves it after commit.
      */
-    fun copyFromStaging(stagingFile: File, targetFile: File): Boolean {
+    fun copyFromStaging(
+        stagingFile: File,
+        targetFile: File,
+        markAutoLoadExcluded: Boolean = false
+    ): Boolean {
         if (!stagingFile.exists() || stagingFile.length() == 0L) {
             Log.e(TAG, "Staging file missing or empty: ${stagingFile.absolutePath}")
             return false
@@ -299,12 +308,21 @@ object AtomicSaveFile {
                 }
             }
 
+            // 3b. If preserving explicit-only exclusion, persist the marker BEFORE publishing targetFile
+            if (markAutoLoadExcluded && !writeSidecarAtomically(autoLoadExcludedFile(targetFile), "excluded\n")) {
+                Log.e(TAG, "Aborting atomic staging copy: failed to persist auto-load exclusion marker for ${targetFile.name}")
+                if (tmpFile.exists()) tmpFile.delete()
+                return false
+            }
+
             // 4. Atomically replace canonical
             val moved = moveFileAtomically(tmpFile, targetFile)
 
             // 5. Verify final file
             if (moved && targetFile.exists() && targetFile.length() == expectedSize) {
-                clearAutoLoadExcluded(targetFile)
+                if (!markAutoLoadExcluded) {
+                    clearAutoLoadExcluded(targetFile)
+                }
                 return true
             }
 
@@ -345,6 +363,8 @@ object AtomicSaveFile {
             Log.e(TAG, "Aborting backup restore for ${targetFile.name}: could not write durable auto-load exclusion marker")
             return RecoveryOutcome.UNAVAILABLE
         }
+
+        beforeRestoreCopyHook?.invoke(targetFile)
 
         return try {
             bakFile.copyTo(targetFile, overwrite = true)

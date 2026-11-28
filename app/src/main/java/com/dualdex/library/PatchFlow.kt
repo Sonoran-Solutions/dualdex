@@ -2,21 +2,41 @@ package com.dualdex.library
 
 import android.content.Context
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
 import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.settings.SettingsManager
 import java.io.File
+import java.io.FileDescriptor
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.OutputStream
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
 import java.nio.file.Files
-import java.nio.file.StandardCopyOption.ATOMIC_MOVE
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+internal data class StagedDocument(val uriString: String, val name: String?)
+
+internal interface SafDocumentTarget {
+    fun canWrite(): Boolean
+    fun listEntryNamesAndUris(): List<StagedDocument>
+    fun createStagingDocument(displayName: String): StagedDocument?
+    fun writeAll(uriString: String, bytes: ByteArray)
+    fun renameDocument(uriString: String, targetName: String): StagedDocument?
+    fun deleteDocument(uriString: String): Boolean
+}
 
 object PatchFlow {
     /** The hosting Activity launches OpenDocument and forwards its result to [onPatchPicked]. */
@@ -30,11 +50,13 @@ object PatchFlow {
             val uri: Uri,
             val fileName: String,
             val linkedFolder: Uri?,
-            val compatibility: RomCompatibility
+            val compatibility: RomCompatibility,
+            val saveId: Long = 0L
         ) : Status
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val nextSaveId = AtomicLong(0L)
     private val mutableStatus = MutableStateFlow<Status>(Status.Idle)
     val status = mutableStatus.asStateFlow()
 
@@ -71,32 +93,36 @@ object PatchFlow {
             .replace(Regex("""[\\/:*?"<>|\p{C}]"""), "_")
             .take(80).trim(' ', '.').ifEmpty { "Patched ROM" }
 
-        val bytes = readPatch(context, uri)
-        val header = RomPatcher.inspect(bytes)
-        val candidates = romDocuments(root).map { doc ->
-            RomPatcher.BaseRomCandidate(doc.uri, doc.length().takeIf { it > 0 }) {
-                context.contentResolver.openInputStream(doc.uri)
+        val spoolFile = spoolPatch(context, uri)
+        try {
+            val header = RomPatcher.inspect(spoolFile)
+            val candidates = romDocuments(root).map { doc ->
+                RomPatcher.BaseRomCandidate(doc.uri, doc.length().takeIf { it > 0 }) {
+                    context.contentResolver.openInputStream(doc.uri)
+                }
             }
+            val match = RomPatcher.findMatchingBaseRomWithBudget(header, candidates, spoolFile.length())
+                ?: return Status.Failed("No base ROM matched ${header.sourceSize} bytes and CRC32 %08x.".format(header.sourceCrc32))
+            val result = when (val outcome = RomPatcher.apply(match.bytes, spoolFile)) {
+                is PatchOutcome.Failure -> return Status.Failed(outcome.reason)
+                is PatchOutcome.Success -> outcome
+            }
+            val compatibility = RomHackDetector.detectCompatibilityFromBytes(
+                headerBytes = result.outputBytes,
+                sha256 = result.sha256,
+                profiles = ProfileLoader.loadProfilesFromAssets(context),
+                fileName = "$stem.gba",
+                romLength = result.outputBytes.size.toLong()
+            )
+            val linkedOutput = saveToFolder(context, root, stem, result.outputBytes)
+            if (linkedOutput != null) {
+                return Status.Saved(linkedOutput.first, linkedOutput.second, folder, compatibility, nextSaveId.incrementAndGet())
+            }
+            val output = savePrivately(context, stem, result.outputBytes)
+            return Status.Saved(Uri.fromFile(output), output.name, null, compatibility, nextSaveId.incrementAndGet())
+        } finally {
+            spoolFile.delete()
         }
-        val match = RomPatcher.findMatchingBaseRom(header, candidates)
-            ?: return Status.Failed("No base ROM matched ${header.sourceSize} bytes and CRC32 %08x.".format(header.sourceCrc32))
-        val result = when (val outcome = RomPatcher.apply(match.bytes, bytes)) {
-            is PatchOutcome.Failure -> return Status.Failed(outcome.reason)
-            is PatchOutcome.Success -> outcome
-        }
-        val compatibility = RomHackDetector.detectCompatibilityFromBytes(
-            headerBytes = result.outputBytes,
-            sha256 = result.sha256,
-            profiles = ProfileLoader.loadProfilesFromAssets(context),
-            fileName = "$stem.gba",
-            romLength = result.outputBytes.size.toLong()
-        )
-        val linkedOutput = saveToFolder(context, root, stem, result.outputBytes)
-        if (linkedOutput != null) {
-            return Status.Saved(linkedOutput.first, linkedOutput.second, folder, compatibility)
-        }
-        val output = savePrivately(context, stem, result.outputBytes)
-        return Status.Saved(Uri.fromFile(output), output.name, null, compatibility)
     }
 
     private fun romDocuments(dir: DocumentFile, depth: Int = 0): Sequence<DocumentFile> = sequence {
@@ -111,85 +137,269 @@ object PatchFlow {
         }
     }
 
-    // Spool unknown-length SAF streams to disk to enforce the cap without doubling heap use.
-    private fun readPatch(context: Context, uri: Uri): ByteArray {
+    // Spool unknown-length SAF streams to disk to enforce the cap and stream patching without loading patch bytes into RAM.
+    private fun spoolPatch(context: Context, uri: Uri): File {
         val temporary = File.createTempFile("rom-patch-", ".tmp", context.cacheDir)
+        var spooled = false
         try {
             val input = context.contentResolver.openInputStream(uri) ?: throw IOException("Could not open the patch.")
             input.use {
                 temporary.outputStream().use { output ->
                     val buffer = ByteArray(64 * 1024)
-                    var total = 0
+                    var total = 0L
                     while (true) {
                         val count = input.read(buffer)
                         if (count < 0) break
                         if (count == 0) throw IOException("Could not read the patch.")
                         total += count
-                        require(total <= RomPatcher.MAX_PATCH_BYTES) { "Patch exceeds the 128 MiB size limit." }
+                        if (total > RomPatcher.MAX_PATCH_BYTES) {
+                            throw PatchException(
+                                "Patch exceeds the ${RomPatcher.MAX_PATCH_BYTES / (1024 * 1024)} MiB size limit."
+                            )
+                        }
                         output.write(buffer, 0, count)
                     }
+                    output.flush()
                 }
             }
-            return temporary.readBytes()
+            spooled = true
+            return temporary
         } finally {
-            temporary.delete()
+            if (!spooled) temporary.delete()
         }
     }
 
-    private fun outputNames(stem: String) = generateSequence(0) { it + 1 }.map {
+    internal fun outputNames(stem: String) = generateSequence(0) { it + 1 }.map {
         if (it == 0) "$stem.gba" else "$stem ($it).gba"
     }
 
-    /** SAF creates a new document. Check its identity before opening it for write. */
-    private fun saveToFolder(context: Context, root: DocumentFile, stem: String, bytes: ByteArray): Pair<Uri, String>? {
+    internal fun stagingFileName(uniqueToken: String): String = ".dualdex_patch_${uniqueToken}.tmp"
+
+    internal fun isStagingFileName(name: String): Boolean =
+        name.startsWith(".dualdex_patch_") && name.endsWith(".tmp", ignoreCase = true)
+
+    /**
+     * Stages the patched ROM under a non-ROM `.tmp` filename, writes + flushes completely,
+     * and atomically publishes it to `<stem>.gba` via rename only after writing succeeds.
+     * Returns null (cleaning up staging) if the provider does not support safe staged rename.
+     */
+    internal fun publishStagedDocument(
+        target: SafDocumentTarget,
+        stem: String,
+        bytes: ByteArray,
+        uniqueToken: String = UUID.randomUUID().toString().replace("-", "")
+    ): StagedDocument? {
         val existing = try {
-            if (!root.canWrite()) return null
-            root.listFiles()
+            if (!target.canWrite()) return null
+            target.listEntryNamesAndUris()
         } catch (_: SecurityException) {
             return null
+        } catch (_: IllegalStateException) {
+            return null
         }
-        val names = existing.mapNotNull { it.name?.lowercase() }.toSet()
-        val name = outputNames(stem).first { it.lowercase() !in names }
-        val output = try {
-            root.createFile("application/octet-stream", name)
+        val existingNames = existing.mapNotNull { it.name?.lowercase() }.toSet()
+        val existingUris = existing.map { it.uriString }.toSet()
+        val finalTargetName = outputNames(stem).first { it.lowercase() !in existingNames }
+        val stagingName = generateSequence(0) { it + 1 }
+            .map { idx -> if (idx == 0) stagingFileName(uniqueToken) else stagingFileName("${uniqueToken}_$idx") }
+            .first { it.lowercase() !in existingNames }
+
+        val staged = try {
+            target.createStagingDocument(stagingName)
         } catch (_: SecurityException) {
             null
+        } catch (_: IllegalStateException) {
+            null
         } ?: return null
-        if (existing.any { it.uri == output.uri }) return null
 
-        var saved = false
+        if (staged.uriString in existingUris) return null
+        val actualStagingName = staged.name
+        if (actualStagingName.isNullOrBlank() ||
+            RomScanCache.isRomName(actualStagingName) ||
+            actualStagingName.endsWith(".gba", ignoreCase = true)
+        ) {
+            runCatching { target.deleteDocument(staged.uriString) }
+            return null
+        }
+
+        var publishedUri: String? = null
         try {
-            val actualName = output.name?.takeIf { it.endsWith(".gba", ignoreCase = true) } ?: return null
-            val stream = context.contentResolver.openOutputStream(output.uri, "w") ?: return null
-            stream.use { it.write(bytes) }
-            saved = true
-            return output.uri to actualName
+            target.writeAll(staged.uriString, bytes)
+            val renamed = target.renameDocument(staged.uriString, finalTargetName) ?: return null
+            val actualFinalName = renamed.name?.takeIf {
+                it.endsWith(".gba", ignoreCase = true) && !isStagingFileName(it)
+            } ?: run {
+                if (renamed.uriString !in existingUris) {
+                    runCatching { target.deleteDocument(renamed.uriString) }
+                }
+                return null
+            }
+            publishedUri = renamed.uriString
+            return StagedDocument(renamed.uriString, actualFinalName)
         } catch (_: IOException) {
             return null
         } catch (_: SecurityException) {
             return null
+        } catch (_: UnsupportedOperationException) {
+            return null
+        } catch (_: IllegalStateException) {
+            return null
+        } catch (_: IllegalArgumentException) {
+            return null
         } finally {
-            if (!saved && !output.delete()) throw IOException("Could not remove an incomplete ROM from the linked folder.")
+            if (publishedUri == null) {
+                runCatching { target.deleteDocument(staged.uriString) }
+            }
         }
     }
 
-    private fun savePrivately(context: Context, stem: String, bytes: ByteArray): File {
-        val dir = File(context.filesDir, "patched_roms")
-        if (!dir.isDirectory && !dir.mkdirs()) throw IOException("Could not create DualDex’s patched ROM folder.")
-        // Each run owns an empty directory, so the atomic move cannot replace another ROM.
-        val destination = Files.createTempDirectory(dir.toPath(), "patch-").toFile()
-        try {
-            val temporary = File(destination, ".pending")
-            FileOutputStream(temporary).use {
-                it.write(bytes)
-                it.fd.sync()
-            }
-            val output = File(destination, "$stem.gba")
-            Files.move(temporary.toPath(), output.toPath(), ATOMIC_MOVE)
-            return output
-        } finally {
-            File(destination, ".pending").delete()
-            destination.delete() // Only an empty, failed staging directory can be removed.
+    private class AndroidSafDocumentTarget(
+        private val context: Context,
+        private val root: DocumentFile
+    ) : SafDocumentTarget {
+        private val createdDocs = mutableMapOf<String, DocumentFile>()
+
+        override fun canWrite(): Boolean = try {
+            root.canWrite()
+        } catch (_: SecurityException) {
+            false
+        }
+
+        override fun listEntryNamesAndUris(): List<StagedDocument> =
+            root.listFiles().map { StagedDocument(it.uri.toString(), it.name) }
+
+        override fun createStagingDocument(displayName: String): StagedDocument? {
+            val doc = root.createFile("application/octet-stream", displayName) ?: return null
+            val uriString = doc.uri.toString()
+            createdDocs[uriString] = doc
+            return StagedDocument(uriString, doc.name)
+        }
+
+        override fun writeAll(uriString: String, bytes: ByteArray) {
+            val docUri = Uri.parse(uriString)
+            val stream = context.contentResolver.openOutputStream(docUri, "w")
+                ?: throw IOException("Could not open staged SAF document for writing.")
+            writeAllAndSync(stream, bytes)
+        }
+
+        override fun renameDocument(uriString: String, targetName: String): StagedDocument? {
+            val docUri = Uri.parse(uriString)
+            val renamedUri = DocumentsContract.renameDocument(context.contentResolver, docUri, targetName)
+                ?: return null
+            val renamedName = DocumentFile.fromSingleUri(context, renamedUri)?.name
+            return StagedDocument(renamedUri.toString(), renamedName)
+        }
+
+        override fun deleteDocument(uriString: String): Boolean {
+            val tracked = createdDocs.remove(uriString)
+            if (tracked != null && tracked.delete()) return true
+            val docUri = Uri.parse(uriString)
+            if (DocumentFile.fromSingleUri(context, docUri)?.delete() == true) return true
+            return runCatching { DocumentsContract.deleteDocument(context.contentResolver, docUri) }.getOrDefault(false)
         }
     }
+
+    internal interface PrivateFileOps {
+        fun forceFile(channel: FileChannel)
+        fun atomicMove(source: Path, target: Path)
+        fun forceDir(dir: Path)
+    }
+
+    internal object DefaultPrivateFileOps : PrivateFileOps {
+        override fun forceFile(channel: FileChannel) {
+            channel.force(true)
+        }
+
+        override fun atomicMove(source: Path, target: Path) {
+            Files.move(
+                source,
+                target,
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        }
+
+        override fun forceDir(dir: Path) {
+            FileChannel.open(dir, StandardOpenOption.READ).use { dirChannel ->
+                dirChannel.force(true)
+            }
+        }
+    }
+
+    internal fun writeAllAndSync(
+        out: OutputStream,
+        bytes: ByteArray,
+        syncFd: (FileDescriptor) -> Unit = { it.sync() }
+    ) {
+        out.use { stream ->
+            stream.write(bytes)
+            stream.flush()
+            (stream as? FileOutputStream)?.fd?.let(syncFd)
+        }
+    }
+
+    private fun saveToFolder(context: Context, root: DocumentFile, stem: String, bytes: ByteArray): Pair<Uri, String>? {
+        val published = publishStagedDocument(AndroidSafDocumentTarget(context, root), stem, bytes) ?: return null
+        val name = published.name ?: return null
+        return Uri.parse(published.uriString) to name
+    }
+
+    internal fun writeAtomicallyTo(
+        dest: File,
+        bytes: ByteArray,
+        fileOps: PrivateFileOps = DefaultPrivateFileOps
+    ) {
+        if (bytes.isEmpty()) throw IOException("Refusing to write empty patched ROM.")
+        val parent = dest.parentFile ?: throw IOException("Patched ROM destination has no parent directory.")
+        if (!parent.exists() && !parent.mkdirs() && !parent.isDirectory) {
+            throw IOException("Could not create DualDex’s patched ROM folder.")
+        }
+        if (!parent.isDirectory) {
+            throw IOException("Patched ROM destination parent is not a directory.")
+        }
+        val tmp = File(parent, "${dest.name}.tmp")
+        try {
+            FileChannel.open(
+                tmp.toPath(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE
+            ).use { channel ->
+                val buffer = ByteBuffer.wrap(bytes)
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer)
+                }
+                fileOps.forceFile(channel)
+            }
+            fileOps.atomicMove(tmp.toPath(), dest.toPath())
+            fileOps.forceDir(parent.toPath())
+        } finally {
+            runCatching { Files.deleteIfExists(tmp.toPath()) }
+        }
+    }
+
+    internal fun savePrivatelyToDir(
+        dir: File,
+        stem: String,
+        bytes: ByteArray,
+        fileOps: PrivateFileOps = DefaultPrivateFileOps
+    ): File {
+        if (!dir.exists() && !dir.mkdirs() && !dir.isDirectory) {
+            throw IOException("Could not create DualDex’s patched ROM folder.")
+        }
+        if (!dir.isDirectory) {
+            throw IOException("DualDex’s patched ROM path is not a directory.")
+        }
+        val existingNames = dir.listFiles()?.map { it.name.lowercase() }?.toSet().orEmpty()
+        val targetName = outputNames(stem).first {
+            val lower = it.lowercase()
+            lower !in existingNames && "$lower.tmp" !in existingNames
+        }
+        val output = File(dir, targetName)
+        writeAtomicallyTo(output, bytes, fileOps)
+        return output
+    }
+
+    private fun savePrivately(context: Context, stem: String, bytes: ByteArray): File =
+        savePrivatelyToDir(File(context.filesDir, "patched_roms"), stem, bytes)
 }

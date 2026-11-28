@@ -231,6 +231,41 @@ class AddressAndRangeTest(GamedataFixture):
         self.set_field('unbound', 'battle_current_move_gba_address', {'gba': '0x0203FFFF'})
         self.assert_rejected(r'0x0203FFFF \+ 2 bytes runs past the end of EWRAM')
 
+    def test_save_block3_base_challenge_settings_span_must_fit_inside_ewram(self):
+        # SaveBlock3 challengeSettings sits at offset 16 and spans 32 bytes (48 bytes total).
+        # 0x0203FFD1 + 48 = 0x02040001 runs 1 byte past EWRAM (0x02040000) and cannot be waived.
+        self.set_field('heart_and_soul_2_0_5', 'save_block3_base_gba_address', {'gba': '0x0203FFD1'})
+        self.assert_rejected(r'save_block3_base_gba_address: 0x0203FFD1 \+ 48 bytes runs past the end of EWRAM')
+        self.edit('heart_and_soul_2_0_5', lambda data: data.__setitem__('waivers', {'ewram-extent': 'attempt'}))
+        self.assert_rejected(r"unknown waiver 'ewram-extent'")
+        shutil.copy(g.CONFIG_DIR / 'heart_and_soul_2_0_5.json', self.dir / 'heart_and_soul_2_0_5.json')
+        # Exact boundary 0x0203FFD0 + 48 = 0x02040000 fits wholly inside EWRAM.
+        self.set_field('heart_and_soul_2_0_5', 'save_block3_base_gba_address', {'ewram': '0x3FFD0'})
+        self.assertEqual(self.resolved('heart_and_soul_2_0_5').get('save_block3_base_gba_address'), 0x0203FFD0)
+
+    def test_ewram_offset_read_width_must_fit_and_is_not_waivable(self):
+        # 4-byte battle_type_flags_offset starting at final EWRAM byte (0x0203FFFF) must fail,
+        # even when a waiver is attempted.
+        self.set_field('unbound', 'battle_type_flags_offset', {'gba': '0x0203FFFF'})
+        self.assert_rejected(r'EWRAM offset 0x3FFFF \+ 4 bytes runs past the end of EWRAM')
+        self.edit('unbound', lambda data: data.__setitem__('waivers', {'ewram-extent': 'attempt'}))
+        self.assert_rejected(r"unknown waiver 'ewram-extent'")
+        self.edit('unbound', lambda data: data.pop('waivers'))
+        self.set_field('unbound', 'battle_type_flags_offset', {'ewram': '0x3FFFC'})
+        self.assertEqual(self.resolved('unbound').get('battle_type_flags_offset'), 0x3FFFC)
+        # Other multi-byte EWRAM offset fields must also fit their read widths.
+        for field, bad_off in (('battler_party_indexes_offset', '0x3FFF9'),
+                               ('battler_positions_offset', '0x3FFFD'),
+                               ('field_statuses_offset', '0x3FFFD'),
+                               ('battle_weather_offset', '0x3FFFF'),
+                               ('side_statuses_offset', '0x3FFFD'),
+                               ('battle_struct_ptr_offset', '0x3FFFD'),
+                               ('player_party_offset', '0x3FDA9')):
+            with self.subTest(field=field):
+                shutil.copy(g.CONFIG_DIR / 'heart_and_soul_2_0_5.json', self.dir / 'heart_and_soul_2_0_5.json')
+                self.set_field('heart_and_soul_2_0_5', field, {'ewram': bad_off})
+                self.assert_rejected(r'runs past the end of EWRAM')
+
     def test_main_struct_member_reads_must_fit_inside_iwram(self):
         for name, offset in (('main_in_battle_byte_offset', 0x439), ('battle_main_cb1_offset', 0x439)):
             with self.subTest(member=name):
@@ -306,6 +341,28 @@ class ConsistencyTest(GamedataFixture):
     def test_save_block1_member_outside_struct(self):
         self.set_field('unbound', 'save_block1_location_offset', '0x3D68')
         self.assert_rejected(r'\[save-block1-member-extent\] save_block1_location_offset')
+
+    def test_save_block1_warp_read_width_must_fit_and_is_not_waivable(self):
+        # An 8-byte SaveBlock1 warp field starting at offset 4 of a 5-byte SaveBlock1 must fail,
+        # even when a waiver is attempted.
+        for field in ('save_block1_location_offset', 'save_block1_escape_warp_offset'):
+            with self.subTest(field=field):
+                shutil.copy(g.CONFIG_DIR / 'unbound.json', self.dir / 'unbound.json')
+                self.set_field('unbound', 'save_block1_size', 5)
+                self.set_field('unbound', 'save_block1_pos_offset', None)
+                self.set_field('unbound', 'save_block1_location_offset', None)
+                self.set_field('unbound', 'save_block1_escape_warp_offset', None)
+                self.set_field('unbound', field, 4)
+                self.assert_rejected(r'\[save-block1-member-extent\] ' + field + r' 0x4 \+ 8 does not fit save_block1_size 5')
+                self.edit('unbound', lambda data: data.__setitem__('waivers', {'save-block1-member-extent': 'attempt'}))
+                self.assert_rejected(r"unknown waiver 'save-block1-member-extent'")
+
+    def test_physical_bounds_cannot_be_waived(self):
+        self.set_field('unbound', 'save_block1_base_gba_address', {'gba': '0x0203FFF0'})
+        self.set_field('unbound', 'save_block1_aslr_range', 4)
+        self.set_field('unbound', 'save_block1_size', 32)
+        self.edit('unbound', lambda data: data.__setitem__('waivers', {'save-block1-window': 'attempt'}))
+        self.assert_rejected(r'SaveBlock1 base \+ ASLR window \+ size runs past the end of EWRAM')
 
     def test_save_block1_window_must_be_complete(self):
         self.set_field('unbound', 'save_block1_aslr_range', None)

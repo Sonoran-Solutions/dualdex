@@ -6,6 +6,7 @@ import com.dualdex.pokemon.PlayerLocation
 /** Outcome of the tracked wild encounter for a single area. */
 enum class EncounterOutcome(val label: String) {
     MET("Met"),
+    PENDING("Pending"),
     CAUGHT("Caught"),
     MISSED("Missed"),
     DUPES_SKIPPED("Dupes")

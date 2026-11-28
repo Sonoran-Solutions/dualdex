@@ -6,6 +6,7 @@ import com.dualdex.pokemon.MoveCategory
 import com.dualdex.pokemon.MoveInfo
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
+import com.dualdex.pokemon.unbound.UnboundDataPack
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
 import kotlin.math.roundToInt
@@ -73,9 +74,10 @@ data class SwitchRecommendation(
     val worstThreatMoveName: String?,
     /** Min % of bench mon max HP taken from opponent's worst move, or null when using type fallback. */
     val threatMinPercent: Double?,
-    /** Max % of bench mon max HP taken from opponent's worst move, or null when using type fallback. */
+    /** Max % of bench mon max HP taken from opponent's worst move, or null when withheld/unavailable. */
     val threatMaxPercent: Double?,
-    val worstDefensiveMultiplier: Double,
+    /** Worst incoming type multiplier, or null when enemy threat coverage is incomplete. */
+    val worstDefensiveMultiplier: Double?,
     val defenseTier: SwitchConfidenceTier,
     val defenseTone: SwitchDefenseTone,
     val source: SwitchRecommendationSource,
@@ -83,20 +85,27 @@ data class SwitchRecommendation(
     val reasonTag: String,
     val offenseSummary: String,
     val defenseBadge: String,
-    val score: Double
+    val score: Double,
+    val hasUnmodelledEnemyThreats: Boolean = false
 )
 
 /**
  * Pure Kotlin calc-driven "Best Switch" ranking engine.
  *
- * Ranks every healthy, non-egg benched party member against the active single-battle opponent.
- * Uses authorized damage ranges from [damageEvaluator] when available and falls back cleanly
- * to type-matchup offense/defense scoring via [GameDataPack.getEffectiveness] when the calculator
- * is unavailable or refuses a calculation—never fabricating damage numbers or inflating confidence.
+ * Ranks healthy, non-egg benched party members against the active single-battle opponent.
+ * Requires resolved species typing for both combatants and authorized calculator evidence from
+ * [damageEvaluator]; completely refused matchups or unresolved species are omitted rather than
+ * ranked, and any refused/unresolved enemy damaging move withholds "Safe Pivot" and worst-threat
+ * claims.
  */
 object SwitchAdvisor {
 
     private const val PARALYSIS_MASK = 1L shl 6
+
+    private data class OpponentMoveScan(
+        val usableDamagingMoves: List<MoveInfo>,
+        val unresolvedMoveCount: Int
+    )
 
     private data class OffenseEvaluation(
         val moveId: Int?,
@@ -118,10 +127,14 @@ object SwitchAdvisor {
         val minPercent: Double?,
         val maxPercent: Double?,
         val currentHpMaxPercent: Double?,
-        val worstMultiplier: Double,
+        val knownDangerCurMaxPercent: Double?,
+        val worstMultiplier: Double?,
         val tier: SwitchConfidenceTier,
         val tone: SwitchDefenseTone,
-        val score: Double
+        val score: Double,
+        val hasAnyCalc: Boolean,
+        val hasCompleteCalc: Boolean,
+        val hasUnmodelledEnemyMoves: Boolean
     )
 
     fun rankSwitches(
@@ -138,7 +151,10 @@ object SwitchAdvisor {
         }
 
         val opponentTypes = resolveTypes(opponent, profile, dataPack)
-        val opponentUsableMoves = collectOpponentDamagingMoves(opponent, dataPack)
+        if (opponentTypes.isEmpty()) {
+            return emptyList()
+        }
+        val opponentMoveScan = collectOpponentDamagingMoves(opponent, dataPack)
         val opponentEffectiveSpeed = effectiveSpeed(opponent)
 
         val recommendations = ArrayList<SwitchRecommendation>(playerParty.size)
@@ -146,9 +162,11 @@ object SwitchAdvisor {
         playerParty.forEachIndexed { slot, mon ->
             if (!isEligibleBenchMember(slot, activePlayerSlot, mon)) return@forEachIndexed
 
+            val benchTypes = resolveTypes(mon, profile, dataPack)
+            if (benchTypes.isEmpty()) return@forEachIndexed
+
             val speciesName = resolveSpeciesName(mon, profile, dataPack)
             val displayName = mon.nickname.trim().ifEmpty { speciesName }
-            val benchTypes = resolveTypes(mon, profile, dataPack)
             val hpRatio = (mon.currentHp.toDouble() / mon.maxHp.coerceAtLeast(1)).coerceIn(0.0, 1.0)
 
             val offense = evaluateOffense(
@@ -167,22 +185,22 @@ object SwitchAdvisor {
                 hpRatio = hpRatio,
                 opponent = opponent,
                 opponentTypes = opponentTypes,
-                opponentMoves = opponentUsableMoves,
+                opponentMoveScan = opponentMoveScan,
                 dataPack = dataPack,
                 runtimeTrust = runtimeTrust,
                 damageEvaluator = damageEvaluator
             )
 
-            val hasAnyCalc = offense.tier != SwitchConfidenceTier.TYPE_FALLBACK ||
-                defense.tier != SwitchConfidenceTier.TYPE_FALLBACK
-            val source = if (hasAnyCalc) {
-                SwitchRecommendationSource.CALCULATOR
-            } else {
-                SwitchRecommendationSource.TYPE_FALLBACK
+            val hasAnyCalc = offense.tier != SwitchConfidenceTier.TYPE_FALLBACK || defense.hasAnyCalc
+            if (!hasAnyCalc) {
+                return@forEachIndexed
             }
+
+            val source = SwitchRecommendationSource.CALCULATOR
             val confidenceTier = when {
-                !hasAnyCalc -> SwitchConfidenceTier.TYPE_FALLBACK
-                offense.tier == SwitchConfidenceTier.VERIFIED &&
+                !defense.hasUnmodelledEnemyMoves &&
+                    offense.tier == SwitchConfidenceTier.VERIFIED &&
+                    defense.hasCompleteCalc &&
                     defense.tier == SwitchConfidenceTier.VERIFIED -> SwitchConfidenceTier.VERIFIED
                 else -> SwitchConfidenceTier.ESTIMATED
             }
@@ -191,14 +209,15 @@ object SwitchAdvisor {
             var compositeScore = offense.score + defense.score
             if (isFaster) {
                 compositeScore += 6.0
-                if (offense.currentHpMinPercent != null &&
+                if (!defense.hasUnmodelledEnemyMoves &&
+                    offense.currentHpMinPercent != null &&
                     offense.currentHpMinPercent >= 100.0 &&
                     (defense.currentHpMaxPercent == null || defense.currentHpMaxPercent < 100.0)
                 ) {
                     compositeScore += 8.0
                 }
             }
-            if (defense.tier != SwitchConfidenceTier.TYPE_FALLBACK) {
+            if (defense.hasCompleteCalc) {
                 compositeScore += (hpRatio - 1.0) * 5.0
             }
 
@@ -228,7 +247,8 @@ object SwitchAdvisor {
                 reasonTag = reasonTag,
                 offenseSummary = offenseSummary,
                 defenseBadge = defenseBadge,
-                score = compositeScore
+                score = compositeScore,
+                hasUnmodelledEnemyThreats = defense.hasUnmodelledEnemyMoves
             )
         }
 
@@ -273,7 +293,7 @@ object SwitchAdvisor {
             val moveInfo = dataPack.getMove(moveId) ?: continue
             if (moveInfo.category == MoveCategory.STATUS) continue
 
-            val eff = typeEffectiveness(moveInfo.type, opponentTypes, dataPack)
+            val eff = typeEffectiveness(moveInfo.type, opponentTypes, dataPack) ?: continue
             val isStab = moveInfo.type in benchTypes
 
             val estimate = damageEvaluator(benchMon, opponent, moveId)
@@ -381,20 +401,31 @@ object SwitchAdvisor {
         hpRatio: Double,
         opponent: ParsedPokemon,
         opponentTypes: List<PokemonType>,
-        opponentMoves: List<MoveInfo>,
+        opponentMoveScan: OpponentMoveScan,
         dataPack: GameDataPack,
         runtimeTrust: RuntimeRomTrust,
         damageEvaluator: SwitchDamageEvaluator
     ): DefenseEvaluation {
+        var evaluatedCount = 0
+        var refusedCount = opponentMoveScan.unresolvedMoveCount
         var worstCalcMove: MoveInfo? = null
         var worstCalcEstimate: SwitchDamageEstimate? = null
-        var worstCalcEff = 1.0
-        var worstCalcTier = SwitchConfidenceTier.TYPE_FALLBACK
+        var worstCalcEff: Double? = null
+        var allDefenseVerified = true
 
-        for (moveInfo in opponentMoves) {
+        for (moveInfo in opponentMoveScan.usableDamagingMoves) {
             val estimate = damageEvaluator(opponent, benchMon, moveInfo.id)
                 ?.takeIf { it.support != CalcSupport.UNSUPPORTED && it.defenderMaxHp > 0 && it.maxDamage >= 0 }
-                ?: continue
+            if (estimate == null) {
+                refusedCount++
+                continue
+            }
+
+            evaluatedCount++
+            val moveTier = tierFromSupport(estimate.support, runtimeTrust)
+            if (moveTier != SwitchConfidenceTier.VERIFIED) {
+                allDefenseVerified = false
+            }
 
             val prev = worstCalcEstimate
             val worse = prev == null ||
@@ -404,8 +435,38 @@ object SwitchAdvisor {
                 worstCalcMove = moveInfo
                 worstCalcEstimate = estimate
                 worstCalcEff = typeEffectiveness(moveInfo.type, benchTypes, dataPack)
-                worstCalcTier = tierFromSupport(estimate.support, runtimeTrust)
             }
+        }
+
+        if (refusedCount > 0) {
+            val benchCurHp = benchMon.currentHp.coerceAtLeast(1)
+            val knownDangerCurMaxPct = worstCalcEstimate?.let {
+                (it.maxDamage.coerceAtLeast(0) * 100.0) / benchCurHp
+            }
+            val tone = when {
+                knownDangerCurMaxPct != null && knownDangerCurMaxPct >= 100.0 -> SwitchDefenseTone.DANGER
+                knownDangerCurMaxPct != null && knownDangerCurMaxPct >= 50.0 -> SwitchDefenseTone.WEAK
+                else -> SwitchDefenseTone.NEUTRAL
+            }
+            val score = when {
+                knownDangerCurMaxPct != null && knownDangerCurMaxPct >= 100.0 -> -45.0
+                knownDangerCurMaxPct != null && knownDangerCurMaxPct >= 50.0 -> -15.0
+                else -> 0.0
+            }
+            return DefenseEvaluation(
+                worstThreatMoveName = null,
+                minPercent = null,
+                maxPercent = null,
+                currentHpMaxPercent = null,
+                knownDangerCurMaxPercent = knownDangerCurMaxPct,
+                worstMultiplier = null,
+                tier = if (evaluatedCount > 0) SwitchConfidenceTier.ESTIMATED else SwitchConfidenceTier.TYPE_FALLBACK,
+                tone = tone,
+                score = score,
+                hasAnyCalc = evaluatedCount > 0,
+                hasCompleteCalc = false,
+                hasUnmodelledEnemyMoves = true
+            )
         }
 
         if (worstCalcMove != null && worstCalcEstimate != null) {
@@ -426,22 +487,42 @@ object SwitchAdvisor {
                 incomingCurMaxPct < 100.0 -> SwitchDefenseTone.WEAK
                 else -> SwitchDefenseTone.DANGER
             }
+            val worstTier = if (allDefenseVerified) SwitchConfidenceTier.VERIFIED else SwitchConfidenceTier.ESTIMATED
             return DefenseEvaluation(
                 worstThreatMoveName = worstCalcMove.name,
                 minPercent = worstCalcEstimate.minPercent,
                 maxPercent = worstCalcEstimate.maxPercent,
                 currentHpMaxPercent = incomingCurMaxPct,
+                knownDangerCurMaxPercent = incomingCurMaxPct,
                 worstMultiplier = worstCalcEff,
-                tier = worstCalcTier,
+                tier = worstTier,
                 tone = tone,
-                score = score
+                score = score,
+                hasAnyCalc = true,
+                hasCompleteCalc = true,
+                hasUnmodelledEnemyMoves = false
             )
         }
 
         val worstStabMultiplier = opponentTypes
-            .maxOfOrNull { stabType -> typeEffectiveness(stabType, benchTypes, dataPack) }
-            ?: opponentMoves.maxOfOrNull { move -> typeEffectiveness(move.type, benchTypes, dataPack) }
-            ?: 1.0
+            .mapNotNull { stabType -> typeEffectiveness(stabType, benchTypes, dataPack) }
+            .maxOrNull()
+        if (worstStabMultiplier == null) {
+            return DefenseEvaluation(
+                worstThreatMoveName = null,
+                minPercent = null,
+                maxPercent = null,
+                currentHpMaxPercent = null,
+                knownDangerCurMaxPercent = null,
+                worstMultiplier = null,
+                tier = SwitchConfidenceTier.TYPE_FALLBACK,
+                tone = SwitchDefenseTone.NEUTRAL,
+                score = 0.0,
+                hasAnyCalc = false,
+                hasCompleteCalc = false,
+                hasUnmodelledEnemyMoves = true
+            )
+        }
 
         val defEffScore = when {
             worstStabMultiplier <= 0.0 -> 55.0
@@ -463,25 +544,34 @@ object SwitchAdvisor {
             minPercent = null,
             maxPercent = null,
             currentHpMaxPercent = null,
+            knownDangerCurMaxPercent = null,
             worstMultiplier = worstStabMultiplier,
             tier = SwitchConfidenceTier.TYPE_FALLBACK,
             tone = tone,
-            score = defEffScore + hpPenalty
+            score = defEffScore + hpPenalty,
+            hasAnyCalc = false,
+            hasCompleteCalc = false,
+            hasUnmodelledEnemyMoves = false
         )
     }
 
-    private fun collectOpponentDamagingMoves(opponent: ParsedPokemon, dataPack: GameDataPack): List<MoveInfo> {
+    private fun collectOpponentDamagingMoves(opponent: ParsedPokemon, dataPack: GameDataPack): OpponentMoveScan {
         val hasPopulatedPp = opponent.pp.any { it > 0 }
         val moves = ArrayList<MoveInfo>(opponent.moves.size)
+        var unresolvedCount = 0
         for (i in opponent.moves.indices) {
             val moveId = opponent.moves[i]
             if (moveId <= 0) continue
             if (hasPopulatedPp && (opponent.pp.getOrNull(i) ?: 0) <= 0) continue
-            val moveInfo = dataPack.getMove(moveId) ?: continue
+            val moveInfo = dataPack.getMove(moveId)
+            if (moveInfo == null) {
+                unresolvedCount++
+                continue
+            }
             if (moveInfo.category == MoveCategory.STATUS) continue
             moves += moveInfo
         }
-        return moves
+        return OpponentMoveScan(usableDamagingMoves = moves, unresolvedMoveCount = unresolvedCount)
     }
 
     private fun tierFromSupport(support: CalcSupport, runtimeTrust: RuntimeRomTrust): SwitchConfidenceTier = when {
@@ -497,11 +587,16 @@ object SwitchAdvisor {
     ): List<PokemonType> {
         val custom = profile.customSpecies[mon.species]
         if (custom != null) {
-            val t1 = PokemonType.fromString(custom.type1)
-            val t2 = PokemonType.fromString(custom.type2)?.takeIf { it != t1 }
-            return listOfNotNull(t1, t2)
+            if (custom.type1.isBlank()) return emptyList()
+            val t1 = PokemonType.fromString(custom.type1) ?: return emptyList()
+            val rawType2 = custom.type2?.takeIf { it.isNotBlank() } ?: return listOf(t1)
+            val t2 = PokemonType.fromString(rawType2) ?: return emptyList()
+            return if (t2 != t1) listOf(t1, t2) else listOf(t1)
         }
         val species = dataPack.getSpecies(mon.species) ?: return emptyList()
+        if (species.baseHP <= 0 || species.name.trim().endsWith(UnboundDataPack.FORM_UNVERIFIED_SUFFIX, ignoreCase = true)) {
+            return emptyList()
+        }
         val t2 = species.type2?.takeIf { it != species.type1 }
         return listOfNotNull(species.type1, t2)
     }
@@ -520,8 +615,8 @@ object SwitchAdvisor {
         attackType: PokemonType,
         defenderTypes: List<PokemonType>,
         dataPack: GameDataPack
-    ): Double {
-        if (defenderTypes.isEmpty()) return 1.0
+    ): Double? {
+        if (defenderTypes.isEmpty()) return null
         var mult = 1.0
         for (defType in defenderTypes) {
             mult *= dataPack.getEffectiveness(attackType, defType)
@@ -555,21 +650,29 @@ object SwitchAdvisor {
             }
         }
 
-        val defenseTag = if (defense.tier != SwitchConfidenceTier.TYPE_FALLBACK && defense.currentHpMaxPercent != null) {
-            when {
-                defense.currentHpMaxPercent <= 0.0 -> "Immune"
-                defense.currentHpMaxPercent >= 100.0 -> "Risky"
-                defense.worstMultiplier <= 0.5 && defense.currentHpMaxPercent < 50.0 -> "Resists"
-                defense.currentHpMaxPercent < 35.0 -> "Safe Pivot"
-                defense.currentHpMaxPercent >= 50.0 -> "Risky"
-                else -> null
+        val defenseTag = when {
+            defense.hasUnmodelledEnemyMoves -> {
+                if ((defense.knownDangerCurMaxPercent ?: 0.0) >= 50.0) "Risky" else null
             }
-        } else {
-            when {
-                defense.worstMultiplier <= 0.0 -> "Immune"
-                defense.worstMultiplier <= 0.5 -> "Resists"
-                defense.worstMultiplier >= 2.0 -> "Risky"
-                else -> null
+            defense.hasCompleteCalc && defense.currentHpMaxPercent != null -> {
+                when {
+                    defense.currentHpMaxPercent <= 0.0 -> "Immune"
+                    defense.currentHpMaxPercent >= 100.0 -> "Risky"
+                    (defense.worstMultiplier ?: 1.0) <= 0.5 && defense.currentHpMaxPercent < 50.0 -> "Resists"
+                    defense.currentHpMaxPercent < 35.0 -> "Safe Pivot"
+                    defense.currentHpMaxPercent >= 50.0 -> "Risky"
+                    else -> null
+                }
+            }
+            else -> {
+                val mult = defense.worstMultiplier
+                when {
+                    mult == null -> null
+                    mult <= 0.0 -> "Immune"
+                    mult <= 0.5 -> "Resists"
+                    mult >= 2.0 -> "Risky"
+                    else -> null
+                }
             }
         }
 
@@ -577,6 +680,7 @@ object SwitchAdvisor {
             offenseTag != null && defenseTag != null -> "$offenseTag · $defenseTag"
             offenseTag != null -> offenseTag
             defenseTag != null -> defenseTag
+            defense.hasUnmodelledEnemyMoves -> "Partial"
             else -> "Neutral"
         }
     }
@@ -596,7 +700,10 @@ object SwitchAdvisor {
     }
 
     private fun buildDefenseBadge(defense: DefenseEvaluation): String {
-        if (defense.tier != SwitchConfidenceTier.TYPE_FALLBACK &&
+        if (defense.hasUnmodelledEnemyMoves) {
+            return "Threat unknown"
+        }
+        if (defense.hasCompleteCalc &&
             defense.minPercent != null && defense.maxPercent != null
         ) {
             val maxPct = defense.maxPercent.roundToInt()
@@ -605,7 +712,7 @@ object SwitchAdvisor {
             val minPct = defense.minPercent.roundToInt()
             return "Takes $prefix$minPct–$maxPct%"
         }
-        val m = defense.worstMultiplier
+        val m = defense.worstMultiplier ?: return "Threat unknown"
         return when {
             m <= 0.0 -> "Immune (0×)"
             m <= 0.25 -> "Resists (0.25×)"

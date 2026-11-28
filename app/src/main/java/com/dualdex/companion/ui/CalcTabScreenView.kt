@@ -328,6 +328,26 @@ class CalcTabScreenView(
             }
         }
         scope.launch {
+            viewModel.battlePresence.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.activeProfile.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.activeRomIdentity.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
+            viewModel.runtimeRomTrust.collectLatest {
+                refreshUI()
+            }
+        }
+        scope.launch {
             viewModel.playerParty.collectLatest {
                 refreshUI()
             }
@@ -383,6 +403,7 @@ class CalcTabScreenView(
     }
 
     fun refreshUI() {
+        val dataPack = viewModel.activeGameDataPack
         val party = viewModel.playerParty.value
         val opponents = viewModel.hnsBattlers.value.filter { o ->
             o.state.doubles?.battlers?.getOrNull(o.state.battlerIndex ?: -1)?.let {
@@ -398,7 +419,7 @@ class CalcTabScreenView(
             opponents.forEach { o ->
                 val index = o.state.battlerIndex!!
                 doublesTargetSelector.addView(android.widget.Button(context).apply {
-                    text = "Target: ${SpeciesDatabase.get(o.state.speciesId!!).name}"
+                    text = "Target: ${dataPack.resolveSpecies(o.state.speciesId!!).name}"
                     isSelected = viewModel.selectedHnsEnemyBattler.value == index
                     setOnClickListener { viewModel.selectHnsEnemyBattler(index) }
                 })
@@ -485,7 +506,7 @@ class CalcTabScreenView(
                         refreshUI()
                     }
                 }
-                val monName = if (mon.nickname.isNotBlank()) mon.nickname else SpeciesDatabase.get(mon.species).name
+                val monName = if (mon.nickname.isNotBlank()) mon.nickname else dataPack.resolveSpecies(mon.species).name
                 val nameLabel = TextView(context).apply {
                     text = "$monName (Lv.${mon.level})"
                     setTextColor(if (isSelected) Color.WHITE else 0xFFAAAAAA.toInt())
@@ -515,7 +536,7 @@ class CalcTabScreenView(
         } else null
         if (observedEnemy != null) {
             val enemyMon = observedEnemy
-            val speciesName = SpeciesDatabase.get(enemyMon.species).name
+            val speciesName = dataPack.resolveSpecies(enemyMon.species).name
             selectedDefenderSpecies = speciesName
             if (defenderAutoInput.text.toString() != selectedDefenderSpecies) {
                 defenderAutoInput.setText(selectedDefenderSpecies, false)
@@ -531,9 +552,9 @@ class CalcTabScreenView(
         }
 
         val atkSpeciesName = boxedSlot?.nationalDex?.let { SpeciesDatabase.get(it).name }
-            ?: attacker?.let { SpeciesDatabase.get(it.species).name }
+            ?: attacker?.let { dataPack.resolveSpecies(it.species).name }
         val atkName = attacker?.let {
-            val sp = atkSpeciesName ?: SpeciesDatabase.get(it.species).name
+            val sp = atkSpeciesName ?: dataPack.resolveSpecies(it.species).name
             if (it.nickname.isNotBlank()) "${it.nickname} ($sp)" else sp
         } ?: "Salamence"
         val atkLevel = boxedSlot?.estimatedLevel ?: attacker?.level ?: 50
@@ -560,17 +581,18 @@ class CalcTabScreenView(
         // 3. Attacker Moves (scrollable with power/type indicators)
         movesContainer.removeAllViews()
         val availableMoves = mutableListOf<MoveInfo>()
+        var hasLiveMoves = false
         if (attacker != null) {
             attacker.moves.forEach { mId ->
                 if (mId > 0) {
-                    val info = MoveDatabase.get(mId)
-                    availableMoves.add(info)
+                    availableMoves.add(dataPack.resolveMove(mId))
+                    hasLiveMoves = true
                 }
             }
         }
         if (availableMoves.isEmpty()) {
             listOf("Rock Slide", "Earthquake", "Flamethrower", "Hydro Pump").forEach {
-                MoveDatabase.getByName(it)?.let { m -> availableMoves.add(m) }
+                (dataPack.getMoveByName(it) ?: MoveDatabase.getByName(it))?.let { m -> availableMoves.add(m) }
             }
         }
 
@@ -581,6 +603,7 @@ class CalcTabScreenView(
         val btnRow = LinearLayout(context).apply { orientation = HORIZONTAL }
         availableMoves.forEach { moveInfo ->
             val isSelected = (moveInfo.name == selectedMoveName)
+            val isUnmappedLiveMove = hasLiveMoves && !dataPack.allowGlobalFallback && dataPack.getMove(moveInfo.id) == null
             val moveBtn = LinearLayout(context).apply {
                 orientation = VERTICAL
                 gravity = Gravity.CENTER
@@ -604,7 +627,11 @@ class CalcTabScreenView(
                 typeface = Typeface.DEFAULT_BOLD
             }
             val subtitleView = TextView(context).apply {
-                text = "${moveInfo.type.displayName} • ${if (moveInfo.power > 0) "${moveInfo.powerDisplay} Pwr" else "Status"}"
+                text = if (isUnmappedLiveMove) {
+                    "Unmapped move"
+                } else {
+                    "${moveInfo.type.displayName} • ${if (moveInfo.power > 0) "${moveInfo.powerDisplay} Pwr" else "Status"}"
+                }
                 textSize = 10.5f
                 setTextColor(if (isSelected) 0xFFEEEEEE.toInt() else 0xFFB0C4DE.toInt())
             }
@@ -638,13 +665,20 @@ class CalcTabScreenView(
         } else null
 
         // Snapshot immutable observations once per calculation cycle to prevent race conditions
+        val dataPack = viewModel.activeGameDataPack
         val activeProfile = viewModel.activeProfile.value
         val runtimeRomTrust = viewModel.runtimeRomTrust.value
+        val battlePresenceSnapshot = viewModel.battlePresence.value
         val challengeSettingsSnapshot = viewModel.challengeSettings.value
         val playerBattlerSnapshot = viewModel.selectedHnsPlayerObservation(selectedIdx) ?: viewModel.playerBattlerState.value
         val enemyBattlerSnapshot = chosenDoublesEnemy ?: viewModel.enemyBattlerState.value
-        // Outside a battle no stat stages exist, so neutral is a fact there, not an assumption.
-        val playerStagesSnapshot = if (inBattle) viewModel.playerStatStages.value else com.dualdex.battle.StatStages()
+        // Outside a battle no stat stages exist, so neutral is a fact only when battle presence is
+        // positively observed as NOT_OBSERVED (overworld), never when presence is UNKNOWN.
+        val playerStagesSnapshot = if (!inBattle && battlePresenceSnapshot == com.dualdex.battle.BattlePresence.NOT_OBSERVED) {
+            com.dualdex.battle.StatStages()
+        } else {
+            viewModel.playerStatStages.value
+        }
         val enemyStagesSnapshot = viewModel.enemyStatStages.value
 
         // Participants whose values came from the running game go through the shared production
@@ -670,7 +704,7 @@ class CalcTabScreenView(
         } ?: CalcParticipantPresenter.attacker(
             party = party,
             selectedIndex = selectedIdx,
-            speciesNameOf = { SpeciesDatabase.get(it.species).name },
+            speciesNameOf = { dataPack.resolveSpecies(it.species).name },
             playerStages = playerStagesSnapshot,
             isExpansionItems = isExpansionItems,
             playerBattlerState = playerBattlerSnapshot,
@@ -679,7 +713,7 @@ class CalcTabScreenView(
         )
         val defenderState = CalcParticipantPresenter.defender(
             observedOpponent = enemyMon,
-            chosenSpecies = selectedDefenderSpecies,
+            chosenSpecies = if (enemyMon != null) dataPack.resolveSpecies(enemyMon.species).name else selectedDefenderSpecies,
             enemyStages = enemyStagesSnapshot,
             isExpansionItems = isExpansionItems,
             enemyBattlerState = enemyBattlerSnapshot,
@@ -707,7 +741,8 @@ class CalcTabScreenView(
             challengeSettings = challengeSettingsSnapshot,
             playerBattlerState = playerBattlerSnapshot,
             enemyBattlerState = enemyBattlerSnapshot,
-            activeBattle = inBattle
+            activeBattle = inBattle,
+            battlePresence = battlePresenceSnapshot
         )
 
         val authorised = outcome as? CalcRequestOutcome.Ready ?: run {

@@ -262,6 +262,165 @@ class CliTest(unittest.TestCase):
             self.assertEqual(report['observations']['a']['probes'][0]['verdict'], 'drifting')
             self.assertEqual([h.calls for h in hosts], [['cleanup'], ['cleanup']])
 
+    def test_zero_or_nonpositive_boot_jitter_is_refused_before_any_boot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+            out = folder / 'out.json'
+            for bad_jitter, boots in (('0', '2'), ('-3', '2'), (str(ro.MAX_JITTER), '3')):
+                with self.subTest(bad_jitter=bad_jitter, boots=boots):
+                    argv = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                            '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                            '--output', str(out), '--boots', boots, '--boot-jitter', bad_jitter]
+                    with patch.object(ro.Session, 'open') as opened, contextlib.redirect_stderr(io.StringIO()):
+                        self.assertEqual(ro.main(argv), 1)
+                    opened.assert_not_called()
+                    report = json.loads(out.read_text())
+                    self.assertEqual(report['status'], 'FAIL')
+                    self.assertIn('jitter', report['error'])
+
+    def test_missing_private_input_writes_path_free_error_in_json(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+            secret_dir = folder / 'private-secret-vault'
+            missing_rom = secret_dir / 'secret-project.gba'
+            out = folder / 'out.json'
+            argv = ['--rom', str(missing_rom), '--core', str(folder / 'core'),
+                    '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                    '--output', str(out)]
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code = ro.main(argv)
+            raw_json = out.read_text()
+            report = json.loads(raw_json)
+            self.assertEqual((code, report['status']), (1, 'FAIL'))
+            self.assertNotIn('private-secret-vault', raw_json)
+            self.assertNotIn('secret-project.gba', raw_json)
+            self.assertNotIn('/', report['error'])
+            self.assertIn('ENOENT', report['error'])
+            self.assertNotIn('private-secret-vault', err.getvalue())
+            # Also verify OSError without errno (e.g. ctypes.CDLL load failure) does not leak paths.
+            with patch.object(ro.Session, 'open', side_effect=OSError(f'{missing_rom}: cannot open')), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                code = ro.main(['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                                '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                                '--output', str(out)])
+            report2 = json.loads(out.read_text())
+            self.assertEqual((code, report2['status']), (1, 'FAIL'))
+            self.assertNotIn('private-secret-vault', out.read_text())
+            self.assertNotIn('/', report2['error'])
+
+    def test_missing_symbol_attribute_error_is_sanitized_in_json_and_stderr(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+            out = folder / 'out.json'
+            secret_lib = folder / 'private-secret-vault' / 'missing-symbol-host.so'
+            argv = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                    '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                    '--output', str(out)]
+            err = io.StringIO()
+            with patch.object(ro.Session, 'open',
+                              side_effect=AttributeError(f'{secret_lib}: undefined symbol: libretro_host_init')), \
+                    contextlib.redirect_stderr(err):
+                code = ro.main(argv)
+            raw_json = out.read_text()
+            report = json.loads(raw_json)
+            self.assertEqual((code, report['status']), (1, 'FAIL'))
+            self.assertIn('AttributeError', report['error'])
+            self.assertNotIn('private-secret-vault', raw_json)
+            self.assertNotIn('missing-symbol-host.so', raw_json)
+            self.assertNotIn('/', report['error'])
+            self.assertNotIn('private-secret-vault', err.getvalue())
+            self.assertNotIn('missing-symbol-host.so', err.getvalue())
+
+            # Also verify Session.open itself raising AttributeError when CDLL lacks a symbol.
+            class IncompleteLibrary:
+                pass
+
+            with patch('rom_observe.C.CDLL', side_effect=lambda *a: IncompleteLibrary()), \
+                    contextlib.redirect_stderr(io.StringIO()) as err2:
+                code2 = ro.main(argv)
+            report2 = json.loads(out.read_text())
+            self.assertEqual((code2, report2['status']), (1, 'FAIL'))
+            self.assertIn('libretro_host_init', report2['error'])
+            self.assertNotIn('/', report2['error'])
+            self.assertIn('FAIL:', err2.getvalue())
+
+    def test_output_write_failures_sanitize_paths_and_return_nonzero(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+
+            # 1. Initial output invalidation write failure (missing secret parent dir) must not leak path.
+            missing_out = folder / 'private-secret-dir' / 'secret-out.json'
+            argv_missing = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                            '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                            '--output', str(missing_out)]
+            err = io.StringIO()
+            with patch.object(ro.Session, 'open') as opened, contextlib.redirect_stderr(err):
+                code = ro.main(argv_missing)
+            opened.assert_not_called()
+            self.assertEqual(code, 1)
+            self.assertIn('FAIL:', err.getvalue())
+            self.assertIn('ENOENT', err.getvalue())
+            self.assertNotIn('private-secret-dir', err.getvalue())
+            self.assertNotIn('secret-out.json', err.getvalue())
+
+            # 2. Final report write failure after successful observation must sanitize path and fail closed.
+            out = folder / 'private-secret-out.json'
+            argv_ok = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                       '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                       '--output', str(out)]
+            write_calls = [0]
+            real_write_text = Path.write_text
+
+            def flaky_write_text(path_self, data, *args, **kwargs):
+                write_calls[0] += 1
+                if path_self == out and write_calls[0] == 2:
+                    raise PermissionError(13, 'Permission denied', str(out))
+                return real_write_text(path_self, data, *args, **kwargs)
+
+            err2 = io.StringIO()
+            hosts = iter([FakeHost(), FakeHost()])
+            with patch.object(ro.Session, 'open', side_effect=lambda *a: ro.Session(next(hosts))), \
+                    patch.object(Path, 'write_text', flaky_write_text), \
+                    contextlib.redirect_stderr(err2):
+                code2 = ro.main(argv_ok)
+            self.assertEqual(code2, 1)
+            self.assertIn('FAIL:', err2.getvalue())
+            self.assertIn('EACCES', err2.getvalue())
+            self.assertNotIn('private-secret-out.json', err2.getvalue())
+            self.assertNotIn('/', err2.getvalue())
+
+            # 3. Symlink loop on output path raises RuntimeError in Path.resolve() on Python 3.12;
+            #    must be sanitized without leaking the host path or crashing with an uncaught traceback.
+            loop_a = folder / 'private-loop-a.json'
+            loop_b = folder / 'private-loop-b.json'
+            loop_a.symlink_to(loop_b)
+            loop_b.symlink_to(loop_a)
+            argv_loop = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                         '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                         '--output', str(loop_a)]
+            err3 = io.StringIO()
+            with patch.object(ro.Session, 'open') as opened3, contextlib.redirect_stderr(err3):
+                code3 = ro.main(argv_loop)
+            opened3.assert_not_called()
+            self.assertEqual(code3, 1)
+            self.assertIn('FAIL:', err3.getvalue())
+            self.assertNotIn('private-loop-a.json', err3.getvalue())
+            self.assertNotIn('private-loop-b.json', err3.getvalue())
+            self.assertNotIn('/', err3.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()

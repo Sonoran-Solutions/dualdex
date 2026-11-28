@@ -1,7 +1,9 @@
 package com.dualdex.library
 
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.util.zip.CRC32
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -9,9 +11,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 class RomPatcherTest {
+    @get:Rule val tmp = TemporaryFolder()
     private val source = "abcdef".toByteArray()
 
     @Test
@@ -189,6 +194,140 @@ class RomPatcherTest {
         assertEquals("exact", match.entry)
         assertArrayEquals(source, match.bytes)
         assertFalse(openedWrongSize)
+    }
+
+    @Test
+    fun enforces32MiBIndividualCapsAnd96MiBAggregateBudget() {
+        assertEquals(32 * 1024 * 1024, RomPatcher.MAX_ROM_BYTES)
+        assertEquals(32 * 1024 * 1024, RomPatcher.MAX_PATCH_BYTES)
+        assertEquals(96L * 1024 * 1024, RomPatcher.MAX_AGGREGATE_BYTES)
+
+        val maxRom = RomPatcher.MAX_ROM_BYTES.toLong()
+        val maxPatch = RomPatcher.MAX_PATCH_BYTES.toLong()
+        RomPatcher.checkAllocationBudget(maxRom, maxPatch, maxRom)
+
+        assertThrows(PatchException::class.java) {
+            RomPatcher.checkAllocationBudget(maxRom + 1, 0L, 0L)
+        }
+        assertThrows(PatchException::class.java) {
+            RomPatcher.checkAllocationBudget(0L, 0L, maxRom + 1)
+        }
+        assertThrows(PatchException::class.java) {
+            RomPatcher.checkAllocationBudget(0L, maxPatch + 1, 0L)
+        }
+        assertThrows(PatchException::class.java) {
+            RomPatcher.checkAllocationBudget(maxRom, maxPatch, maxRom, maxAggregateBytes = maxRom + maxPatch)
+        }
+    }
+
+    @Test
+    fun craftedHugeTargetHeaderFailsBeforeAllocationFromBytesAndFile() {
+        val hugeTargetSizes = listOf(
+            RomPatcher.MAX_ROM_BYTES + 1,
+            512 * 1024 * 1024,
+            Int.MAX_VALUE
+        )
+        for (magic in listOf("BPS1", "UPS1")) {
+            for (hugeTarget in hugeTargetSizes) {
+                val body = ByteArrayOutputStream().apply {
+                    number(source.size)
+                    number(hugeTarget)
+                    if (magic == "BPS1") number(0)
+                }.toByteArray()
+                val patch = seal(magic, body)
+                val patchFile = File(tmp.root, "huge_${magic}_$hugeTarget.patch").apply { writeBytes(patch) }
+
+                assertThrows(PatchException::class.java) { RomPatcher.inspect(patch) }
+                assertThrows(PatchException::class.java) { RomPatcher.inspect(patchFile) }
+
+                val bytesOutcome = RomPatcher.apply(source, patch)
+                assertTrue(bytesOutcome is PatchOutcome.Failure)
+                assertTrue((bytesOutcome as PatchOutcome.Failure).reason.contains("Target ROM size"))
+
+                val fileOutcome = RomPatcher.apply(source, patchFile)
+                assertTrue(fileOutcome is PatchOutcome.Failure)
+                assertTrue((fileOutcome as PatchOutcome.Failure).reason.contains("Target ROM size"))
+            }
+        }
+    }
+
+    @Test
+    fun enforcesAggregateBudgetBeforeAllocatingTargetOrSource() {
+        val base = ByteArray(1024) { it.toByte() }
+        val target = base.copyOf().also { it[0] = 99 }
+        val bpsPatch = bps(base, target) {
+            action(1, 1); write(99)
+            action(0, base.size - 1)
+        }
+        val upsPatch = ups(base, target) {
+            number(0); write(byteArrayOf((base[0].toInt() xor 99).toByte(), 0))
+        }
+        for ((index, patch) in listOf(bpsPatch, upsPatch).withIndex()) {
+            val patchFile = File(tmp.root, "budget_$index.patch").apply { writeBytes(patch) }
+            val tightBudget = base.size.toLong() + patch.size.toLong() + target.size.toLong() - 1L
+
+            assertThrows(PatchException::class.java) { RomPatcher.inspectWithBudget(patch, tightBudget) }
+            assertThrows(PatchException::class.java) { RomPatcher.inspectFileWithBudget(patchFile, tightBudget) }
+
+            val header = RomPatcher.inspect(patchFile)
+            assertThrows(PatchException::class.java) {
+                RomPatcher.findMatchingBaseRomWithBudget(
+                    header = header,
+                    candidates = sequenceOf(RomPatcher.BaseRomCandidate("never-opened", base.size.toLong()) {
+                        error("Candidate stream must not be opened when budget is exceeded")
+                    }),
+                    patchSize = patch.size.toLong(),
+                    maxAggregateBytes = tightBudget
+                )
+            }
+
+            val bytesOutcome = RomPatcher.applyWithBudget(base, patch, tightBudget)
+            assertTrue(bytesOutcome is PatchOutcome.Failure)
+            assertTrue((bytesOutcome as PatchOutcome.Failure).reason.contains("budget"))
+
+            val fileOutcome = RomPatcher.applyFileWithBudget(base, patchFile, tightBudget)
+            assertTrue(fileOutcome is PatchOutcome.Failure)
+            assertTrue((fileOutcome as PatchOutcome.Failure).reason.contains("budget"))
+        }
+    }
+
+    @Test
+    fun fileBackedInspectAndApplyStreamValidAndRejectOversizedOrCorruptPatches() {
+        val target = "abXdef".toByteArray()
+        val bpsPatch = bps(source, target) {
+            action(0, 2)
+            action(1, 1); write('X'.code)
+            action(2, 3); number(3 * 2)
+        }
+        val upsPatch = ups(source, target) {
+            number(2); write(byteArrayOf(('c'.code xor 'X'.code).toByte(), 0))
+        }
+        for ((index, pair) in listOf(PatchFormat.BPS to bpsPatch, PatchFormat.UPS to upsPatch).withIndex()) {
+            val (format, patch) = pair
+            val file = File(tmp.root, "valid_$index.patch").apply { writeBytes(patch) }
+            val header = RomPatcher.inspect(file)
+            assertEquals(format, header.format)
+            val outcome = RomPatcher.apply(source, file)
+            assertTrue(outcome is PatchOutcome.Success)
+            assertArrayEquals(target, (outcome as PatchOutcome.Success).outputBytes)
+
+            val corrupt = File(tmp.root, "corrupt_$index.patch").apply {
+                val broken = patch.copyOf()
+                broken[broken.lastIndex] = (broken.last().toInt() xor 1).toByte()
+                writeBytes(broken)
+            }
+            assertThrows(PatchException::class.java) { RomPatcher.inspect(corrupt) }
+            val corruptOutcome = RomPatcher.apply(source, corrupt)
+            assertTrue(corruptOutcome is PatchOutcome.Failure)
+            assertTrue((corruptOutcome as PatchOutcome.Failure).reason.contains("Patch CRC32"))
+        }
+
+        val oversized = File(tmp.root, "oversized.patch")
+        RandomAccessFile(oversized, "rw").use { it.setLength(RomPatcher.MAX_PATCH_BYTES + 1L) }
+        assertThrows(PatchException::class.java) { RomPatcher.inspect(oversized) }
+        val oversizedOutcome = RomPatcher.apply(source, oversized)
+        assertTrue(oversizedOutcome is PatchOutcome.Failure)
+        assertTrue((oversizedOutcome as PatchOutcome.Failure).reason.contains("32 MiB"))
     }
 
     private fun identityPatches() = listOf(bps(source, source) { action(0, source.size) }, ups(source, source) {})

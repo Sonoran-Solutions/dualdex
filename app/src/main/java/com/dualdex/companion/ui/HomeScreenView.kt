@@ -55,7 +55,6 @@ class HomeScreenView(
     private val patchBanner: LinearLayout
     private val patchMessage: TextView
     private val playPatchedButton: TextView
-    private var refreshedPatch: PatchFlow.Status.Saved? = null
     private var allRoms: List<RomItem> = emptyList()
     private val libraryPrefs = LibraryPrefs(context)
     private var showHidden = false
@@ -220,10 +219,13 @@ class HomeScreenView(
     }
 
     fun updateFolderStatus() {
-        folderStatusText.text = if (settingsManager.romsFolderUri != null) {
-            "ROM folder configured · ${allRoms.size} game${if (allRoms.size == 1) "" else "s"} found"
-        } else {
-            "Choose a ROM folder to add games to your library."
+        folderStatusText.text = when {
+            settingsManager.romsFolderUri != null ->
+                "ROM folder configured · ${allRoms.size} game${if (allRoms.size == 1) "" else "s"} found"
+            allRoms.isNotEmpty() ->
+                "${allRoms.size} patched game${if (allRoms.size == 1) "" else "s"} in DualDex storage"
+            else ->
+                "Choose a ROM folder to add games to your library."
         }
     }
 
@@ -246,12 +248,6 @@ class HomeScreenView(
                         if (unsupported) libraryPrefs.acceptUnsupported(status.compatibility.sha256)
                         onPlayRomRequested.invoke(status.uri, status.fileName.substringBeforeLast('.'))
                     }
-                }
-                if (status != refreshedPatch && status.linkedFolder?.toString() == settingsManager.romsFolderUri &&
-                    status.linkedFolder != null
-                ) {
-                    refreshedPatch = status
-                    onRefreshRomsRequested?.invoke()
                 }
                 val location = if (status.linkedFolder == null) "DualDex storage" else "the ROM folder"
                 val compatibility = status.compatibility

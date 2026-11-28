@@ -1,5 +1,6 @@
 package com.dualdex.calculator
 
+import com.dualdex.battle.BattlePresence
 import com.dualdex.pokemon.PokemonType
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.unbound.UnboundDataPack
@@ -39,17 +40,32 @@ class CalcUnboundCapabilityTest {
         move = CalcMoveInput("Flamethrower")
     )
 
-    private fun ready(input: DamageCalculationRequest = request): CalcRequestOutcome.Ready =
-        CalcRequestBoundary.build(unbound, exact(), input) as CalcRequestOutcome.Ready
+    private fun ready(
+        input: DamageCalculationRequest = request,
+        battlePresence: BattlePresence? = null
+    ): CalcRequestOutcome.Ready =
+        CalcRequestBoundary.build(
+            unbound,
+            exact(),
+            input,
+            battlePresence = battlePresence
+        ) as CalcRequestOutcome.Ready
 
     private fun assertRefused(
         input: DamageCalculationRequest,
         reason: CalcLimitation,
         trust: RuntimeRomTrust? = exact(),
         profile: RomHackProfile = unbound,
-        activeBattle: Boolean = false
+        activeBattle: Boolean = false,
+        battlePresence: BattlePresence? = null
     ) {
-        val outcome = CalcRequestBoundary.build(profile, trust, input, activeBattle = activeBattle)
+        val outcome = CalcRequestBoundary.build(
+            profile,
+            trust,
+            input,
+            activeBattle = activeBattle,
+            battlePresence = battlePresence
+        )
         assertTrue("expected refusal for $reason, got $outcome", outcome is CalcRequestOutcome.Refused)
         val verdict = (outcome as CalcRequestOutcome.Refused).verdict
         assertEquals(CalcSupport.UNSUPPORTED, verdict.support)
@@ -148,7 +164,7 @@ class CalcUnboundCapabilityTest {
             field = CalcFieldInput(weather = "Sun", defenderSide = SideConditions(true, true)),
             moveOverride = CalcMoveOverride(basePower = 1, type = "Ice"),
             typeSystem = "hns_2_0_5"
-        ))
+        ), battlePresence = BattlePresence.NOT_OBSERVED)
         val json = JSONObject(buildCalcRequestJson(result.request))
         val operands = json.getJSONObject("unbound")
         val expected = mapOf(
@@ -167,7 +183,7 @@ class CalcUnboundCapabilityTest {
     }
 
     @Test
-    fun `screen party preparation retains exact move identity and discloses forecast assumptions`() {
+    fun `screen party preparation retains exact move identity and refuses missing live ability`() {
         val partyMon = ParsedPokemon(
             isValid = true, isEmpty = false, pid = 0, tid = 1, sid = 1, nickname = "", otName = "",
             species = 4, heldItem = 0, level = 50, nature = 0, natureName = "Hardy", isShiny = false,
@@ -178,18 +194,156 @@ class CalcUnboundCapabilityTest {
             currentHp = 123, maxHp = 123, attack = 89, defense = 90, speed = 91,
             spAttack = 105, spDefense = 92, statusCondition = 0
         )
-        val attacker = CalcParticipantPresenter.attacker(listOf(partyMon), 0, { "Charmander" },
-            playerStages = com.dualdex.battle.StatStages())
-        val defender = CalcParticipantPresenter.benchmarkDefender("Bulbasaur")
-        fun build(move: String) = CalcRequestBoundary.build(
-            unbound, exact(), attacker, defender, CalcMoveInput(move), CalcFieldInput()
+        val unknownAbilityAttacker = CalcParticipantPresenter.attacker(
+            listOf(partyMon),
+            0,
+            { "Charmander" },
+            playerStages = com.dualdex.battle.StatStages()
         )
+        val defender = CalcParticipantPresenter.benchmarkDefender("Bulbasaur")
+        // Missing live ability must be refused even with positive overworld evidence.
+        val missingAbilityOutcome = CalcRequestBoundary.build(
+            unbound,
+            exact(),
+            unknownAbilityAttacker,
+            defender,
+            CalcMoveInput("Flamethrower"),
+            CalcFieldInput(),
+            battlePresence = BattlePresence.NOT_OBSERVED
+        )
+        assertTrue(missingAbilityOutcome is CalcRequestOutcome.Refused)
+        val missingAbilityVerdict = (missingAbilityOutcome as CalcRequestOutcome.Refused).verdict
+        assertTrue(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN in missingAbilityVerdict.blockingLimitations)
+
+        // With an explicitly observed neutral ability and positive overworld evidence, party
+        // forecasts succeed as ESTIMATED while retaining exact move-ID checks.
+        val knownAbilityAttacker = CalcInputPreparation.fromParsed(
+            parsed = partyMon,
+            speciesName = "Charmander",
+            boosts = com.dualdex.battle.StatStages().toBoostStatBlock(),
+            effectiveAbility = EffectiveAbilityResolution.ObservedNone,
+            partySlot = 0
+        )
+        fun build(move: String, presence: BattlePresence = BattlePresence.NOT_OBSERVED) =
+            CalcRequestBoundary.build(
+                unbound,
+                exact(),
+                knownAbilityAttacker,
+                defender,
+                CalcMoveInput(move),
+                CalcFieldInput(),
+                battlePresence = presence
+            )
         val result = build("Flamethrower") as CalcRequestOutcome.Ready
         assertEquals(CalcSupport.ESTIMATED, result.verdict.support)
         assertTrue(CalcLimitation.UNBOUND_PARTY_OPERANDS_ASSUMED in result.verdict.limitations)
         val operands = JSONObject(buildCalcRequestJson(result.request)).getJSONObject("unbound")
         assertEquals(105, operands.getInt("sp_attack"))
         assertTrue(build("Rock Slide") is CalcRequestOutcome.Refused)
+    }
+
+    @Test
+    fun `unknown battle presence refuses live party forecasts while allowing manual hypotheticals`() {
+        val partyMon = ParsedPokemon(
+            isValid = true, isEmpty = false, pid = 0, tid = 1, sid = 1, nickname = "", otName = "",
+            species = 4, heldItem = 0, level = 50, nature = 0, natureName = "Hardy", isShiny = false,
+            abilitySlot = 0, isEgg = false, friendship = 0, experience = 0,
+            hpIv = 0, attackIv = 0, defenseIv = 0, speedIv = 0, spAttackIv = 0, spDefenseIv = 0,
+            hpEv = 0, attackEv = 0, defenseEv = 0, speedEv = 0, spAttackEv = 0, spDefenseEv = 0,
+            moves = intArrayOf(53, 0, 0, 0), pp = intArrayOf(10, 0, 0, 0),
+            currentHp = 123, maxHp = 123, attack = 89, defense = 90, speed = 91,
+            spAttack = 105, spDefense = 92, statusCondition = 0
+        )
+        val livePartyAttacker = CalcInputPreparation.fromParsed(
+            parsed = partyMon,
+            speciesName = "Charmander",
+            boosts = com.dualdex.battle.StatStages().toBoostStatBlock(),
+            effectiveAbility = EffectiveAbilityResolution.ObservedNone,
+            partySlot = 0
+        )
+        val manualDefender = CalcParticipantPresenter.benchmarkDefender("Bulbasaur")
+
+        // Shipped Unbound profile has mayReadBattleState == false -> BattlePresence.UNKNOWN.
+        // Live-party forecast MUST be refused so active Doubles/Singles battle state is never bypassed.
+        val unknownPresenceOutcome = CalcRequestBoundary.build(
+            unbound,
+            exact(),
+            livePartyAttacker,
+            manualDefender,
+            CalcMoveInput("Flamethrower"),
+            CalcFieldInput(),
+            activeBattle = false,
+            battlePresence = BattlePresence.UNKNOWN
+        )
+        assertTrue(unknownPresenceOutcome is CalcRequestOutcome.Refused)
+        assertTrue(
+            CalcLimitation.UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE in
+                (unknownPresenceOutcome as CalcRequestOutcome.Refused).verdict.blockingLimitations
+        )
+
+        // Positive overworld evidence (NOT_OBSERVED) allows the live-party forecast as ESTIMATED.
+        val overworldOutcome = CalcRequestBoundary.build(
+            unbound,
+            exact(),
+            livePartyAttacker,
+            manualDefender,
+            CalcMoveInput("Flamethrower"),
+            CalcFieldInput(),
+            activeBattle = false,
+            battlePresence = BattlePresence.NOT_OBSERVED
+        )
+        assertTrue(overworldOutcome is CalcRequestOutcome.Ready)
+        assertEquals(CalcSupport.ESTIMATED, (overworldOutcome as CalcRequestOutcome.Ready).verdict.support)
+
+        // Explicit MANUAL hypothetical with BattlePresence.UNKNOWN remains allowed as ESTIMATED.
+        val manualWithUnknownPresence = ready(request, battlePresence = BattlePresence.UNKNOWN)
+        assertEquals(CalcSupport.ESTIMATED, manualWithUnknownPresence.verdict.support)
+
+        // Observed active battle refuses even manual hypotheticals.
+        assertRefused(
+            request,
+            CalcLimitation.UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE,
+            activeBattle = false,
+            battlePresence = BattlePresence.OBSERVED
+        )
+    }
+
+    @Test
+    fun `live participant with unknown or null ability is refused and never defaulted to ability 0`() {
+        val partyRaw = CalcUnboundParticipant(
+            speciesId = 4,
+            stats = CalcRawStats(89, 90, 91, 105, 92),
+            maxHp = 123,
+            partyMoveIds = listOf(53, 0, 0, 0),
+            partyHeldItemId = 0,
+            partyStatus = 0L
+        )
+        val withUnknownAbilityField = request.copy(
+            attacker = request.attacker.copy(
+                origin = CalcInputOrigin.LIVE_READ,
+                boosts = StatBlock(),
+                ability = null,
+                abilityId = null,
+                unknownFields = listOf(CalcInputField.ABILITY),
+                unbound = partyRaw
+            )
+        )
+        assertRefused(
+            withUnknownAbilityField,
+            CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN,
+            battlePresence = BattlePresence.NOT_OBSERVED
+        )
+
+        // Even if a caller omits unknownFields, a LIVE_READ participant with null abilityId
+        // must still be refused rather than silently evaluated as ability 0.
+        val withNullAbilityIdOnly = withUnknownAbilityField.copy(
+            attacker = withUnknownAbilityField.attacker.copy(unknownFields = emptyList())
+        )
+        assertRefused(
+            withNullAbilityIdOnly,
+            CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN,
+            battlePresence = BattlePresence.NOT_OBSERVED
+        )
     }
 
     @Test

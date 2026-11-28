@@ -19,7 +19,7 @@ Before working down the individual tasks, keep the following release-level rules
   - Only the project owner may lift the freeze, and only after the public beta release.
 - [ ] **Feature-freeze major additions until the beta blockers are complete.**
   - Do not add new major companion features, broad single-screen work, ads, cloud saves, or speculative emulator features during hardening.
-  - H&S 2.0.5 is complete; the remaining compatibility work for the beta is finishing Unbound's production calculator wiring (or documenting a fail-closed refusal).
+  - H&S 2.0.5 is complete (calculator frozen at an `ESTIMATED` live-session ceiling); Unbound production calculator `ESTIMATED` mode (Singles ordinary-hit, exact-hash gated, `battleStateReadVerified = false`) is enabled, and remaining compatibility work is either keeping that scoped `ESTIMATED` / live-battle-disabled beta posture documented or completing exact-ROM verification.
   - **Owner decision:** R.O.W.E. (#59) and quota-aware cloud backup (#186/#194) are deferred to post-beta; they are no longer beta prerequisites.
   - Put other good new ideas into issues/backlog instead of expanding the beta scope.
 - [ ] Keep the initial beta promise narrow:
@@ -46,21 +46,21 @@ Steps:
 1. [x] **Finish exact Heart & Soul 2.0.5 completely.**
    - Close its remaining calculator/ruleset, exact-trust, battle, location, and capability-evidence gaps.
    - Do not start another ROM integration while H&S still has unresolved first-class support blockers.
-   - **Complete as of the #40 closure audit** ([docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md)): exact `Release-v2.0.5` / SHA-256 `edf76ecf…7679b` is intentionally trusted; #1, #9 and #11 are closed; every **core** live companion capability H&S exposes — party/data, battle lifecycle, location/map and the bounded calculator — is evidence-backed at the level the UI promises, and every unsupported capability **within those core surfaces** fails closed.
+   - **Complete as of the #40 closure audit** ([docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md)): exact `Release-v2.0.5` / SHA-256 `edf76ecf…7679b` is intentionally trusted; #1, #9 and #11 are closed; every **core** live companion capability H&S exposes — party/data, battle lifecycle, location/map and the bounded calculator — is evidence-backed at the level the UI promises, and every unsupported capability **within those core surfaces** fails closed. Note that H&S 2.0.5 has verified arithmetic/oracle evidence across its 422 admitted move IDs and 2,523-scenario oracle corpus while its production calculator ceiling remains `ESTIMATED` ([docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md)).
    - This step certifies the core H&S live-companion/battle/map/calculator integration only. It does **not** certify optional **Cheats**: the #17 implementation now denies built-in cheats without exact-target code approval (the production catalog is empty; see [cheat compatibility](docs/CHEAT_COMPATIBILITY.md)). The Assistant has since been removed from the build, so its offline fallback issue (#13) is no longer in scope. Custom cheats remain user-supplied/unverified. Review and hardware acceptance remain part of step 2.
-   - The AYN Thor RC matrix in that issue is **not** claimed complete — it moves into step 2 below, which is where this checklist always placed it.
+   - The AYN Thor RC matrix remains **HOLD** per [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md) (outstanding §5 matrix rows/subchecks and the `>= 60`-minute continuous soak `F1` remain open) — it moves into step 2 below, which is where this checklist always placed it.
 2. [ ] **Finish the remaining general pre-beta product/release blockers using H&S as the primary complex validation ROM.**
-   - Keep exact vanilla FireRed/Emerald as regression baselines.
-   - Exercise H&S through save safety and recovery, ROM switching, process death/reboot, suspend/resume, fast-forward, save states, cheat gating, backup policy, controller shortcuts, second-display reconnect, and extended Thor soak testing.
+   - Keep exact vanilla FireRed/Emerald as regression baselines (noting their shipped profiles keep `battleStateReadVerified = false` / `mayReadBattleState = false`, disabling live battle-state reads in the app).
+   - Exercise H&S through save safety and recovery, ROM switching, process death/reboot, suspend/resume, fast-forward, save states, cheat gating, backup policy, controller shortcuts, second-display reconnect, and close the remaining [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md) **HOLD** items (outstanding §5 matrix rows/subchecks and the continuous `>= 60`-minute soak `F1`).
    - **This is the active phase.** Hardware soak is required before beta but was never a prerequisite for declaring the H&S software integration complete. Carried-in items are listed as R1-R7 in the closure audit.
-3. [x] **Native Pokémon Unbound 2.1.1.1 integration (party, data, battle, location, map names).**
-   - Exact candidate SHA-256 `7aa25bbf…739f7` is bound in `app/src/main/assets/profiles/unbound.json`; readers are behind the exact-hash runtime trust gate and fail closed otherwise.
+3. [x] **Native Pokémon Unbound 2.1.1.1 integration (party, location, map names; native battle-layout evidence with `battleStateReadVerified = false` on shipped profile).**
+   - Exact candidate SHA-256 `7aa25bbf…739f7` is bound in `app/src/main/assets/profiles/unbound.json`; readers are behind the exact-hash runtime trust gate and fail closed otherwise. Shipped `unbound.json` leaves `battleStateReadVerified = false` (`mayReadBattleState = false`), so live battle-state reads remain disabled in the app.
    - `UnboundDataPack` and the generated exact-ROM species/name tables are merged (PRs #207-#213).
    - Host CFRU damage oracle + 579-case × 16-roll golden corpus and the dependency-free JS core (`tools/calc-bundler/unbound-cfru.js`) are merged with host parity.
-4. [ ] **Finish Unbound's production calculator wiring (or ship a documented fail-closed refusal).**
-   - The JS CFRU core is host-verified only and deliberately **not wired into production**; `CalcCapabilityPolicy.capabilityFor(unbound)` still returns `null`, so every Unbound damage request is refused.
-   - Either wire it behind the same exact-hash trust gate with golden parity in `ci.sh`, or ship `0.9.0-beta.1` with Unbound live-read-only and state that explicitly in release notes.
-   - Exact-ROM type-chart and move/item table correspondence remains **UNVERIFIED** ([docs/UNBOUND_DAMAGE_ORACLE.md](docs/UNBOUND_DAMAGE_ORACLE.md)).
+4. [ ] **Finalize Unbound's beta calculator posture (`ESTIMATED` mode enabled; exact-ROM verification open).**
+   - Production calculator **`ESTIMATED` mode** (`CalcRuleset.UNBOUND_CFRU`, Singles ordinary-hit, capped at `CalcSupport.ESTIMATED` with `UNBOUND_CFRU_SOURCE_APPROXIMATE`) is **enabled** behind the exact candidate SHA-256 gate (`7aa25bbf…`), while shipped `unbound.json` keeps `battleStateReadVerified = false` (so active-battle live-state requests fail closed with `UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE`, and Doubles/items/unmodelled moves refuse fail-closed).
+   - Either keep `0.9.0-beta.1` scoped explicitly to `ESTIMATED` Singles forecasts (with live battle-state reads disabled) in release notes, or complete exact-ROM verification before enabling battle-state reads / promoting beyond `ESTIMATED`.
+   - Exact-ROM type-chart, move/item table correspondence, and exact-ROM Thumb oracle execution remain **UNVERIFIED** ([docs/UNBOUND_DAMAGE_ORACLE.md](docs/UNBOUND_DAMAGE_ORACLE.md)).
 5. [ ] **Only after the compatibility sequence above, cut the release candidate and proceed through the beta rings.**
 
 **Deferred to post-beta (owner decision):**
@@ -114,9 +114,9 @@ For every beta candidate:
 
 ### Hardware Soak Testing
 
-Before promoting a release candidate:
+Before promoting a release candidate (AYN Thor gate currently **HOLD** per [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md)):
 
-- [ ] Run at least one extended real-play session on AYN Thor rather than only short smoke tests.
+- [ ] Run a continuous `>= 60`-minute real-play soak on AYN Thor (`F1` in [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md)) and close all remaining §5 matrix rows/subchecks (`A2`, `A4`/`E3`, `B2`, `B3`, `C1`/`C4`/X-Y `C5`, `D1`–`D5`, `E5`, `G1`, `O1`, and vanilla FireRed/Emerald baselines) rather than relying on short or mixed sessions.
 - [ ] Exercise normal speed and fast-forward.
 - [ ] Exercise save/load state repeatedly.
 - [ ] Suspend/resume the app multiple times.
@@ -702,7 +702,7 @@ Before moving from bug fixing back to ROM-hack expansion:
 7. **Clean up documentation and supported-version tables.**
 8. **Set up permanent signing, CI, and GitHub release process.**
 9. **Finish privacy policy and general network disclosure work.**
-10. **Finish Unbound production calculator wiring (or document a fail-closed refusal).**
+10. **Finalize Unbound beta scope (`ESTIMATED` Singles mode enabled with `battleStateReadVerified = false`; exact-ROM verification open).**
 11. **Run the complete per-ROM beta compatibility matrix for FireRed, Emerald, H&S 2.0.5 and Unbound.**
 12. **Release free AYN Thor beta.**
 13. **Use actual beta feedback to determine priorities.**

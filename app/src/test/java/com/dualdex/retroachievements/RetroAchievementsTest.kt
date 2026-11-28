@@ -1412,11 +1412,36 @@ class RetroAchievementsTest {
             val core = LibretroCoreCoordinator(bridge = bridge)
             val ssm = SaveStateManager(customBaseDir = savesDir, customCoordinator = core)
             assertTrue(core.loadVerifiedRom(romFile.absolutePath, identity))
-            ssm.setActiveGame(identity)
 
+            // First attempt: fail timestamp verification on battery.sav / resume_barrier.
+            // Neither file may be published to canonical storage, and oldDir must stay retryable.
+            AtomicSaveFile.preserveTimestampHook = { file, mtime ->
+                if (file.name.startsWith(SaveStateFiles.BATTERY) ||
+                    file.name.startsWith(SaveStateFiles.RESUME_BARRIER)
+                ) {
+                    false
+                } else {
+                    file.setLastModified(mtime)
+                }
+            }
+            try {
+                ssm.setActiveGame(identity)
+            } finally {
+                AtomicSaveFile.preserveTimestampHook = null
+            }
             val canonicalBarrier = ssm.getCanonicalFile(identity, SaveStateFiles.RESUME_BARRIER)
             val canonicalBattery = ssm.getCanonicalFile(identity, SaveStateFiles.BATTERY)
             val canonicalAuto = ssm.getCanonicalFile(identity, SaveStateFiles.AUTO_RESUME)
+            assertFalse("Failed timestamp verification must not publish battery.sav", canonicalBattery.exists())
+            assertFalse("Failed timestamp verification must not publish resume_barrier", canonicalBarrier.exists())
+            assertTrue("Old directory must stay intact for retry", oldDir.exists())
+
+            // Second attempt (retry): timestamp preservation succeeds; battery and barrier publish
+            // with original timestamps, and boot resume loads the newer unmarked state.
+            val ssmRetry = SaveStateManager(customBaseDir = savesDir, customCoordinator = core)
+            ssmRetry.setActiveGame(identity)
+
+            assertFalse("Completed migration must archive old directory", oldDir.exists())
             assertEquals(barrierMtime, canonicalBarrier.lastModified())
             assertEquals(batteryMtime, canonicalBattery.lastModified())
             assertEquals(newerStateMtime, canonicalAuto.lastModified())
@@ -1425,11 +1450,12 @@ class RetroAchievementsTest {
             assertEquals(
                 "Migrating an older battery + barrier alongside a newer unmarked state must preserve boot resume",
                 SaveStateFiles.AUTO_RESUME,
-                ssm.loadNewestResumeState(identity)
+                ssmRetry.loadNewestResumeState(identity)
             )
             assertEquals(1, bridge.loadedStates.size)
             assertArrayEquals(newerResumeBytes, bridge.loadedStates.single())
         } finally {
+            AtomicSaveFile.preserveTimestampHook = null
             tempRoot.deleteRecursively()
         }
     }

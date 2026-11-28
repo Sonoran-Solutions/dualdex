@@ -316,6 +316,20 @@ object AtomicSaveFile {
                 return false
             }
 
+            // 2b. When preserving source timestamp for freshness anchors (battery.sav / resume_barrier),
+            // apply and verify sourceMtime on tmpFile BEFORE rotating backups or publishing targetFile.
+            // Fails closed with no newly published canonical file if timestamp verification fails.
+            if (preserveSourceTimestamp) {
+                val timestampVerified = sourceMtime > 0L &&
+                    applyLastModified(tmpFile, sourceMtime) &&
+                    tmpFile.lastModified() == sourceMtime
+                if (!timestampVerified) {
+                    Log.e(TAG, "Aborting atomic staging copy: failed to verify original timestamp ($sourceMtime) on ${tmpFile.name}")
+                    if (tmpFile.exists()) tmpFile.delete()
+                    return false
+                }
+            }
+
             // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created).
             // Never rotate a truncated/wrong-size canonical file over an existing valid .bak.
             val priorValidForBackup = expectedPriorSize == null || targetFile.length() == expectedPriorSize
@@ -352,13 +366,6 @@ object AtomicSaveFile {
                         clearAutoLoadExcluded(targetFile)
                     }
                 } else {
-                    if (preserveSourceTimestamp && sourceMtime > 0L) {
-                        val timestampPreserved = applyLastModified(targetFile, sourceMtime) &&
-                            targetFile.lastModified() == sourceMtime
-                        if (!timestampPreserved) {
-                            Log.w(TAG, "Could not verify original timestamp ($sourceMtime) for ${targetFile.name}")
-                        }
-                    }
                     clearAutoLoadExcluded(targetFile)
                 }
                 return true

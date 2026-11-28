@@ -260,28 +260,119 @@ def _validate_items(rom: bytes, offset: int) -> tuple[bool, int, int, str | None
     return True, stride, count, None
 
 
+def _matches_type_matrix(block: bytes, dim: int) -> bool:
+    """Validate an N x N Gen 6+ type-effectiveness matrix at exact row stride `dim`."""
+    if len(block) != dim * dim:
+        return False
+    unique = set(block)
+    if not unique <= {0, 1, 5, 10, 20}:
+        return False
+    # Reject all-zero, constant, or mixed neutral encodings (neutral must be consistently 1 or 10).
+    if 10 in unique and 1 not in unique:
+        neutral = 10
+    elif 1 in unique and 10 not in unique:
+        neutral = 1
+    else:
+        return False
+    if not {0, 5, 20, neutral} <= unique:
+        return False
+
+    def cell(atk: int, dfn: int) -> int:
+        return block[atk * dim + dfn]
+
+    # Discriminating Gen 6+ matchups across row boundaries (type IDs 0..17 in FireRed/CFRU).
+    core_checks = (
+        (0, 0, neutral),  # Normal -> Normal
+        (0, 5, 5),        # Normal -> Rock
+        (0, 7, 0),        # Normal -> Ghost
+        (0, 8, 5),        # Normal -> Steel
+        (1, 0, 20),       # Fighting -> Normal
+        (1, 2, 5),        # Fighting -> Flying
+        (1, 7, 0),        # Fighting -> Ghost
+        (1, 8, 20),       # Fighting -> Steel
+        (4, 2, 0),        # Ground -> Flying
+        (4, 10, 20),      # Ground -> Fire
+        (4, 13, 20),      # Ground -> Electric
+        (7, 0, 0),        # Ghost -> Normal
+        (7, 8, neutral),  # Ghost -> Steel (Gen 6+)
+        (7, 14, 20),      # Ghost -> Psychic
+        (10, 10, 5),      # Fire -> Fire
+        (10, 11, 5),      # Fire -> Water
+        (10, 12, 20),     # Fire -> Grass
+        (11, 10, 20),     # Water -> Fire
+        (11, 11, 5),      # Water -> Water
+        (11, 12, 5),      # Water -> Grass
+        (12, 10, 5),      # Grass -> Fire
+        (12, 11, 20),     # Grass -> Water
+        (12, 12, 5),      # Grass -> Grass
+        (13, 4, 0),       # Electric -> Ground
+        (13, 11, 20),     # Electric -> Water
+        (13, 12, 5),      # Electric -> Grass
+        (14, 17, 0),      # Psychic -> Dark
+        (16, 8, 5),       # Dragon -> Steel
+        (16, 16, 20),     # Dragon -> Dragon
+        (17, 8, neutral), # Dark -> Steel (Gen 6+)
+    )
+    if any(cell(atk, dfn) != expected for atk, dfn, expected in core_checks):
+        return False
+
+    if dim == 24:
+        # CFRU places TYPE_FAIRY at index 23 (0x17).
+        fairy_checks = (
+            (16, 23, 0),       # Dragon -> Fairy
+            (1, 23, 5),        # Fighting -> Fairy
+            (3, 23, 20),       # Poison -> Fairy
+            (8, 23, 20),       # Steel -> Fairy
+            (23, 0, neutral),  # Fairy -> Normal
+            (23, 1, 20),       # Fairy -> Fighting
+            (23, 3, 5),        # Fairy -> Poison
+            (23, 8, 5),        # Fairy -> Steel
+            (23, 10, 5),       # Fairy -> Fire
+            (23, 16, 20),      # Fairy -> Dragon
+            (23, 17, 20),      # Fairy -> Dark
+        )
+        if any(cell(atk, dfn) != expected for atk, dfn, expected in fairy_checks):
+            return False
+    elif dim > 18:
+        # Ensure trailing row/column in 19x19 or 20x20 matrices are populated rather than zero-padding.
+        if not any(cell(dim - 1, c) != 0 for c in range(dim)):
+            return False
+        if not any(cell(r, dim - 1) != 0 for r in range(dim)):
+            return False
+
+    return True
+
+
 def _validate_type_effectiveness(rom: bytes, offset: int) -> tuple[bool, int, int, str | None]:
-    # 1. Check CFRU N x N matrix layout first (e.g., 24 x 24, 19 x 19, 18 x 18).
-    for dim in (24, 20, 19, 18):
-        total = dim * dim
-        if offset + total <= len(rom):
-            block = rom[offset:offset + total]
-            if all(b in (0, 1, 5, 10, 20) for b in block) and block[7] == 0:
-                return True, dim, dim, None
+    # 1. Evaluate all candidate N x N CFRU matrix dimensions; fail closed on ambiguity.
+    matching_dims = [
+        dim for dim in (24, 20, 19, 18)
+        if offset + dim * dim <= len(rom) and _matches_type_matrix(rom[offset:offset + dim * dim], dim)
+    ]
+    if len(matching_dims) == 1:
+        dim = matching_dims[0]
+        return True, dim, dim, None
+    if len(matching_dims) > 1:
+        return False, 0, 0, "ambiguous_type_effectiveness"
 
     # 2. Check vanilla-style 3-byte triple table terminated by (0xFF, ...).
     stride = 3
     avail = (len(rom) - offset) // stride
     if avail >= 30:
         count = 0
+        seen_mults: set[int] = set()
+        saw_normal_ghost_zero = False
         for i in range(min(avail, 256)):
             atk, dfn, mult = rom[offset + i * 3:offset + i * 3 + 3]
             if atk == 0xFF:
-                if count >= 20:
+                if count >= 20 and saw_normal_ghost_zero and {0, 5, 20} <= seen_mults:
                     return True, stride, count, None
                 break
             if (atk >= 32 and atk != 0xFE) or (dfn >= 32 and dfn != 0xFE) or mult not in (0, 5, 10, 20):
                 break
+            seen_mults.add(mult)
+            if atk == 0 and dfn == 7 and mult == 0:
+                saw_normal_ghost_zero = True
             count += 1
     return False, 0, 0, "invalid_type_effectiveness"
 

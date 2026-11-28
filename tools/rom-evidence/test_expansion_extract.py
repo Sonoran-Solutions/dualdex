@@ -14,7 +14,7 @@ ROM_SIZE = 32 * 1024 * 1024
 
 
 def _encode_gen3(text: str) -> bytes:
-    table = {" ": 0x00, "-": 0xAE, ".": 0xAD, "?": 0xAC, "!": 0xAB}
+    table = {" ": 0x00, "\n": 0xFE, "-": 0xAE, ".": 0xAD, "?": 0xAC, "!": 0xAB}
     for i in range(10):
         table[str(i)] = 0xA1 + i
     for i in range(26):
@@ -23,13 +23,27 @@ def _encode_gen3(text: str) -> bytes:
     return bytes(table[ch] for ch in text) + b"\xFF"
 
 
+def _pack_expansion_move_words(
+    *,
+    move_type: int,
+    category: int,
+    power: int,
+    accuracy: int,
+    target: int = 0,
+) -> tuple[int, int]:
+    combat_word = (move_type & 0x1F) | ((category & 0x03) << 5) | ((power & 0x1FF) << 7)
+    acc_word = (accuracy & 0x7F) | ((target & 0x1FF) << 7)
+    return combat_word, acc_word
+
+
 def _build_synthetic_expansion_rom(
     *,
     marker: bytes = b"RHHEXP",
     marker_offset: int = 0x108,
+    layout: str = ee.LAYOUT_EXPANSION_V1_9_BITFIELD,
     species_stride: int = 88,
-    moves_stride: int = 24,
-    items_stride: int = 48,
+    moves_stride: int = 36,
+    items_stride: int = 44,
     include_types: bool = True,
 ) -> bytearray:
     rom = bytearray(ROM_SIZE)
@@ -43,41 +57,80 @@ def _build_synthetic_expansion_rom(
     species_off = 0x400000
     moves_off = 0x500000
     items_off = 0x600000
-    item_names_off = 0x610000
+    string_pool = 0x620000
     types_off = 0x700000
 
-    # Populate gSpeciesInfo (stride 88, Grass=12 / Poison=3 for 1..3, Fire=10 for 4)
+    def alloc_str(text: str) -> int:
+        nonlocal string_pool
+        enc = _encode_gen3(text)
+        addr = ee.ROM_BASE + string_pool
+        rom[string_pool:string_pool + len(enc)] = enc
+        string_pool = (string_pool + len(enc) + 3) & ~3
+        return addr
+
+    # Populate gSpeciesInfo
     for i in range(40):
         if i == 0:
             continue
         row = bytearray(species_stride)
         row[0:6] = bytes([45, 49, 49, 45, 65, 65])
-        if i <= 3:
-            row[6], row[7] = ee.TYPE_GRASS, ee.TYPE_POISON
+        if layout == ee.LAYOUT_EXPANSION_V1_9_BITFIELD:
+            if i <= 3:
+                row[6], row[7] = ee.TYPE_GRASS, ee.TYPE_POISON
+            elif i == 4:
+                row[6], row[7] = ee.TYPE_FIRE, ee.TYPE_NONE
+            else:
+                row[6], row[7] = ee.TYPE_FAIRY, ee.TYPE_NORMAL
         else:
-            row[6], row[7] = ee.TYPE_FIRE, ee.TYPE_FIRE
+            if i <= 3:
+                row[6], row[7] = ee.GEN3_TYPE_GRASS, ee.GEN3_TYPE_POISON
+            else:
+                row[6], row[7] = ee.GEN3_TYPE_FIRE, ee.GEN3_TYPE_FIRE
         rom[species_off + i * species_stride:species_off + (i + 1) * species_stride] = row
 
-    # Populate gMovesInfo (stride 24, pointer-prefixed or classic; test both layouts!)
+    # Populate gMovesInfo
     for i in range(50):
         row = bytearray(moves_stride)
         if i > 0:
-            power = 40 if i in (1, 10, 33) else (0 if i in (14, 28) else 80)
-            row[1] = power
-            row[2] = i % 18
-            row[3] = 100
-            row[4] = 35
+            if i in (1, 33):
+                power, mtype, cat = 40, (ee.TYPE_NORMAL if layout == ee.LAYOUT_EXPANSION_V1_9_BITFIELD else 0), 0
+            elif i in (14, 28):
+                power, mtype, cat = 0, (ee.TYPE_NORMAL if layout == ee.LAYOUT_EXPANSION_V1_9_BITFIELD else 0), 2
+            elif i == 35 and layout == ee.LAYOUT_EXPANSION_V1_9_BITFIELD:
+                # Exercise 9-bit power > 255 and TYPE_FAIRY=19
+                power, mtype, cat = 300, ee.TYPE_FAIRY, 1
+            else:
+                power = 80
+                mtype = ee.TYPE_FAIRY if layout == ee.LAYOUT_EXPANSION_V1_9_BITFIELD else (i % 18)
+                cat = 1
+
+            if layout == ee.LAYOUT_EXPANSION_V1_9_BITFIELD:
+                struct.pack_into("<I", row, 0x00, alloc_str(f"Move{i}"))
+                struct.pack_into("<I", row, 0x04, alloc_str(f"Desc for\nmove {i}."))
+                combat_word, acc_word = _pack_expansion_move_words(
+                    move_type=mtype, category=cat, power=power, accuracy=100, target=1
+                )
+                struct.pack_into("<HHB", row, 0x0A, combat_word, acc_word, 35)
+            else:
+                row[1] = power
+                row[2] = mtype
+                row[3] = 100
+                row[4] = 35
         rom[moves_off + i * moves_stride:moves_off + (i + 1) * moves_stride] = row
 
-    # Populate gItemsInfo (stride 48, pointer-backed Gen 3 names)
-    cursor = item_names_off
+    # Populate gItemsInfo
     for i in range(30):
         row = bytearray(items_stride)
         if i > 0:
-            enc = _encode_gen3(f"Item{i}")
-            rom[cursor:cursor + len(enc)] = enc
-            struct.pack_into("<I", row, 0, ee.ROM_BASE + cursor)
-            cursor += len(enc)
+            if layout == ee.LAYOUT_EXPANSION_V1_9_BITFIELD:
+                struct.pack_into("<I", row, 0x0C, alloc_str(f"Item desc\nline {i}."))
+                struct.pack_into("<I", row, 0x14, alloc_str(f"Item{i}"))
+            else:
+                enc = _encode_gen3(f"Item{i}")[:14]
+                if enc[-1] != 0xFF:
+                    enc = enc[:-1] + b"\xFF"
+                row[0:len(enc)] = enc
+                struct.pack_into("<I", row, 0x14, alloc_str(f"Item desc\nline {i}."))
         rom[items_off + i * items_stride:items_off + (i + 1) * items_stride] = row
 
     struct.pack_into("<I", rom, ee.GF_SLOT_SPECIES_INFO, ee.ROM_BASE + species_off)
@@ -85,9 +138,11 @@ def _build_synthetic_expansion_rom(
     struct.pack_into("<I", rom, ee.GF_SLOT_MOVES_INFO, ee.ROM_BASE + moves_off)
 
     if include_types:
-        dim = 19
+        dim = 21  # NUMBER_OF_MON_TYPES: TYPE_NONE(0) .. TYPE_STELLAR(20)
         vals = [0x1000] * (dim * dim)
-        vals[7] = 0x0000  # Normal -> Ghost = 0
+        vals[ee.TYPE_NORMAL * dim + ee.TYPE_GHOST] = 0x0000
+        vals[ee.TYPE_FIRE * dim + ee.TYPE_GRASS] = 0x2000
+        vals[ee.TYPE_DRAGON * dim + ee.TYPE_FAIRY] = 0x0000
         struct.pack_into(f"<{dim * dim}H", rom, types_off, *vals)
         struct.pack_into("<I", rom, 0x1EC, ee.ROM_BASE + types_off)
 
@@ -99,6 +154,7 @@ class ExpansionExtractTest(unittest.TestCase):
         rom = bytes(_build_synthetic_expansion_rom())
         report = ee.extract_expansion_tables(rom)
         self.assertEqual(report["status"], "OK")
+        self.assertEqual(report["layout_version"], ee.LAYOUT_EXPANSION_V1_9_BITFIELD)
         self.assertTrue(report["gf_header_valid"])
         self.assertEqual(report["rom_sha256"], hashlib.sha256(rom).hexdigest())
         self.assertEqual(report["expansion_marker"], {
@@ -111,35 +167,83 @@ class ExpansionExtractTest(unittest.TestCase):
         self.assertEqual(tables["gSpeciesInfo"]["stride"], 88)
         self.assertEqual(tables["gSpeciesInfo"]["count_estimate"], 40)
         self.assertTrue(tables["gMovesInfo"]["sanity_ok"])
-        self.assertEqual(tables["gMovesInfo"]["stride"], 24)
+        self.assertEqual(tables["gMovesInfo"]["stride"], 36)
         self.assertEqual(tables["gMovesInfo"]["count_estimate"], 50)
         self.assertTrue(tables["gItemsInfo"]["sanity_ok"])
-        self.assertEqual(tables["gItemsInfo"]["stride"], 48)
+        self.assertEqual(tables["gItemsInfo"]["stride"], 44)
         self.assertEqual(tables["gItemsInfo"]["count_estimate"], 30)
         self.assertTrue(tables["gTypesInfo"]["sanity_ok"])
-        self.assertEqual(tables["gTypesInfo"]["count_estimate"], 19)
+        self.assertEqual(tables["gTypesInfo"]["count_estimate"], 21)
         self.assertNotIn("Item1", json.dumps(report))
 
-    def test_rhh_exp_marker_outside_header_window_and_pointer_prefixed_moves(self):
+    def test_rhh_exp_marker_outside_header_window_and_gen3_vanilla_byte_layout(self):
         rom = _build_synthetic_expansion_rom(
-            marker=b"RHH_EXP", marker_offset=0x80000, moves_stride=32, include_types=False
+            marker=b"RHH_EXP",
+            marker_offset=0x80000,
+            layout=ee.LAYOUT_GEN3_VANILLA_BYTE,
+            moves_stride=24,
+            include_types=False,
         )
-        # Re-encode moves_off with pointer-prefixed layout: power at +8, type at +12, acc at +10, pp at +11
-        moves_off = 0x500000
-        rom[moves_off:moves_off + 50 * 32] = b"\x00" * (50 * 32)
-        for i in range(1, 50):
-            row = bytearray(32)
-            row[8] = 40 if i in (1, 10, 33) else (0 if i in (14, 28) else 80)
-            row[10] = 100
-            row[11] = 35
-            row[12] = i % 18
-            rom[moves_off + i * 32:moves_off + (i + 1) * 32] = row
-        report = ee.extract_expansion_tables(bytes(rom))
+        report = ee.extract_expansion_tables(bytes(rom), layout=ee.LAYOUT_GEN3_VANILLA_BYTE)
         self.assertEqual(report["status"], "OK")
+        self.assertEqual(report["layout_version"], ee.LAYOUT_GEN3_VANILLA_BYTE)
         self.assertFalse(report["expansion_marker"]["in_rom_header_window"])
-        self.assertEqual(report["tables"]["gMovesInfo"]["stride"], 32)
+        self.assertEqual(report["tables"]["gMovesInfo"]["stride"], 24)
         self.assertFalse(report["tables"]["gTypesInfo"]["sanity_ok"])
         self.assertEqual(report["tables"]["gTypesInfo"]["reason"], "not_in_gf_header")
+
+    def test_unknown_layout_version_fails_closed(self):
+        rom = bytes(_build_synthetic_expansion_rom())
+        with self.assertRaises(ValueError):
+            ee.extract_expansion_tables(rom, layout="EXPANSION_UNKNOWN_V99")
+        with tempfile.TemporaryDirectory() as tmp:
+            rom_path = Path(tmp) / "exp.gba"
+            rom_path.write_bytes(rom)
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                rc = ee.main(["--rom", str(rom_path), "--layout", "EXPANSION_UNKNOWN_V99"])
+            self.assertEqual(rc, 2)
+            self.assertIn("Unsupported layout version", err.getvalue())
+
+    def test_item_probe_requires_both_name_and_description_pointers(self):
+        # Negative 1: valid description pointer at +0x0C (and even a decoy pointer at +0x00),
+        # but missing/zero name pointer at +0x14 -> must fail closed!
+        rom = _build_synthetic_expansion_rom()
+        items_off = 0x600000
+        for i in range(1, 30):
+            row_off = items_off + i * 44
+            decoy_desc_ptr = struct.unpack_from("<I", rom, row_off + 0x0C)[0]
+            struct.pack_into("<I", rom, row_off + 0x00, decoy_desc_ptr)
+            struct.pack_into("<I", rom, row_off + 0x14, 0)  # wipe name pointer
+        report = ee.extract_expansion_tables(bytes(rom), layout=ee.LAYOUT_EXPANSION_V1_9_BITFIELD)
+        self.assertEqual(report["status"], "PARTIAL")
+        self.assertFalse(report["tables"]["gItemsInfo"]["sanity_ok"])
+        self.assertEqual(report["tables"]["gItemsInfo"]["reason"], "items_sanity_probe_failed")
+        self.assertIsNone(report["tables"]["gItemsInfo"]["table_sha256"])
+
+        # Negative 2: valid name pointer at +0x14 without valid description pointer at +0x0C -> refused!
+        rom2 = _build_synthetic_expansion_rom()
+        for i in range(1, 30):
+            row_off = items_off + i * 44
+            struct.pack_into("<I", rom2, row_off + 0x0C, 0)  # wipe description pointer
+        report2 = ee.extract_expansion_tables(bytes(rom2), layout=ee.LAYOUT_EXPANSION_V1_9_BITFIELD)
+        self.assertEqual(report2["status"], "PARTIAL")
+        self.assertFalse(report2["tables"]["gItemsInfo"]["sanity_ok"])
+        self.assertIsNone(report2["tables"]["gItemsInfo"]["table_sha256"])
+
+    def test_moves_probe_rejects_unpacked_byte_power_in_bitfield_layout(self):
+        rom = _build_synthetic_expansion_rom()
+        moves_off = 0x500000
+        for i in range(1, 50):
+            row_off = moves_off + i * 36
+            # Replace packed +0x0A/+0x0C with plain-byte fields at +0x08..+0x0B.
+            struct.pack_into("<HH", rom, row_off + 0x0A, 0, 0)
+            rom[row_off + 0x08] = 40 if i in (1, 33) else 80
+            rom[row_off + 0x09] = ee.TYPE_NORMAL
+        report = ee.extract_expansion_tables(bytes(rom), layout=ee.LAYOUT_EXPANSION_V1_9_BITFIELD)
+        self.assertEqual(report["status"], "PARTIAL")
+        self.assertFalse(report["tables"]["gMovesInfo"]["sanity_ok"])
+        self.assertIsNone(report["tables"]["gMovesInfo"]["table_sha256"])
 
     def test_missing_marker_refusal(self):
         rom = bytes(_build_synthetic_expansion_rom(marker=b""))
@@ -157,9 +261,12 @@ class ExpansionExtractTest(unittest.TestCase):
         self.assertFalse(report["tables"]["gSpeciesInfo"]["sanity_ok"])
         self.assertEqual(report["tables"]["gSpeciesInfo"]["reason"], "pointer_out_of_range")
 
-        # Valid pointer, but move 33 power is wrong (not 40) -> sanity failure
+        # Valid pointer, but move 33 packed power is 99 instead of 40 -> sanity failure
         rom2 = _build_synthetic_expansion_rom()
-        rom2[0x500000 + 33 * 24 + 1] = 99
+        bad_combat, bad_acc = _pack_expansion_move_words(
+            move_type=ee.TYPE_NORMAL, category=0, power=99, accuracy=100, target=1
+        )
+        struct.pack_into("<HH", rom2, 0x500000 + 33 * 36 + 0x0A, bad_combat, bad_acc)
         report2 = ee.extract_expansion_tables(bytes(rom2))
         self.assertEqual(report2["status"], "PARTIAL")
         self.assertFalse(report2["tables"]["gMovesInfo"]["sanity_ok"])

@@ -1128,6 +1128,96 @@ class RetroAchievementsTest {
             assertTrue("No stale backup bytes may be auto-loaded", bridge.loadedStates.isEmpty())
             assertEquals(64L, autoResumeFile.length())
             assertTrue(batteryFile.exists())
+
+            // The next automatic save must preserve the valid 256 KiB .bak instead of rotating
+            // the 64-byte truncated canonical file over it.
+            AtomicSaveFile.syncHook = null
+            bridge.nextSavedStateByte = 0x7E
+            assertTrue(ssm.saveAutoResume(romIdentity))
+            assertArrayEquals(ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x7E }, autoResumeFile.readBytes())
+            val bakFile = File(autoResumeFile.parentFile, "${autoResumeFile.name}.bak")
+            assertArrayEquals(
+                "Valid .bak must survive automatic save after failed recovery left truncated canonical target",
+                oldBackupBytes,
+                bakFile.readBytes()
+            )
+        } finally {
+            AtomicSaveFile.syncHook = null
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun incompleteLegacyMigrationRetriesMissingExcludedSlotWithoutOverwritingNewerCanonicalBattery() {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_legacy_retry_").toFile()
+        try {
+            val romFile = File(tempRoot, "romLegacyRetry.gba").apply { writeBytes(ByteArray(4096) { 0x6B }) }
+            val identity = RomIdentity.fromFile(romFile, "Rom Legacy Retry")
+            val savesDir = File(tempRoot, "saves")
+            val fallbackDir = File(savesDir, "saves_fallback")
+            val oldBranchDir = File(fallbackDir, identity.legacyStorageKey).apply { mkdirs() }
+
+            val oldBatteryBytes = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 0x11 }
+            val legacySlot1Bytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x4F }
+            File(oldBranchDir, SaveStateFiles.BATTERY).writeBytes(oldBatteryBytes)
+            val oldSlot1 = File(oldBranchDir, SaveStateFiles.slotState(1)).apply { writeBytes(legacySlot1Bytes) }
+            AtomicSaveFile.autoLoadExcludedFile(oldSlot1).writeText("1")
+
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = savesDir, customCoordinator = core)
+            assertTrue(core.loadVerifiedRom(romFile.absolutePath, identity))
+
+            // Simulate a transient failure when persisting slot_1.state.no_autoload during migration,
+            // while allowing battery.sav (and slot_1.state.tmp) to sync.
+            val canonicalDir = ssm.getCanonicalRomDir(identity)
+            val slot1NoAutoloadTmp = File(canonicalDir, "${SaveStateFiles.slotState(1)}.no_autoload.tmp")
+            AtomicSaveFile.syncHook = {
+                if (slot1NoAutoloadTmp.exists()) {
+                    throw IOException("Simulated transient exclusion marker write failure during migration")
+                }
+            }
+            try {
+                ssm.setActiveGame(identity)
+            } finally {
+                AtomicSaveFile.syncHook = null
+            }
+
+            // Battery migrated; excluded slot_1 did not; old directory stayed in place for retry.
+            val canonicalBattery = ssm.getCanonicalFile(identity, SaveStateFiles.BATTERY)
+            val canonicalSlot1 = ssm.getCanonicalFile(identity, SaveStateFiles.slotState(1))
+            assertTrue(canonicalBattery.exists())
+            assertFalse(canonicalSlot1.exists())
+            assertTrue("Incomplete migration must keep old directory intact", oldBranchDir.exists())
+
+            // Simulate gameplay updating canonical battery.sav before reopening.
+            val newerBatteryBytes = ByteArray(RomSaveIntegrityTest.SRAM_SIZE_128K) { 0x99.toByte() }
+            canonicalBattery.writeBytes(newerBatteryBytes)
+
+            // Reopen in a fresh SaveStateManager: migration resumes for the missing excluded slot
+            // without overwriting the newer canonical battery.sav.
+            val ssmReopen = SaveStateManager(customBaseDir = savesDir, customCoordinator = core)
+            ssmReopen.setActiveGame(identity)
+
+            assertArrayEquals(
+                "Resumed migration must never overwrite newer canonical battery.sav",
+                newerBatteryBytes,
+                canonicalBattery.readBytes()
+            )
+            assertTrue("Missing legacy slot_1 must be migrated on reopen", canonicalSlot1.exists())
+            assertArrayEquals(legacySlot1Bytes, canonicalSlot1.readBytes())
+            assertTrue(
+                "Retried legacy slot_1 must preserve durable .no_autoload exclusion",
+                AtomicSaveFile.isAutoLoadExcluded(canonicalSlot1)
+            )
+            assertFalse("Completed migration must archive old directory", oldBranchDir.exists())
+
+            // Excluded migrated slot is not auto-loaded at boot, but remains explicitly restorable.
+            assertNull(ssmReopen.loadNewestResumeState(identity))
+            assertTrue(bridge.loadedStates.isEmpty())
+            assertTrue(ssmReopen.loadSlot(identity, 1))
+            assertEquals(1, bridge.loadedStates.size)
+            assertArrayEquals(legacySlot1Bytes, bridge.loadedStates[0])
         } finally {
             AtomicSaveFile.syncHook = null
             tempRoot.deleteRecursively()

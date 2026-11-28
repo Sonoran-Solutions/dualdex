@@ -44,7 +44,8 @@ object AtomicSaveFile {
     }
 
     fun isInternalSidecarName(fileName: String): Boolean =
-        fileName.endsWith(".tmp") ||
+        fileName == ".migration_in_progress" ||
+            fileName.endsWith(".tmp") ||
             fileName.endsWith(".bak") ||
             fileName.endsWith(".bak.mtime") ||
             fileName.endsWith(".no_autoload")
@@ -184,8 +185,15 @@ object AtomicSaveFile {
 
     /**
      * Atomically write a byte array to targetFile with durability and previous-good backup (.bak).
+     * When [expectedPriorSize] is set and the existing [targetFile] does not match that size (e.g.
+     * a truncated canonical file left beside a valid `.bak`), rotation is skipped so the existing
+     * valid `.bak` is never overwritten by corrupt bytes.
      */
-    fun writeBytes(targetFile: File, bytes: ByteArray): Boolean {
+    fun writeBytes(
+        targetFile: File,
+        bytes: ByteArray,
+        expectedPriorSize: Long? = null
+    ): Boolean {
         if (bytes.isEmpty()) {
             Log.e(TAG, "Refusing to write 0-byte file to ${targetFile.absolutePath}")
             return false
@@ -221,8 +229,10 @@ object AtomicSaveFile {
                 return false
             }
 
-            // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created)
-            if (targetFile.exists() && targetFile.length() > 0L) {
+            // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created).
+            // Never rotate a truncated/wrong-size canonical file over an existing valid .bak.
+            val priorValidForBackup = expectedPriorSize == null || targetFile.length() == expectedPriorSize
+            if (targetFile.exists() && targetFile.length() > 0L && priorValidForBackup) {
                 if (!rotateBackup(targetFile, bakFile)) {
                     Log.e(TAG, "Aborting atomic write: failed to create verified previous-good backup")
                     if (tmpFile.exists()) tmpFile.delete()
@@ -256,11 +266,15 @@ object AtomicSaveFile {
      * Atomically copy a staging file to targetFile with durability and previous-good backup (.bak).
      * When [markAutoLoadExcluded] is true (e.g. migrating an already excluded state), writes
      * `<target>.no_autoload` durably before committing [targetFile] and preserves it after commit.
+     * When [expectedPriorSize] is set and the existing [targetFile] does not match that size (e.g.
+     * a truncated canonical file left beside a valid `.bak`), rotation is skipped so the existing
+     * valid `.bak` is never overwritten by corrupt bytes.
      */
     fun copyFromStaging(
         stagingFile: File,
         targetFile: File,
-        markAutoLoadExcluded: Boolean = false
+        markAutoLoadExcluded: Boolean = false,
+        expectedPriorSize: Long? = null
     ): Boolean {
         if (!stagingFile.exists() || stagingFile.length() == 0L) {
             Log.e(TAG, "Staging file missing or empty: ${stagingFile.absolutePath}")
@@ -299,8 +313,10 @@ object AtomicSaveFile {
                 return false
             }
 
-            // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created)
-            if (targetFile.exists() && targetFile.length() > 0L) {
+            // 3. Retain/rotate previous canonical file as .bak (FAIL CLOSED if backup cannot be created).
+            // Never rotate a truncated/wrong-size canonical file over an existing valid .bak.
+            val priorValidForBackup = expectedPriorSize == null || targetFile.length() == expectedPriorSize
+            if (targetFile.exists() && targetFile.length() > 0L && priorValidForBackup) {
                 if (!rotateBackup(targetFile, bakFile)) {
                     Log.e(TAG, "Aborting atomic staging copy: failed to create verified previous-good backup")
                     if (tmpFile.exists()) tmpFile.delete()

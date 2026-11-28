@@ -217,16 +217,20 @@ open class SaveStateManager(
     fun migrateOldBranchDirIfPresent(identity: RomIdentity): Boolean {
         if (!identity.isValid) return false
         val canonicalDir = getCanonicalRomDir(identity)
-        val canonicalHasSaves = canonicalDir.listFiles { f ->
-            f.isFile && (f.name.endsWith(".sav") || f.name.endsWith(".state"))
-        }?.isNotEmpty() == true
-
-        if (canonicalHasSaves) return false
 
         // Check fallbackBaseDir for <sanitizedTitle>__<shortHash>
         val oldKey = identity.legacyStorageKey
         val oldDir = File(fallbackBaseDir, oldKey)
         if (!oldDir.exists() || !oldDir.isDirectory) return false
+
+        val inProgressMarker = File(oldDir, ".migration_in_progress")
+        val resumingIncomplete = inProgressMarker.exists()
+
+        val canonicalHasSaves = canonicalDir.listFiles { f ->
+            f.isFile && (f.name.endsWith(".sav") || f.name.endsWith(".state"))
+        }?.isNotEmpty() == true
+
+        if (canonicalHasSaves && !resumingIncomplete) return false
 
         val oldFiles = oldDir.listFiles { f ->
             f.isFile && !AtomicSaveFile.isInternalSidecarName(f.name)
@@ -234,11 +238,27 @@ open class SaveStateManager(
 
         if (oldFiles.isEmpty()) return false
 
-        Log.i(TAG, "Migrating old branch save directory from $oldKey to canonical ${identity.storageKey}")
+        if (!resumingIncomplete) {
+            val markerCreated = try {
+                inProgressMarker.writeText("1")
+                inProgressMarker.exists()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to mark old-branch migration in progress for $oldKey: ${e.message}")
+                false
+            }
+            if (!markerCreated) return false
+        }
+
+        Log.i(TAG, "Migrating old branch save directory from $oldKey to canonical ${identity.storageKey} (resuming=$resumingIncomplete)")
         var migratedAny = false
         var allMigrated = true
         for (file in oldFiles) {
             val target = File(canonicalDir, file.name)
+            // When resuming an incomplete migration, protect any canonical file that already exists
+            // (including newer saves created after the partial pass) and only migrate missing files.
+            if (target.isFile && target.length() > 0L) {
+                continue
+            }
             val sourceExcluded = AtomicSaveFile.isAutoLoadExcluded(file)
             if (AtomicSaveFile.copyFromStaging(file, target, markAutoLoadExcluded = sourceExcluded)) {
                 migratedAny = true
@@ -247,7 +267,8 @@ open class SaveStateManager(
             }
         }
 
-        if (migratedAny && allMigrated) {
+        if (allMigrated) {
+            inProgressMarker.delete()
             val bakDir = File(fallbackBaseDir, "${oldKey}.migrated.bak")
             oldDir.renameTo(bakDir)
         }
@@ -284,7 +305,14 @@ open class SaveStateManager(
         val ok = nativeSaveState(stagingFile.absolutePath)
         if (!ok || !stagingFile.exists() || stagingFile.length() == 0L) return null
         val canonicalFile = getCanonicalFile(identity, fileName)
-        return canonicalFile.takeIf { AtomicSaveFile.copyFromStaging(stagingFile, it) }
+        val expectedStateSize = nativeGetSaveStateSize().takeIf { it > 0 }
+        return canonicalFile.takeIf {
+            AtomicSaveFile.copyFromStaging(
+                stagingFile = stagingFile,
+                targetFile = it,
+                expectedPriorSize = expectedStateSize
+            )
+        }
     }
 
     /**
@@ -842,7 +870,12 @@ open class SaveStateManager(
         // battery.sav's mtime past the resume state written in between, or the next boot rejects it as stale.
         val unchanged = canonicalFile.isFile && canonicalFile.length() == stagingFile.length() &&
             canonicalFile.readBytes().contentEquals(stagingFile.readBytes())
-        val committed = unchanged || AtomicSaveFile.copyFromStaging(stagingFile, canonicalFile)
+        val expectedRamSize = nativeGetSaveRamSize().takeIf { it > 0 }
+        val committed = unchanged || AtomicSaveFile.copyFromStaging(
+            stagingFile = stagingFile,
+            targetFile = canonicalFile,
+            expectedPriorSize = expectedRamSize
+        )
         if (!committed) {
             Log.e(TAG, "Atomic commit to canonical battery.sav failed")
             return SaveWriteResult.Failure("Canonical commit failed")

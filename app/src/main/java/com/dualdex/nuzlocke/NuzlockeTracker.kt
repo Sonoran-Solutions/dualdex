@@ -19,6 +19,7 @@ class NuzlockeTracker(
         val areaKey: String,
         val speciesId: Int,
         val initialPartyKeys: Set<String>,
+        val initialOccupiedSlots: Int,
         val wasDupeSkip: Boolean
     )
 
@@ -63,10 +64,11 @@ class NuzlockeTracker(
         if (!_state.enabled) return false
 
         var changed = false
+        val occupiedPartySlots = party.count { it.isValid && !it.isEmpty }
         val validParty = party.filter { it.isValid && !it.isEmpty && !it.isEgg && it.species > 0 }
         val resolvedArea = resolveAreaName(location, areaName)
 
-        // 1. Permanent fainting: track alive non-egg party mons and permanently record faints.
+        // 1. Permanent fainting: require an observed alive (>0 HP) -> fainted (0 HP) transition.
         for (mon in validParty) {
             val key = monIdentityKey(mon)
             if (key.isEmpty()) continue
@@ -75,8 +77,8 @@ class NuzlockeTracker(
             if (mon.currentHp > 0) {
                 observedAlivePartyKeys += key
             } else {
-                observedAlivePartyKeys.remove(key)
-                if (key !in _state.fallen) {
+                val wasAlive = observedAlivePartyKeys.remove(key)
+                if (wasAlive && key !in _state.fallen) {
                     val speciesName = resolveSpeciesName(mon.species, speciesNameResolver)
                     val nickname = mon.nickname.ifBlank { speciesName }
                     val fallenMon = FallenMon(
@@ -110,11 +112,21 @@ class NuzlockeTracker(
                     existing.outcome == EncounterOutcome.MET &&
                     existing.speciesId == pending.speciesId
                 ) {
+                    val currentKeys = validParty.mapNotNull { monIdentityKey(it).ifEmpty { null } }.toSet()
                     val caughtNewMon = validParty.any { mon ->
                         val key = monIdentityKey(mon)
                         key.isNotEmpty() && key !in pending.initialPartyKeys && mon.species == pending.speciesId
                     }
-                    val resolvedOutcome = if (caughtNewMon) EncounterOutcome.CAUGHT else EncounterOutcome.MISSED
+                    // When the party was full (>= 6 slots) a catch goes directly to the PC, and when
+                    // battle-exit or party continuity cannot be established, leave the outcome PENDING
+                    // for manual resolution instead of falsely marking MISSED.
+                    val resolvedOutcome = when {
+                        caughtNewMon -> EncounterOutcome.CAUGHT
+                        pending.initialOccupiedSlots !in 1..5 -> EncounterOutcome.PENDING
+                        battleKind != NuzlockeBattleKind.NONE -> EncounterOutcome.PENDING
+                        !currentKeys.containsAll(pending.initialPartyKeys) -> EncounterOutcome.PENDING
+                        else -> EncounterOutcome.MISSED
+                    }
                     val updatedEncounters = LinkedHashMap(_state.encounters)
                     updatedEncounters[pending.areaKey] = existing.copy(outcome = resolvedOutcome)
                     _state = _state.copy(encounters = updatedEncounters)
@@ -154,6 +166,7 @@ class NuzlockeTracker(
                         areaKey = areaKey,
                         speciesId = wildEnemy.species,
                         initialPartyKeys = validParty.mapNotNull { monIdentityKey(it).ifEmpty { null } }.toSet(),
+                        initialOccupiedSlots = occupiedPartySlots,
                         wasDupeSkip = isDupe
                     )
                     changed = true
@@ -167,9 +180,7 @@ class NuzlockeTracker(
     fun setEnabled(enabled: Boolean): Boolean {
         if (_state.enabled == enabled) return false
         _state = _state.copy(enabled = enabled)
-        if (!enabled) {
-            resetTransientState()
-        }
+        resetTransientState()
         return true
     }
 
@@ -189,6 +200,9 @@ class NuzlockeTracker(
     fun overrideEncounterOutcome(areaKey: String, outcome: EncounterOutcome): Boolean {
         val existing = _state.encounters[areaKey] ?: return false
         if (existing.outcome == outcome) return false
+        if (activeWildEncounter?.areaKey == areaKey) {
+            activeWildEncounter = null
+        }
         val updated = LinkedHashMap(_state.encounters)
         updated[areaKey] = existing.copy(outcome = outcome)
         _state = _state.copy(encounters = updated)
@@ -199,6 +213,8 @@ class NuzlockeTracker(
         if (monKey !in _state.fallen) return false
         val updated = LinkedHashMap(_state.fallen)
         updated.remove(monKey)
+        // Do not add monKey to observedAlivePartyKeys; it must be observed > 0 HP before fainting again.
+        observedAlivePartyKeys.remove(monKey)
         _state = _state.copy(fallen = updated)
         return true
     }

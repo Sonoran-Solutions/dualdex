@@ -93,6 +93,25 @@ EWRAM_OFFSET_FIELDS = {
     'battler_positions_offset', 'absent_battler_flags_offset', 'field_statuses_offset',
     'battle_weather_offset', 'side_statuses_offset', 'battle_struct_ptr_offset',
 }
+# Minimum byte span read at each EWRAM-relative offset member. Multi-slot/stride members
+# (battle_mons_offset, side_statuses_offset) are additionally checked in check_consistency.
+EWRAM_OFFSET_WIDTHS = {
+    'player_party_offset': PARTY_BYTES,
+    'player_party_count_offset': 1,
+    'enemy_party_offset': PARTY_BYTES,
+    'enemy_party_count_offset': 1,
+    'battle_mons_offset': 1,
+    'battler_party_indexes_offset': 8,
+    'battlers_count_offset': 1,
+    'battle_type_flags_offset': 4,
+    'battle_outcome_offset': 1,
+    'battler_positions_offset': 4,
+    'absent_battler_flags_offset': 1,
+    'field_statuses_offset': 4,
+    'battle_weather_offset': 2,
+    'side_statuses_offset': 4,
+    'battle_struct_ptr_offset': 4,
+}
 # Absolute GBA address members and the regions each may point into.
 GBA_ADDRESS_FIELDS = {
     'battle_current_move_gba_address': ('ewram', 'iwram'),
@@ -303,6 +322,8 @@ class CFacts:
         if stale:
             raise GamedataError('generate_gamedata.py classifies members GameMemoryConfig no longer '
                                 'has: ' + ', '.join(stale))
+        if set(EWRAM_OFFSET_WIDTHS) != EWRAM_OFFSET_FIELDS:
+            raise GamedataError('generate_gamedata.py EWRAM_OFFSET_WIDTHS out of sync with EWRAM_OFFSET_FIELDS')
 
     def type_max(self, name):
         return 0xFF if self.types[name] == 'uint8_t' else 0xFFFFFFFF
@@ -512,6 +533,9 @@ def parse_field(facts, where, name, raw):
             fail(where, 'offset 0 means "undeclared" to the reader; use null to leave it undeclared')
         if number >= EWRAM_SIZE:
             fail(where, f'EWRAM offset 0x{number:X} is outside EWRAM (size 0x{EWRAM_SIZE:X})')
+        width = EWRAM_OFFSET_WIDTHS[name]
+        if number + width > EWRAM_SIZE:
+            fail(where, f'EWRAM offset 0x{number:X} + {width} bytes runs past the end of EWRAM (size 0x{EWRAM_SIZE:X})')
     elif kind == 'gba_address':
         regions = GBA_ADDRESS_FIELDS[name]
         if number == 0:
@@ -585,19 +609,24 @@ def resolve(facts, configs, config_id):
 
 
 # Cross-field checks that a config may waive explicitly (with a reason) for legacy values whose
-# bit-for-bit preservation matters more than tidiness. Range, region and type checks never waive.
+# bit-for-bit preservation matters more than tidiness. Range, region, type and physical
+# memory/struct bounds checks never waive.
 CONSISTENCY_CHECKS = {
-    'ewram-extent': 'a declared EWRAM object runs past the end of EWRAM',
     'party-overlap': 'the player and enemy party arrays overlap',
     'party-count-inside-party': 'a party count byte lies inside a party array',
     'party-counts-shared': 'the player and enemy counts share one byte',
     'battle-mons-declaration': 'gBattleMons offset/size/hp are not declared together',
-    'battle-mons-member-extent': 'a BattlePokemon member does not fit inside battle_mons_size',
-    'struct-bit-extent': 'a bitfield position does not fit inside its compiled struct',
     'main-in-battle': 'the gMain.inBattle declaration is incomplete or not a bit of one byte',
-    'save-block1-window': 'the SaveBlock1 pointer/base/window/size declaration is inconsistent',
-    'save-block1-member-extent': 'a SaveBlock1 member does not lie inside save_block1_size',
+    'save-block1-window': 'the SaveBlock1 pointer/base/window/size declaration is incomplete or misaligned',
     'save-block3-declaration': 'the SaveBlock3 pointer and base are not declared together',
+}
+
+SAVE_BLOCK1_MEMBER_WIDTHS = {
+    'save_block1_pos_offset': 4,          # Coords16 (s16 x, s16 y)
+    'save_block1_location_offset': 8,     # WarpData (8 bytes)
+    'save_block1_escape_warp_offset': 8,  # WarpData (8 bytes)
+    'save_block1_flags_offset': 1,        # start of flags[]
+    'save_block1_badges_offset': 2,       # flags[0x10C..0x10D]
 }
 
 
@@ -611,14 +640,14 @@ def check_consistency(where, config):
         else:
             fail(where, f'[{check}] {message}')
 
-    def extent(name, size):
+    def ewram_extent(name, size):
         start = get(name)
         if start is not None and start + size > EWRAM_SIZE:
-            problem('ewram-extent', f'{name} 0x{start:X} + {size} bytes runs past the end of EWRAM')
+            fail(where, f'[ewram-extent] {name} 0x{start:X} + {size} bytes runs past the end of EWRAM')
 
-    # Party arrays and their count bytes must not overlap one another.
-    extent('player_party_offset', PARTY_BYTES)
-    extent('enemy_party_offset', PARTY_BYTES)
+    # Party arrays and their count bytes must stay within EWRAM (non-waivable) and not overlap.
+    ewram_extent('player_party_offset', PARTY_BYTES)
+    ewram_extent('enemy_party_offset', PARTY_BYTES)
     player, enemy = get('player_party_offset'), get('enemy_party_offset')
     if abs(player - enemy) < PARTY_BYTES:
         problem('party-overlap', 'player_party_offset and enemy_party_offset overlap (6 x 100-byte parties)')
@@ -630,13 +659,17 @@ def check_consistency(where, config):
     if get('player_party_count_offset') == get('enemy_party_count_offset'):
         problem('party-counts-shared', 'player and enemy party counts share one byte')
 
-    # struct BattlePokemon members must fit inside the declared struct size.
+    # Two-side EWRAM extent for gSideStatuses[] when stride is declared (non-waivable).
+    if get('side_statuses_offset') is not None and get('side_statuses_stride') is not None:
+        ewram_extent('side_statuses_offset', get('side_statuses_stride') + 4)
+
+    # struct BattlePokemon members must fit inside the declared struct size (non-waivable).
     size = get('battle_mons_size')
     if (get('battle_mons_offset') is None) != (size is None) or size == 0:
         problem('battle-mons-declaration', 'battle_mons_offset and a non-zero battle_mons_size '
                                            'must be declared together')
     if size and get('battle_mons_offset') is not None:
-        extent('battle_mons_offset', size * 4)
+        ewram_extent('battle_mons_offset', size * 4)
         if get('battle_mons_hp_offset') is None:
             problem('battle-mons-declaration', 'battle_mons_hp_offset is required when gBattleMons is declared')
     members = [('battle_mons_hp_offset', 2), ('battle_mons_stat_stages_offset', NUM_BATTLE_STATS),
@@ -645,31 +678,31 @@ def check_consistency(where, config):
         members.append((f'battle_mons_{member}_offset', get(f'battle_mons_{member}_size') or 1))
     if get('battle_mons_types_offset') is not None:
         members.append(('battle_mons_types_offset',
-                        (get('battle_mons_type_count') or 1) * (get('battle_mons_type_width') or 1)))
+                        (get('battle_mons_type_count') or 1) * (get(f'battle_mons_type_width') or 1)))
     if get('battle_mons_volatiles_offset') is not None:
         members.append(('battle_mons_volatiles_offset', 1))
     for name, width in members:
         offset = get(name)
         if offset is not None and (not size or offset + width > size):
-            problem('battle-mons-member-extent',
-                    f'{name} 0x{offset:X} + {width} does not fit battle_mons_size {size}')
+            fail(where, f'[battle-mons-member-extent] {name} 0x{offset:X} + {width} '
+                        f'does not fit battle_mons_size {size}')
     volatiles = get('battle_mons_volatiles_offset')
     for name in config.values:
         if name.startswith('battle_mons_volatile_') and name.endswith('_bit'):
             width = get(name[:-4] + '_width') or 1
             if volatiles is None or not size or get(name) + width > (size - volatiles) * 8:
-                problem('struct-bit-extent',
-                        f'{name} {get(name)} + {width} bits does not fit after battle_mons_volatiles_offset')
+                fail(where, f'[struct-bit-extent] {name} {get(name)} + {width} bits '
+                            'does not fit after battle_mons_volatiles_offset')
     battler_state = get('battler_state_size')
     for name in ('battler_state_switch_in_bit', 'battler_state_is_first_turn_bit'):
         if get(name) is not None:
             width = get(name[:-4] + '_width') or 1
             if battler_state is None or get(name) + width > battler_state * 8:
-                problem('struct-bit-extent', f'{name} does not fit inside battler_state_size')
+                fail(where, f'[struct-bit-extent] {name} does not fit inside battler_state_size')
     party_state = get('party_state_entry_size')
     if get('party_state_ate_berry_bit') is not None and (
             party_state is None or get('party_state_ate_berry_bit') >= party_state * 8):
-        problem('struct-bit-extent', 'party_state_ate_berry_bit does not fit inside party_state_entry_size')
+        fail(where, '[struct-bit-extent] party_state_ate_berry_bit does not fit inside party_state_entry_size')
 
     # Composite reads at gMain + member offset must stay inside IWRAM (never waivable).
     main = get('main_struct_gba_address')
@@ -683,27 +716,27 @@ def check_consistency(where, config):
 
     # gMain.inBattle is one bit of one byte.
     if get('main_in_battle_bit') is not None and get('main_in_battle_bit') >= 8:
-        problem('main-in-battle', 'main_in_battle_bit must be 0..7')
+        fail(where, 'main_in_battle_bit must be 0..7')
     if get('main_in_battle_byte_offset') is not None and get('main_struct_gba_address') is None:
         problem('main-in-battle', 'main_in_battle_byte_offset requires main_struct_gba_address')
 
-    # SaveBlock1 window and struct-relative members.
+    # SaveBlock1 window and struct-relative members (physical bounds are never waivable).
+    base, window, sb1 = (get('save_block1_base_gba_address'), get('save_block1_aslr_range'),
+                         get('save_block1_size'))
+    if base is not None and base + (window or 0) + (sb1 or 0) > EWRAM_BASE + EWRAM_SIZE:
+        fail(where, 'SaveBlock1 base + ASLR window + size runs past the end of EWRAM')
     if get('save_block1_ptr_gba_address') is not None:
-        base, window, sb1 = (get('save_block1_base_gba_address'), get('save_block1_aslr_range'),
-                             get('save_block1_size'))
         if None in (base, window, sb1):
             problem('save-block1-window', 'save_block1_ptr_gba_address requires save_block1_base_gba_address, '
                                           'save_block1_aslr_range and save_block1_size')
         elif base % 4 or window == 0 or window % 4:
             problem('save-block1-window', 'save_block1_base_gba_address and save_block1_aslr_range '
                                           'must be 4-byte aligned and non-zero')
-        elif base + window + sb1 > EWRAM_BASE + EWRAM_SIZE:
-            problem('save-block1-window', 'SaveBlock1 base + ASLR window + size runs past the end of EWRAM')
-    sb1 = get('save_block1_size')
-    for name in ('save_block1_pos_offset', 'save_block1_location_offset',
-                 'save_block1_escape_warp_offset', 'save_block1_flags_offset', 'save_block1_badges_offset'):
-        if get(name) is not None and (sb1 is None or get(name) >= sb1):
-            problem('save-block1-member-extent', f'{name} must lie inside save_block1_size')
+    for name, width in SAVE_BLOCK1_MEMBER_WIDTHS.items():
+        offset = get(name)
+        if offset is not None and (sb1 is None or offset + width > sb1):
+            fail(where, f'[save-block1-member-extent] {name} 0x{offset:X} + {width} '
+                        f'does not fit save_block1_size {sb1}')
     if (get('save_block3_ptr_gba_address') is None) != (get('save_block3_base_gba_address') is None):
         problem('save-block3-declaration',
                 'save_block3_ptr_gba_address and save_block3_base_gba_address must be declared together')

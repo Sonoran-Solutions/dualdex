@@ -262,6 +262,59 @@ class CliTest(unittest.TestCase):
             self.assertEqual(report['observations']['a']['probes'][0]['verdict'], 'drifting')
             self.assertEqual([h.calls for h in hosts], [['cleanup'], ['cleanup']])
 
+    def test_zero_or_nonpositive_boot_jitter_is_refused_before_any_boot(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+            out = folder / 'out.json'
+            for bad_jitter, boots in (('0', '2'), ('-3', '2'), (str(ro.MAX_JITTER), '3')):
+                with self.subTest(bad_jitter=bad_jitter, boots=boots):
+                    argv = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                            '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                            '--output', str(out), '--boots', boots, '--boot-jitter', bad_jitter]
+                    with patch.object(ro.Session, 'open') as opened, contextlib.redirect_stderr(io.StringIO()):
+                        self.assertEqual(ro.main(argv), 1)
+                    opened.assert_not_called()
+                    report = json.loads(out.read_text())
+                    self.assertEqual(report['status'], 'FAIL')
+                    self.assertIn('jitter', report['error'])
+
+    def test_missing_private_input_writes_path_free_error_in_json(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+            secret_dir = folder / 'private-secret-vault'
+            missing_rom = secret_dir / 'secret-project.gba'
+            out = folder / 'out.json'
+            argv = ['--rom', str(missing_rom), '--core', str(folder / 'core'),
+                    '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                    '--output', str(out)]
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                code = ro.main(argv)
+            raw_json = out.read_text()
+            report = json.loads(raw_json)
+            self.assertEqual((code, report['status']), (1, 'FAIL'))
+            self.assertNotIn('private-secret-vault', raw_json)
+            self.assertNotIn('secret-project.gba', raw_json)
+            self.assertNotIn('/', report['error'])
+            self.assertIn('ENOENT', report['error'])
+            self.assertNotIn('private-secret-vault', err.getvalue())
+            # Also verify OSError without errno (e.g. ctypes.CDLL load failure) does not leak paths.
+            with patch.object(ro.Session, 'open', side_effect=OSError(f'{missing_rom}: cannot open')), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                code = ro.main(['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                                '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                                '--output', str(out)])
+            report2 = json.loads(out.read_text())
+            self.assertEqual((code, report2['status']), (1, 'FAIL'))
+            self.assertNotIn('private-secret-vault', out.read_text())
+            self.assertNotIn('/', report2['error'])
+
 
 if __name__ == '__main__':
     unittest.main()

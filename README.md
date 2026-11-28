@@ -9,15 +9,15 @@ DualDex reads game state directly from the emulator for supported ROM profiles, 
 > **Project status:** DualDex is preparing its first Early Access build, **`0.9.0-beta.1`**, which has **not shipped yet** (the development identity is still `0.9.0-dev`).
 >
 > **Already on `main`:**
-> - **Heart & Soul 2.0.5** is complete — exact `Release-v2.0.5` (upstream commit `1f42b74dff…`) at ROM SHA-256 `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b` is the only H&S build trusted for live memory reads. Its core live-companion, battle, map and calculator integration is evidence-backed and frozen behind a correctness-only freeze.
+> - **Heart & Soul 2.0.5** is complete — exact `Release-v2.0.5` (upstream commit `1f42b74dff…`) at ROM SHA-256 `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b` is the only H&S build trusted for live memory reads. Its core live-companion, battle, map and bounded calculator integration is frozen behind a correctness-only freeze, with verified arithmetic/oracle evidence across its admitted set and an `ESTIMATED` live-session calculator ceiling ([docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md)).
 > - **Navigator** companion shell with in-game-style Party slots and a DS-style 2×2 battle move grid with tap-to-select moves.
 > - **Save safety:** SHA-256 ROM identity, atomic battery saves, SAF mirror, session identity binding with stale-observation rejection, and save-only Android backup/device-transfer allowlists.
 > - **Quick wins:** smart fast-forward, hotkey chords, frontend launch, save sharing, GitHub Releases updater, ten save-state slots with thumbnails, status bar, touch overlay, foe-team panel, L2/R2 quick save/load.
-> - **Pokémon Unbound 2.1.1.1:** native party/battle/location/map-name reading and a host CFRU damage oracle with a 579-case golden corpus are merged; **production calculator wiring is still in progress** and Unbound damage numbers remain disabled.
+> - **Pokémon Unbound 2.1.1.1:** native party/location/map-name reading, a 579-case host CFRU damage oracle corpus, and production calculator **`ESTIMATED` mode** (Singles ordinary-hit, capped at `ESTIMATED` with `UNBOUND_CFRU_SOURCE_APPROXIMATE` behind the exact candidate SHA-256 gate) are enabled; live battle-state reads remain disabled on the shipped `unbound.json` profile (`battleStateReadVerified = false` / `mayReadBattleState = false`, so active-battle live-state requests fail closed) and exact-ROM table/oracle parity remains unverified.
 >
-> **`0.9.0-beta.1` ROM list (owner-approved):** exact Vanilla FireRed (rev 0/1), exact Vanilla Emerald, exact Heart & Soul 2.0.5, and exact Pokémon Unbound 2.1.1.1. **R.O.W.E. (#59)** and **quota-aware cloud backup (#186/#194)** are deliberately deferred to post-beta. Compatibility tiers are **Tier A** (verified live memory + exact calculator) and **Tier B** (verified live memory + estimated calculator), so new CFRU and pokeemerald-expansion hacks can onboard safely without waiting for a full oracle campaign.
+> **`0.9.0-beta.1` ROM list (owner-approved):** exact Vanilla FireRed (rev 0/1), exact Vanilla Emerald, exact Heart & Soul 2.0.5, and exact Pokémon Unbound 2.1.1.1. **R.O.W.E. (#59)** and **quota-aware cloud backup (#186/#194)** are deliberately deferred to post-beta. Compatibility tiers are **Tier A** (verified live memory + `VERIFIED` calculator) and **Tier B** (verified live memory + `ESTIMATED` calculator), so new CFRU and pokeemerald-expansion hacks can onboard safely without waiting for a full oracle campaign.
 >
-> Remaining beta gates are hardware/release work, not feature work: the extended AYN Thor soak and disposable-device cloud/device-transfer restore checks are still **not run**, and no build has been signed with the permanent production key. The Assistant has been removed from the build (source kept under `disabled/assistant/`), and the [#17 cheat policy](docs/CHEAT_COMPATIBILITY.md) ships no built-in cheats without exact-target evidence.
+> Remaining beta gates are hardware/release work, not feature work: AYN Thor hardware acceptance remains at **HOLD** per [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md) (outstanding §5 matrix rows/subchecks and the continuous `>= 60`-minute soak `F1` remain open, alongside the unrun disposable-device cloud/device-transfer restore checks), and no build has been signed with the permanent production key. The Assistant has been removed from the build (source kept under `disabled/assistant/`), and the [#17 cheat policy](docs/CHEAT_COMPATIBILITY.md) ships no built-in cheats without exact-target evidence.
 >
 > See [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md) for the roadmap and parallel execution matrix, and [docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md) for exactly what is verified for H&S 2.0.5.
 
@@ -66,7 +66,7 @@ The calculator can use live party and opponent data when that information is ava
 
 ROM hacks can change a lot more than species names, so calculator behavior is being moved toward explicit per-game/version rules rather than assuming every GBA Pokémon game follows vanilla Gen 3 mechanics.
 
-**H&S calculator status:** The H&S calculator has completed its planned pre-beta feature development. New mechanic coverage is deferred until after the first public beta. Only correctness and beta-blocking fixes are allowed during the freeze. The freeze takes effect when the reviewed final-calculator PR is merged into `main`, and it lasts until after the first public `0.9.0-beta.1` release. See [docs/CALCULATOR_BETA_FREEZE.md](docs/CALCULATOR_BETA_FREEZE.md) and [docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md).
+**H&S calculator status:** The H&S calculator has completed its planned pre-beta feature development with verified arithmetic/oracle evidence across its 422 admitted move IDs and 2,523-scenario oracle corpus, while its live-session production ceiling remains **`ESTIMATED`**. New mechanic coverage is deferred until after the first public beta. Only correctness and beta-blocking fixes are allowed during the freeze. The freeze takes effect when the reviewed final-calculator PR is merged into `main`, and it lasts until after the first public `0.9.0-beta.1` release. See [docs/CALCULATOR_BETA_FREEZE.md](docs/CALCULATOR_BETA_FREEZE.md) and [docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md).
 
 ### Companion tools
 
@@ -102,8 +102,8 @@ For `0.9.0-beta.1` the owner-approved ROM list is **exact Vanilla FireRed, exact
 
 Compatibility is organised in tiers so new hacks can onboard without a full calculator-oracle campaign first:
 
-- **Tier A — Verified Live + Exact Calc.** Verified memory layout and a source/oracle-verified damage calculator (or an explicit, fail-closed calculator refusal). Currently FireRed, Emerald and H&S 2.0.5; Unbound once fully verified.
-- **Tier B — Verified Live + Estimated Calc.** Verified memory layout plus live party/battle/map/type-chart reading, with damage numbers capped at an *approximate* result.
+- **Tier A — Verified Live + Exact Calc.** Verified memory layout and a source/oracle-verified `VERIFIED` damage calculator (or an explicit, fail-closed calculator refusal). Currently FireRed and Emerald hold `VERIFIED` Gen 3 calculator capability for manual/party inputs (noting their shipped profiles keep live battle-state reads disabled: `battleStateReadVerified = false` / `mayReadBattleState = false`, separate from native layout evidence); Unbound would require exact-ROM table/oracle verification and battle-state verification before promotion.
+- **Tier B — Verified Live + Estimated Calc.** Verified memory layout plus damage numbers capped at an `ESTIMATED` ceiling. Currently Heart & Soul 2.0.5 (live party/battle/map and battle-state reads enabled; verified arithmetic/oracle evidence across the admitted set, production ceiling `ESTIMATED`) and Pokémon Unbound 2.1.1.1 (exact-hash-gated Singles ordinary-hit `ESTIMATED` mode enabled; live battle-state reads disabled on the shipped profile with `battleStateReadVerified = false`).
 
 Runtime trust still uses three explicit states:
 
@@ -210,16 +210,17 @@ The immediate goal is **`0.9.0-beta.1` Early Access on the AYN Thor**, with the 
 
 ### What is done
 
-1. **Heart & Soul 2.0.5 core integration** — exact trust, live party/battle/map, bounded calculator (frozen), DS-style move grid with tap-to-select.
+1. **Heart & Soul 2.0.5 core integration** — exact trust, live party/battle/map, bounded calculator (`ESTIMATED` ceiling, frozen).
 2. **Navigator + in-game-style Party slots.**
 3. **Save safety foundations** — SHA-256 ROM identity, atomic saves, SAF mirror, save-only backup/device-transfer allowlists, stale-observation rejection.
 4. **`#153` quick wins** — smart fast-forward, hotkey chords, frontend launch, save sharing, GitHub Releases updater, ten save-state slots, status bar, touch overlay, foe-team panel, L2/R2 quick save/load.
+5. **Unbound 2.1.1.1 baseline** — exact candidate SHA-256 trust, native party/location/map-name reads (`battleStateReadVerified = false`), and `ESTIMATED` Singles ordinary-hit calculator enabled (`UNBOUND_CFRU_SOURCE_APPROXIMATE`).
 
 ### What `0.9.0-beta.1` still requires
 
-1. **Finish Unbound production calculator wiring**, or ship Unbound as live-read-only with the calculator explicitly refused and documented.
+1. **Finalize Unbound beta posture** — document the current `ESTIMATED` Singles scope (with `battleStateReadVerified = false` / live battle-state reads disabled on the shipped profile) for beta, or complete exact-ROM table/oracle verification.
 2. **Complete the general release blockers** — signing, diagnostics, tester rings, upgrade-path testing, and the remaining save-recovery edge cases.
-3. **Run the hardware gates** — extended AYN Thor soak plus disposable-device cloud/device-transfer restore. Both are currently **not run**.
+3. **Clear the AYN Thor hardware `HOLD` and restore gates** — close outstanding §5 matrix rows/subchecks and the continuous `>= 60`-minute soak (`F1`) in [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md), plus disposable-device cloud/device-transfer restore (`not run`).
 4. **Cut `0.9.0-beta.1-rc1` and promote the exact tested artifact** to `0.9.0-beta.1`.
 
 ### Deferred to post-beta

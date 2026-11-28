@@ -85,9 +85,33 @@ def _write_items(buf: bytearray, offset: int, count: int, pointer_name_offset: i
         buf[offset + i * 44:offset + (i + 1) * 44] = row
 
 
-def _write_type_matrix(buf: bytearray, offset: int, dim: int = 24) -> None:
-    matrix = bytearray([10] * (dim * dim))
-    matrix[7] = 0  # Normal -> Ghost = 0
+def _write_type_matrix(buf: bytearray, offset: int, dim: int = 24, neutral: int = 10) -> None:
+    matrix = bytearray([neutral] * (dim * dim))
+    entries = {
+        (0, 5): 5, (0, 7): 0, (0, 8): 5,
+        (1, 0): 20, (1, 2): 5, (1, 7): 0, (1, 8): 20,
+        (4, 2): 0, (4, 10): 20, (4, 13): 20,
+        (7, 0): 0, (7, 8): neutral, (7, 14): 20,
+        (10, 10): 5, (10, 11): 5, (10, 12): 20,
+        (11, 10): 20, (11, 11): 5, (11, 12): 5,
+        (12, 10): 5, (12, 11): 20, (12, 12): 5,
+        (13, 4): 0, (13, 11): 20, (13, 12): 5,
+        (14, 17): 0,
+        (16, 8): 5, (16, 16): 20,
+        (17, 8): neutral,
+    }
+    if dim == 24:
+        entries.update({
+            (16, 23): 0, (1, 23): 5, (3, 23): 20, (8, 23): 20,
+            (23, 0): neutral, (23, 1): 20, (23, 3): 5, (23, 8): 5,
+            (23, 10): 5, (23, 16): 20, (23, 17): 20,
+        })
+    elif dim == 19:
+        entries[(16, 18)] = 0
+        entries[(18, 16)] = 20
+    for (atk, dfn), mult in entries.items():
+        if atk < dim and dfn < dim:
+            matrix[atk * dim + dfn] = mult
     buf[offset:offset + len(matrix)] = matrix
 
 
@@ -255,6 +279,57 @@ class CfruExtractTest(unittest.TestCase):
             self.assertEqual(rc, 0)
             parsed = json.loads(out.getvalue())
             self.assertEqual(parsed["status"], "OK")
+
+    def test_type_chart_refuses_zero_and_constant_blocks(self):
+        _, cfru = _build_synthetic_pair()
+        for label, payload in (
+            ("zeros_576", b"\x00" * 576),
+            ("constant_10", b"\x0A" * 576),
+            ("constant_1", b"\x01" * 576),
+        ):
+            with self.subTest(case=label):
+                bad = bytearray(cfru)
+                bad[0x1240000:0x1240000 + 576] = payload
+                report = ce.extract_tables(bytes(bad))
+                self.assertEqual(report["status"], "PARTIAL")
+                entry = report["tables"]["gTypeEffectiveness"]
+                self.assertFalse(entry["sanity_ok"])
+                self.assertEqual(entry["count_estimate"], 0)
+                self.assertIsNone(entry["table_sha256"])
+
+    def test_type_chart_distinguishes_padded_18x18_and_19x19_from_24x24(self):
+        _, cfru = _build_synthetic_pair()
+        for dim in (18, 19):
+            for pad_byte in (0x00, 0x0A):
+                with self.subTest(dim=dim, pad=pad_byte):
+                    rom = bytearray(cfru)
+                    rom[0x1240000:0x1240000 + 576] = bytes([pad_byte] * 576)
+                    _write_type_matrix(rom, 0x1240000, dim=dim, neutral=10)
+                    report = ce.extract_tables(bytes(rom))
+                    self.assertEqual(report["status"], "OK")
+                    entry = report["tables"]["gTypeEffectiveness"]
+                    self.assertTrue(entry["sanity_ok"])
+                    self.assertEqual(entry["stride"], dim)
+                    self.assertEqual(entry["count_estimate"], dim)
+                    self.assertEqual(
+                        entry["table_sha256"],
+                        hashlib.sha256(rom[0x1240000:0x1240000 + dim * dim]).hexdigest(),
+                    )
+
+    def test_type_chart_refuses_ambiguous_matching_dimensions(self):
+        from unittest import mock
+
+        _, cfru = _build_synthetic_pair()
+        with mock.patch.object(ce, "_matches_type_matrix", side_effect=lambda _block, dim: dim in (18, 24)):
+            ok, stride, count, err = ce._validate_type_effectiveness(cfru, 0x1240000)
+            self.assertFalse(ok)
+            self.assertEqual((stride, count), (0, 0))
+            self.assertEqual(err, "ambiguous_type_effectiveness")
+            report = ce.extract_tables(cfru)
+            self.assertEqual(report["status"], "PARTIAL")
+            self.assertFalse(report["tables"]["gTypeEffectiveness"]["sanity_ok"])
+            self.assertEqual(report["tables"]["gTypeEffectiveness"]["reason"], "ambiguous_type_effectiveness")
+            self.assertIsNone(report["tables"]["gTypeEffectiveness"]["table_sha256"])
 
 
 if __name__ == "__main__":

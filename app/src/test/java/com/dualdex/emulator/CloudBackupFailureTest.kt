@@ -80,7 +80,7 @@ class CloudBackupFailureTest {
             inventory.identities, inventory.candidates, inventory.complete, QuotaBackupSelection.DEFAULT_BUDGET_BYTES
         )
         assertEquals(QuotaBackupSelection.Verdict.REFUSAL, selection.verdict)
-        assertEquals(setOf(secondHash), selection.unprotectedRomIdentities)
+        assertEquals(setOf(hash, secondHash), selection.unprotectedRomIdentities)
         refuse()
     }
 

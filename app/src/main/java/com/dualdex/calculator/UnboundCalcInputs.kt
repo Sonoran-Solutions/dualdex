@@ -65,15 +65,6 @@ internal object UnboundCalcInputs {
     fun isNoItem(name: String?): Boolean =
         name == null || name.equals(CalcInputPreparation.NO_ITEM, ignoreCase = true)
 
-    fun hasOnlyAssumedPartyAbilities(request: DamageCalculationRequest): Boolean {
-        val live = listOf(request.attacker, request.defender).filter { it.origin == CalcInputOrigin.LIVE_READ }
-        return live.any { CalcInputField.ABILITY in it.unknownFields } &&
-            live.all { participant ->
-                participant.unknownFields.all { it == CalcInputField.ABILITY } &&
-                    (participant.unknownFields.isEmpty() || participant.unbound?.partyMoveIds != null)
-            }
-    }
-
     fun prepare(
         request: DamageCalculationRequest,
         limitations: MutableSet<CalcLimitation>
@@ -166,8 +157,9 @@ internal object UnboundCalcInputs {
         val live = input.origin == CalcInputOrigin.LIVE_READ
         val party = live && observed?.partyMoveIds != null
         if (live && (observed == null || input.boosts == null ||
-                input.unknownFields.any { it != CalcInputField.ABILITY || !party } ||
-                (!party && (observed.types == null || input.abilityId == null || input.itemId == null)))
+                input.unknownFields.isNotEmpty() ||
+                input.abilityId == null ||
+                (!party && (observed.types == null || input.itemId == null)))
         ) return refuse(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
 
         val speciesId = observed?.speciesId ?: SpeciesDatabase.getByName(input.species)?.id?.let(baseIdByDex::get)
@@ -209,7 +201,12 @@ internal object UnboundCalcInputs {
             (party && observed?.partyHeldItemId != 0)
         ) return refuse(CalcLimitation.UNBOUND_MODIFIER_NOT_MODELLED)
         val namedAbilityId = input.ability?.let(::abilityId)
-        val ability = input.abilityId ?: namedAbilityId ?: 0
+        val ability = when {
+            live -> input.abilityId ?: return refuse(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
+            input.abilityId != null -> input.abilityId
+            input.ability != null -> namedAbilityId ?: return refuse(CalcLimitation.UNBOUND_MODIFIER_NOT_MODELLED)
+            else -> 0
+        }
         if (ability !in abilities || (input.ability != null && namedAbilityId != ability)) {
             return refuse(CalcLimitation.UNBOUND_MODIFIER_NOT_MODELLED)
         }

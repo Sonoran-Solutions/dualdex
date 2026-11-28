@@ -66,7 +66,8 @@ object CalcRequestBoundary {
         challengeSettings: HnsChallengeSettingsSnapshot? = null,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
         enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        activeBattle: Boolean = false
+        activeBattle: Boolean = false,
+        battlePresence: com.dualdex.battle.BattlePresence? = null
     ): CalcRequestOutcome = authorize(
         profile = profile,
         trust = trust,
@@ -75,7 +76,8 @@ object CalcRequestBoundary {
         challengeSettings = challengeSettings,
         playerBattlerState = playerBattlerState,
         enemyBattlerState = enemyBattlerState,
-        activeBattle = activeBattle
+        activeBattle = activeBattle,
+        battlePresence = battlePresence
     )
 
     /**
@@ -98,7 +100,8 @@ object CalcRequestBoundary {
         challengeSettings: HnsChallengeSettingsSnapshot? = null,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
         enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        activeBattle: Boolean = false
+        activeBattle: Boolean = false,
+        battlePresence: com.dualdex.battle.BattlePresence? = null
     ): CalcRequestOutcome {
         val prepared = CalcInputPreparation.prepare(
             attacker = attacker,
@@ -115,7 +118,8 @@ object CalcRequestBoundary {
             challengeSettings = challengeSettings,
             playerBattlerState = playerBattlerState,
             enemyBattlerState = enemyBattlerState,
-            activeBattle = activeBattle
+            activeBattle = activeBattle,
+            battlePresence = battlePresence
         )
     }
 
@@ -134,7 +138,8 @@ object CalcRequestBoundary {
         challengeSettings: HnsChallengeSettingsSnapshot? = null,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
         enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        activeBattle: Boolean = false
+        activeBattle: Boolean = false,
+        battlePresence: com.dualdex.battle.BattlePresence? = null
     ): CalcRequestOutcome = authorize(
         profile = profile,
         trust = trust,
@@ -143,7 +148,8 @@ object CalcRequestBoundary {
         challengeSettings = challengeSettings,
         playerBattlerState = playerBattlerState,
         enemyBattlerState = enemyBattlerState,
-        activeBattle = activeBattle
+        activeBattle = activeBattle,
+        battlePresence = battlePresence
     )
 
     /**
@@ -1482,12 +1488,19 @@ object CalcRequestBoundary {
         challengeSettings: HnsChallengeSettingsSnapshot? = null,
         playerBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
         enemyBattlerState: com.dualdex.pokemon.hns.BattlerRuntimeObservation? = null,
-        activeBattle: Boolean = false
+        activeBattle: Boolean = false,
+        battlePresence: com.dualdex.battle.BattlePresence? = null
     ): CalcRequestOutcome {
         val ruleset = CalcCapabilityPolicy.capabilityFor(profile)?.ruleset
         if (ruleset == CalcRuleset.UNBOUND_CFRU) {
+            val isLiveRead = liveReadHint || request.isFromLiveRead()
+            val hasPositiveOverworldEvidence = !activeBattle &&
+                battlePresence == com.dualdex.battle.BattlePresence.NOT_OBSERVED
+            val battleUnavailable = activeBattle ||
+                battlePresence == com.dualdex.battle.BattlePresence.OBSERVED ||
+                (isLiveRead && !hasPositiveOverworldEvidence)
             val blockers = buildList {
-                if (activeBattle) add(CalcLimitation.UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE)
+                if (battleUnavailable) add(CalcLimitation.UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE)
                 if (liveReadHint && !request.isFromLiveRead()) add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)
             }
             val verdict = CalcCapabilityPolicy.evaluate(

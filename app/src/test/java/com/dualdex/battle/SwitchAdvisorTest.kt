@@ -7,14 +7,20 @@ import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.romhack.ProfileMatchMethod
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.CoroutineContext
 
 class SwitchAdvisorTest {
 
@@ -97,7 +103,15 @@ class SwitchAdvisorTest {
             profile = verifiedFireRed,
             dataPack = Gen3VanillaDataPack,
             runtimeTrust = exactTrust
-        ) { _, _, _ -> null }
+        ) { attacker, defender, moveId ->
+            when {
+                attacker.species == 134 && moveId == 57 ->
+                    SwitchDamageEstimate(140, 165, defender.maxHp, CalcSupport.VERIFIED)
+                attacker.species == 6 && defender.species == 134 && moveId == 53 ->
+                    SwitchDamageEstimate(30, 36, defender.maxHp, CalcSupport.VERIFIED)
+                else -> null
+            }
+        }
 
         assertEquals(1, ranked.size)
         assertEquals(3, ranked.single().slot)
@@ -252,24 +266,24 @@ class SwitchAdvisorTest {
     }
 
     @Test
-    fun `falls back cleanly to TYPE_FALLBACK without faking damage numbers when calculator refuses`() {
+    fun `completely refused matchup produces no ranked switch`() {
         val active = mon(species = 3, nickname = "Venusaur")
         val blastoise = mon(
             species = 9,
             nickname = "Blastoise",
-            moves = intArrayOf(57, 0, 0, 0), // Surf (2x vs Charizard, resists Fire 0.5x)
+            moves = intArrayOf(57, 0, 0, 0),
             pp = intArrayOf(15, 0, 0, 0)
         )
         val venusaurBench = mon(
             species = 3,
             nickname = "BulbaBench",
-            moves = intArrayOf(33, 0, 0, 0), // Tackle (1x, weak to Fire 2x)
+            moves = intArrayOf(33, 0, 0, 0),
             pp = intArrayOf(35, 0, 0, 0)
         )
         val opponent = mon(
             species = 6,
             nickname = "Charizard",
-            moves = intArrayOf(53, 0, 0, 0), // Flamethrower
+            moves = intArrayOf(53, 0, 0, 0),
             pp = intArrayOf(15, 0, 0, 0)
         )
 
@@ -289,22 +303,144 @@ class SwitchAdvisorTest {
             }
         }
 
-        assertEquals(2, ranked.size)
-        assertEquals("Blastoise", ranked[0].displayName)
-        assertEquals("BulbaBench", ranked[1].displayName)
+        assertTrue("Completely refused calculations must not produce ranked switches", ranked.isEmpty())
+    }
 
-        for (rec in ranked) {
-            assertEquals(SwitchRecommendationSource.TYPE_FALLBACK, rec.source)
-            assertEquals(SwitchConfidenceTier.TYPE_FALLBACK, rec.confidenceTier)
-            assertEquals("Types", rec.confidenceTier.badgeLabel)
-            assertNull("Must never fabricate offensive damage %", rec.offenseMinPercent)
-            assertNull("Must never fabricate offensive damage %", rec.offenseMaxPercent)
-            assertNull("Must never fabricate threat damage %", rec.threatMinPercent)
-            assertNull("Must never fabricate threat damage %", rec.threatMaxPercent)
+    @Test
+    fun `unknown species or typing is refused rather than defaulting to neutral effectiveness`() {
+        val active = mon(species = 25, nickname = "Pikachu")
+        val unknownBench = mon(
+            species = 99999,
+            nickname = "MissingNo",
+            moves = intArrayOf(57, 0, 0, 0),
+            pp = intArrayOf(15, 0, 0, 0)
+        )
+        val knownBench = mon(
+            species = 9,
+            nickname = "Blastoise",
+            moves = intArrayOf(57, 0, 0, 0),
+            pp = intArrayOf(15, 0, 0, 0)
+        )
+        val knownOpponent = mon(
+            species = 6,
+            nickname = "Charizard",
+            moves = intArrayOf(53, 0, 0, 0),
+            pp = intArrayOf(15, 0, 0, 0)
+        )
+        val unknownOpponent = mon(
+            species = 99999,
+            nickname = "UnknownFoe",
+            moves = intArrayOf(53, 0, 0, 0),
+            pp = intArrayOf(15, 0, 0, 0)
+        )
+
+        // Unknown bench candidate is omitted even if evaluator would return a number; known bench ranks.
+        val rankedAgainstKnown = SwitchAdvisor.rankSwitches(
+            playerParty = listOf(active, unknownBench, knownBench),
+            activePlayerSlot = 0,
+            opponent = knownOpponent,
+            profile = verifiedFireRed,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        ) { _, defender, _ ->
+            SwitchDamageEstimate(80, 96, defender.maxHp, CalcSupport.VERIFIED)
         }
-        assertEquals(2.0, ranked[0].offenseEffectiveness!!, 0.001)
-        assertEquals(1.0, ranked[0].worstDefensiveMultiplier, 0.001) // Charizard STAB Flying is 1x vs Water, Fire is 0.5x -> max is 1.0
-        assertEquals(2.0, ranked[1].worstDefensiveMultiplier, 0.001) // Fire/Flying both 2x vs Grass/Poison
+        assertEquals(1, rankedAgainstKnown.size)
+        assertEquals("Blastoise", rankedAgainstKnown.single().displayName)
+
+        // Unknown opponent species refuses the entire switch ranking.
+        val rankedAgainstUnknown = SwitchAdvisor.rankSwitches(
+            playerParty = listOf(active, knownBench),
+            activePlayerSlot = 0,
+            opponent = unknownOpponent,
+            profile = verifiedFireRed,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        ) { _, defender, _ ->
+            SwitchDamageEstimate(80, 96, defender.maxHp, CalcSupport.VERIFIED)
+        }
+        assertTrue("Unknown opponent typing must refuse switch ranking", rankedAgainstUnknown.isEmpty())
+    }
+
+    @Test
+    fun `partially refused enemy moveset withholds Safe Pivot and worst threat claims`() {
+        val active = mon(species = 25, nickname = "Pikachu")
+        val blastoise = mon(
+            species = 9,
+            nickname = "Blastoise",
+            moves = intArrayOf(57, 0, 0, 0), // Surf
+            pp = intArrayOf(15, 0, 0, 0),
+            currentHp = 160,
+            maxHp = 160
+        )
+        // Opponent has weak Tackle (33) AND Earthquake (89) whose calc is refused/unmodelled.
+        val opponent = mon(
+            species = 143,
+            nickname = "Snorlax",
+            moves = intArrayOf(33, 89, 0, 0),
+            pp = intArrayOf(35, 10, 0, 0),
+            currentHp = 200,
+            maxHp = 200
+        )
+
+        val ranked = SwitchAdvisor.rankSwitches(
+            playerParty = listOf(active, blastoise),
+            activePlayerSlot = 0,
+            opponent = opponent,
+            profile = verifiedFireRed,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        ) { attacker, defender, moveId ->
+            when {
+                attacker.species == 9 && moveId == 57 ->
+                    SwitchDamageEstimate(70, 82, defender.maxHp, CalcSupport.VERIFIED)
+                attacker.species == 143 && moveId == 33 ->
+                    // 10-12% damage would normally earn "Safe Pivot" if Earthquake were ignored!
+                    SwitchDamageEstimate(16, 19, defender.maxHp, CalcSupport.VERIFIED)
+                attacker.species == 143 && moveId == 89 ->
+                    null // Refused / unmodelled enemy move
+                else -> null
+            }
+        }
+
+        assertEquals(1, ranked.size)
+        val rec = ranked.single()
+        assertTrue(rec.hasUnmodelledEnemyThreats)
+        assertFalse("Must not claim Safe Pivot when an enemy move is unmodelled: ${rec.reasonTag}", rec.reasonTag.contains("Safe Pivot"))
+        assertFalse("Must not claim Resists when an enemy move is unmodelled: ${rec.reasonTag}", rec.reasonTag.contains("Resists"))
+        assertFalse("Must not claim Immune when an enemy move is unmodelled: ${rec.reasonTag}", rec.reasonTag.contains("Immune"))
+        assertNull("Must withhold worstThreatMoveName when enemy moveset is partial", rec.worstThreatMoveName)
+        assertNull("Must withhold threatMinPercent when enemy moveset is partial", rec.threatMinPercent)
+        assertNull("Must withhold threatMaxPercent when enemy moveset is partial", rec.threatMaxPercent)
+        assertNull("Must withhold worstDefensiveMultiplier when enemy moveset is partial", rec.worstDefensiveMultiplier)
+        assertEquals("Threat unknown", rec.defenseBadge)
+        assertNotEquals(SwitchDefenseTone.STRONG, rec.defenseTone)
+        assertEquals(SwitchConfidenceTier.ESTIMATED, rec.confidenceTier)
+
+        // Also verify an unmapped enemy move ID withholds Safe Pivot / worst threat.
+        val opponentWithUnmappedMove = opponent.copy(moves = intArrayOf(33, 99999, 0, 0))
+        val rankedUnmapped = SwitchAdvisor.rankSwitches(
+            playerParty = listOf(active, blastoise),
+            activePlayerSlot = 0,
+            opponent = opponentWithUnmappedMove,
+            profile = verifiedFireRed,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        ) { attacker, defender, moveId ->
+            when {
+                attacker.species == 9 && moveId == 57 ->
+                    SwitchDamageEstimate(70, 82, defender.maxHp, CalcSupport.VERIFIED)
+                attacker.species == 143 && moveId == 33 ->
+                    SwitchDamageEstimate(16, 19, defender.maxHp, CalcSupport.VERIFIED)
+                else -> null
+            }
+        }
+        val recUnmapped = rankedUnmapped.single()
+        assertTrue(recUnmapped.hasUnmodelledEnemyThreats)
+        assertFalse(recUnmapped.reasonTag.contains("Safe Pivot"))
+        assertNull(recUnmapped.worstThreatMoveName)
+        assertNull(recUnmapped.threatMaxPercent)
+        assertEquals("Threat unknown", recUnmapped.defenseBadge)
     }
 
     @Test
@@ -451,9 +587,150 @@ class SwitchAdvisorTest {
         )
 
         assertEquals("Unsupported ROM must never invoke calculator engine", 0, calcCalls.get())
-        assertEquals(1, ranked.size)
-        assertEquals(SwitchRecommendationSource.TYPE_FALLBACK, ranked[0].source)
-        assertEquals(SwitchConfidenceTier.TYPE_FALLBACK, ranked[0].confidenceTier)
-        assertNull(ranked[0].offenseMaxPercent)
+        assertTrue("Unsupported ROM with refused calculations must produce no ranked switch", ranked.isEmpty())
+    }
+
+    private class ManualQueueDispatcher : CoroutineDispatcher() {
+        private val queue = ArrayDeque<Runnable>()
+
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            queue.addLast(block)
+        }
+
+        fun runAll() {
+            while (queue.isNotEmpty()) {
+                queue.removeFirst().run()
+            }
+        }
+    }
+
+    @Test
+    fun `presenter returning to cached key A while slow B is in flight prevents B from overwriting A`() {
+        val mainDispatcher = ManualQueueDispatcher()
+        val bgDispatcher = ManualQueueDispatcher()
+        val presenter = SwitchAdvisorPresenter(
+            dispatcher = bgDispatcher,
+            evaluatorOverride = { input ->
+                val opp = input.opponent
+                val evaluator: SwitchDamageEvaluator = { attacker, defender, _ ->
+                    // Score Blastoise (9) highest against Charizard (6), Snorlax (143) highest against Alakazam (65)
+                    when {
+                        opp?.species == 6 && attacker.species == 9 ->
+                            SwitchDamageEstimate(160, 180, defender.maxHp, CalcSupport.VERIFIED)
+                        opp?.species == 6 && attacker.species == 143 ->
+                            SwitchDamageEstimate(30, 36, defender.maxHp, CalcSupport.VERIFIED)
+                        opp?.species == 65 && attacker.species == 143 ->
+                            SwitchDamageEstimate(160, 180, defender.maxHp, CalcSupport.VERIFIED)
+                        opp?.species == 65 && attacker.species == 9 ->
+                            SwitchDamageEstimate(30, 36, defender.maxHp, CalcSupport.VERIFIED)
+                        else ->
+                            SwitchDamageEstimate(40, 48, defender.maxHp, CalcSupport.VERIFIED)
+                    }
+                }
+                evaluator
+            }
+        )
+
+        val active = mon(species = 25, nickname = "Pikachu")
+        val blastoise = mon(species = 9, nickname = "Blastoise", moves = intArrayOf(57, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+        val snorlax = mon(species = 143, nickname = "Snorlax", moves = intArrayOf(33, 0, 0, 0), pp = intArrayOf(35, 0, 0, 0))
+        val oppA = mon(species = 6, nickname = "Charizard", moves = intArrayOf(53, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+        val oppB = mon(species = 65, nickname = "Alakazam", moves = intArrayOf(94, 0, 0, 0), pp = intArrayOf(10, 0, 0, 0))
+
+        val inputA = SwitchAdvisorInput(
+            playerParty = listOf(active, blastoise, snorlax),
+            activePlayerSlot = 0,
+            opponent = oppA,
+            activeEnemySlot = 0,
+            profile = verifiedFireRed,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        )
+        val inputB = inputA.copy(opponent = oppB)
+
+        val scope = CoroutineScope(mainDispatcher + SupervisorJob())
+        val deliveries = mutableListOf<List<SwitchRecommendation>>()
+
+        // 1. Key A runs and completes -> Blastoise is #1.
+        presenter.requestUpdate(scope, inputA) { deliveries += it }
+        mainDispatcher.runAll()
+        bgDispatcher.runAll()
+        mainDispatcher.runAll()
+        assertEquals(1, deliveries.size)
+        assertEquals("Blastoise", deliveries.last().first().displayName)
+        assertEquals("Blastoise", presenter.cachedRecommendations.first().displayName)
+
+        // 2. Key B starts and finishes background evaluation, waiting to resume on mainDispatcher.
+        val whileBRunning = presenter.requestUpdate(scope, inputB) { deliveries += it }
+        assertTrue("Matchup change should clear stale displayed rows while B runs", whileBRunning.isEmpty())
+        mainDispatcher.runAll()
+        bgDispatcher.runAll()
+
+        // 3. Before B's result posts on mainDispatcher, caller returns to key A (cache hit).
+        val returnedToA = presenter.requestUpdate(scope, inputA) { deliveries += it }
+        assertEquals(2, returnedToA.size)
+        assertEquals("Blastoise", returnedToA.first().displayName)
+
+        // 4. Now drain mainDispatcher so obsolete B tries to finish: B must NOT overwrite A!
+        mainDispatcher.runAll()
+        bgDispatcher.runAll()
+        mainDispatcher.runAll()
+
+        assertEquals("Obsolete B must not publish after returning to A", 1, deliveries.size)
+        assertEquals("Blastoise", presenter.cachedRecommendations.first().displayName)
+    }
+
+    @Test
+    fun `presenter immediately invalidates displayed rows when a bench candidate faints`() {
+        val mainDispatcher = ManualQueueDispatcher()
+        val bgDispatcher = ManualQueueDispatcher()
+        val presenter = SwitchAdvisorPresenter(
+            dispatcher = bgDispatcher,
+            evaluatorOverride = {
+                val evaluator: SwitchDamageEvaluator = { _, defender, _ ->
+                    SwitchDamageEstimate(75, 90, defender.maxHp, CalcSupport.VERIFIED)
+                }
+                evaluator
+            }
+        )
+
+        val active = mon(species = 25, nickname = "Pikachu")
+        val blastoise = mon(species = 9, nickname = "Blastoise", moves = intArrayOf(57, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+        val snorlax = mon(species = 143, nickname = "Snorlax", moves = intArrayOf(33, 0, 0, 0), pp = intArrayOf(35, 0, 0, 0))
+        val opponent = mon(species = 6, nickname = "Charizard", moves = intArrayOf(53, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+
+        val initialInput = SwitchAdvisorInput(
+            playerParty = listOf(active, blastoise, snorlax),
+            activePlayerSlot = 0,
+            opponent = opponent,
+            activeEnemySlot = 0,
+            profile = verifiedFireRed,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        )
+
+        val scope = CoroutineScope(mainDispatcher + SupervisorJob())
+        var delivered: List<SwitchRecommendation> = emptyList()
+
+        presenter.requestUpdate(scope, initialInput) { delivered = it }
+        mainDispatcher.runAll()
+        bgDispatcher.runAll()
+        mainDispatcher.runAll()
+        assertEquals(2, delivered.size)
+        assertTrue(delivered.any { it.displayName == "Blastoise" })
+
+        // Blastoise faints -> stale rows containing Blastoise must clear immediately while recalculating.
+        val faintedBlastoise = blastoise.copy(currentHp = 0)
+        val afterFaintInput = initialInput.copy(playerParty = listOf(active, faintedBlastoise, snorlax))
+        val immediate = presenter.requestUpdate(scope, afterFaintInput) { delivered = it }
+        assertTrue("Fainted candidate must not remain displayed while recalculating", immediate.isEmpty())
+        assertTrue(presenter.cachedRecommendations.isEmpty())
+
+        // Once background ranking finishes, only healthy Snorlax is delivered.
+        mainDispatcher.runAll()
+        bgDispatcher.runAll()
+        mainDispatcher.runAll()
+        assertEquals(1, delivered.size)
+        assertEquals("Snorlax", delivered.single().displayName)
     }
 }

@@ -178,11 +178,9 @@ class SwitchAdvisorPresenter(
         val token = ++requestToken
         latestRequestedKey = key
 
-        // Drop stale displayed rows immediately whenever the matchup or eligible bench candidate
-        // set changes (e.g. a member faints, changes species/slot, or becomes ineligible).
-        if (shouldInvalidateDisplayedRows(lastCompletedKey, key)) {
-            cachedRecommendations = emptyList()
-        }
+        // Drop stale displayed rows immediately whenever the full calculation key changes;
+        // completed rows are retained only on an exact cache hit above.
+        cachedRecommendations = emptyList()
 
         inFlightKey = key
         activeJob?.cancel()
@@ -199,37 +197,6 @@ class SwitchAdvisorPresenter(
         }
         return cachedRecommendations
     }
-
-    private fun shouldInvalidateDisplayedRows(
-        previousKey: SwitchAdvisorCacheKey?,
-        nextKey: SwitchAdvisorCacheKey
-    ): Boolean {
-        if (previousKey == null) return true
-        if (previousKey.opponent?.pokemonKey?.species != nextKey.opponent?.pokemonKey?.species ||
-            previousKey.activePlayerSlot != nextKey.activePlayerSlot ||
-            previousKey.activeEnemySlot != nextKey.activeEnemySlot ||
-            previousKey.profile != nextKey.profile ||
-            previousKey.runtimeTrust != nextKey.runtimeTrust
-        ) {
-            return true
-        }
-        val prevEligible = previousKey.eligibleBenchIdentity()
-        val nextEligible = nextKey.eligibleBenchIdentity()
-        if (prevEligible != nextEligible) {
-            return true
-        }
-        val eligibleSlots = nextEligible.mapTo(HashSet()) { it.first }
-        return cachedRecommendations.any { it.slot !in eligibleSlots }
-    }
-
-    private fun SwitchAdvisorCacheKey.eligibleBenchIdentity(): List<Pair<Int, Int>> =
-        bench.filter {
-            !it.isEmpty &&
-                it.isValid &&
-                !it.isEgg &&
-                it.pokemonKey.currentHp > 0 &&
-                it.pokemonKey.maxHp > 0
-        }.map { it.slot to it.pokemonKey.species }
 
     /** Runs one synchronous ranking pass using the authorized calculator boundary. */
     fun evaluateSync(input: SwitchAdvisorInput): List<SwitchRecommendation> {

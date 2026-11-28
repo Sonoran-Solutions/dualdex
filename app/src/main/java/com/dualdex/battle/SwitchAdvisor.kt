@@ -587,9 +587,11 @@ object SwitchAdvisor {
     ): List<PokemonType> {
         val custom = profile.customSpecies[mon.species]
         if (custom != null) {
-            val t1 = PokemonType.fromString(custom.type1)
-            val t2 = PokemonType.fromString(custom.type2)?.takeIf { it != t1 }
-            return listOfNotNull(t1, t2)
+            if (custom.type1.isBlank()) return emptyList()
+            val t1 = PokemonType.fromString(custom.type1) ?: return emptyList()
+            val rawType2 = custom.type2?.takeIf { it.isNotBlank() } ?: return listOf(t1)
+            val t2 = PokemonType.fromString(rawType2) ?: return emptyList()
+            return if (t2 != t1) listOf(t1, t2) else listOf(t1)
         }
         val species = dataPack.getSpecies(mon.species) ?: return emptyList()
         if (species.baseHP <= 0 || species.name.trim().endsWith(UnboundDataPack.FORM_UNVERIFIED_SUFFIX, ignoreCase = true)) {

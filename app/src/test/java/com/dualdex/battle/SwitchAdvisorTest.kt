@@ -7,6 +7,7 @@ import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.romhack.ProfileMatchMethod
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
+import com.dualdex.romhack.SpeciesOverride
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -732,5 +733,116 @@ class SwitchAdvisorTest {
         mainDispatcher.runAll()
         assertEquals(1, delivered.size)
         assertEquals("Snorlax", delivered.single().displayName)
+    }
+
+    @Test
+    fun `unrecognized custom primary or declared secondary type refuses ranking instead of degrading to single type`() {
+        val customProfile = verifiedFireRed.copy(
+            customSpecies = mapOf(
+                9001 to SpeciesOverride(name = "BrokenDual", type1 = "Water", type2 = "Cosmic"),
+                9002 to SpeciesOverride(name = "BrokenPrimary", type1 = "Mystery", type2 = "Fire"),
+                9003 to SpeciesOverride(name = "ValidSingle", type1 = "Water", type2 = "  ")
+            )
+        )
+        val active = mon(species = 25, nickname = "Pikachu")
+        val brokenDualBench = mon(species = 9001, nickname = "BrokenDual", moves = intArrayOf(57, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+        val brokenPrimaryBench = mon(species = 9002, nickname = "BrokenPrimary", moves = intArrayOf(53, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+        val validSingleBench = mon(species = 9003, nickname = "ValidSingle", moves = intArrayOf(57, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+        val charizard = mon(species = 6, nickname = "Charizard", moves = intArrayOf(53, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+
+        // Unrecognized type2 or type1 on bench members refuses those members while keeping valid single-type.
+        val rankedBench = SwitchAdvisor.rankSwitches(
+            playerParty = listOf(active, brokenDualBench, brokenPrimaryBench, validSingleBench),
+            activePlayerSlot = 0,
+            opponent = charizard,
+            profile = customProfile,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        ) { _, defender, _ ->
+            SwitchDamageEstimate(80, 96, defender.maxHp, CalcSupport.VERIFIED)
+        }
+        assertEquals(1, rankedBench.size)
+        assertEquals("ValidSingle", rankedBench.single().displayName)
+
+        // Unrecognized declared type2 on the opponent refuses ranking entirely.
+        val rankedOpponent = SwitchAdvisor.rankSwitches(
+            playerParty = listOf(active, validSingleBench),
+            activePlayerSlot = 0,
+            opponent = brokenDualBench,
+            profile = customProfile,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        ) { _, defender, _ ->
+            SwitchDamageEstimate(80, 96, defender.maxHp, CalcSupport.VERIFIED)
+        }
+        assertTrue("Opponent with unrecognized secondary type must refuse ranking", rankedOpponent.isEmpty())
+    }
+
+    @Test
+    fun `presenter clears displayed rows immediately when opponent moveset changes with same species and slot`() {
+        val mainDispatcher = ManualQueueDispatcher()
+        val bgDispatcher = ManualQueueDispatcher()
+        val presenter = SwitchAdvisorPresenter(
+            dispatcher = bgDispatcher,
+            evaluatorOverride = { input ->
+                val hasEarthquake = input.opponent?.moves?.contains(89) == true
+                val evaluator: SwitchDamageEvaluator = { attacker, defender, moveId ->
+                    when {
+                        attacker.species == 9 && moveId == 57 ->
+                            SwitchDamageEstimate(80, 96, defender.maxHp, CalcSupport.VERIFIED)
+                        attacker.species == 143 && moveId == 33 ->
+                            SwitchDamageEstimate(10, 14, defender.maxHp, CalcSupport.VERIFIED)
+                        attacker.species == 143 && moveId == 89 && hasEarthquake ->
+                            SwitchDamageEstimate(140, 165, defender.maxHp, CalcSupport.VERIFIED)
+                        else -> null
+                    }
+                }
+                evaluator
+            }
+        )
+
+        val active = mon(species = 25, nickname = "Pikachu")
+        val blastoise = mon(species = 9, nickname = "Blastoise", moves = intArrayOf(57, 0, 0, 0), pp = intArrayOf(15, 0, 0, 0))
+        val oppTackleOnly = mon(species = 143, nickname = "Snorlax", moves = intArrayOf(33, 0, 0, 0), pp = intArrayOf(35, 0, 0, 0))
+        val oppWithEarthquake = oppTackleOnly.copy(moves = intArrayOf(33, 89, 0, 0), pp = intArrayOf(35, 10, 0, 0))
+
+        val input1 = SwitchAdvisorInput(
+            playerParty = listOf(active, blastoise),
+            activePlayerSlot = 0,
+            opponent = oppTackleOnly,
+            activeEnemySlot = 0,
+            profile = verifiedFireRed,
+            dataPack = Gen3VanillaDataPack,
+            runtimeTrust = exactTrust
+        )
+
+        val scope = CoroutineScope(mainDispatcher + SupervisorJob())
+        var delivered: List<SwitchRecommendation> = emptyList()
+
+        presenter.requestUpdate(scope, input1) { delivered = it }
+        mainDispatcher.runAll()
+        bgDispatcher.runAll()
+        mainDispatcher.runAll()
+        assertEquals(1, delivered.size)
+        assertTrue(delivered.single().reasonTag.contains("Safe Pivot"))
+
+        // Exact cache hit retains completed rows.
+        val exactHit = presenter.requestUpdate(scope, input1.copy()) {
+            throw AssertionError("Exact cache hit should not relaunch")
+        }
+        assertEquals(1, exactHit.size)
+        assertTrue(exactHit.single().reasonTag.contains("Safe Pivot"))
+
+        // Opponent moveset changes (species and slot stay identical) -> stale Safe Pivot row must clear immediately!
+        val changedMovesInput = input1.copy(opponent = oppWithEarthquake)
+        val whileRecalculating = presenter.requestUpdate(scope, changedMovesInput) { delivered = it }
+        assertTrue("Changed opponent moveset must clear stale Safe Pivot row immediately", whileRecalculating.isEmpty())
+        assertTrue(presenter.cachedRecommendations.isEmpty())
+
+        mainDispatcher.runAll()
+        bgDispatcher.runAll()
+        mainDispatcher.runAll()
+        assertEquals(1, delivered.size)
+        assertFalse(delivered.single().reasonTag.contains("Safe Pivot"))
     }
 }

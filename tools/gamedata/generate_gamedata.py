@@ -148,7 +148,7 @@ GBA_ADDRESS_WIDTHS = {
     'save_block1_ptr_gba_address': 4,                  # a pointer
     'save_block1_base_gba_address': 4,
     'save_block3_ptr_gba_address': 4,                  # a pointer
-    'save_block3_base_gba_address': 4,
+    'save_block3_base_gba_address': 16 + 32,            # HNS_SAVEBLOCK3_CHALLENGE_SETTINGS_OFFSET (16) + HNS_CHALLENGE_SETTINGS_SIZEOF (32)
     'action_selection_func_ptr': 1,
     'run_turn_actions_func_ptr': 1,
     'battle_main_cb1_func_ptr': 1,

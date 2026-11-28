@@ -231,6 +231,18 @@ class AddressAndRangeTest(GamedataFixture):
         self.set_field('unbound', 'battle_current_move_gba_address', {'gba': '0x0203FFFF'})
         self.assert_rejected(r'0x0203FFFF \+ 2 bytes runs past the end of EWRAM')
 
+    def test_save_block3_base_challenge_settings_span_must_fit_inside_ewram(self):
+        # SaveBlock3 challengeSettings sits at offset 16 and spans 32 bytes (48 bytes total).
+        # 0x0203FFD1 + 48 = 0x02040001 runs 1 byte past EWRAM (0x02040000) and cannot be waived.
+        self.set_field('heart_and_soul_2_0_5', 'save_block3_base_gba_address', {'gba': '0x0203FFD1'})
+        self.assert_rejected(r'save_block3_base_gba_address: 0x0203FFD1 \+ 48 bytes runs past the end of EWRAM')
+        self.edit('heart_and_soul_2_0_5', lambda data: data.__setitem__('waivers', {'ewram-extent': 'attempt'}))
+        self.assert_rejected(r"unknown waiver 'ewram-extent'")
+        shutil.copy(g.CONFIG_DIR / 'heart_and_soul_2_0_5.json', self.dir / 'heart_and_soul_2_0_5.json')
+        # Exact boundary 0x0203FFD0 + 48 = 0x02040000 fits wholly inside EWRAM.
+        self.set_field('heart_and_soul_2_0_5', 'save_block3_base_gba_address', {'ewram': '0x3FFD0'})
+        self.assertEqual(self.resolved('heart_and_soul_2_0_5').get('save_block3_base_gba_address'), 0x0203FFD0)
+
     def test_ewram_offset_read_width_must_fit_and_is_not_waivable(self):
         # 4-byte battle_type_flags_offset starting at final EWRAM byte (0x0203FFFF) must fail,
         # even when a waiver is attempted.

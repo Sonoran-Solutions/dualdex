@@ -50,6 +50,8 @@ class NuzlockeStore internal constructor(
         }
     }
 
+    internal val directory: File get() = baseDir
+
     private val storeLock = Any()
 
     fun fileForRom(romSha256: String): File? {

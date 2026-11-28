@@ -1,5 +1,9 @@
 package com.dualdex.nuzlocke
 
+import java.io.File
+import java.lang.ref.WeakReference
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -9,9 +13,12 @@ import kotlin.concurrent.withLock
  * Single-threaded serialized persistence queue for [NuzlockeRunState] snapshots.
  *
  * Guarantees:
+ * - One shared instance per canonical store directory so recreated ViewModels serialize cleanly.
  * - Writes execute off the UI thread in FIFO order on one dedicated daemon worker thread.
  * - Per-ROM monotonic revisions prevent older snapshots from ever overwriting newer ones.
  * - Switching ROMs never cancels or drops pending writes for previous ROMs.
+ * - Failed snapshots and failure errors are retained per canonical SHA-256 until a newer
+ *   revision for that ROM succeeds.
  */
 internal class NuzlockeWriteQueue {
 
@@ -23,16 +30,39 @@ internal class NuzlockeWriteQueue {
         val onComplete: (String, Long, Result<Unit>) -> Unit
     )
 
+    private data class StateSnapshot(
+        val revision: Long,
+        val state: NuzlockeRunState
+    )
+
+    private data class ErrorSnapshot(
+        val revision: Long,
+        val message: String
+    )
+
     private val queueLock = ReentrantLock()
     private val idleCondition = queueLock.newCondition()
     private val pendingQueue = ArrayDeque<WriteRequest>()
     private val highestEnqueuedRevisionByRom = HashMap<String, Long>()
     private val lastAttemptedRevisionByRom = HashMap<String, Long>()
-    private val pendingByRom = HashMap<String, WriteRequest>()
+    private val lastCompletedRevisionByRom = HashMap<String, Long>()
+    private val latestStateByRom = HashMap<String, StateSnapshot>()
+    private val lastErrorByRom = HashMap<String, ErrorSnapshot>()
     private var writing = false
+
+    private val listeners = CopyOnWriteArrayList<WeakReference<(String, Long, Result<Unit>) -> Unit>>()
 
     private val executor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "DualDex-NuzlockeIO").apply { isDaemon = true }
+    }
+
+    /**
+     * Registers a listener notified outside [queueLock] whenever any write on this queue completes,
+     * before [awaitIdle] is unblocked. Held weakly so ViewModel instances are never leaked.
+     */
+    fun addWeakListener(listener: (String, Long, Result<Unit>) -> Unit) {
+        listeners.removeAll { it.get() == null || it.get() === listener }
+        listeners.add(WeakReference(listener))
     }
 
     /**
@@ -52,7 +82,7 @@ internal class NuzlockeWriteQueue {
             val highest = highestEnqueuedRevisionByRom[canonical] ?: 0L
             if (revision <= highest) return false
             highestEnqueuedRevisionByRom[canonical] = revision
-            pendingByRom[canonical] = request
+            latestStateByRom[canonical] = StateSnapshot(revision, state)
             pendingQueue.addLast(request)
         }
         executor.execute(::drainNext)
@@ -60,12 +90,47 @@ internal class NuzlockeWriteQueue {
     }
 
     /**
-     * Returns the latest un-flushed in-memory state for [romSha256] if a write is still queued
-     * or in-flight, so a quick ROM switch back does not read stale state from disk.
+     * Atomically allocates the next monotonic revision for [romSha256] and enqueues [state].
      */
-    fun latestPendingState(romSha256: String): NuzlockeRunState? {
+    fun enqueueLatest(
+        store: NuzlockeStore,
+        romSha256: String,
+        state: NuzlockeRunState,
+        onComplete: (String, Long, Result<Unit>) -> Unit = { _, _, _ -> }
+    ): Long? {
         val canonical = NuzlockeStore.canonicalSha256(romSha256) ?: return null
-        return queueLock.withLock { pendingByRom[canonical]?.state }
+        val revision: Long
+        queueLock.withLock {
+            revision = (highestEnqueuedRevisionByRom[canonical] ?: 0L) + 1L
+            val request = WriteRequest(store, canonical, revision, state, onComplete)
+            highestEnqueuedRevisionByRom[canonical] = revision
+            latestStateByRom[canonical] = StateSnapshot(revision, state)
+            pendingQueue.addLast(request)
+        }
+        executor.execute(::drainNext)
+        return revision
+    }
+
+    /**
+     * Returns the latest un-flushed or failed in-memory state for [romSha256], so a ROM switch
+     * back or Activity recreation never silently reverts unsaved progress to stale disk data.
+     */
+    fun latestStateForRom(romSha256: String): NuzlockeRunState? {
+        val canonical = NuzlockeStore.canonicalSha256(romSha256) ?: return null
+        return queueLock.withLock { latestStateByRom[canonical]?.state }
+    }
+
+    /**
+     * Returns the latest persistence error message for [romSha256] until a newer save succeeds.
+     */
+    fun lastErrorForRom(romSha256: String): String? {
+        val canonical = NuzlockeStore.canonicalSha256(romSha256) ?: return null
+        return queueLock.withLock { lastErrorByRom[canonical]?.message }
+    }
+
+    fun lastCompletedRevisionForRom(romSha256: String): Long {
+        val canonical = NuzlockeStore.canonicalSha256(romSha256) ?: return 0L
+        return queueLock.withLock { lastCompletedRevisionByRom[canonical] ?: 0L }
     }
 
     fun awaitIdle(timeoutMs: Long = 5000L): Boolean {
@@ -88,9 +153,6 @@ internal class NuzlockeWriteQueue {
             }
             val lastAttempted = lastAttemptedRevisionByRom[next.romSha256] ?: 0L
             if (next.revision <= lastAttempted) {
-                if (pendingByRom[next.romSha256]?.revision == next.revision) {
-                    pendingByRom.remove(next.romSha256)
-                }
                 if (pendingQueue.isEmpty() && !writing) {
                     idleCondition.signalAll()
                 }
@@ -101,22 +163,78 @@ internal class NuzlockeWriteQueue {
             next
         }
 
-        val result = try {
-            req.store.saveResult(req.romSha256, req.state)
-        } catch (t: Throwable) {
-            Result.failure(t)
+        try {
+            val result = try {
+                req.store.saveResult(req.romSha256, req.state)
+            } catch (t: Throwable) {
+                Result.failure(t)
+            }
+
+            queueLock.withLock {
+                val prevCompleted = lastCompletedRevisionByRom[req.romSha256] ?: 0L
+                if (req.revision > prevCompleted) {
+                    lastCompletedRevisionByRom[req.romSha256] = req.revision
+                }
+                if (result.isSuccess) {
+                    if (latestStateByRom[req.romSha256]?.revision == req.revision) {
+                        latestStateByRom.remove(req.romSha256)
+                    }
+                    val errorRev = lastErrorByRom[req.romSha256]?.revision ?: 0L
+                    if (req.revision >= errorRev) {
+                        lastErrorByRom.remove(req.romSha256)
+                    }
+                } else {
+                    val errorRev = lastErrorByRom[req.romSha256]?.revision ?: 0L
+                    if (req.revision >= errorRev) {
+                        lastErrorByRom[req.romSha256] = ErrorSnapshot(
+                            revision = req.revision,
+                            message = formatError(result.exceptionOrNull())
+                        )
+                    }
+                }
+            }
+
+            // Publish completion callbacks outside queueLock before marking the queue idle so
+            // awaitIdle() never returns before save errors are published.
+            req.onComplete(req.romSha256, req.revision, result)
+            notifyListeners(req.romSha256, req.revision, result)
+        } finally {
+            queueLock.withLock {
+                writing = false
+                if (pendingQueue.isEmpty()) {
+                    idleCondition.signalAll()
+                }
+            }
+        }
+    }
+
+    private fun notifyListeners(romSha256: String, revision: Long, result: Result<Unit>) {
+        var sawDead = false
+        for (ref in listeners) {
+            val listener = ref.get()
+            if (listener == null) {
+                sawDead = true
+            } else {
+                listener(romSha256, revision, result)
+            }
+        }
+        if (sawDead) {
+            listeners.removeAll { it.get() == null }
+        }
+    }
+
+    companion object {
+        private val sharedQueues = ConcurrentHashMap<File, NuzlockeWriteQueue>()
+
+        fun sharedFor(store: NuzlockeStore): NuzlockeWriteQueue {
+            val key = canonicalDir(store.directory)
+            return sharedQueues.computeIfAbsent(key) { NuzlockeWriteQueue() }
         }
 
-        queueLock.withLock {
-            if (pendingByRom[req.romSha256]?.revision == req.revision) {
-                pendingByRom.remove(req.romSha256)
-            }
-            writing = false
-            if (pendingQueue.isEmpty()) {
-                idleCondition.signalAll()
-            }
-        }
+        internal fun formatError(error: Throwable?): String =
+            error?.message?.takeIf { it.isNotBlank() } ?: "Failed to save Nuzlocke progress."
 
-        req.onComplete(req.romSha256, req.revision, result)
+        private fun canonicalDir(dir: File): File =
+            runCatching { dir.canonicalFile }.getOrElse { dir.absoluteFile }
     }
 }

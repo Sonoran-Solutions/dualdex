@@ -49,10 +49,14 @@ class NuzlockeTracker(
     /**
      * Processes one verified live observation snapshot.
      *
+     * When [party] is `null` (the live party read failed on this poll tick), no deaths are
+     * recorded and any pending wild-encounter battle-exit resolution is deferred until a fresh
+     * party read arrives.
+     *
      * @return true if [state] changed and should be published/persisted.
      */
     fun onObservation(
-        party: List<ParsedPokemon>,
+        party: List<ParsedPokemon>?,
         enemyParty: List<ParsedPokemon?>,
         activeEnemyIndex: Int,
         battleKind: NuzlockeBattleKind,
@@ -62,6 +66,7 @@ class NuzlockeTracker(
         speciesNameResolver: (Int) -> String = { "#$it" }
     ): Boolean {
         if (!_state.enabled) return false
+        if (party == null) return false
 
         var changed = false
         val occupiedPartySlots = party.count { it.isValid && !it.isEmpty }

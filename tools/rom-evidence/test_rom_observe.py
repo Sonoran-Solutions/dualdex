@@ -315,6 +315,93 @@ class CliTest(unittest.TestCase):
             self.assertNotIn('private-secret-vault', out.read_text())
             self.assertNotIn('/', report2['error'])
 
+    def test_missing_symbol_attribute_error_is_sanitized_in_json_and_stderr(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+            out = folder / 'out.json'
+            secret_lib = folder / 'private-secret-vault' / 'missing-symbol-host.so'
+            argv = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                    '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                    '--output', str(out)]
+            err = io.StringIO()
+            with patch.object(ro.Session, 'open',
+                              side_effect=AttributeError(f'{secret_lib}: undefined symbol: libretro_host_init')), \
+                    contextlib.redirect_stderr(err):
+                code = ro.main(argv)
+            raw_json = out.read_text()
+            report = json.loads(raw_json)
+            self.assertEqual((code, report['status']), (1, 'FAIL'))
+            self.assertIn('AttributeError', report['error'])
+            self.assertNotIn('private-secret-vault', raw_json)
+            self.assertNotIn('missing-symbol-host.so', raw_json)
+            self.assertNotIn('/', report['error'])
+            self.assertNotIn('private-secret-vault', err.getvalue())
+            self.assertNotIn('missing-symbol-host.so', err.getvalue())
+
+            # Also verify Session.open itself raising AttributeError when CDLL lacks a symbol.
+            class IncompleteLibrary:
+                pass
+
+            with patch('rom_observe.C.CDLL', side_effect=lambda *a: IncompleteLibrary()), \
+                    contextlib.redirect_stderr(io.StringIO()) as err2:
+                code2 = ro.main(argv)
+            report2 = json.loads(out.read_text())
+            self.assertEqual((code2, report2['status']), (1, 'FAIL'))
+            self.assertIn('libretro_host_init', report2['error'])
+            self.assertNotIn('/', report2['error'])
+            self.assertIn('FAIL:', err2.getvalue())
+
+    def test_output_write_failures_sanitize_paths_and_return_nonzero(self):
+        with tempfile.TemporaryDirectory() as folder:
+            folder = Path(folder)
+            for name in ('rom', 'core', 'lib'):
+                (folder / name).write_bytes(b'x')
+            (folder / 'm.movie').write_text('run 1\nobserve a\n')
+
+            # 1. Initial output invalidation write failure (missing secret parent dir) must not leak path.
+            missing_out = folder / 'private-secret-dir' / 'secret-out.json'
+            argv_missing = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                            '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                            '--output', str(missing_out)]
+            err = io.StringIO()
+            with patch.object(ro.Session, 'open') as opened, contextlib.redirect_stderr(err):
+                code = ro.main(argv_missing)
+            opened.assert_not_called()
+            self.assertEqual(code, 1)
+            self.assertIn('FAIL:', err.getvalue())
+            self.assertIn('ENOENT', err.getvalue())
+            self.assertNotIn('private-secret-dir', err.getvalue())
+            self.assertNotIn('secret-out.json', err.getvalue())
+
+            # 2. Final report write failure after successful observation must sanitize path and fail closed.
+            out = folder / 'private-secret-out.json'
+            argv_ok = ['--rom', str(folder / 'rom'), '--core', str(folder / 'core'),
+                       '--library', str(folder / 'lib'), '--movie', str(folder / 'm.movie'),
+                       '--output', str(out)]
+            write_calls = [0]
+            real_write_text = Path.write_text
+
+            def flaky_write_text(path_self, data, *args, **kwargs):
+                write_calls[0] += 1
+                if path_self == out and write_calls[0] == 2:
+                    raise PermissionError(13, 'Permission denied', str(out))
+                return real_write_text(path_self, data, *args, **kwargs)
+
+            err2 = io.StringIO()
+            hosts = iter([FakeHost(), FakeHost()])
+            with patch.object(ro.Session, 'open', side_effect=lambda *a: ro.Session(next(hosts))), \
+                    patch.object(Path, 'write_text', flaky_write_text), \
+                    contextlib.redirect_stderr(err2):
+                code2 = ro.main(argv_ok)
+            self.assertEqual(code2, 1)
+            self.assertIn('FAIL:', err2.getvalue())
+            self.assertIn('EACCES', err2.getvalue())
+            self.assertNotIn('private-secret-out.json', err2.getvalue())
+            self.assertNotIn('/', err2.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -276,11 +276,19 @@ class CompanionViewModel(
     private val _nuzlockePersistenceError = MutableStateFlow<String?>(null)
     val nuzlockePersistenceError: StateFlow<String?> = _nuzlockePersistenceError.asStateFlow()
 
-    private val nuzlockeWriteQueue = NuzlockeWriteQueue()
-    private val nuzlockeRevisionsByRom = HashMap<String, Long>()
+    private var nuzlockeWriteQueue: NuzlockeWriteQueue? = null
     private var nuzlockeErrorRevision = 0L
     @Volatile private var nuzlockeStore: NuzlockeStore? = nuzlockeStore
     private var nuzlockeTracker: NuzlockeTracker? = null
+    private val nuzlockeQueueListener: (String, Long, Result<Unit>) -> Unit = ::onNuzlockeWriteFinished
+
+    init {
+        nuzlockeStore?.let { store ->
+            nuzlockeWriteQueue = NuzlockeWriteQueue.sharedFor(store).also {
+                it.addWeakListener(nuzlockeQueueListener)
+            }
+        }
+    }
 
     /**
      * Attaches a [NuzlockeStore] for per-ROM persistence. When [replace] is false, an already
@@ -291,6 +299,9 @@ class CompanionViewModel(
         synchronized(observationSessionLock) {
             if (nuzlockeStore != null && !replace) return
             nuzlockeStore = store
+            nuzlockeWriteQueue = NuzlockeWriteQueue.sharedFor(store).also {
+                it.addWeakListener(nuzlockeQueueListener)
+            }
             val sha = _activeRomIdentity.value?.sha256?.takeIf { it.isNotBlank() }
             if (sha != null) {
                 reloadNuzlockeForRomLocked(sha)
@@ -315,8 +326,15 @@ class CompanionViewModel(
 
     private fun reloadNuzlockeForRomLocked(romSha256: String) {
         val canonical = NuzlockeStore.canonicalSha256(romSha256) ?: romSha256.trim().lowercase()
-        val loaded = nuzlockeWriteQueue.latestPendingState(canonical)
-            ?: nuzlockeStore?.load(canonical)
+        val store = nuzlockeStore
+        val queue = nuzlockeWriteQueue ?: store?.let {
+            NuzlockeWriteQueue.sharedFor(it).also { shared ->
+                shared.addWeakListener(nuzlockeQueueListener)
+                nuzlockeWriteQueue = shared
+            }
+        }
+        val loaded = queue?.latestStateForRom(canonical)
+            ?: store?.load(canonical)
             ?: NuzlockeRunState(romSha256 = canonical)
         val tracker = nuzlockeTracker
         if (tracker == null) {
@@ -324,8 +342,8 @@ class CompanionViewModel(
         } else {
             tracker.loadState(loaded)
         }
-        _nuzlockePersistenceError.value = null
-        nuzlockeErrorRevision = nuzlockeRevisionsByRom[canonical] ?: 0L
+        _nuzlockePersistenceError.value = queue?.lastErrorForRom(canonical)
+        nuzlockeErrorRevision = queue?.lastCompletedRevisionForRom(canonical) ?: 0L
         _nuzlockeState.value = loaded
     }
 
@@ -341,25 +359,27 @@ class CompanionViewModel(
         _nuzlockeState.value = updated
         val store = nuzlockeStore ?: return
         val canonical = NuzlockeStore.canonicalSha256(updated.romSha256) ?: return
-        val revision = (nuzlockeRevisionsByRom[canonical] ?: 0L) + 1L
-        nuzlockeRevisionsByRom[canonical] = revision
-        nuzlockeWriteQueue.enqueue(store, canonical, revision, updated, ::onNuzlockeWriteFinished)
+        val queue = nuzlockeWriteQueue ?: NuzlockeWriteQueue.sharedFor(store).also {
+            it.addWeakListener(nuzlockeQueueListener)
+            nuzlockeWriteQueue = it
+        }
+        queue.enqueueLatest(store, canonical, updated)
     }
 
     private fun onNuzlockeWriteFinished(romSha256: String, revision: Long, result: Result<Unit>) {
         synchronized(observationSessionLock) {
             val activeSha = _activeRomIdentity.value?.sha256?.let { NuzlockeStore.canonicalSha256(it) }
             if (activeSha != romSha256) return
-            if (revision < nuzlockeErrorRevision) return
+            if (revision <= nuzlockeErrorRevision) return
             nuzlockeErrorRevision = revision
             _nuzlockePersistenceError.value = result.exceptionOrNull()?.let { err ->
-                err.message?.takeIf { it.isNotBlank() } ?: "Failed to save Nuzlocke progress."
+                NuzlockeWriteQueue.formatError(err)
             }
         }
     }
 
     internal fun awaitNuzlockePersistence(timeoutMs: Long = 5000L): Boolean =
-        nuzlockeWriteQueue.awaitIdle(timeoutMs)
+        nuzlockeWriteQueue?.awaitIdle(timeoutMs) ?: true
 
     private fun mutateNuzlocke(action: (NuzlockeTracker) -> Boolean) {
         synchronized(observationSessionLock) {
@@ -623,11 +643,11 @@ class CompanionViewModel(
         val gameId = _activeGameId.value
 
         val playerPartyRaw = coreCoordinator.readPartyFromCore(gameId)
-        val playerList = playerPartyRaw?.filterNotNull()?.filter { !it.isEmpty && it.isValid }
-        if (!playerList.isNullOrEmpty()) {
+        val freshParty = playerPartyRaw?.filterNotNull()?.filter { !it.isEmpty && it.isValid }
+        if (!freshParty.isNullOrEmpty()) {
             playerPartyStabilizer.onValidRead()
-            if (playerList != _playerParty.value) {
-                _playerParty.value = playerList
+            if (freshParty != _playerParty.value) {
+                _playerParty.value = freshParty
             }
         } else if (playerPartyStabilizer.onInvalidRead() == LiveObservationDecision.CLEAR) {
             // Player party previously kept stale members here; sustained invalid reads must clear it.
@@ -803,7 +823,7 @@ class CompanionViewModel(
             )
             val pack = activeGameDataPack
             val changed = tracker.onObservation(
-                party = _playerParty.value,
+                party = freshParty,
                 enemyParty = _enemyParty.value,
                 activeEnemyIndex = _activeEnemyMemberIndex.value,
                 battleKind = battleKind,

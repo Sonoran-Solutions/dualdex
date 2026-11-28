@@ -244,6 +244,106 @@ class NuzlockeStoreTest {
         assertNotNull(vm.nuzlockePersistenceError.value)
         vm.setRomIdentity(RomIdentity(shaB, "Synth B"))
         assertNull(vm.nuzlockePersistenceError.value)
+
+        // Switching back to ROM A must restore BOTH the retained unsaved snapshot AND the error
+        // until a newer save for ROM A succeeds.
+        vm.setRomSession(RomCompatibility.verified(profileA, shaA), idA)
+        assertEquals(60, vm.nuzlockeState.value!!.levelCap)
+        assertNotNull(vm.nuzlockePersistenceError.value)
+        assertEquals(55, store.load(shaA).levelCap)
+
+        // Recreating CompanionViewModel against the same store directory also sees the retained
+        // snapshot and error, and a new save succeeds monotonically without colliding revisions.
+        val recreatedVm = CompanionViewModel(nuzlockeStore = NuzlockeStore(dir, store.let {
+            object : NuzlockeStore.FileOps {
+                override fun forceFile(channel: FileChannel) = NuzlockeStore.DefaultFileOps.forceFile(channel)
+                override fun atomicMove(source: Path, target: Path) {
+                    if (failMove.get()) throw IOException("simulated atomic move failure")
+                    NuzlockeStore.DefaultFileOps.atomicMove(source, target)
+                }
+                override fun forceDir(dirPath: Path) = NuzlockeStore.DefaultFileOps.forceDir(dirPath)
+            }
+        }))
+        recreatedVm.setRomSession(RomCompatibility.verified(profileA, shaA), idA)
+        assertEquals(60, recreatedVm.nuzlockeState.value!!.levelCap)
+        assertNotNull(recreatedVm.nuzlockePersistenceError.value)
+
+        failMove.set(false)
+        recreatedVm.setNuzlockeLevelCap(70)
+        assertTrue(recreatedVm.awaitNuzlockePersistence(5_000L))
+        assertNull(recreatedVm.nuzlockePersistenceError.value)
+        assertEquals(70, store.load(shaA).levelCap)
+        val sharedQueue = NuzlockeWriteQueue.sharedFor(store)
+        assertNull(sharedQueue.latestStateForRom(shaA))
+        assertNull(sharedQueue.lastErrorForRom(shaA))
+    }
+
+    @Test
+    fun sharedWriteQueueSerializesRecreatedViewModelsAndRunsCallbacksBeforeAwaitIdleReturns() {
+        val dirA = tempFolder.newFolder("shared_queue_a")
+        val dirB = tempFolder.newFolder("shared_queue_b")
+        val storeA1 = NuzlockeStore(dirA)
+        val storeA2 = NuzlockeStore(File(dirA, "."))
+        val storeB = NuzlockeStore(dirB)
+
+        val shared1 = NuzlockeWriteQueue.sharedFor(storeA1)
+        val shared2 = NuzlockeWriteQueue.sharedFor(storeA2)
+        val isolated = NuzlockeWriteQueue.sharedFor(storeB)
+        assertTrue(shared1 === shared2)
+        assertFalse(shared1 === isolated)
+
+        // Activity recreation while a write is still blocked in-flight shares queue & monotonic revisions.
+        val firstWriteEntered = CountDownLatch(1)
+        val releaseFirstWrite = CountDownLatch(1)
+        val gated = AtomicBoolean(true)
+        val gatedDir = tempFolder.newFolder("recreate_race")
+        val gatedStore = NuzlockeStore(gatedDir, object : NuzlockeStore.FileOps {
+            override fun forceFile(channel: FileChannel) {
+                if (gated.compareAndSet(true, false)) {
+                    firstWriteEntered.countDown()
+                    assertTrue(releaseFirstWrite.await(5, TimeUnit.SECONDS))
+                }
+                NuzlockeStore.DefaultFileOps.forceFile(channel)
+            }
+            override fun atomicMove(source: Path, target: Path) =
+                NuzlockeStore.DefaultFileOps.atomicMove(source, target)
+            override fun forceDir(dirPath: Path) =
+                NuzlockeStore.DefaultFileOps.forceDir(dirPath)
+        })
+
+        val profileA = RomHackProfile(
+            id = "synth-a", name = "Synth A", baseGame = "Emerald", gameId = 1,
+            sha256Hashes = listOf(shaA), isVerified = true, memoryLayoutVerified = true
+        )
+        val idA = RomIdentity(shaA, "Synth A")
+
+        val vm1 = CompanionViewModel(nuzlockeStore = gatedStore)
+        vm1.setRomSession(RomCompatibility.verified(profileA, shaA), idA)
+        vm1.setNuzlockeLevelCap(11)
+        assertTrue(firstWriteEntered.await(5, TimeUnit.SECONDS))
+
+        // Recreate ViewModel while vm1's write is in-flight; vm2 inherits the pending snapshot
+        // and enqueues a higher revision onto the same serialized queue.
+        val vm2 = CompanionViewModel(nuzlockeStore = gatedStore)
+        vm2.setRomSession(RomCompatibility.verified(profileA, shaA), idA)
+        assertEquals(11, vm2.nuzlockeState.value!!.levelCap)
+        vm2.setNuzlockeLevelCap(22)
+
+        releaseFirstWrite.countDown()
+        assertTrue(vm2.awaitNuzlockePersistence(5_000L))
+        assertEquals(22, gatedStore.load(shaA).levelCap)
+
+        // awaitIdle() must not return until after completion callbacks finish publishing.
+        val callbackPublished = AtomicBoolean(false)
+        val directQueue = NuzlockeWriteQueue()
+        assertTrue(
+            directQueue.enqueue(storeB, shaB, 1L, NuzlockeRunState(shaB, enabled = true)) { _, _, _ ->
+                Thread.sleep(50L)
+                callbackPublished.set(true)
+            }
+        )
+        assertTrue(directQueue.awaitIdle(5_000L))
+        assertTrue("awaitIdle must wait for completion callback to finish", callbackPublished.get())
     }
 
     @Test

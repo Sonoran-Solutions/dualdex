@@ -238,6 +238,15 @@ def run_boots(args, rom, commands, probes):
     return compare_boots(boots, probes)
 
 
+def write_output(path, text):
+    try:
+        path.write_text(text)
+        return True
+    except OSError as error:
+        print(f'FAIL: {sanitize_error(error)}', file=sys.stderr)
+        return False
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--rom', type=Path, required=True)
@@ -250,12 +259,21 @@ def main(argv=None):
     parser.add_argument('--probe', action='append', default=[], metavar='NAME=0xADDR:SIZE')
     args = parser.parse_args(argv)
     protected = [args.rom, args.core, args.movie, args.library, Path(__file__)]
-    # `resolve()` catches symlinks; `samefile` additionally catches hard links to an input.
-    if any(args.output.resolve() == p.resolve() or
-           (args.output.exists() and p.exists() and os.path.samefile(args.output, p)) for p in protected):
+    try:
+        # `resolve()` catches symlinks; `samefile` additionally catches hard links to an input.
+        is_protected = any(
+            args.output.resolve() == p.resolve() or
+            (args.output.exists() and p.exists() and os.path.samefile(args.output, p))
+            for p in protected
+        )
+    except OSError as error:
+        print(f'FAIL: {sanitize_error(error)}', file=sys.stderr)
+        return 1
+    if is_protected:
         parser.error('output must not overwrite an input or tool')
     report = dict(schema_version=1, status='FAIL', verdict='NOT_A_SUPPORT_VERDICT')
-    args.output.write_text(json.dumps(report) + '\n')  # invalidate any older success first
+    if not write_output(args.output, json.dumps(report) + '\n'):  # invalidate any older success first
+        return 1
     try:
         check_boot_jitter(args.boots, args.boot_jitter)
         probes = [parse_probe(p) for p in args.probe]
@@ -267,12 +285,13 @@ def main(argv=None):
                       movie_sha256=digest(movie), boots=args.boots, boot_jitter_frames=args.boot_jitter,
                       observations=run_boots(args, rom, commands, probes))
         report['status'] = 'OBSERVED'
-    except (ValueError, OSError, UnicodeError, KeyError, TypeError) as error:
+    except (ValueError, OSError, UnicodeError, KeyError, TypeError, AttributeError) as error:
         report.pop('observations', None)
         safe_error = sanitize_error(error)
         report['error'] = safe_error
         print(f'FAIL: {safe_error}', file=sys.stderr)
-    args.output.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
+    if not write_output(args.output, json.dumps(report, sort_keys=True, indent=2) + '\n'):
+        return 1
     return 0 if report['status'] == 'OBSERVED' else 1
 
 

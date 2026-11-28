@@ -908,4 +908,111 @@ class NuzlockeTrackerTest {
         assertEquals(EncounterOutcome.CAUGHT, reloadedA.encounters["0:16"]?.outcome)
         assertEquals(1, reloadedA.fallen.size)
     }
+
+    @Test
+    fun failedPartyReadDoesNotFeedStaleDisplayPartyIntoNuzlockeTracker() {
+        val tracker = NuzlockeTracker(NuzlockeRunState(shaA, enabled = true), clockMs = { 5_000L })
+        val starter = mon(species = 25, pid = 101L)
+        val wildZigzagoon = mon(species = 263, pid = 202L, level = 3)
+
+        assertTrue(
+            tracker.onObservation(
+                party = listOf(starter),
+                enemyParty = listOf(wildZigzagoon),
+                activeEnemyIndex = 0,
+                battleKind = NuzlockeBattleKind.WILD_SINGLE,
+                inBattle = true,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertEquals(EncounterOutcome.MET, tracker.state.encounters["0:16"]?.outcome)
+
+        // Null party read at battle exit must defer resolution and ignore deaths until fresh read arrives.
+        assertFalse(
+            tracker.onObservation(
+                party = null,
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertEquals(EncounterOutcome.MET, tracker.state.encounters["0:16"]?.outcome)
+
+        // Fresh read with newly caught Zigzagoon resolves to CAUGHT.
+        assertTrue(
+            tracker.onObservation(
+                party = listOf(starter, wildZigzagoon),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertEquals(EncounterOutcome.CAUGHT, tracker.state.encounters["0:16"]?.outcome)
+
+        // End-to-end CompanionViewModel: failed readPartyFromCore retains _playerParty for display
+        // without passing that stale pre-catch party into NuzlockeTracker.
+        val store = NuzlockeStore(tempFolder.newFolder("vm_null_party_read"))
+        val hnsSha = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
+        val profile = RomHackProfile(
+            id = "heart_and_soul", name = "Pokemon Heart & Soul", baseGame = "Emerald", gameId = 8,
+            sha256Hashes = listOf(hnsSha), isVerified = true, memoryLayoutVerified = true,
+            battleStateReadVerified = true
+        )
+        val identity = RomIdentity(hnsSha, "Pokemon Heart & Soul")
+
+        var partyResponse: Array<ParsedPokemon>? = arrayOf(starter)
+        var enemyResponse: Array<ParsedPokemon>? = arrayOf(wildZigzagoon)
+        var battlePresence = 1
+
+        val core = object : LibretroCoreCoordinator(object : LibretroCoreBridge {
+            override fun loadRom(romPath: String) = true
+            override fun loadState(statePath: String) = true
+            override fun loadSaveRam(savePath: String) = true
+        }) {
+            override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = partyResponse
+            override fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = enemyResponse
+            override fun readBattlePresence(gameId: Int): Int = battlePresence
+            override fun getActiveBattlerSlot(gameId: Int): Int = 0
+            override fun resolveActiveEnemy(gameId: Int): ActiveEnemyResolution =
+                if (battlePresence == 1) ActiveEnemyResolution(ActiveEnemyState.SLOT, partySlot = 0, opponentBattlers = 1)
+                else ActiveEnemyResolution(ActiveEnemyState.NONE_ACTIVE)
+            override fun readPlayerLocation(gameId: Int): PlayerLocation? = route101
+            override fun readGbaMemory(address: Int, length: Int): ByteArray? = when (address) {
+                0x020000AC -> byteArrayOf(0x04, 0x00, 0x00, 0x00)
+                0x020000B0 -> byteArrayOf(0x02)
+                else -> null
+            }
+        }
+
+        val vm = CompanionViewModel(coreCoordinator = core, nuzlockeStore = store)
+        bindSyntheticRom(core, identity)
+        vm.setRomSession(RomCompatibility.verified(profile, hnsSha), identity)
+        vm.setNuzlockeEnabled(true)
+        repeat(2) { vm.pollTick() }
+        assertEquals(EncounterOutcome.MET, vm.nuzlockeState.value!!.encounters["0:16"]?.outcome)
+
+        // Battle exits on the same poll ticks that party read transiently fails (returns null).
+        // Display party retains the 1-mon pre-catch party, yet encounter must NOT become MISSED!
+        partyResponse = null
+        enemyResponse = null
+        battlePresence = 0
+        repeat(2) { vm.pollTick() }
+        assertEquals(1, vm.playerParty.value.size)
+        assertEquals(EncounterOutcome.MET, vm.nuzlockeState.value!!.encounters["0:16"]?.outcome)
+
+        // Fresh party read arrives with the caught Zigzagoon -> resolves to CAUGHT.
+        partyResponse = arrayOf(starter, wildZigzagoon)
+        vm.pollTick()
+        assertEquals(EncounterOutcome.CAUGHT, vm.nuzlockeState.value!!.encounters["0:16"]?.outcome)
+    }
 }

@@ -1,14 +1,20 @@
 package com.dualdex.library
 
 import com.dualdex.romhack.RomCompatibilityStatus
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.io.SyncFailedException
+import java.nio.channels.FileChannel
+import java.nio.file.Path
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -210,5 +216,118 @@ class PatchFlowTest {
         // Activity recreation initialized with already-handled Saved key does not trigger a duplicate scan.
         val recreatedTracker = PatchRefreshTracker(initialHandledSavedKey = "save-2")
         assertFalse(recreatedTracker.onSaved("save-2", { currentFolder }) { triggeredWith += it })
+    }
+
+    @Test
+    fun safWritePropagatesFdSyncFailureSoStagingCleansUpWithoutRename() {
+        val stagedFile = File(tmp.root, "saf_staged.tmp")
+        try {
+            PatchFlow.writeAllAndSync(
+                FileOutputStream(stagedFile),
+                byteArrayOf(1, 2, 3),
+                syncFd = { throw SyncFailedException("simulated sync failure") }
+            )
+            fail("Expected SyncFailedException to propagate")
+        } catch (expected: SyncFailedException) {
+            assertEquals("simulated sync failure", expected.message)
+        }
+
+        // Non-FileOutputStream streams still write and flush cleanly.
+        val memOut = ByteArrayOutputStream()
+        PatchFlow.writeAllAndSync(memOut, byteArrayOf(4, 5, 6))
+        assertArrayEquals(byteArrayOf(4, 5, 6), memOut.toByteArray())
+
+        // Integration with publishStagedDocument: fd.sync() failure aborts before rename and deletes staging.
+        val safBacking = File(tmp.root, "saf_backing.tmp")
+        val target = FakeSafTarget()
+        val syncFailTarget = object : SafDocumentTarget by target {
+            override fun writeAll(uriString: String, bytes: ByteArray) {
+                PatchFlow.writeAllAndSync(
+                    FileOutputStream(safBacking),
+                    bytes,
+                    syncFd = { throw SyncFailedException("SAF sync failed") }
+                )
+            }
+        }
+        assertNull(PatchFlow.publishStagedDocument(syncFailTarget, "Hack", byteArrayOf(7, 8), uniqueToken = "syncfail"))
+        assertFalse(target.calls.any { it.startsWith("rename:") })
+        assertTrue(target.calls.any { it.startsWith("delete:") })
+        assertTrue(target.entries.isEmpty())
+    }
+
+    @Test
+    fun privateSavePropagatesFsyncAndStrictAtomicMoveFailuresLeavingExistingIntact() {
+        val patchedDir = File(tmp.root, "strict_private")
+        val existing = File(patchedDir, "Existing.gba")
+        patchedDir.mkdirs()
+        val originalBytes = "ORIGINAL_ROM".toByteArray()
+        existing.writeBytes(originalBytes)
+
+        // 1. forceFile failure propagates, removes .tmp, and leaves existing file untouched.
+        try {
+            PatchFlow.writeAtomicallyTo(
+                existing,
+                "NEW_ROM".toByteArray(),
+                object : PatchFlow.PrivateFileOps {
+                    override fun forceFile(channel: FileChannel) {
+                        throw IOException("simulated channel.force failure")
+                    }
+                    override fun atomicMove(source: Path, target: Path) =
+                        PatchFlow.DefaultPrivateFileOps.atomicMove(source, target)
+                    override fun forceDir(dir: Path) =
+                        PatchFlow.DefaultPrivateFileOps.forceDir(dir)
+                }
+            )
+            fail("Expected forceFile failure")
+        } catch (expected: IOException) {
+            assertEquals("simulated channel.force failure", expected.message)
+        }
+        assertArrayEquals(originalBytes, existing.readBytes())
+        assertFalse(File(patchedDir, "${existing.name}.tmp").exists())
+
+        // 2. atomicMove failure must NOT fall back to non-atomic move; cleans .tmp and preserves existing.
+        try {
+            PatchFlow.writeAtomicallyTo(
+                existing,
+                "NEW_ROM".toByteArray(),
+                object : PatchFlow.PrivateFileOps {
+                    override fun forceFile(channel: FileChannel) =
+                        PatchFlow.DefaultPrivateFileOps.forceFile(channel)
+                    override fun atomicMove(source: Path, target: Path) {
+                        throw IOException("simulated ATOMIC_MOVE failure")
+                    }
+                    override fun forceDir(dir: Path) =
+                        PatchFlow.DefaultPrivateFileOps.forceDir(dir)
+                }
+            )
+            fail("Expected atomicMove failure")
+        } catch (expected: IOException) {
+            assertEquals("simulated ATOMIC_MOVE failure", expected.message)
+        }
+        assertArrayEquals(originalBytes, existing.readBytes())
+        assertFalse(File(patchedDir, "${existing.name}.tmp").exists())
+
+        // 3. savePrivatelyToDir propagates errors cleanly without leaving .tmp or broken .gba files.
+        try {
+            PatchFlow.savePrivatelyToDir(
+                patchedDir,
+                "Fresh",
+                "FRESH_ROM".toByteArray(),
+                object : PatchFlow.PrivateFileOps {
+                    override fun forceFile(channel: FileChannel) =
+                        PatchFlow.DefaultPrivateFileOps.forceFile(channel)
+                    override fun atomicMove(source: Path, target: Path) {
+                        throw IOException("atomic move unsupported")
+                    }
+                    override fun forceDir(dir: Path) =
+                        PatchFlow.DefaultPrivateFileOps.forceDir(dir)
+                }
+            )
+            fail("Expected savePrivatelyToDir failure")
+        } catch (expected: IOException) {
+            assertEquals("atomic move unsupported", expected.message)
+        }
+        assertFalse(File(patchedDir, "Fresh.gba").exists())
+        assertFalse(File(patchedDir, "Fresh.gba.tmp").exists())
     }
 }

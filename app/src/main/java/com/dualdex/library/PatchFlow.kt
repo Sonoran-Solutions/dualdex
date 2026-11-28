@@ -4,14 +4,21 @@ import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
 import androidx.documentfile.provider.DocumentFile
-import com.dualdex.emulator.storage.AtomicSaveFile
 import com.dualdex.romhack.ProfileLoader
 import com.dualdex.romhack.RomCompatibility
 import com.dualdex.romhack.RomHackDetector
 import com.dualdex.settings.SettingsManager
 import java.io.File
+import java.io.FileDescriptor
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.OutputStream
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
@@ -272,13 +279,7 @@ object PatchFlow {
             val docUri = Uri.parse(uriString)
             val stream = context.contentResolver.openOutputStream(docUri, "w")
                 ?: throw IOException("Could not open staged SAF document for writing.")
-            stream.use { out ->
-                out.write(bytes)
-                out.flush()
-                (out as? FileOutputStream)?.fd?.let { fd ->
-                    runCatching { fd.sync() }
-                }
-            }
+            writeAllAndSync(stream, bytes)
         }
 
         override fun renameDocument(uriString: String, targetName: String): StagedDocument? {
@@ -298,23 +299,104 @@ object PatchFlow {
         }
     }
 
+    internal interface PrivateFileOps {
+        fun forceFile(channel: FileChannel)
+        fun atomicMove(source: Path, target: Path)
+        fun forceDir(dir: Path)
+    }
+
+    internal object DefaultPrivateFileOps : PrivateFileOps {
+        override fun forceFile(channel: FileChannel) {
+            channel.force(true)
+        }
+
+        override fun atomicMove(source: Path, target: Path) {
+            Files.move(
+                source,
+                target,
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        }
+
+        override fun forceDir(dir: Path) {
+            FileChannel.open(dir, StandardOpenOption.READ).use { dirChannel ->
+                dirChannel.force(true)
+            }
+        }
+    }
+
+    internal fun writeAllAndSync(
+        out: OutputStream,
+        bytes: ByteArray,
+        syncFd: (FileDescriptor) -> Unit = { it.sync() }
+    ) {
+        out.use { stream ->
+            stream.write(bytes)
+            stream.flush()
+            (stream as? FileOutputStream)?.fd?.let(syncFd)
+        }
+    }
+
     private fun saveToFolder(context: Context, root: DocumentFile, stem: String, bytes: ByteArray): Pair<Uri, String>? {
         val published = publishStagedDocument(AndroidSafDocumentTarget(context, root), stem, bytes) ?: return null
         val name = published.name ?: return null
         return Uri.parse(published.uriString) to name
     }
 
-    internal fun savePrivatelyToDir(dir: File, stem: String, bytes: ByteArray): File {
-        if (!dir.isDirectory && !dir.mkdirs()) throw IOException("Could not create DualDex’s patched ROM folder.")
+    internal fun writeAtomicallyTo(
+        dest: File,
+        bytes: ByteArray,
+        fileOps: PrivateFileOps = DefaultPrivateFileOps
+    ) {
+        if (bytes.isEmpty()) throw IOException("Refusing to write empty patched ROM.")
+        val parent = dest.parentFile ?: throw IOException("Patched ROM destination has no parent directory.")
+        if (!parent.exists() && !parent.mkdirs() && !parent.isDirectory) {
+            throw IOException("Could not create DualDex’s patched ROM folder.")
+        }
+        if (!parent.isDirectory) {
+            throw IOException("Patched ROM destination parent is not a directory.")
+        }
+        val tmp = File(parent, "${dest.name}.tmp")
+        try {
+            FileChannel.open(
+                tmp.toPath(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE
+            ).use { channel ->
+                val buffer = ByteBuffer.wrap(bytes)
+                while (buffer.hasRemaining()) {
+                    channel.write(buffer)
+                }
+                fileOps.forceFile(channel)
+            }
+            fileOps.atomicMove(tmp.toPath(), dest.toPath())
+            fileOps.forceDir(parent.toPath())
+        } finally {
+            runCatching { Files.deleteIfExists(tmp.toPath()) }
+        }
+    }
+
+    internal fun savePrivatelyToDir(
+        dir: File,
+        stem: String,
+        bytes: ByteArray,
+        fileOps: PrivateFileOps = DefaultPrivateFileOps
+    ): File {
+        if (!dir.exists() && !dir.mkdirs() && !dir.isDirectory) {
+            throw IOException("Could not create DualDex’s patched ROM folder.")
+        }
+        if (!dir.isDirectory) {
+            throw IOException("DualDex’s patched ROM path is not a directory.")
+        }
         val existingNames = dir.listFiles()?.map { it.name.lowercase() }?.toSet().orEmpty()
         val targetName = outputNames(stem).first {
             val lower = it.lowercase()
             lower !in existingNames && "$lower.tmp" !in existingNames
         }
         val output = File(dir, targetName)
-        if (!AtomicSaveFile.writeBytes(output, bytes)) {
-            throw IOException("Could not atomically write the patched ROM.")
-        }
+        writeAtomicallyTo(output, bytes, fileOps)
         return output
     }
 

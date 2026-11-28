@@ -97,8 +97,14 @@ class CheatManager(
         write("cheats_${identity.sha256.lowercase()}", arr.toString())
     }
 
+    private fun hardcoreBlocked(core: LibretroCoreCoordinator): CheatResult {
+        core.cheatReset()
+        return CheatResult(false, HARDCORE_BLOCKED)
+    }
+
     /** Explicit whole-list replacement. Read/modify operations use the atomic methods below. */
-    fun saveCheats(identity: RomIdentity, cheats: List<CheatItem>): CheatResult = operation {
+    fun saveCheats(identity: RomIdentity, cheats: List<CheatItem>): CheatResult = operation { core ->
+        if (!core.raHardcorePolicy.mayUseCheats) return@operation hardcoreBlocked(core)
         saveCheatsLocked(identity, cheats)
     }
 
@@ -126,6 +132,7 @@ class CheatManager(
     }
 
     fun addCheat(identity: RomIdentity, cheat: CheatItem): CheatResult = operation { core ->
+        if (!core.raHardcorePolicy.mayUseCheats) return@operation hardcoreBlocked(core)
         if (!identity.isValid) return@operation CheatResult.stale
         val current = readCheatsLocked(identity)
         if (current.any { it.id == cheat.id }) return@operation CheatResult(false, "Cheat identity already exists.")
@@ -143,6 +150,7 @@ class CheatManager(
     private fun updateCheatLocked(
         core: LibretroCoreCoordinator, identity: RomIdentity, updated: CheatItem
     ): CheatResult {
+        if (!core.raHardcorePolicy.mayUseCheats) return hardcoreBlocked(core)
         val current = readCheatsLocked(identity)
         if (current.none { it.id == updated.id }) return CheatResult(false, "Cheat no longer exists.")
         val saved = saveCheatsLocked(identity, current.map { if (it.id == updated.id) updated else it })
@@ -153,18 +161,21 @@ class CheatManager(
     }
 
     fun deleteCheat(identity: RomIdentity, cheatId: String): CheatResult = operation { core ->
+        if (!core.raHardcorePolicy.mayUseCheats) return@operation hardcoreBlocked(core)
         val saved = saveCheatsLocked(identity, readCheatsLocked(identity).filter { it.id != cheatId })
         if (!saved.accepted) return@operation saved
         applyCheatsLocked(core, identity)
     }
 
     fun toggleCheat(identity: RomIdentity, cheatId: String, enabled: Boolean): CheatResult = operation { core ->
+        if (!core.raHardcorePolicy.mayUseCheats) return@operation hardcoreBlocked(core)
         val item = readCheatsLocked(identity).firstOrNull { it.id == cheatId }
             ?: return@operation CheatResult(false, "Cheat no longer exists.")
         updateCheatLocked(core, identity, item.copy(enabled = enabled))
     }
 
     fun disableAllCheats(identity: RomIdentity): CheatResult = operation { core ->
+        if (!core.raHardcorePolicy.mayUseCheats) return@operation hardcoreBlocked(core)
         val saved = saveCheatsLocked(identity, readCheatsLocked(identity).map { it.copy(enabled = false) })
         if (!saved.accepted) return@operation saved
         applyCheatsLocked(core, identity)
@@ -176,6 +187,7 @@ class CheatManager(
 
     private fun loadPresetsLocked(core: LibretroCoreCoordinator, identity: RomIdentity): CheatResult {
         if (!core.isCheatRom(identity)) return CheatResult.stale
+        if (!core.raHardcorePolicy.mayUseCheats) return hardcoreBlocked(core)
         val presets = getPresets(identity)
         if (presets.isEmpty()) return CheatResult.unavailable
         val saved = saveCheatsLocked(identity, presets)
@@ -199,10 +211,7 @@ class CheatManager(
     /** Core and shared storage locks are already held, including during automatic ROM load. */
     private fun applyCheatsLocked(core: LibretroCoreCoordinator, identity: RomIdentity): CheatResult {
         if (!core.isCheatRom(identity)) return CheatResult.stale
-        if (!core.raHardcorePolicy.mayUseCheats) {
-            core.cheatReset()
-            return CheatResult(false, "Cheats are disabled in RetroAchievements Hardcore mode.")
-        }
+        if (!core.raHardcorePolicy.mayUseCheats) return hardcoreBlocked(core)
         val cheats = readCheatsLocked(identity)
         core.cheatReset()
         var index = 0
@@ -236,5 +245,6 @@ class CheatManager(
         const val UNVERIFIED = "Disabled: no verified built-in approval for this exact ROM and code."
         const val UNKNOWN_SOURCE = "Disabled: saved cheat provenance is missing or ambiguous."
         const val MALFORMED = "Disabled: empty, placeholder or malformed code."
+        const val HARDCORE_BLOCKED = "Cheats are disabled in RetroAchievements Hardcore mode."
     }
 }

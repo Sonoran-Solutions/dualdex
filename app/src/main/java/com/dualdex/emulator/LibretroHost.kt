@@ -74,6 +74,7 @@ object LibretroHost {
     external fun nativeGetMainStructAddress(gameId: Int): Int
     external fun nativeCleanup()
 
+    internal external fun nativeSetRaHardcoreProtected(protectedSession: Boolean)
     internal external fun nativeRaLogin(username: ByteArray, secret: ByteArray, useToken: Boolean): Boolean
     internal external fun nativeRaLogout()
     internal external fun nativeRaHardcore(enabled: Boolean)

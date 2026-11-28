@@ -3,70 +3,142 @@ package com.dualdex.nuzlocke
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 
 /**
  * Persists per-ROM [NuzlockeRunState] JSON files under [baseDir]`/<romSha256>.json`
- * using atomic write-to-temp + rename and fail-safe fallback on missing or corrupt files.
+ * using strict canonical SHA-256 validation, fsync'd write-to-temp + atomic rename +
+ * parent-directory fsync, and fail-closed rejection on mismatched or corrupt files.
  */
-class NuzlockeStore(private val baseDir: File) {
+class NuzlockeStore internal constructor(
+    private val baseDir: File,
+    private val fileOps: FileOps = DefaultFileOps
+) {
+    constructor(baseDir: File) : this(baseDir, DefaultFileOps)
+
+    internal interface FileOps {
+        fun forceFile(channel: FileChannel)
+        fun atomicMove(source: Path, target: Path)
+        fun forceDir(dir: Path)
+    }
+
+    internal object DefaultFileOps : FileOps {
+        override fun forceFile(channel: FileChannel) {
+            channel.force(true)
+        }
+
+        override fun atomicMove(source: Path, target: Path) {
+            Files.move(
+                source,
+                target,
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE
+            )
+        }
+
+        override fun forceDir(dir: Path) {
+            FileChannel.open(dir, StandardOpenOption.READ).use { dirChannel ->
+                dirChannel.force(true)
+            }
+        }
+    }
+
+    private val storeLock = Any()
 
     fun fileForRom(romSha256: String): File? {
-        val safeKey = sanitizeRomKey(romSha256) ?: return null
-        return File(baseDir, "$safeKey.json")
+        val canonical = canonicalSha256(romSha256) ?: return null
+        return File(baseDir, "$canonical.json")
+    }
+
+    /**
+     * Loads and validates the persisted state for [romSha256]. Returns `null` if the ROM hash is
+     * invalid, the file is missing/corrupt, or the embedded `romSha256` does not match [romSha256].
+     */
+    fun loadOrNull(romSha256: String): NuzlockeRunState? {
+        val canonical = canonicalSha256(romSha256) ?: return null
+        val file = File(baseDir, "$canonical.json")
+        if (!file.isFile) return null
+        return try {
+            val raw = file.readText(StandardCharsets.UTF_8)
+            if (raw.isBlank()) return null
+            decode(raw, expectedRomSha256 = canonical)
+        } catch (_: Exception) {
+            null
+        }
     }
 
     fun load(romSha256: String): NuzlockeRunState {
-        val defaultState = NuzlockeRunState(romSha256 = romSha256)
-        val file = fileForRom(romSha256) ?: return defaultState
-        if (!file.isFile) return defaultState
-        return try {
-            val raw = file.readText(StandardCharsets.UTF_8)
-            if (raw.isBlank()) return defaultState
-            decode(raw, fallbackRomSha256 = romSha256)
-        } catch (_: Exception) {
-            defaultState
+        val canonical = canonicalSha256(romSha256) ?: return NuzlockeRunState(romSha256 = romSha256)
+        return loadOrNull(canonical) ?: NuzlockeRunState(romSha256 = canonical)
+    }
+
+    /**
+     * Atomically writes [state] strictly to the destination bound by [expectedRomSha256].
+     * Refuses if [expectedRomSha256] or `state.romSha256` is not a valid canonical SHA-256 or if
+     * they do not match. Never swallows fsync errors and never falls back to a non-atomic move.
+     */
+    fun saveResult(expectedRomSha256: String, state: NuzlockeRunState): Result<Unit> {
+        val canonicalExpected = canonicalSha256(expectedRomSha256)
+            ?: return Result.failure(IllegalArgumentException("Invalid target ROM SHA-256"))
+        val canonicalState = canonicalSha256(state.romSha256)
+            ?: return Result.failure(IllegalArgumentException("Invalid state ROM SHA-256"))
+        if (canonicalState != canonicalExpected) {
+            return Result.failure(
+                IllegalArgumentException(
+                    "State ROM SHA-256 mismatch: expected $canonicalExpected, got $canonicalState"
+                )
+            )
+        }
+
+        val canonicalStateObj = if (state.romSha256 == canonicalExpected) {
+            state
+        } else {
+            state.copy(romSha256 = canonicalExpected)
+        }
+
+        synchronized(storeLock) {
+            val target = File(baseDir, "$canonicalExpected.json")
+            val tmp = File(baseDir, "${target.name}.tmp")
+            return try {
+                if (!baseDir.exists() && !baseDir.mkdirs() && !baseDir.isDirectory) {
+                    return Result.failure(IOException("Unable to create Nuzlocke directory: $baseDir"))
+                }
+                if (!baseDir.isDirectory) {
+                    return Result.failure(IOException("Nuzlocke path is not a directory: $baseDir"))
+                }
+                val payload = encode(canonicalStateObj).toByteArray(StandardCharsets.UTF_8)
+                FileChannel.open(
+                    tmp.toPath(),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE
+                ).use { channel ->
+                    val buffer = ByteBuffer.wrap(payload)
+                    while (buffer.hasRemaining()) {
+                        channel.write(buffer)
+                    }
+                    fileOps.forceFile(channel)
+                }
+                fileOps.atomicMove(tmp.toPath(), target.toPath())
+                fileOps.forceDir(baseDir.toPath())
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            } finally {
+                runCatching { Files.deleteIfExists(tmp.toPath()) }
+            }
         }
     }
 
-    fun save(state: NuzlockeRunState): Boolean {
-        val target = fileForRom(state.romSha256) ?: return false
-        return try {
-            if (!baseDir.exists() && !baseDir.mkdirs() && !baseDir.isDirectory) {
-                return false
-            }
-            val tmp = File(baseDir, "${target.name}.tmp")
-            val payload = encode(state).toByteArray(StandardCharsets.UTF_8)
-            FileOutputStream(tmp).use { out ->
-                out.write(payload)
-                out.flush()
-                runCatching { out.fd.sync() }
-            }
-            try {
-                Files.move(
-                    tmp.toPath(),
-                    target.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING,
-                    StandardCopyOption.ATOMIC_MOVE
-                )
-            } catch (_: Exception) {
-                try {
-                    Files.move(tmp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
-                } catch (_: Exception) {
-                    if (!tmp.renameTo(target)) {
-                        tmp.delete()
-                        return false
-                    }
-                }
-            }
-            true
-        } catch (_: Exception) {
-            false
-        }
-    }
+    fun save(expectedRomSha256: String, state: NuzlockeRunState): Boolean =
+        saveResult(expectedRomSha256, state).isSuccess
 
     internal fun encode(state: NuzlockeRunState): String {
         val root = JSONObject().apply {
@@ -109,9 +181,15 @@ class NuzlockeStore(private val baseDir: File) {
         return root.toString(2)
     }
 
-    internal fun decode(raw: String, fallbackRomSha256: String): NuzlockeRunState {
+    internal fun decode(raw: String, expectedRomSha256: String): NuzlockeRunState? {
+        val canonicalExpected = canonicalSha256(expectedRomSha256) ?: return null
         val root = JSONObject(raw)
-        val romSha = root.optString("romSha256", "").ifBlank { fallbackRomSha256 }
+        if (root.has("schemaVersion") && root.optInt("schemaVersion", -1) != SCHEMA_VERSION) {
+            return null
+        }
+        val embeddedSha = canonicalSha256(root.optString("romSha256", "")) ?: return null
+        if (embeddedSha != canonicalExpected) return null
+
         val enabled = root.optBoolean("enabled", false)
         val dupesClause = root.optBoolean("dupesClause", true)
         val levelCap = if (root.isNull("levelCap")) null else root.optInt("levelCap", 0).takeIf { it > 0 }
@@ -160,7 +238,7 @@ class NuzlockeStore(private val baseDir: File) {
         }
 
         return NuzlockeRunState(
-            romSha256 = romSha,
+            romSha256 = canonicalExpected,
             enabled = enabled,
             dupesClause = dupesClause,
             levelCap = levelCap,
@@ -169,12 +247,13 @@ class NuzlockeStore(private val baseDir: File) {
         )
     }
 
-    private fun sanitizeRomKey(romSha256: String): String? {
-        val cleaned = romSha256.trim().lowercase().filter { it in 'a'..'z' || it in '0'..'9' || it == '_' || it == '-' }
-        return cleaned.takeIf { it.isNotEmpty() }
-    }
+    companion object {
+        private const val SCHEMA_VERSION = 1
+        private val SHA256_REGEX = Regex("^[0-9a-f]{64}$")
 
-    private companion object {
-        const val SCHEMA_VERSION = 1
+        fun canonicalSha256(romSha256: String?): String? {
+            val normalized = romSha256?.trim()?.lowercase() ?: return null
+            return normalized.takeIf { SHA256_REGEX.matches(it) }
+        }
     }
 }

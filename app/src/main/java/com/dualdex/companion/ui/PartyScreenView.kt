@@ -78,6 +78,7 @@ class PartyScreenView(
         val state: NuzlockeRunState?,
         val areaKey: String?,
         val areaName: String?,
+        val persistenceError: String?,
         val expanded: Boolean,
         val resetConfirmPending: Boolean
     )
@@ -88,6 +89,7 @@ class PartyScreenView(
     private val nuzlockeAreaPill: TextView
     private val nuzlockeFallenPill: TextView
     private val nuzlockeExpandBtn: TextView
+    private val nuzlockeErrorText: TextView
     private val nuzlockePanel: LinearLayout
     private val nuzlockeDupesBtn: TextView
     private val nuzlockeLevelCapLabel: TextView
@@ -184,6 +186,14 @@ class PartyScreenView(
             marginStart = tight
         })
         nuzlockeContainer.addView(stripRow, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+
+        nuzlockeErrorText = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.danger)
+            textSize = DualDexTheme.Type.compact
+            visibility = View.GONE
+            setPadding(0, tight, 0, 0)
+        }
+        nuzlockeContainer.addView(nuzlockeErrorText, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
 
         nuzlockePanel = LinearLayout(context).apply {
             orientation = VERTICAL
@@ -310,6 +320,7 @@ class PartyScreenView(
             scope.launch { viewModel.selectedMemberIndex.collectLatest { refreshUI() } }
             scope.launch { viewModel.runtimeRomTrust.collectLatest { refreshUI() } }
             scope.launch { viewModel.nuzlockeState.collectLatest { refreshUI() } }
+            scope.launch { viewModel.nuzlockePersistenceError.collectLatest { updateNuzlockeStrip() } }
             scope.launch { viewModel.playerLocation.collectLatest { updateNuzlockeStrip() } }
             scope.launch { viewModel.resolvedLocation.collectLatest { updateNuzlockeStrip() } }
             scope.launch {
@@ -371,16 +382,25 @@ class PartyScreenView(
         val areaKey = loc?.let { areaKeyOf(it) }
         val areaName = viewModel.resolvedLocation.value?.name?.takeIf { it.isNotBlank() }
             ?: areaKey?.let { "Area $it" }
+        val persistenceError = viewModel.nuzlockePersistenceError.value
 
         val renderKey = NuzlockeStripKey(
             state = state,
             areaKey = areaKey,
             areaName = areaName,
+            persistenceError = persistenceError,
             expanded = nuzlockeExpanded,
             resetConfirmPending = nuzlockeResetConfirmPending
         )
         if (renderKey == lastNuzlockeRenderKey) return
         lastNuzlockeRenderKey = renderKey
+
+        if (persistenceError != null) {
+            nuzlockeErrorText.text = "Save failed: $persistenceError"
+            nuzlockeErrorText.visibility = View.VISIBLE
+        } else {
+            nuzlockeErrorText.visibility = View.GONE
+        }
 
         if (state == null) {
             nuzlockeToggleBtn.text = "Nuzlocke: —"
@@ -423,7 +443,7 @@ class PartyScreenView(
             when (areaEncounter?.outcome) {
                 EncounterOutcome.CAUGHT -> DualDexTheme.Color.success
                 EncounterOutcome.MISSED -> DualDexTheme.Color.danger
-                EncounterOutcome.MET -> DualDexTheme.Color.warning
+                EncounterOutcome.MET, EncounterOutcome.PENDING -> DualDexTheme.Color.warning
                 EncounterOutcome.DUPES_SKIPPED, null -> DualDexTheme.Color.textPrimary
             }
         )
@@ -464,29 +484,47 @@ class PartyScreenView(
                 setPadding(0, tight, 0, tight)
             }
             val label = TextView(context).apply {
-                text = "${enc.areaName} · ${enc.speciesName} Lv.${enc.level}"
+                val suffix = if (enc.outcome == EncounterOutcome.PENDING) " (Pending)" else ""
+                text = "${enc.areaName} · ${enc.speciesName} Lv.${enc.level}$suffix"
                 setTextColor(DualDexTheme.Color.textPrimary)
                 textSize = DualDexTheme.Type.compact
                 isSingleLine = true
                 ellipsize = TextUtils.TruncateAt.END
             }
-            val outcomeBtn = buildNuzlockePill(context, enc.outcome.label) {
-                viewModel.overrideNuzlockeEncounter(enc.areaKey, nextEncounterOutcome(enc.outcome))
-                updateNuzlockeStrip()
-            }.apply {
-                setTextColor(
-                    when (enc.outcome) {
-                        EncounterOutcome.CAUGHT -> DualDexTheme.Color.success
-                        EncounterOutcome.MISSED -> DualDexTheme.Color.danger
-                        EncounterOutcome.MET -> DualDexTheme.Color.warning
-                        EncounterOutcome.DUPES_SKIPPED -> DualDexTheme.Color.textSecondary
-                    }
-                )
-            }
             row.addView(label, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(outcomeBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
-                marginStart = tight
-            })
+            if (enc.outcome == EncounterOutcome.PENDING) {
+                val caughtBtn = buildNuzlockePill(context, "Caught") {
+                    viewModel.overrideNuzlockeEncounter(enc.areaKey, EncounterOutcome.CAUGHT)
+                    updateNuzlockeStrip()
+                }.apply { setTextColor(DualDexTheme.Color.success) }
+                val missedBtn = buildNuzlockePill(context, "Missed") {
+                    viewModel.overrideNuzlockeEncounter(enc.areaKey, EncounterOutcome.MISSED)
+                    updateNuzlockeStrip()
+                }.apply { setTextColor(DualDexTheme.Color.danger) }
+                row.addView(caughtBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = tight
+                })
+                row.addView(missedBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = tight
+                })
+            } else {
+                val outcomeBtn = buildNuzlockePill(context, enc.outcome.label) {
+                    viewModel.overrideNuzlockeEncounter(enc.areaKey, nextEncounterOutcome(enc.outcome))
+                    updateNuzlockeStrip()
+                }.apply {
+                    setTextColor(
+                        when (enc.outcome) {
+                            EncounterOutcome.CAUGHT -> DualDexTheme.Color.success
+                            EncounterOutcome.MISSED -> DualDexTheme.Color.danger
+                            EncounterOutcome.MET, EncounterOutcome.PENDING -> DualDexTheme.Color.warning
+                            EncounterOutcome.DUPES_SKIPPED -> DualDexTheme.Color.textSecondary
+                        }
+                    )
+                }
+                row.addView(outcomeBtn, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT).apply {
+                    marginStart = tight
+                })
+            }
             nuzlockeEncountersList.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
     }
@@ -569,7 +607,7 @@ class PartyScreenView(
     }
 
     private fun nextEncounterOutcome(current: EncounterOutcome): EncounterOutcome = when (current) {
-        EncounterOutcome.MET -> EncounterOutcome.CAUGHT
+        EncounterOutcome.MET, EncounterOutcome.PENDING -> EncounterOutcome.CAUGHT
         EncounterOutcome.CAUGHT -> EncounterOutcome.MISSED
         EncounterOutcome.MISSED -> EncounterOutcome.DUPES_SKIPPED
         EncounterOutcome.DUPES_SKIPPED -> EncounterOutcome.CAUGHT

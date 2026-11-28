@@ -473,7 +473,7 @@ class NuzlockeTrackerTest {
                 "777:355343721" to FallenMon("777:355343721", 25, "Pikachu", "Volt", 12, "Route 101", 9999L)
             )
         )
-        assertTrue(store.save(expected))
+        assertTrue(store.save(shaA, expected))
 
         val savedFile = store.fileForRom(shaA)!!
         assertTrue(savedFile.isFile)
@@ -489,15 +489,352 @@ class NuzlockeTrackerTest {
     }
 
     @Test
-    fun companionViewModelIsolatesRunsPerRomAndFeedsOnlyVerifiedObservations() {
-        val store = NuzlockeStore(tempFolder.newFolder("vm_nuzlocke"))
-        val profileA = RomHackProfile(
-            id = "synth-a", name = "Synth A", baseGame = "Emerald", gameId = 1,
+    fun onePokemonTrainerAndUnknownBattleTypesDoNotConsumeWildArea() {
+        val tracker = NuzlockeTracker(NuzlockeRunState(shaA, enabled = true), clockMs = { 1_000L })
+        val starter = mon(species = 25, pid = 101L)
+
+        // 1-Pokémon trainer battle must NOT consume Route 101.
+        assertFalse(
+            tracker.onObservation(
+                party = listOf(starter),
+                enemyParty = listOf(mon(species = 261, pid = 202L, level = 5)),
+                activeEnemyIndex = 0,
+                battleKind = NuzlockeBattleKind.TRAINER_SINGLE,
+                inBattle = true,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(tracker.state.encounters.isEmpty())
+
+        // UNKNOWN battle type must NOT consume Route 101.
+        assertFalse(
+            tracker.onObservation(
+                party = listOf(starter),
+                enemyParty = listOf(mon(species = 261, pid = 203L, level = 5)),
+                activeEnemyIndex = 0,
+                battleKind = NuzlockeBattleKind.UNKNOWN,
+                inBattle = true,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(tracker.state.encounters.isEmpty())
+
+        // Subsequent verified WILD_SINGLE battle in Route 101 still records normally.
+        assertTrue(
+            tracker.onObservation(
+                party = listOf(starter),
+                enemyParty = listOf(mon(species = 263, pid = 204L, level = 3)),
+                activeEnemyIndex = 0,
+                battleKind = NuzlockeBattleKind.WILD_SINGLE,
+                inBattle = true,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertEquals(EncounterOutcome.MET, tracker.state.encounters["0:16"]?.outcome)
+        assertEquals(263, tracker.state.encounters["0:16"]?.speciesId)
+    }
+
+    @Test
+    fun companionViewModelRejectsOneMonTrainerAndUnknownBattleTypesFromConsumingArea() {
+        val store = NuzlockeStore(tempFolder.newFolder("vm_battle_kind"))
+        val hnsSha = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
+        val hnsProfile = RomHackProfile(
+            id = "heart_and_soul", name = "Pokemon Heart & Soul", baseGame = "Emerald", gameId = 8,
+            sha256Hashes = listOf(hnsSha), isVerified = true, memoryLayoutVerified = true,
+            battleStateReadVerified = true
+        )
+        val unverifiedLayoutProfile = RomHackProfile(
+            id = "synth-emerald", name = "Synth Emerald", baseGame = "Emerald", gameId = 1,
             sha256Hashes = listOf(shaA), isVerified = true, memoryLayoutVerified = true,
             battleStateReadVerified = true
         )
-        val profileB = profileA.copy(id = "synth-b", name = "Synth B", sha256Hashes = listOf(shaB))
-        val idA = RomIdentity(shaA, "Synth A")
+
+        var party = arrayOf(mon(species = 25, pid = 10L, hp = 20, maxHp = 20))
+        var enemyParty: Array<ParsedPokemon>? = arrayOf(mon(species = 261, pid = 20L, level = 5))
+        var battlePresence = 1
+        var battleTypeFlags = 1 shl 3 // BATTLE_TYPE_TRAINER (1-mon trainer!)
+        var battlersCount = 2
+
+        val core = object : LibretroCoreCoordinator(object : LibretroCoreBridge {
+            override fun loadRom(romPath: String) = true
+            override fun loadState(statePath: String) = true
+            override fun loadSaveRam(savePath: String) = true
+        }) {
+            override fun readPartyFromCore(gameId: Int): Array<ParsedPokemon>? = party
+            override fun readEnemyPartyFromCore(gameId: Int): Array<ParsedPokemon>? = enemyParty
+            override fun readBattlePresence(gameId: Int): Int = battlePresence
+            override fun getActiveBattlerSlot(gameId: Int): Int = 0
+            override fun resolveActiveEnemy(gameId: Int): ActiveEnemyResolution =
+                if (battlePresence == 1) ActiveEnemyResolution(ActiveEnemyState.SLOT, partySlot = 0, opponentBattlers = 1)
+                else ActiveEnemyResolution(ActiveEnemyState.NONE_ACTIVE)
+            override fun readPlayerLocation(gameId: Int): PlayerLocation? = route101
+            override fun readGbaMemory(address: Int, length: Int): ByteArray? = when (address) {
+                0x020000AC -> byteArrayOf(
+                    (battleTypeFlags and 0xFF).toByte(),
+                    ((battleTypeFlags ushr 8) and 0xFF).toByte(),
+                    ((battleTypeFlags ushr 16) and 0xFF).toByte(),
+                    ((battleTypeFlags ushr 24) and 0xFF).toByte()
+                )
+                0x020000B0 -> byteArrayOf(battlersCount.toByte())
+                else -> null
+            }
+        }
+
+        val vm = CompanionViewModel(coreCoordinator = core, nuzlockeStore = store)
+
+        // (b) Profile without verified per-ROM battle-type flags leaves battle kind UNKNOWN -> area open.
+        val idUnknown = RomIdentity(shaA, "Synth Emerald")
+        bindSyntheticRom(core, idUnknown)
+        vm.setRomSession(RomCompatibility.verified(unverifiedLayoutProfile, shaA), idUnknown)
+        vm.setNuzlockeEnabled(true)
+        repeat(2) { vm.pollTick() }
+        assertTrue(vm.nuzlockeState.value!!.encounters.isEmpty())
+
+        // (a) H&S 2.0.5 1-mon trainer battle (BATTLE_TYPE_TRAINER set) -> does NOT consume area.
+        val idHns = RomIdentity(hnsSha, "Pokemon Heart & Soul")
+        bindSyntheticRom(core, idHns)
+        vm.setRomSession(RomCompatibility.verified(hnsProfile, hnsSha), idHns)
+        vm.setNuzlockeEnabled(true)
+        repeat(2) { vm.pollTick() }
+        assertTrue(vm.nuzlockeState.value!!.encounters.isEmpty())
+
+        // Exit trainer battle, then enter real wild battle (no BATTLE_TYPE_TRAINER) -> records MET.
+        battlePresence = 0
+        enemyParty = null
+        repeat(2) { vm.pollTick() }
+
+        battleTypeFlags = 0x00000004 // BATTLE_TYPE_IS_MASTER, wild single
+        enemyParty = arrayOf(mon(species = 263, pid = 30L, level = 3))
+        battlePresence = 1
+        repeat(2) { vm.pollTick() }
+        assertEquals(EncounterOutcome.MET, vm.nuzlockeState.value!!.encounters["0:16"]?.outcome)
+        assertEquals(263, vm.nuzlockeState.value!!.encounters["0:16"]?.speciesId)
+    }
+
+    @Test
+    fun fullPartyWildBattleLeavesOutcomePendingInsteadOfMissed() {
+        val tracker = NuzlockeTracker(NuzlockeRunState(shaA, enabled = true), clockMs = { 5_000L })
+        val fullParty = listOf(
+            mon(species = 25, pid = 1L),
+            mon(species = 16, pid = 2L),
+            mon(species = 19, pid = 3L),
+            mon(species = 261, pid = 4L),
+            mon(species = 263, pid = 5L),
+            mon(species = 265, pid = 6L, isEgg = true) // 5 valid mons + 1 egg = 6 occupied party slots
+        )
+        val wildZigzagoon = mon(species = 263, pid = 999L, level = 4)
+
+        assertTrue(
+            tracker.onObservation(
+                party = fullParty,
+                enemyParty = listOf(wildZigzagoon),
+                activeEnemyIndex = 0,
+                battleKind = NuzlockeBattleKind.WILD_SINGLE,
+                inBattle = true,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertEquals(EncounterOutcome.MET, tracker.state.encounters["0:16"]?.outcome)
+
+        // Battle ends; caught mon would go straight to PC so party slots don't grow -> PENDING!
+        assertTrue(
+            tracker.onObservation(
+                party = fullParty,
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertEquals(EncounterOutcome.PENDING, tracker.state.encounters["0:16"]?.outcome)
+
+        // Area stays locked as PENDING until manually resolved (Caught/Missed).
+        assertFalse(
+            tracker.onObservation(
+                party = fullParty,
+                enemyParty = listOf(mon(species = 265, pid = 888L, level = 2)),
+                activeEnemyIndex = 0,
+                battleKind = NuzlockeBattleKind.WILD_SINGLE,
+                inBattle = true,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertEquals(EncounterOutcome.PENDING, tracker.state.encounters["0:16"]?.outcome)
+        assertTrue(tracker.overrideEncounterOutcome("0:16", EncounterOutcome.CAUGHT))
+        assertEquals(EncounterOutcome.CAUGHT, tracker.state.encounters["0:16"]?.outcome)
+    }
+
+    @Test
+    fun faintedMonRequiresObservedAliveToFaintedTransitionAndManualRevivePersistsWhileZeroHp() {
+        var now = 10_000L
+        val tracker = NuzlockeTracker(NuzlockeRunState(shaA, enabled = false), clockMs = { now })
+        val faintedStarter = mon(species = 25, pid = 101L, hp = 0, maxHp = 20)
+        val healedStarter = faintedStarter.copy(currentHp = 20)
+        val key = monIdentityKey(faintedStarter)
+
+        // (a) Enabling run while a party member is already at 0 HP must NOT record a death.
+        assertTrue(tracker.setEnabled(true))
+        assertFalse(
+            tracker.onObservation(
+                party = listOf(faintedStarter),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(tracker.state.fallen.isEmpty())
+
+        // Heal to > 0 HP -> faint -> records death; then resetRun while still at 0 HP -> no spurious death.
+        assertFalse(
+            tracker.onObservation(
+                party = listOf(healedStarter),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(
+            tracker.onObservation(
+                party = listOf(faintedStarter),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertEquals(1, tracker.state.fallen.size)
+
+        assertTrue(tracker.resetRun())
+        assertTrue(tracker.state.fallen.isEmpty())
+        assertFalse(
+            tracker.onObservation(
+                party = listOf(faintedStarter),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(tracker.state.fallen.isEmpty())
+
+        // (b) Heal, faint, then manually revive while still at 0 HP -> stays revived across 0 HP polls.
+        assertFalse(
+            tracker.onObservation(
+                party = listOf(healedStarter),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(
+            tracker.onObservation(
+                party = listOf(faintedStarter),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(key in tracker.state.fallen)
+
+        assertTrue(tracker.reviveFallen(key))
+        assertTrue(tracker.state.fallen.isEmpty())
+        repeat(3) {
+            assertFalse(
+                tracker.onObservation(
+                    party = listOf(faintedStarter),
+                    enemyParty = emptyList(),
+                    activeEnemyIndex = -1,
+                    battleKind = NuzlockeBattleKind.NONE,
+                    inBattle = false,
+                    location = route101,
+                    areaName = "Route 101",
+                    speciesNameResolver = ::resolver
+                )
+            )
+            assertTrue(tracker.state.fallen.isEmpty())
+        }
+
+        // (c) Once healed back to > 0 HP and later dropping to 0 HP, it records a death cleanly.
+        assertFalse(
+            tracker.onObservation(
+                party = listOf(healedStarter),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(tracker.state.fallen.isEmpty())
+
+        now = 20_000L
+        assertTrue(
+            tracker.onObservation(
+                party = listOf(faintedStarter),
+                enemyParty = emptyList(),
+                activeEnemyIndex = -1,
+                battleKind = NuzlockeBattleKind.NONE,
+                inBattle = false,
+                location = route101,
+                areaName = "Route 101",
+                speciesNameResolver = ::resolver
+            )
+        )
+        assertTrue(key in tracker.state.fallen)
+    }
+
+    @Test
+    fun companionViewModelIsolatesRunsPerRomAndFeedsOnlyVerifiedObservations() {
+        val store = NuzlockeStore(tempFolder.newFolder("vm_nuzlocke"))
+        val hnsSha = "edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b"
+        val profileA = RomHackProfile(
+            id = "heart_and_soul", name = "Pokemon Heart & Soul", baseGame = "Emerald", gameId = 8,
+            sha256Hashes = listOf(hnsSha), isVerified = true, memoryLayoutVerified = true,
+            battleStateReadVerified = true
+        )
+        val profileB = RomHackProfile(
+            id = "synth-b", name = "Synth B", baseGame = "Emerald", gameId = 1,
+            sha256Hashes = listOf(shaB), isVerified = true, memoryLayoutVerified = true,
+            battleStateReadVerified = true
+        )
+        val idA = RomIdentity(hnsSha, "Pokemon Heart & Soul")
         val idB = RomIdentity(shaB, "Synth B")
 
         var party = arrayOf(mon(species = 25, pid = 10L, hp = 20, maxHp = 20))
@@ -518,6 +855,11 @@ class NuzlockeTrackerTest {
                 if (battlePresence == 1) ActiveEnemyResolution(ActiveEnemyState.SLOT, partySlot = 0, opponentBattlers = 1)
                 else ActiveEnemyResolution(ActiveEnemyState.NONE_ACTIVE)
             override fun readPlayerLocation(gameId: Int): PlayerLocation? = location
+            override fun readGbaMemory(address: Int, length: Int): ByteArray? = when (address) {
+                0x020000AC -> byteArrayOf(0x04, 0x00, 0x00, 0x00) // BATTLE_TYPE_IS_MASTER (wild single)
+                0x020000B0 -> byteArrayOf(0x02) // gBattlersCount = 2
+                else -> null
+            }
         }
 
         val vm = CompanionViewModel(coreCoordinator = core, nuzlockeStore = store)
@@ -531,7 +873,7 @@ class NuzlockeTrackerTest {
 
         // Bind and verify ROM A -> wild battle stabilizes in 2 ticks and records Route 101 encounter.
         bindSyntheticRom(core, idA)
-        vm.setRomSession(RomCompatibility.verified(profileA, shaA), idA)
+        vm.setRomSession(RomCompatibility.verified(profileA, hnsSha), idA)
         repeat(2) { vm.pollTick() }
         assertEquals(EncounterOutcome.MET, vm.nuzlockeState.value!!.encounters["0:16"]?.outcome)
 
@@ -557,9 +899,10 @@ class NuzlockeTrackerTest {
         assertTrue(stateB.encounters.isEmpty())
         assertTrue(stateB.fallen.isEmpty())
 
-        // Switching back to ROM A reloads the persisted run from disk intact.
+        // Ensure background writes completed, then switch back to ROM A and verify disk reload.
+        assertTrue(vm.awaitNuzlockePersistence())
         bindSyntheticRom(core, idA)
-        vm.setRomSession(RomCompatibility.verified(profileA, shaA), idA)
+        vm.setRomSession(RomCompatibility.verified(profileA, hnsSha), idA)
         val reloadedA = vm.nuzlockeState.value!!
         assertTrue(reloadedA.enabled)
         assertEquals(EncounterOutcome.CAUGHT, reloadedA.encounters["0:16"]?.outcome)

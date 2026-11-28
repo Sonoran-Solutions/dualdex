@@ -1,11 +1,13 @@
 package com.dualdex.calculator
 
 import com.dualdex.battle.BattleDamageCalculator
+import com.dualdex.battle.BattlePresence
 import com.dualdex.battle.StatStages
 import com.dualdex.battle.SwitchAdvisorInput
 import com.dualdex.battle.SwitchAdvisorPresenter
 import com.dualdex.battle.SwitchConfidenceTier
 import com.dualdex.battle.SwitchRecommendationSource
+import com.dualdex.companion.ui.CalcTabScreenView
 import com.dualdex.pokemon.ModernDataPack
 import com.dualdex.pokemon.ParsedPokemon
 import com.dualdex.pokemon.PokemonType
@@ -99,7 +101,8 @@ class CalcTierBCapabilityTest {
         expectedReason: CalcLimitation? = null,
         playerBattlerState: BattlerRuntimeObservation? = null,
         enemyBattlerState: BattlerRuntimeObservation? = null,
-        activeBattle: Boolean = false
+        activeBattle: Boolean = false,
+        battlePresence: BattlePresence? = null
     ) {
         val outcome = CalcRequestBoundary.build(
             profile = profile,
@@ -107,7 +110,8 @@ class CalcTierBCapabilityTest {
             request = input,
             playerBattlerState = playerBattlerState,
             enemyBattlerState = enemyBattlerState,
-            activeBattle = activeBattle
+            activeBattle = activeBattle,
+            battlePresence = battlePresence
         )
         assertTrue("Expected refusal for $profile / $input, got $outcome", outcome is CalcRequestOutcome.Refused)
         val verdict = (outcome as CalcRequestOutcome.Refused).verdict
@@ -478,6 +482,161 @@ class CalcTierBCapabilityTest {
     }
 
     @Test
+    fun `live Tier-B requests require confirmed out-of-battle or two agreeing Singles observations`() {
+        val liveRequest = DamageCalculationRequest(
+            attacker = CalcPokemonInput(
+                species = "Sylveon",
+                level = 50,
+                boosts = StatBlock(),
+                origin = CalcInputOrigin.LIVE_READ,
+                unknownFields = listOf(CalcInputField.ABILITY),
+                unbound = CalcUnboundParticipant(
+                    speciesId = 700,
+                    stats = CalcRawStats(90, 90, 80, 145, 150),
+                    maxHp = 180,
+                    types = listOf(PokemonType.FAIRY)
+                )
+            ),
+            defender = CalcPokemonInput("Dragonite"),
+            move = CalcMoveInput("Moonblast")
+        )
+        val singlesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 2, battlersCountReadable = true)
+        val doublesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 4, battlersCountReadable = true)
+
+        for (profile in listOf(verifiedExpansionProfile, verifiedCfruProfile)) {
+            // Unknown or omitted battlePresence with activeBattle=false refuses live requests.
+            for (presence in listOf(BattlePresence.UNKNOWN, null)) {
+                assertRefused(
+                    profile = profile,
+                    input = liveRequest,
+                    activeBattle = false,
+                    battlePresence = presence,
+                    expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+                )
+            }
+
+            // Smoothed activeBattle=false with missing player obs and enemy reporting 4 battlers refuses.
+            for (presence in listOf(BattlePresence.UNKNOWN, BattlePresence.NOT_OBSERVED, BattlePresence.OBSERVED, null)) {
+                assertRefused(
+                    profile = profile,
+                    input = liveRequest,
+                    playerBattlerState = null,
+                    enemyBattlerState = doublesObs,
+                    activeBattle = false,
+                    battlePresence = presence,
+                    expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+                )
+            }
+
+            // Contradictory battler counts (player=2/enemy=4 or player=4/enemy=2) refuse even when activeBattle=false.
+            for ((pObs, eObs) in listOf(singlesObs to doublesObs, doublesObs to singlesObs)) {
+                for (active in listOf(false, true)) {
+                    assertRefused(
+                        profile = profile,
+                        input = liveRequest,
+                        playerBattlerState = pObs,
+                        enemyBattlerState = eObs,
+                        activeBattle = active,
+                        battlePresence = if (active) BattlePresence.OBSERVED else BattlePresence.UNKNOWN,
+                        expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+                    )
+                }
+            }
+
+            // Single-sided Singles observation (player=2/enemy=null or player=null/enemy=2) refuses.
+            for ((pObs, eObs) in listOf(singlesObs to null, null to singlesObs)) {
+                for (active in listOf(false, true)) {
+                    assertRefused(
+                        profile = profile,
+                        input = liveRequest,
+                        playerBattlerState = pObs,
+                        enemyBattlerState = eObs,
+                        activeBattle = active,
+                        battlePresence = if (active) BattlePresence.OBSERVED else BattlePresence.NOT_OBSERVED,
+                        expectedReason = CalcLimitation.FIELD_CONDITION_NOT_MODELLED
+                    )
+                }
+            }
+
+            // Two agreeing Singles observations with BattlePresence.OBSERVED authorize as ESTIMATED.
+            for (active in listOf(true, false)) {
+                val liveBattleReady = CalcRequestBoundary.build(
+                    profile = profile,
+                    trust = exactTrust(profile),
+                    request = liveRequest,
+                    playerBattlerState = singlesObs,
+                    enemyBattlerState = singlesObs,
+                    activeBattle = active,
+                    battlePresence = BattlePresence.OBSERVED
+                )
+                assertTrue(
+                    "Expected Ready for agreed Singles observations on $profile (active=$active), got $liveBattleReady",
+                    liveBattleReady is CalcRequestOutcome.Ready
+                )
+                assertEquals(CalcSupport.ESTIMATED, (liveBattleReady as CalcRequestOutcome.Ready).verdict.support)
+            }
+
+            // Confirmed out-of-battle (NOT_OBSERVED, activeBattle=false, no battler observations) authorizes as ESTIMATED.
+            val overworldReady = CalcRequestBoundary.build(
+                profile = profile,
+                trust = exactTrust(profile),
+                request = liveRequest,
+                playerBattlerState = null,
+                enemyBattlerState = null,
+                activeBattle = false,
+                battlePresence = BattlePresence.NOT_OBSERVED
+            )
+            assertTrue(
+                "Expected Ready for confirmed out-of-battle live Tier-B request on $profile, got $overworldReady",
+                overworldReady is CalcRequestOutcome.Ready
+            )
+            assertEquals(CalcSupport.ESTIMATED, (overworldReady as CalcRequestOutcome.Ready).verdict.support)
+
+            // Pure MANUAL hypothetical with BattlePresence.UNKNOWN and no battle evidence remains authorized.
+            val manualReady = CalcRequestBoundary.build(
+                profile = profile,
+                trust = exactTrust(profile),
+                request = baselineRequest,
+                activeBattle = false,
+                battlePresence = BattlePresence.UNKNOWN
+            )
+            assertTrue(manualReady is CalcRequestOutcome.Ready)
+            assertEquals(CalcSupport.ESTIMATED, (manualReady as CalcRequestOutcome.Ready).verdict.support)
+        }
+    }
+
+    @Test
+    fun `CalcTabScreenView gameType never defaults to Singles when observations disagree or enemy reports Doubles`() {
+        val singlesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 2, battlersCountReadable = true)
+        val doublesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 4, battlersCountReadable = true)
+
+        assertEquals(CalcGameTypes.SINGLES, CalcTabScreenView.resolveFieldGameType(null, null))
+        assertEquals(CalcGameTypes.SINGLES, CalcTabScreenView.resolveFieldGameType(singlesObs, singlesObs))
+        assertEquals(CalcGameTypes.DOUBLES, CalcTabScreenView.resolveFieldGameType(doublesObs, doublesObs))
+        assertEquals(CalcGameTypes.DOUBLES, CalcTabScreenView.resolveFieldGameType(null, doublesObs))
+        assertEquals(CalcGameTypes.DOUBLES, CalcTabScreenView.resolveFieldGameType(doublesObs, null))
+        assertEquals("", CalcTabScreenView.resolveFieldGameType(singlesObs, doublesObs))
+        assertEquals("", CalcTabScreenView.resolveFieldGameType(doublesObs, singlesObs))
+        assertEquals("", CalcTabScreenView.resolveFieldGameType(singlesObs, null))
+        assertEquals("", CalcTabScreenView.resolveFieldGameType(null, singlesObs))
+    }
+
+    @Test
+    fun `Surf is refused under both EXPANSION_TIER_B and CFRU_TIER_B because submerged doubling is unmodeled`() {
+        val surf = ModernDataPack.getMoveByName("Surf")
+        assertNotNull("Surf must exist in ModernDataPack", surf)
+        assertEquals(57, surf!!.id)
+
+        for (profile in listOf(verifiedExpansionProfile, verifiedCfruProfile)) {
+            assertRefused(
+                profile = profile,
+                input = baselineRequest.copy(move = CalcMoveInput("Surf")),
+                expectedReason = CalcLimitation.TIER_B_MOVE_NOT_MODELLED
+            )
+        }
+    }
+
+    @Test
     fun `multi-hit defense-swap and non-ordinary moves including Double Kick and Psyshock fail closed`() {
         val refusedMoves = listOf(
             "Double Kick",   // multi-hit
@@ -640,7 +799,7 @@ class CalcTierBCapabilityTest {
         )
 
         val active = partyMon(25, "Pikachu", 85) // Thunderbolt
-        val bench = partyMon(9, "Blastoise", 57) // Surf
+        val bench = partyMon(9, "Blastoise", 56) // Hydro Pump
         val opponent = partyMon(6, "Charizard", 53) // Flamethrower
         val singlesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 2, battlersCountReadable = true)
         val doublesObs = battlerObservation(HnsBattlerRuntimeStatus.OBSERVED, battlersCount = 4, battlersCountReadable = true)
@@ -692,7 +851,7 @@ class CalcTierBCapabilityTest {
             assertEquals(SwitchRecommendationSource.CALCULATOR, ranked[0].source)
             assertEquals(SwitchConfidenceTier.ESTIMATED, ranked[0].confidenceTier)
 
-            // Unverified active battle format (missing observations) and live Doubles fall back to TYPE_FALLBACK.
+            // Unverified active battle format (missing observations) and live Doubles fail closed (no recommendations).
             for ((playerObs, enemyObs) in listOf(null to null, doublesObs to doublesObs)) {
                 calls.set(0)
                 val fallback = presenter.evaluateSync(
@@ -711,9 +870,7 @@ class CalcTierBCapabilityTest {
                     )
                 )
                 assertEquals("Unverified/Doubles active battle must not invoke Tier-B calculator", 0, calls.get())
-                assertEquals(1, fallback.size)
-                assertEquals(SwitchRecommendationSource.TYPE_FALLBACK, fallback[0].source)
-                assertEquals(SwitchConfidenceTier.TYPE_FALLBACK, fallback[0].confidenceTier)
+                assertTrue("Refused Tier-B active battle must omit unverified switch rankings", fallback.isEmpty())
             }
         }
     }

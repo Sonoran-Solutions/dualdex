@@ -456,17 +456,25 @@ open class LibretroCoreCoordinator(
      * Release (`buttonMask == 0`) is always permitted so buttons never stick; any non-zero press
      * requires matching [expectedGeneration] and [RaHardcorePolicy.mayUseInteractiveBattleControls].
      */
+    internal fun setAuthorizedAutomatedInputLocked(
+        buttonMask: Int,
+        expectedGeneration: Long
+    ): Boolean {
+        check(lock.isHeldByCurrentThread)
+        if (buttonMask != 0 &&
+            (!raHardcorePolicy.mayUseInteractiveBattleControls || stateGeneration != expectedGeneration)) {
+            return false
+        }
+        setInputButtons(buttonMask)
+        return true
+    }
+
     open fun setAuthorizedAutomatedInput(
         buttonMask: Int,
         expectedGeneration: Long,
         timeoutMs: Long = 17L
     ): Boolean = executeExclusive(timeoutMs) {
-        if (buttonMask != 0 &&
-            (!raHardcorePolicy.mayUseInteractiveBattleControls || stateGeneration != expectedGeneration)) {
-            return@executeExclusive false
-        }
-        setInputButtons(buttonMask)
-        true
+        setAuthorizedAutomatedInputLocked(buttonMask, expectedGeneration)
     }
 
     fun setTargetAudioSampleRate(rate: Int) {

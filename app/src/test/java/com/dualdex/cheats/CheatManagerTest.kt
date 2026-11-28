@@ -394,7 +394,7 @@ class CheatManagerTest {
         assertTrue(manager.addCheat(identity, secondCustom).accepted)
         val savedBeforeHardcore = storage.toMap()
         val cheatsBeforeHardcore = manager.getCheats(identity)
-        assertEquals(2, cheatsBeforeHardcore.size)
+        assertEquals(3, cheatsBeforeHardcore.size) // 1 preset + 2 custom cheats
 
         // Engage Hardcore mode.
         core.executeExclusive { core.setRaHardcoreLocked(true) }

@@ -1510,21 +1510,26 @@ object CalcRequestBoundary {
             return CalcRequestOutcome.Ready(authorized, verdict)
         }
         if (ruleset == CalcRuleset.EXPANSION_TIER_B || ruleset == CalcRuleset.CFRU_TIER_B) {
+            val isLiveRead = liveReadHint || request.isFromLiveRead()
             val readIsTrusted = CalcCapabilityPolicy.isExactRuntimeVerified(profile, trust)
             val observedBattlersCount = authoritativeObservedBattlersCount(
                 playerBattlerState = playerBattlerState,
                 enemyBattlerState = enemyBattlerState,
                 isExactVerified = readIsTrusted
             )
-            val hasAmbiguousObservation =
-                playerBattlerState?.state?.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.AMBIGUOUS ||
-                enemyBattlerState?.state?.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.AMBIGUOUS
+            val hasBattleEvidence = activeBattle ||
+                battlePresence == com.dualdex.battle.BattlePresence.OBSERVED ||
+                playerBattlerState != null ||
+                enemyBattlerState != null
+            val confirmedOutOfBattle = !hasBattleEvidence &&
+                battlePresence == com.dualdex.battle.BattlePresence.NOT_OBSERVED
+            val topologyBlocked = if (hasBattleEvidence) {
+                observedBattlersCount != 2
+            } else {
+                isLiveRead && !confirmedOutOfBattle
+            }
             val blockers = buildList {
-                if (request.field.gameType != CalcGameTypes.SINGLES ||
-                    hasAmbiguousObservation ||
-                    (observedBattlersCount != null && observedBattlersCount != 2) ||
-                    (activeBattle && observedBattlersCount != 2)
-                ) {
+                if (request.field.gameType != CalcGameTypes.SINGLES || topologyBlocked) {
                     add(CalcLimitation.FIELD_CONDITION_NOT_MODELLED)
                 }
                 if (liveReadHint && !request.isFromLiveRead()) add(CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN)

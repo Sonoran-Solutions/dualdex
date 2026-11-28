@@ -53,7 +53,7 @@ class RetroAchievementsService internal constructor(
     private val tokens: RaTokenStore,
     private val settings: SettingsManager,
     private val native: RaNativeBackend = DefaultRaNativeBackend,
-    private val httpExecute: (RaHttpRequest) -> RaHttpResponse = RaHttp::execute,
+    private val httpExecute: (RaHttpRequest) -> RaHttpResponse = { RaHttp.execute(it) },
     autoStart: Boolean = true
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

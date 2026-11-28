@@ -14,6 +14,9 @@ import com.dualdex.emulator.storage.SaveShareStore
 import com.dualdex.emulator.storage.SaveStateFiles
 import com.dualdex.emulator.storage.SaveWriteResult
 import com.dualdex.settings.SettingsManager
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.InputStream
@@ -34,6 +37,19 @@ data class LegacyMigrationResult(
     val filesFound: Int,
     val gameTitles: List<String>,
     val message: String
+)
+
+/**
+ * Tracks a pre-existing boot-resume state whose load was skipped for the active ROM session
+ * (for example while RetroAchievements Hardcore mode or set lookup was active).
+ *
+ * Scoped to both [romSha256] and [sessionGeneration] so switching or closing the ROM never
+ * leaks protection across sessions.
+ */
+data class PreservedAutoResume(
+    val romSha256: String,
+    val sessionGeneration: Long,
+    val resumeFileName: String
 )
 
 open class SaveStateManager(
@@ -64,7 +80,19 @@ open class SaveStateManager(
     private val legacyCatalog by lazy { customLegacyCatalog ?: LegacySaveCatalog(context) }
     val saveShareStore by lazy { SaveShareStore(context) }
 
+    private var romSessionGeneration: Long = 0L
+    private val _preservedAutoResume = MutableStateFlow<PreservedAutoResume?>(null)
+    val preservedAutoResume: StateFlow<PreservedAutoResume?> = _preservedAutoResume.asStateFlow()
+
     var activeIdentity: RomIdentity? = null
+        set(value) {
+            field = value
+            if (value == null || !value.isValid ||
+                _preservedAutoResume.value?.romSha256?.equals(value.sha256, ignoreCase = true) != true
+            ) {
+                _preservedAutoResume.value = null
+            }
+        }
     var activeProfileName: String? = null
     var activeProfileId: String? = null
 
@@ -78,9 +106,11 @@ open class SaveStateManager(
 
     fun setActiveGame(identity: RomIdentity, profileName: String? = null, profileId: String? = null) {
         synchronized(globalSaveLock) {
+            romSessionGeneration++
             activeIdentity = identity
             activeProfileName = profileName
             activeProfileId = profileId
+            _preservedAutoResume.value = null
             if (identity.isValid) {
                 migrateOldBranchDirIfPresent(identity)
                 recordMetadata(identity, profileId)
@@ -347,14 +377,85 @@ open class SaveStateManager(
         return loadStateFile(identity, SaveStateFiles.QUICK_SAVE, snapshotUndo = true)
     }
 
+    fun preservedAutoResumeFor(identity: RomIdentity): PreservedAutoResume? = synchronized(globalSaveLock) {
+        val record = _preservedAutoResume.value ?: return null
+        if (!identity.isValid || !isLoadedRom(identity)) return null
+        if (record.sessionGeneration != romSessionGeneration) return null
+        if (!record.romSha256.equals(identity.sha256, ignoreCase = true)) return null
+        return record
+    }
+
+    fun hasPreservedAutoResume(identity: RomIdentity): Boolean =
+        preservedAutoResumeFor(identity) != null
+
+    /**
+     * Records that boot-time auto-resume was skipped for the active ROM session (e.g. while
+     * RetroAchievements Hardcore mode or set lookup is active), when an eligible resume state
+     * exists on disk. While preserved, automatic [saveAutoResume] writes will not overwrite the
+     * preserved auto-resume slot until the player explicitly resolves it.
+     */
+    fun preserveSkippedAutoResume(identity: RomIdentity): PreservedAutoResume? = synchronized(globalSaveLock) {
+        if (refuse("preserveSkippedAutoResume", identity)) return null
+        val dir = getCanonicalRomDir(identity)
+        val expectedSize = nativeGetSaveStateSize().takeIf { it > 0 }
+        AtomicSaveFile.recoverInterrupted(File(dir, SaveStateFiles.AUTO_RESUME), expectedSize)
+        val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
+        val newest = SaveStateFiles.newestResumeState(dir, barrier)
+        if (newest == null) {
+            _preservedAutoResume.value = null
+            return null
+        }
+        val record = PreservedAutoResume(
+            romSha256 = identity.sha256.lowercase(),
+            sessionGeneration = romSessionGeneration,
+            resumeFileName = newest.name
+        )
+        _preservedAutoResume.value = record
+        return record
+    }
+
+    /**
+     * Explicitly restores the preserved boot-resume state once state loading is permitted (e.g.
+     * after RetroAchievements lookup resolves to Softcore / no achievement set). Fails closed
+     * while Hardcore mode blocks state loading, leaving the preserved state protected.
+     */
+    fun restorePreservedAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (refuse("restorePreservedAutoResume", identity)) return false
+        val record = preservedAutoResumeFor(identity) ?: return false
+        val loaded = loadStateFile(identity, record.resumeFileName, snapshotUndo = true)
+        if (loaded) {
+            _preservedAutoResume.value = null
+        }
+        return loaded
+    }
+
+    /**
+     * Explicitly discards preservation so the player keeps the current session and re-enables
+     * automatic [saveAutoResume] writes for this session.
+     */
+    fun keepCurrentSessionOverPreservedAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+        if (refuse("keepCurrentSessionOverPreservedAutoResume", identity)) return false
+        if (preservedAutoResumeFor(identity) == null) return false
+        _preservedAutoResume.value = null
+        return true
+    }
+
     fun saveAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (refuse("saveAutoResume", identity)) return false
+        if (preservedAutoResumeFor(identity) != null) {
+            Log.i(TAG, "Skipping saveAutoResume for ${identity.storageKey}: preserving skipped boot-resume state")
+            return false
+        }
         return writeState(identity, SaveStateFiles.AUTO_RESUME) != null
     }
 
     fun loadAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (refuse("loadAutoResume", identity)) return false
-        return loadStateFile(identity, SaveStateFiles.AUTO_RESUME, snapshotUndo = false)
+        val loaded = loadStateFile(identity, SaveStateFiles.AUTO_RESUME, snapshotUndo = false)
+        if (loaded && preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.AUTO_RESUME) {
+            _preservedAutoResume.value = null
+        }
+        return loaded
     }
 
     /**
@@ -367,7 +468,11 @@ open class SaveStateManager(
         val dir = getCanonicalRomDir(identity)
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
         val newest = SaveStateFiles.newestResumeState(dir, barrier) ?: return null
-        return newest.name.takeIf { loadStateFile(identity, it, snapshotUndo = false) }
+        val loadedName = newest.name.takeIf { loadStateFile(identity, it, snapshotUndo = false) }
+        if (loadedName != null && preservedAutoResumeFor(identity) != null) {
+            _preservedAutoResume.value = null
+        }
+        return loadedName
     }
 
     /**
@@ -377,6 +482,9 @@ open class SaveStateManager(
      */
     fun clearAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (!identity.isValid) return false
+        if (_preservedAutoResume.value?.romSha256?.equals(identity.sha256, ignoreCase = true) == true) {
+            _preservedAutoResume.value = null
+        }
         val dir = getCanonicalRomDir(identity)
         File(dir, SaveStateFiles.AUTO_RESUME).delete()
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER)
@@ -403,9 +511,10 @@ open class SaveStateManager(
 
     /**
      * Close Game, in this order: [pauseEmulation] (caller stops the frame loop and polling), write
-     * the battery save and the resume state, and only if both succeeded unload the ROM. On any
-     * failure nothing is unloaded and [resumeEmulation] restarts the game. On success emulation
-     * stays paused; the caller clears its session.
+     * the battery save and the resume state (unless a skipped boot-resume state is preserved), and
+     * only if both succeeded unload the ROM. On any failure nothing is unloaded and
+     * [resumeEmulation] restarts the game. On success emulation stays paused; the caller clears
+     * its session.
      */
     fun closeGame(
         identity: RomIdentity,
@@ -416,7 +525,7 @@ open class SaveStateManager(
         val closed = synchronized(globalSaveLock) {
             !refuse("closeGame", identity) &&
                 flushBatterySave(identity) is SaveWriteResult.Success &&
-                saveAutoResume(identity) &&
+                (hasPreservedAutoResume(identity) || saveAutoResume(identity)) &&
                 coreCoordinator.executeExclusive {
                     coreCoordinator.unloadRom()
                     activeIdentity = null

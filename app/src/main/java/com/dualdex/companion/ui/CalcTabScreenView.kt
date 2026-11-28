@@ -724,7 +724,7 @@ class CalcTabScreenView(
 
         val field = CalcFieldInput(
             weather = currentWeather,
-            gameType = if (playerBattlerSnapshot?.state?.battlersCount == 4) CalcGameTypes.DOUBLES else CalcGameTypes.SINGLES,
+            gameType = resolveFieldGameType(playerBattlerSnapshot, enemyBattlerSnapshot),
             defenderSide = if (hasScreens) SideConditions(isReflect = true, isLightScreen = true) else null
         )
 
@@ -791,6 +791,40 @@ class CalcTabScreenView(
             }
             layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT).apply {
                 setMargins(0, 0, 0, 14)
+            }
+        }
+    }
+
+    companion object {
+        /**
+         * Derives the UI field gameType without blindly defaulting to Singles from a single
+         * player observation. When no battler observations exist (overworld / non-observation
+         * layouts), returns [CalcGameTypes.SINGLES] and lets [CalcRequestBoundary] enforce
+         * `battlePresence`. When any battler observation exists, requires both sides to agree on
+         * `2` for Singles or `4` for Doubles; a single-sided Doubles report stays Doubles and
+         * incomplete or contradictory observations return `""` so the boundary fails closed.
+         */
+        internal fun resolveFieldGameType(
+            playerBattlerSnapshot: com.dualdex.pokemon.hns.BattlerRuntimeObservation?,
+            enemyBattlerSnapshot: com.dualdex.pokemon.hns.BattlerRuntimeObservation?
+        ): String {
+            if (playerBattlerSnapshot == null && enemyBattlerSnapshot == null) {
+                return CalcGameTypes.SINGLES
+            }
+            val playerState = playerBattlerSnapshot?.state
+            val enemyState = enemyBattlerSnapshot?.state
+            val playerCount = playerState?.takeIf {
+                it.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED && it.battlersCountReadable
+            }?.battlersCount
+            val enemyCount = enemyState?.takeIf {
+                it.status == com.dualdex.pokemon.hns.HnsBattlerRuntimeStatus.OBSERVED && it.battlersCountReadable
+            }?.battlersCount
+            return when {
+                playerCount == 4 && enemyCount == 4 -> CalcGameTypes.DOUBLES
+                playerCount == 2 && enemyCount == 2 -> CalcGameTypes.SINGLES
+                (playerState?.battlersCount == 4 && enemyCount != 2) ||
+                    (enemyState?.battlersCount == 4 && playerCount != 2) -> CalcGameTypes.DOUBLES
+                else -> ""
             }
         }
     }

@@ -84,12 +84,13 @@ internal object TierBCalcInputs {
      *
      * Excludes multi-hit moves (e.g. Double Kick, Double Slap, Bonemerang), defense-swap moves
      * (Psyshock, Psystrike, Secret Sword), attack-swap moves (Foul Play, Body Press), fixed/level/
-     * OHKO damage, weight/speed/HP/stat-scaled or variable-power moves, recoil/explosion/drain,
+     * OHKO damage, weight/speed/HP/stat-scaled or variable-power moves, semi-invulnerable
+     * power-doubling moves (e.g. Surf against a submerged target), recoil/explosion/drain,
      * screen-breaking moves (Brick Break), always-crit moves, and dynamic/dual-type overrides.
      */
     private val ordinaryHitMoveIds: Set<Int> = setOf(
         1, 2, 5, 7, 8, 9, 10, 15, 17, 21, 22, 25,
-        29, 33, 40, 44, 51, 52, 53, 55, 56, 57, 58, 59,
+        29, 33, 40, 44, 51, 52, 53, 55, 56, 58, 59,
         60, 61, 62, 63, 64, 65, 70, 75, 84, 85, 87, 88,
         93, 94, 98, 122, 124, 126, 127, 129, 152, 157, 161, 163,
         172, 177, 181, 183, 185, 188, 189, 196, 209, 211, 221, 223,

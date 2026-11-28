@@ -122,7 +122,7 @@ class DefaultBattleInputDispatcher(
             try {
                 return core.executeExclusive(PRESS_WRITE_TIMEOUT_MS) {
                     if (coordinator() !== core) false
-                    else core.setAuthorizedAutomatedInput(mask, generation, PRESS_WRITE_TIMEOUT_MS)
+                    else core.setAuthorizedAutomatedInputLocked(mask, generation)
                 }
             } catch (e: LibretroCoreCoordinator.LockTimeoutException) {
                 val last = attempt + 1 == WRITE_ATTEMPTS
@@ -189,7 +189,7 @@ class DefaultBattleInputDispatcher(
                         } else {
                             // Check under the same lock as load/switch/Hardcore: a queued press cannot cross a boundary.
                             check(coordinator() === core &&
-                                core.setAuthorizedAutomatedInput(mask, generation, timeoutMs)) {
+                                core.setAuthorizedAutomatedInputLocked(mask, generation)) {
                                 "Core state or Hardcore policy changed during automated input"
                             }
                         }

@@ -4,11 +4,18 @@ import com.dualdex.emulator.LibretroCoreBridge
 import com.dualdex.emulator.LibretroCoreCoordinator
 import com.dualdex.emulator.RomDurableResumeTest
 import com.dualdex.emulator.RomIdentity
+import com.dualdex.emulator.RomSaveIntegrityTest
+import com.dualdex.emulator.RomSessionManager
+import com.dualdex.emulator.SaveStateManager
+import com.dualdex.emulator.SwitchResult
+import com.dualdex.emulator.storage.SaveStateFiles
 import com.dualdex.settings.SettingsManager
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 
 class RetroAchievementsTest {
     @Test
@@ -195,6 +202,231 @@ class RetroAchievementsTest {
     }
 
     @Test
+    fun skippedAutoResumeDuringPendingHardcoreLookupIsProtectedAcrossNoSetPauseAndRomSwitch() = runBlocking {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_autoresume_noset_").toFile()
+        try {
+            val romAFile = File(tempRoot, "romA.gba").apply { writeBytes(ByteArray(4096) { 0x11 }) }
+            val romBFile = File(tempRoot, "romB.gba").apply { writeBytes(ByteArray(4096) { 0x22 }) }
+            val romAIdentity = RomIdentity.fromFile(romAFile, "Rom A")
+
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = File(tempRoot, "saves"), customCoordinator = core)
+            val sessions = RomSessionManager(
+                saveStateManager = ssm,
+                customRomCacheDir = File(tempRoot, "cache"),
+                customCoordinator = core
+            )
+
+            val tokens = RaTokenStore(RomDurableResumeTest.FakeSharedPreferences()).apply {
+                save(RaCredentials("player", "saved-token"))
+            }
+            val settings = SettingsManager(RomDurableResumeTest.FakeSharedPreferences()).apply {
+                retroAchievementsHardcore = true
+            }
+            val native = FakeRaNativeBackend()
+            val service = RetroAchievementsService(core, tokens, settings, native, autoStart = false)
+            native.loginStatus = 2 // NATIVE_READY
+            service.drainForTest()
+
+            // Seed a pre-existing Softcore auto_resume.state for ROM A.
+            val originalAutoResumeBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x5A }
+            val romAAutoResume = ssm.getCanonicalFile(romAIdentity, SaveStateFiles.AUTO_RESUME).apply {
+                writeBytes(originalAutoResumeBytes)
+            }
+
+            // Boot ROM A while Hardcore is armed (lookup pending) -> boot resume skipped and preserved.
+            val switchA = sessions.switchRomFile(romAFile, emptyList(), preferredTitle = "Rom A")
+            assertTrue(switchA is SwitchResult.Success)
+            val activeA = (switchA as SwitchResult.Success).identity
+            assertTrue(core.raHardcorePolicy.isHardcoreActive)
+            assertEquals(0, bridge.loadedStates.size)
+            assertEquals(SaveStateFiles.AUTO_RESUME, ssm.preservedAutoResumeFor(activeA)?.resumeFileName)
+
+            // RA lookup resolves to NO_SET (releases Hardcore guard to Softcore).
+            native.gameStatus = 3 // NATIVE_NO_SET
+            service.drainForTest()
+            assertFalse(core.raHardcorePolicy.isHardcoreActive)
+            assertTrue(core.raHardcorePolicy.mayLoadSaveState)
+
+            // Pausing the new session must NOT overwrite ROM A's preserved auto_resume.state.
+            bridge.nextSavedStateByte = 0x7E
+            assertFalse(ssm.saveAutoResume(activeA))
+            assertArrayEquals(originalAutoResumeBytes, romAAutoResume.readBytes())
+            assertTrue(ssm.hasPreservedAutoResume(activeA))
+
+            // Switching to ROM B must NOT overwrite ROM A's preserved auto_resume.state, and must
+            // reset preserved tracking so ROM B behaves cleanly on its own.
+            core.armRaHardcore(false)
+            val switchB = sessions.switchRomFile(romBFile, emptyList(), preferredTitle = "Rom B")
+            assertTrue(switchB is SwitchResult.Success)
+            val activeB = (switchB as SwitchResult.Success).identity
+            assertArrayEquals(originalAutoResumeBytes, romAAutoResume.readBytes())
+            assertFalse(ssm.hasPreservedAutoResume(activeA))
+            assertFalse(ssm.hasPreservedAutoResume(activeB))
+            assertNull(ssm.preservedAutoResume.value)
+
+            // Ordinary non-skipped session on ROM B auto-saves normally.
+            bridge.nextSavedStateByte = 0x44
+            assertTrue(ssm.saveAutoResume(activeB))
+            val romBAutoResume = ssm.getCanonicalFile(activeB, SaveStateFiles.AUTO_RESUME)
+            assertTrue(romBAutoResume.exists())
+            assertEquals(0x44.toByte(), romBAutoResume.readBytes()[0])
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun skippedAutoResumeRemainsProtectedWhenLookupResolvesHardcoreActiveAndAllowsCloseGame() = runBlocking {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_autoresume_hardcore_").toFile()
+        try {
+            val romAFile = File(tempRoot, "romA.gba").apply { writeBytes(ByteArray(4096) { 0x31 }) }
+            val romAIdentity = RomIdentity.fromFile(romAFile, "Rom A")
+
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = File(tempRoot, "saves"), customCoordinator = core)
+            val sessions = RomSessionManager(
+                saveStateManager = ssm,
+                customRomCacheDir = File(tempRoot, "cache"),
+                customCoordinator = core
+            )
+
+            val tokens = RaTokenStore(RomDurableResumeTest.FakeSharedPreferences()).apply {
+                save(RaCredentials("player", "saved-token"))
+            }
+            val settings = SettingsManager(RomDurableResumeTest.FakeSharedPreferences()).apply {
+                retroAchievementsHardcore = true
+            }
+            val native = FakeRaNativeBackend()
+            val service = RetroAchievementsService(core, tokens, settings, native, autoStart = false)
+            native.loginStatus = 2 // NATIVE_READY
+            service.drainForTest()
+
+            val originalAutoResumeBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x6B }
+            val romAAutoResume = ssm.getCanonicalFile(romAIdentity, SaveStateFiles.AUTO_RESUME).apply {
+                writeBytes(originalAutoResumeBytes)
+            }
+
+            val switchA = sessions.switchRomFile(romAFile, emptyList(), preferredTitle = "Rom A") as SwitchResult.Success
+            val activeA = switchA.identity
+            native.gameStatus = 2 // NATIVE_ACTIVE
+            service.drainForTest()
+            assertTrue(core.raHardcorePolicy.isHardcoreActive)
+
+            // Cannot restore while Hardcore is active, and preservation remains intact.
+            assertFalse(ssm.restorePreservedAutoResume(activeA))
+            assertTrue(ssm.hasPreservedAutoResume(activeA))
+            assertEquals(0, bridge.loadedStates.size)
+
+            // Pause auto-save does not overwrite the Softcore auto_resume.state.
+            bridge.nextSavedStateByte = 0x7F
+            assertFalse(ssm.saveAutoResume(activeA))
+            assertArrayEquals(originalAutoResumeBytes, romAAutoResume.readBytes())
+
+            // Close Game still flushes SRAM and unloads cleanly without clobbering preserved auto_resume.
+            assertTrue(ssm.closeGame(activeA))
+            assertNull(ssm.activeIdentity)
+            assertNull(ssm.preservedAutoResume.value)
+            assertArrayEquals(originalAutoResumeBytes, romAAutoResume.readBytes())
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun explicitResolutionOfPreservedAutoResumeRestoresOrKeepsCurrentAndReenablesAutoSave() = runBlocking {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_autoresume_resolve_").toFile()
+        try {
+            val romAFile = File(tempRoot, "romA.gba").apply { writeBytes(ByteArray(4096) { 0x41 }) }
+            val romAIdentity = RomIdentity.fromFile(romAFile, "Rom A")
+
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = File(tempRoot, "saves"), customCoordinator = core)
+            val sessions = RomSessionManager(
+                saveStateManager = ssm,
+                customRomCacheDir = File(tempRoot, "cache"),
+                customCoordinator = core
+            )
+
+            // --- Path A: explicit restore after lookup releases to Softcore ---
+            val originalBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x2C }
+            val autoResumeFile = ssm.getCanonicalFile(romAIdentity, SaveStateFiles.AUTO_RESUME).apply {
+                writeBytes(originalBytes)
+            }
+            core.armRaHardcore(true)
+            val firstSession = (sessions.switchRomFile(romAFile, emptyList(), preferredTitle = "Rom A") as SwitchResult.Success).identity
+            assertTrue(ssm.hasPreservedAutoResume(firstSession))
+            // Release Hardcore guard (e.g. lookup resolved to NO_SET).
+            core.executeExclusive { core.setRaHardcoreLocked(false) }
+            assertFalse(ssm.saveAutoResume(firstSession))
+
+            assertTrue(ssm.restorePreservedAutoResume(firstSession))
+            assertEquals(1, bridge.loadedStates.size)
+            assertArrayEquals(originalBytes, bridge.loadedStates.single())
+            assertFalse(ssm.hasPreservedAutoResume(firstSession))
+            assertNull(ssm.preservedAutoResume.value)
+
+            // Normal auto-save is re-enabled after explicit restore.
+            bridge.nextSavedStateByte = 0x55
+            assertTrue(ssm.saveAutoResume(firstSession))
+            assertEquals(0x55.toByte(), autoResumeFile.readBytes()[0])
+
+            // --- Path B: explicit keep-current after lookup releases to Softcore ---
+            val savedBeforeSecondBoot = autoResumeFile.readBytes()
+            val secondSession = (sessions.switchRomFile(romAFile, emptyList(), preferredTitle = "Rom A") as SwitchResult.Success).identity
+            assertTrue(ssm.hasPreservedAutoResume(secondSession))
+            core.executeExclusive { core.setRaHardcoreLocked(false) }
+            bridge.nextSavedStateByte = 0x66
+            assertFalse(ssm.saveAutoResume(secondSession))
+            assertArrayEquals(savedBeforeSecondBoot, autoResumeFile.readBytes())
+
+            assertTrue(ssm.keepCurrentSessionOverPreservedAutoResume(secondSession))
+            assertFalse(ssm.hasPreservedAutoResume(secondSession))
+            assertTrue(ssm.saveAutoResume(secondSession))
+            assertEquals(0x66.toByte(), autoResumeFile.readBytes()[0])
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun ordinarySoftcoreSessionLoadsAutoResumeAndSavesNormally() = runBlocking {
+        val tempRoot = Files.createTempDirectory("dualdex_ra_autoresume_ordinary_").toFile()
+        try {
+            val romFile = File(tempRoot, "romOrdinary.gba").apply { writeBytes(ByteArray(4096) { 0x51 }) }
+            val romIdentity = RomIdentity.fromFile(romFile, "Ordinary")
+            val bridge = StateBytesCoreBridge(stateSize = RomSaveIntegrityTest.STATE_SIZE_256K)
+            val core = LibretroCoreCoordinator(bridge = bridge)
+            val ssm = SaveStateManager(customBaseDir = File(tempRoot, "saves"), customCoordinator = core)
+            val sessions = RomSessionManager(
+                saveStateManager = ssm,
+                customRomCacheDir = File(tempRoot, "cache"),
+                customCoordinator = core
+            )
+
+            val seededBytes = ByteArray(RomSaveIntegrityTest.STATE_SIZE_256K) { 0x19 }
+            val autoResumeFile = ssm.getCanonicalFile(romIdentity, SaveStateFiles.AUTO_RESUME).apply {
+                writeBytes(seededBytes)
+            }
+
+            core.armRaHardcore(false)
+            val active = (sessions.switchRomFile(romFile, emptyList(), preferredTitle = "Ordinary") as SwitchResult.Success).identity
+            assertEquals(1, bridge.loadedStates.size)
+            assertArrayEquals(seededBytes, bridge.loadedStates.single())
+            assertFalse(ssm.hasPreservedAutoResume(active))
+
+            bridge.nextSavedStateByte = 0x77
+            assertTrue(ssm.saveAutoResume(active))
+            assertEquals(0x77.toByte(), autoResumeFile.readBytes()[0])
+        } finally {
+            tempRoot.deleteRecursively()
+        }
+    }
+
+    @Test
     fun preferencesStoreOnlyUsernameAndTokenAndClearOnLogout() {
         val prefs = RomDurableResumeTest.FakeSharedPreferences()
         val store = RaTokenStore(prefs)
@@ -296,6 +528,33 @@ class RetroAchievementsTest {
         }
         override fun resetCore() {
             resets++
+        }
+    }
+
+    private class StateBytesCoreBridge(
+        private val stateSize: Int,
+        private val sramSize: Int = RomSaveIntegrityTest.SRAM_SIZE_128K
+    ) : LibretroCoreBridge {
+        var nextSavedStateByte: Byte = 0x33
+        val loadedStates = mutableListOf<ByteArray>()
+        override fun loadRom(romPath: String) = true
+        override fun unloadRom() = true
+        override fun getSaveRamSize() = sramSize.toLong()
+        override fun getSaveStateSize() = stateSize.toLong()
+        override fun loadSaveRam(savePath: String) = true
+        override fun flushSaveRam(savePath: String): Boolean {
+            File(savePath).writeBytes(ByteArray(sramSize) { 0x01 })
+            return true
+        }
+        override fun saveState(statePath: String): Boolean {
+            File(statePath).writeBytes(ByteArray(stateSize) { nextSavedStateByte })
+            return true
+        }
+        override fun loadState(statePath: String): Boolean {
+            val file = File(statePath)
+            if (!file.isFile || file.length() != stateSize.toLong()) return false
+            loadedStates += file.readBytes()
+            return true
         }
     }
 

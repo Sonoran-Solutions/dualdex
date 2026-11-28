@@ -17,6 +17,7 @@ never a support verdict.
 """
 import argparse
 import ctypes as C
+import errno
 import json
 import os
 from pathlib import Path
@@ -186,8 +187,43 @@ def check_observation_budget(commands):
     require(count <= MAX_OBSERVATIONS, f'movie has {count} observations; at most {MAX_OBSERVATIONS} are allowed')
 
 
+def check_boot_jitter(boots, boot_jitter):
+    """Require positive, bounded boot jitter so multi-boot comparison is not tautological."""
+    require(0 < boot_jitter <= MAX_JITTER and (boots - 1) * boot_jitter <= MAX_JITTER,
+            'boot jitter must be positive and bounded')
+
+
+def sanitize_error(error):
+    """Return a path-free error message safe for JSON reports."""
+    if isinstance(error, OSError):
+        code = errno.errorcode.get(error.errno) if error.errno is not None else None
+        detail = error.strerror if error.errno is not None and error.strerror else None
+        if detail and ('/' in detail or '\\' in detail):
+            detail = None
+        if code and detail:
+            return f'{type(error).__name__} [{code}]: {detail}'
+        if code:
+            return f'{type(error).__name__} [{code}]'
+        return f'{type(error).__name__}: filesystem or library load failed'
+    message = str(error)
+    if '/' in message or '\\' in message:
+        return f'{type(error).__name__}: operation failed'
+    return message
+
+
+def read_input(label, path, limit):
+    try:
+        return read_local(path, limit)
+    except OSError as error:
+        detail = error.strerror if error.errno is not None and error.strerror else 'read failed'
+        if '/' in detail or '\\' in detail:
+            detail = 'read failed'
+        raise OSError(error.errno, f'{label}: {detail}') from None
+
+
 def run_boots(args, rom, commands, probes):
     check_observation_budget(commands)
+    check_boot_jitter(args.boots, args.boot_jitter)
     boots = []
     with tempfile.TemporaryDirectory(prefix='dualdex-rom-observe-') as temp:
         staged = Path(temp) / 'local.gba'
@@ -210,7 +246,7 @@ def main(argv=None):
     parser.add_argument('--movie', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--boots', type=int, default=2, choices=range(2, MAX_BOOTS + 1))
-    parser.add_argument('--boot-jitter', type=int, default=7, help='extra idle frames per boot index')
+    parser.add_argument('--boot-jitter', type=int, default=7, help='extra idle frames per boot index (must be > 0)')
     parser.add_argument('--probe', action='append', default=[], metavar='NAME=0xADDR:SIZE')
     args = parser.parse_args(argv)
     protected = [args.rom, args.core, args.movie, args.library, Path(__file__)]
@@ -221,19 +257,21 @@ def main(argv=None):
     report = dict(schema_version=1, status='FAIL', verdict='NOT_A_SUPPORT_VERDICT')
     args.output.write_text(json.dumps(report) + '\n')  # invalidate any older success first
     try:
+        check_boot_jitter(args.boots, args.boot_jitter)
         probes = [parse_probe(p) for p in args.probe]
-        rom = read_local(args.rom, MAX_ROM)
-        movie = read_local(args.movie, 65536)
+        rom = read_input('rom', args.rom, MAX_ROM)
+        movie = read_input('movie', args.movie, 65536)
         commands = parse_movie(movie.decode('ascii'))
-        report.update(rom_sha256=digest(rom), core_sha256=digest(read_local(args.core, 64 * 1024 * 1024)),
-                      library_sha256=digest(read_local(args.library, 16 * 1024 * 1024)),
+        report.update(rom_sha256=digest(rom), core_sha256=digest(read_input('core', args.core, 64 * 1024 * 1024)),
+                      library_sha256=digest(read_input('library', args.library, 16 * 1024 * 1024)),
                       movie_sha256=digest(movie), boots=args.boots, boot_jitter_frames=args.boot_jitter,
                       observations=run_boots(args, rom, commands, probes))
         report['status'] = 'OBSERVED'
     except (ValueError, OSError, UnicodeError, KeyError, TypeError) as error:
         report.pop('observations', None)
-        report['error'] = str(error)
-        print(f'FAIL: {error}', file=sys.stderr)
+        safe_error = sanitize_error(error)
+        report['error'] = safe_error
+        print(f'FAIL: {safe_error}', file=sys.stderr)
     args.output.write_text(json.dumps(report, sort_keys=True, indent=2) + '\n')
     return 0 if report['status'] == 'OBSERVED' else 1
 

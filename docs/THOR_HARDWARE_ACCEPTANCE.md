@@ -57,14 +57,14 @@ Provisional classification at discovery: **P1 #14** (advertised shortcut unwired
 Follow these steps strictly in order before installing or updating any APK on the Thor (see also the verified Oct 15 preflight in [`docs/ROM_SESSION_HARDWARE_ACCEPTANCE.md`](ROM_SESSION_HARDWARE_ACCEPTANCE.md#thor-preflight-and-save-protection)):
 
 1. **Select the exact AYN Thor ADB target explicitly:** inspect `adb devices -l`, confirm the device is the AYN Thor, and pass `adb -s <thor-serial>` on every subsequent command so no other attached device can be touched.
-2. **Inspect installed package version and signing certificate:** run `adb -s <thor-serial> shell pm list packages | grep dualdex`; if installed, record `versionName`/`versionCode` and signer (`adb -s <thor-serial> shell dumpsys package com.dualdex | grep -E "versionName|versionCode|signatures|Signing"`). Compare the installed certificate SHA-256 against the candidate APK signer (`apksigner verify --print-certs <apk>`). If the signer differs, **stop**: do not uninstall and do not install; owner decides.
+2. **Inspect installed package version and signing certificate:** run `adb -s <thor-serial> shell pm list packages | grep dualdex`; if installed, record `versionName`/`versionCode` (`adb -s <thor-serial> shell dumpsys package com.dualdex | grep -E "versionName|versionCode"`). Because `dumpsys package` prints only a short Java hash code for signatures, locate the installed APK with `adb -s <thor-serial> shell pm path com.dualdex`, pull `base.apk` from that serial (`adb -s <thor-serial> pull <remote-base.apk> installed-base.apk`), and run `apksigner verify --print-certs` on both `installed-base.apk` and the candidate APK to verify an exact certificate SHA-256 match. If the signer differs, **stop**: do not uninstall and do not install; owner decides.
 3. **Pause/flush live emulation before pulling saves:** normally pause emulation (or stop the app cleanly after a normal pause) so live battery saves and auto-resume files are flushed before backup.
 4. **Back up private saves/states and external mirrors off-device, and verify hashes:** pull all private app save/state directories (`saves_v2`, `save_staging`, `saves_fallback`, `rom_cache`, etc. via `adb -s <thor-serial> exec-out run-as com.dualdex` for debuggable builds) plus any external/shared save mirrors and ROM-adjacent `.sav` files (`adb -s <thor-serial> pull`). Record `sha256sum` of every pulled file and verify every file against device SHA-256 hashes and `stat` sizes. If Android scoped storage or permissions prevent a complete backup, **stop** and ask the owner.
 5. **Install only after all checks pass, then re-verify hashes:** run `adb -s <thor-serial> install -r <apk>` (same-signer in-place update; never uninstall or clear data), and re-verify private save hashes against the pre-install manifest before launching. Run destructive or failure-injection tests only on copies. Deeper work stays in #75.
 
 ## 5. Test matrix
 
-Result vocabulary: `PASS` / `PARTIAL` / `FAIL` / `BLOCKED` / `NOT_RUN` / `N/A`.
+Result vocabulary: `PASS` / `PARTIAL` / `FAIL` / `BLOCKED` / `NOT_RUN` / `N/A`. (`PARTIAL` means some required checks in the row have evidence while others remain unverified, so the row stays open.)
 Primary ROM: `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b` (H&S 2.0.5); vanilla FireRed and vanilla Emerald are **planned baselines** (not executed in the 2026-10-09 run). Trust is by SHA-256, never filename.
 
 | ID | Scenario | Result (2026-10-09 run + `main` follow-up) |
@@ -127,7 +127,7 @@ adb -s <thor-serial> shell dumpsys gfxinfo com.dualdex framestats # frame pacing
 
 ```bash
 # Bounded crash/ANR/native capture (e.g. 65-minute timeout cap, 4 x 2 MiB rotating logs)
-timeout 3900 adb -s <thor-serial> logcat -b crash,main,system -v threadtime -f /sdcard/Download/dualdex-soak.log -r 2048 -n 4 AndroidRuntime:E ActivityManager:W DualDex*:I '*:S'
+timeout 3900 adb -s <thor-serial> logcat -b crash,main,system -v threadtime -f /sdcard/Download/dualdex-soak.log -r 2048 -n 4 AndroidRuntime:E ActivityManager:W DEBUG:F libc:F DualDex*:I '*:S'
 ```
 
 *(Alternatively, stream to host with `timeout 3900 adb -s <thor-serial> logcat ... | head -c 16777216 > soak.log` so host capture is strictly size- and duration-bounded.)*
@@ -151,7 +151,7 @@ PR #167 (`167b15e`) and PR #170 (`ccd5e1a`) have merged onto `main`, and the Oct
 
 1. **Confirm `O1` viewport scaling on Thor:** inspect Settings scaling mode and visually verify whether the 1620x648 (2.5:1) top-display viewport is user configuration or a P2 defect.
 2. **Close remaining #14 controller/shortcut coverage:** test D-pad, analog, A/B, L/R, Start/Select (`C1`), fast-forward toggle (`C4`), and X/Y turbo/menu shortcuts (`C5`), or reconcile remaining Settings/README shortcut claims.
-3. **Complete remaining matrix rows & baseline runs:** run audio/input-latency (`A2`), bottom-touch isolation (`B2`), calculator (`D3`), UI ergonomics (`D5`), fast-forward save/load & failed-ROM recovery (`E5`), cheat gating (`G1`), and planned vanilla FireRed/Emerald baseline comparisons.
+3. **Complete all remaining unverified §5 matrix rows & subchecks and planned baseline runs:** run audio/input-latency (`A2`), process-death (`am kill`) and full reboot Continue recovery (`A4`/`E3`), bottom-touch isolation (`B2`), lid/fold/rotation display lifecycle (`B3`), in-game party cross-check (`D1`), trainer and Doubles battle coverage (`D2`), calculator (`D3`), UI ergonomics (`D5`), fast-forward save/load & failed-ROM recovery (`E5`), cheat gating (`G1`), and planned vanilla FireRed/Emerald baseline comparisons. Every unverified subcheck in §5 must be completed before lifting `HOLD`.
 4. **Run the >= 60-minute continuous real-play soak (`F1`):** execute section 6 on a post-merge build following section 4 preflight, with read-only battery/thermal/memory sampling, bounded logcat, visual observations, and listener audio observations.
 
 Disposition stays **HOLD** until the remaining mandatory hardware coverage and >= 60-minute continuous soak pass on a verified build.

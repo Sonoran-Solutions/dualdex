@@ -331,6 +331,76 @@ class CfruExtractTest(unittest.TestCase):
             self.assertEqual(report["tables"]["gTypeEffectiveness"]["reason"], "ambiguous_type_effectiveness")
             self.assertIsNone(report["tables"]["gTypeEffectiveness"]["table_sha256"])
 
+    def _build_valid_triple_table(self) -> bytes:
+        triples = [
+            # Standard matchups before 0xFE Foresight separator
+            (0, 5, 5), (0, 8, 5),
+            (1, 0, 20), (1, 2, 5), (1, 5, 20), (1, 8, 20),
+            (4, 2, 0), (4, 10, 20), (4, 13, 20),
+            (7, 0, 0), (7, 14, 20),
+            (10, 10, 5), (10, 11, 5), (10, 12, 20),
+            (11, 10, 20), (11, 11, 5), (11, 12, 5),
+            (12, 10, 5), (12, 11, 20), (12, 12, 5),
+            (13, 4, 0), (13, 11, 20), (13, 12, 5),
+            (14, 17, 0), (16, 8, 5), (16, 16, 20),
+            # Foresight section
+            (0xFE, 0xFE, 0),
+            (0, 7, 0), (1, 7, 0),
+            # Terminator
+            (0xFF, 0xFF, 0),
+        ]
+        return b"".join(bytes(t) for t in triples)
+
+    def test_triple_table_fallback_accepts_valid_table_and_rejects_degenerate_or_conflicting(self):
+        _, cfru = _build_synthetic_pair()
+        valid_triples = self._build_valid_triple_table()
+        rom = bytearray(cfru)
+        rom[0x1240000:0x1240000 + 576] = b"\xFF" * 576
+        rom[0x1240000:0x1240000 + len(valid_triples)] = valid_triples
+        report = ce.extract_tables(bytes(rom))
+        self.assertEqual(report["status"], "OK")
+        entry = report["tables"]["gTypeEffectiveness"]
+        self.assertTrue(entry["sanity_ok"])
+        self.assertEqual(entry["stride"], 3)
+        self.assertEqual(entry["count_estimate"], len(valid_triples) // 3 - 1)
+
+        # Astra counterexample: only Normal->Ghost repeated with multipliers 0, 5, and 20
+        single_pair = bytearray()
+        for mult in (0, 5, 20) * 7:
+            single_pair.extend((0, 7, mult))
+        single_pair.extend((0xFF, 0xFF, 0))
+        bad1 = bytearray(cfru)
+        bad1[0x1240000:0x1240000 + 576] = b"\xFF" * 576
+        bad1[0x1240000:0x1240000 + len(single_pair)] = single_pair
+        ok1, s1, c1, err1 = ce._validate_type_effectiveness(bytes(bad1), 0x1240000)
+        self.assertFalse(ok1)
+        self.assertEqual((s1, c1), (0, 0))
+        self.assertEqual(err1, "conflicting_type_effectiveness")
+        rep1 = ce.extract_tables(bytes(bad1))
+        self.assertEqual(rep1["status"], "PARTIAL")
+        self.assertFalse(rep1["tables"]["gTypeEffectiveness"]["sanity_ok"])
+
+        # Same pair repeated identically 21 times (no conflict, but lacks distinct matchups/anchors)
+        repeated_same = bytes((0, 7, 0)) * 21 + bytes((0xFF, 0xFF, 0))
+        bad_repeat = bytearray(cfru)
+        bad_repeat[0x1240000:0x1240000 + 576] = b"\xFF" * 576
+        bad_repeat[0x1240000:0x1240000 + len(repeated_same)] = repeated_same
+        ok_rep, _, _, err_rep = ce._validate_type_effectiveness(bytes(bad_repeat), 0x1240000)
+        self.assertFalse(ok_rep)
+        self.assertEqual(err_rep, "invalid_type_effectiveness")
+
+        # Valid table with one conflicting duplicate entry in the same section -> rejected
+        conflicting = bytearray(valid_triples[:-3])
+        conflicting.extend((10, 12, 5))  # Fire -> Grass contradicts earlier (10, 12, 20)
+        conflicting.extend((0xFF, 0xFF, 0))
+        bad2 = bytearray(cfru)
+        bad2[0x1240000:0x1240000 + 576] = b"\xFF" * 576
+        bad2[0x1240000:0x1240000 + len(conflicting)] = conflicting
+        ok2, s2, c2, err2 = ce._validate_type_effectiveness(bytes(bad2), 0x1240000)
+        self.assertFalse(ok2)
+        self.assertEqual((s2, c2), (0, 0))
+        self.assertEqual(err2, "conflicting_type_effectiveness")
+
 
 if __name__ == "__main__":
     unittest.main()

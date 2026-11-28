@@ -62,12 +62,41 @@ GEN3_TYPE_FIRE = 10
 GEN3_TYPE_GRASS = 12
 
 LAYOUT_EXPANSION_V1_9_BITFIELD = "EXPANSION_V1_9_BITFIELD"
+LAYOUT_EXPANSION_V1_10_PTR_ITEM = "EXPANSION_V1_10_PTR_ITEM"
 LAYOUT_GEN3_VANILLA_BYTE = "GEN3_VANILLA_BYTE"
+
+LAYOUT_ALIASES = {
+    "EXPANSION_V1_9_INLINE_ITEM": LAYOUT_EXPANSION_V1_9_BITFIELD,
+}
 
 # Explicitly pinned record layouts; unknown layout versions fail closed.
 SUPPORTED_LAYOUTS = {
     LAYOUT_EXPANSION_V1_9_BITFIELD: {
-        "description": "pokeemerald-expansion v1.9+ packed MoveInfo bitfields + pointer-backed ItemInfo",
+        "description": "pokeemerald-expansion v1.9.0 packed MoveInfo bitfields + inline Item name at +0x14",
+        "move_layout": "PACKED_BITFIELD",
+        "item_layout": "EXPANSION_V1_9_INLINE_ITEM",
+        "uses_expansion_types": True,
+        "move_min_stride": 16,
+        "move_max_stride": 128,
+        "move_name_ptr_offset": 0x00,
+        "move_desc_ptr_offset": 0x04,
+        "move_combat_word_offset": 0x0A,    # u16: type:5 | category:2 | power:9
+        "move_accuracy_word_offset": 0x0C,  # u16: accuracy:7 | target:9
+        "move_pp_offset": 0x0E,             # u8
+        "item_min_stride": 44,
+        "item_max_stride": 128,
+        "item_name_is_pointer": False,
+        "item_name_offset": 0x14,           # u8 name[ITEM_NAME_LENGTH]
+        "item_name_len": 20,
+        "item_desc_ptr_offset": 0x0C,       # const u8 *description
+        "type_id_min": 1,
+        "type_id_max": 20,
+    },
+    LAYOUT_EXPANSION_V1_10_PTR_ITEM: {
+        "description": "pokeemerald-expansion v1.10+ packed MoveInfo bitfields + pointer-backed Item name at +0x14",
+        "move_layout": "PACKED_BITFIELD",
+        "item_layout": "EXPANSION_V1_10_PTR_ITEM",
+        "uses_expansion_types": True,
         "move_min_stride": 16,
         "move_max_stride": 128,
         "move_name_ptr_offset": 0x00,
@@ -84,7 +113,10 @@ SUPPORTED_LAYOUTS = {
         "type_id_max": 20,
     },
     LAYOUT_GEN3_VANILLA_BYTE: {
-        "description": "Vanilla/pre-bitfield Gen 3 BattleMove byte fields + inline-name Item",
+        "description": "Vanilla/pre-bitfield Gen 3 BattleMove byte fields + inline-name Item at +0x00",
+        "move_layout": "GEN3_VANILLA_BYTE",
+        "item_layout": "GEN3_VANILLA_INLINE_ITEM",
+        "uses_expansion_types": False,
         "move_min_stride": 12,
         "move_max_stride": 128,
         "move_power_offset": 0x01,          # u8
@@ -174,21 +206,31 @@ def find_expansion_marker(rom: bytes) -> dict | None:
     return None
 
 
-def _is_plausible_species_row(entry: bytes, layout_spec: dict, *, allow_zero: bool = False) -> bool:
+def _is_plausible_species_row(
+    entry: bytes,
+    layout_spec: dict,
+    *,
+    allow_zero: bool = False,
+    allow_zero_stats_metadata: bool = False,
+) -> bool:
     stats = entry[:6]
     if all(b == 0 for b in entry):
         return allow_zero
+    t_max = layout_spec["type_id_max"]
+    if all(b == 0 for b in stats):
+        if not allow_zero_stats_metadata:
+            return False
+        return 0 <= entry[6] <= t_max and 0 <= entry[7] <= t_max
     if any(b == 0 for b in stats):
         return False
     t1_min = layout_spec["type_id_min"]
-    t_max = layout_spec["type_id_max"]
     return t1_min <= entry[6] <= t_max and 0 <= entry[7] <= t_max
 
 
 def _probe_species_info(rom: bytes, offset: int, layout_name: str) -> tuple[bool, int, int, str | None]:
     """Detect struct SpeciesInfo stride (28..256, 4-byte aligned) and validate species 1+."""
     layout_spec = SUPPORTED_LAYOUTS[layout_name]
-    if layout_name == LAYOUT_EXPANSION_V1_9_BITFIELD:
+    if layout_spec["uses_expansion_types"]:
         exp_grass, exp_poison, exp_fire = TYPE_GRASS, TYPE_POISON, TYPE_FIRE
     else:
         exp_grass, exp_poison, exp_fire = GEN3_TYPE_GRASS, GEN3_TYPE_POISON, GEN3_TYPE_FIRE
@@ -227,13 +269,19 @@ def _probe_species_info(rom: bytes, offset: int, layout_name: str) -> tuple[bool
     zero_run = 0
     for i in range(avail):
         entry = rom[offset + i * best_stride:offset + (i + 1) * best_stride]
-        if not _is_plausible_species_row(entry, layout_spec, allow_zero=True):
+        if not _is_plausible_species_row(
+            entry,
+            layout_spec,
+            allow_zero=True,
+            allow_zero_stats_metadata=(i == 0),
+        ):
             break
+        if i == 0 and all(b == 0 for b in entry[:6]):
+            continue
         if all(b == 0 for b in entry):
-            if i > 0:
-                zero_run += 1
-                if zero_run > 32:
-                    break
+            zero_run += 1
+            if zero_run > 32:
+                break
         else:
             zero_run = 0
             last_nonzero = i
@@ -246,7 +294,7 @@ def _probe_species_info(rom: bytes, offset: int, layout_name: str) -> tuple[bool
 def _decode_move_fields(rom: bytes, row: bytes, layout_name: str) -> tuple[bool, int, int, int, int, int]:
     """Decode (valid, power, move_type, category, accuracy, pp) for a pinned MoveInfo layout."""
     spec = SUPPORTED_LAYOUTS[layout_name]
-    if layout_name == LAYOUT_EXPANSION_V1_9_BITFIELD:
+    if spec["move_layout"] == "PACKED_BITFIELD":
         combat_off = spec["move_combat_word_offset"]
         acc_off = spec["move_accuracy_word_offset"]
         pp_off = spec["move_pp_offset"]
@@ -260,7 +308,7 @@ def _decode_move_fields(rom: bytes, row: bytes, layout_name: str) -> tuple[bool,
         accuracy = acc_word & 0x7F
         pp = row[pp_off]
         return True, power, move_type, category, accuracy, pp
-    if layout_name == LAYOUT_GEN3_VANILLA_BYTE:
+    if spec["move_layout"] == "GEN3_VANILLA_BYTE":
         p_off = spec["move_power_offset"]
         t_off = spec["move_type_offset"]
         a_off = spec["move_accuracy_offset"]
@@ -276,31 +324,45 @@ def _decode_move_fields(rom: bytes, row: bytes, layout_name: str) -> tuple[bool,
     return False, 0, 0, 0, 0, 0
 
 
-def _valid_move_row_for_layout(rom: bytes, row: bytes, layout_name: str, *, allow_zero: bool = False) -> bool:
+def _valid_move_row_for_layout(
+    rom: bytes,
+    row: bytes,
+    layout_name: str,
+    *,
+    allow_zero: bool = False,
+    allow_sentinel_zero: bool = False,
+) -> bool:
     if all(b == 0 for b in row):
         return allow_zero
     spec = SUPPORTED_LAYOUTS[layout_name]
-    ok, _, move_type, category, accuracy, pp = _decode_move_fields(rom, row, layout_name)
+    ok, power, move_type, category, accuracy, pp = _decode_move_fields(rom, row, layout_name)
     if not ok:
         return False
-    if not (spec["type_id_min"] <= move_type <= spec["type_id_max"]):
+    if allow_sentinel_zero:
+        if power != 0 or not (0 <= move_type <= spec["type_id_max"]):
+            return False
+    elif not (spec["type_id_min"] <= move_type <= spec["type_id_max"]):
         return False
     if category > 2 or accuracy > 100 or pp > 64:
         return False
-    if layout_name == LAYOUT_EXPANSION_V1_9_BITFIELD:
+    if spec["move_layout"] == "PACKED_BITFIELD":
         name_ptr = struct.unpack_from("<I", row, spec["move_name_ptr_offset"])[0]
         desc_ptr = struct.unpack_from("<I", row, spec["move_desc_ptr_offset"])[0]
-        if not _valid_gen3_pointer_text(rom, name_ptr, max_scan=64):
-            return False
-        if not _valid_gen3_pointer_text(rom, desc_ptr, allow_newline=True, max_scan=256):
-            return False
+        if not (allow_sentinel_zero and name_ptr == 0):
+            if not _valid_gen3_pointer_text(rom, name_ptr, allow_empty=allow_sentinel_zero, max_scan=64):
+                return False
+        if not (allow_sentinel_zero and desc_ptr == 0):
+            if not _valid_gen3_pointer_text(
+                rom, desc_ptr, allow_empty=allow_sentinel_zero, allow_newline=True, max_scan=256
+            ):
+                return False
     return True
 
 
 def _probe_moves_info(rom: bytes, offset: int, layout_name: str) -> tuple[bool, int, int, str | None]:
     """Detect gMovesInfo / gBattleMoves stride using pinned layout rules and verify move anchors."""
     spec = SUPPORTED_LAYOUTS[layout_name]
-    expected_normal = TYPE_NORMAL if layout_name == LAYOUT_EXPANSION_V1_9_BITFIELD else 0
+    expected_normal = TYPE_NORMAL if spec["uses_expansion_types"] else 0
 
     for stride in range(spec["move_min_stride"], spec["move_max_stride"] + 1, 4):
         if offset + 36 * stride > len(rom):
@@ -323,7 +385,7 @@ def _probe_moves_info(rom: bytes, offset: int, layout_name: str) -> tuple[bool, 
             if not ok or power != exp_power:
                 anchor_ok = False
                 break
-            if layout_name == LAYOUT_EXPANSION_V1_9_BITFIELD and category != exp_cat:
+            if spec["move_layout"] == "PACKED_BITFIELD" and category != exp_cat:
                 anchor_ok = False
                 break
             if mid in (1, 33) and move_type != expected_normal:
@@ -337,13 +399,20 @@ def _probe_moves_info(rom: bytes, offset: int, layout_name: str) -> tuple[bool, 
         zero_run = 0
         for i in range(avail):
             row = rom[offset + i * stride:offset + (i + 1) * stride]
-            if not _valid_move_row_for_layout(rom, row, layout_name, allow_zero=(i == 0 or zero_run < 8)):
+            if not _valid_move_row_for_layout(
+                rom,
+                row,
+                layout_name,
+                allow_zero=(i == 0 or zero_run < 8),
+                allow_sentinel_zero=(i == 0),
+            ):
                 break
+            if i == 0:
+                continue
             if all(b == 0 for b in row):
-                if i > 0:
-                    zero_run += 1
-                    if zero_run > 8:
-                        break
+                zero_run += 1
+                if zero_run > 8:
+                    break
             else:
                 zero_run = 0
                 last_nonzero = i
@@ -362,14 +431,17 @@ def _valid_item_entry(rom: bytes, entry: bytes, layout_name: str, *, allow_empty
     if desc_off + 4 > len(entry):
         return False
     desc_ptr = struct.unpack_from("<I", entry, desc_off)[0]
-    if not _valid_gen3_pointer_text(rom, desc_ptr, allow_empty=allow_empty, allow_newline=True, max_scan=256):
-        return False
+    if not (allow_empty and desc_ptr == 0):
+        if not _valid_gen3_pointer_text(rom, desc_ptr, allow_empty=allow_empty, allow_newline=True, max_scan=256):
+            return False
 
     if spec["item_name_is_pointer"]:
         name_off = spec["item_name_offset"]
         if name_off + 4 > len(entry):
             return False
         name_ptr = struct.unpack_from("<I", entry, name_off)[0]
+        if allow_empty and name_ptr == 0:
+            return True
         return _valid_gen3_pointer_text(rom, name_ptr, allow_empty=allow_empty, max_scan=64)
 
     name_off = spec["item_name_offset"]
@@ -482,6 +554,11 @@ def _inspect_slot(rom: bytes, slot_offset: int, probe_fn) -> dict:
 
 
 def _extract_with_layout(rom: bytes, layout_name: str, marker: dict | None, core_ptrs_valid: bool) -> dict:
+    items_entry = _inspect_slot(
+        rom, GF_SLOT_ITEMS_INFO, lambda r, off: _probe_items_info(r, off, layout_name)
+    )
+    if items_entry["sanity_ok"]:
+        items_entry["item_layout"] = SUPPORTED_LAYOUTS[layout_name]["item_layout"]
     tables = {
         "gSpeciesInfo": _inspect_slot(
             rom, GF_SLOT_SPECIES_INFO, lambda r, off: _probe_species_info(r, off, layout_name)
@@ -489,9 +566,7 @@ def _extract_with_layout(rom: bytes, layout_name: str, marker: dict | None, core
         "gMovesInfo": _inspect_slot(
             rom, GF_SLOT_MOVES_INFO, lambda r, off: _probe_moves_info(r, off, layout_name)
         ),
-        "gItemsInfo": _inspect_slot(
-            rom, GF_SLOT_ITEMS_INFO, lambda r, off: _probe_items_info(r, off, layout_name)
-        ),
+        "gItemsInfo": items_entry,
     }
 
     # Optional gTypesInfo / gTypeEffectivenessTable extension slot.
@@ -547,8 +622,10 @@ def _extract_with_layout(rom: bytes, layout_name: str, marker: dict | None, core
 def extract_expansion_tables(rom: bytes, *, layout: str | None = None) -> dict:
     """Inspect a local pokeemerald-expansion ROM and return sanitized numeric JSON metadata."""
     require(GF_HEADER_END <= len(rom) <= MAX_ROM, "ROM size out of bounds")
+    resolved_layout = None
     if layout is not None:
-        require(layout in SUPPORTED_LAYOUTS, f"Unsupported layout version: {layout}")
+        resolved_layout = LAYOUT_ALIASES.get(layout, layout)
+        require(resolved_layout in SUPPORTED_LAYOUTS, f"Unsupported layout version: {layout}")
 
     marker = find_expansion_marker(rom)
     core_ptrs_valid = all(
@@ -556,18 +633,28 @@ def extract_expansion_tables(rom: bytes, *, layout: str | None = None) -> dict:
         for slot in (GF_SLOT_SPECIES_INFO, GF_SLOT_MOVES_INFO, GF_SLOT_ITEMS_INFO)
     )
 
-    if layout is not None:
-        return _extract_with_layout(rom, layout, marker, core_ptrs_valid)
+    if resolved_layout is not None:
+        return _extract_with_layout(rom, resolved_layout, marker, core_ptrs_valid)
 
+    candidate_order = (
+        LAYOUT_EXPANSION_V1_9_BITFIELD,
+        LAYOUT_EXPANSION_V1_10_PTR_ITEM,
+        LAYOUT_GEN3_VANILLA_BYTE,
+    )
     candidates = [
         _extract_with_layout(rom, candidate_layout, marker, core_ptrs_valid)
-        for candidate_layout in (LAYOUT_EXPANSION_V1_9_BITFIELD, LAYOUT_GEN3_VANILLA_BYTE)
+        for candidate_layout in candidate_order
     ]
+    priority = {
+        LAYOUT_EXPANSION_V1_9_BITFIELD: 2,
+        LAYOUT_EXPANSION_V1_10_PTR_ITEM: 1,
+        LAYOUT_GEN3_VANILLA_BYTE: 0,
+    }
     return max(
         candidates,
         key=lambda report: (
             sum(1 for k in ("gSpeciesInfo", "gMovesInfo", "gItemsInfo") if report["tables"][k]["sanity_ok"]),
-            1 if report["layout_version"] == LAYOUT_EXPANSION_V1_9_BITFIELD else 0,
+            priority.get(report["layout_version"], 0),
         ),
     )
 
@@ -578,7 +665,7 @@ def main(argv=None):
     parser.add_argument(
         "--layout",
         default=None,
-        help="Optional pinned layout version (EXPANSION_V1_9_BITFIELD or GEN3_VANILLA_BYTE)",
+        help="Optional pinned layout version (EXPANSION_V1_9_BITFIELD, EXPANSION_V1_10_PTR_ITEM, or GEN3_VANILLA_BYTE)",
     )
     args = parser.parse_args(argv)
     try:

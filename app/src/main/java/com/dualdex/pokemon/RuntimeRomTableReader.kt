@@ -39,7 +39,8 @@ object Gen3TextDecoder {
         bytes: ByteArray,
         offset: Int,
         maxLength: Int,
-        requireTerminator: Boolean = true
+        requireTerminator: Boolean = true,
+        allowNewline: Boolean = false
     ): String? {
         if (offset < 0 || maxLength <= 0 || offset >= bytes.size) return null
         val limit = minOf(maxLength, bytes.size - offset)
@@ -50,6 +51,10 @@ object Gen3TextDecoder {
             if (b == 0xFF) {
                 terminated = true
                 break
+            }
+            if (allowNewline && b == 0xFE) {
+                out.append('\n')
+                continue
             }
             val ch = glyphTable[b] ?: return null
             out.append(ch)
@@ -75,12 +80,18 @@ enum class TableLayoutVersion {
     GEN3_VANILLA_BYTE,
 
     /**
-     * Pinned upstream `pokeemerald-expansion` v1.9+ (`include/move.h` `struct MoveInfo`) layout:
-     * - `type:5`, `category:2`, `power:9` packed into little-endian `u16` at `+0x0A`
-     * - `accuracy:7`, `target:9` packed into little-endian `u16` at `+0x0C`
-     * - `pp` `u8` at `+0x0E`
+     * Pinned upstream `pokeemerald-expansion` v1.9.0 (`include/move.h` `struct MoveInfo`,
+     * `include/item.h` `struct Item`):
+     * - `MoveInfo`: `type:5`, `category:2`, `power:9` at `+0x0A`; `accuracy:7`, `target:9` at `+0x0C`; `pp` at `+0x0E`
+     * - `Item`: `description` ptr at `+0x0C`; inline `name[20]` at `+0x14`
      */
-    EXPANSION_V1_9_BITFIELD
+    EXPANSION_V1_9_BITFIELD,
+
+    /**
+     * Pinned `pokeemerald-expansion` v1.10+ packed `MoveInfo` layout with pointer-backed `Item.name`
+     * at `+0x14` and `Item.description` ptr at `+0x0C`.
+     */
+    EXPANSION_V1_10_PTR_ITEM
 }
 
 data class SpeciesTableSpec(
@@ -109,7 +120,7 @@ data class MoveTableSpec(
     val powerOffset: Int = 1,
     val typeOffset: Int = 2,
     val accuracyOffset: Int = 3,
-    val ppOffset: Int = 4,
+    val ppOffset: Int? = null,
     val categoryRule: MoveCategoryRule = MoveCategoryRule.BY_TYPE_GEN3,
     val splitOffset: Int? = null,
     val namesAddress: Long? = null,
@@ -119,6 +130,16 @@ data class MoveTableSpec(
     val inlineNameIsPointer: Boolean = false,
     val packedCombatWordOffset: Int? = null,
     val packedAccuracyWordOffset: Int? = null
+)
+
+data class ItemTableSpec(
+    val itemsAddress: Long,
+    val itemsStride: Int,
+    val count: Int,
+    val nameOffset: Int? = null,
+    val nameMaxLength: Int? = null,
+    val nameIsPointer: Boolean? = null,
+    val descPtrOffset: Int? = null
 )
 
 data class SanityProbeSpec(
@@ -137,10 +158,11 @@ data class RuntimeRomTableSpec(
     val id: String,
     val species: SpeciesTableSpec,
     val moves: MoveTableSpec,
-    val typeMapping: Map<Int, PokemonType> = RuntimeRomTableReader.GEN3_TYPE_MAP,
+    val typeMapping: Map<Int, PokemonType>? = null,
     val sanity: SanityProbeSpec = SanityProbeSpec(),
     val layoutVersion: TableLayoutVersion = TableLayoutVersion.GEN3_VANILLA_BYTE,
-    val layoutRevisionId: String? = null
+    val layoutRevisionId: String? = null,
+    val items: ItemTableSpec? = null
 )
 
 data class RuntimeRomTableSnapshot(
@@ -148,7 +170,8 @@ data class RuntimeRomTableSnapshot(
     val species: Map<Int, SpeciesInfo>,
     val moves: Map<Int, MoveInfo>,
     val speciesCount: Int,
-    val moveCount: Int
+    val moveCount: Int,
+    val items: Map<Int, String> = emptyMap()
 ) {
     /**
      * Wraps the validated ROM tables in a [GameDataPack] overlay, delegating type effectiveness
@@ -201,12 +224,23 @@ object RuntimeRomTableReader {
     const val MAX_ROM_BYTES: Int = 64 * 1024 * 1024
     const val MAX_SUPPORTED_COUNT: Int = 4096
     private const val MAX_POINTER_NAME_LEN: Int = 32
+    private const val MAX_POINTER_DESC_LEN: Int = 256
+    private const val VANILLA_MOVE_PP_OFFSET: Int = 4
     private const val EXPANSION_MOVE_COMBAT_WORD_OFFSET: Int = 0x0A
     private const val EXPANSION_MOVE_ACCURACY_WORD_OFFSET: Int = 0x0C
+    private const val EXPANSION_MOVE_PP_OFFSET: Int = 0x0E
+    private const val EXPANSION_ITEM_DESC_PTR_OFFSET: Int = 0x0C
+    private const val EXPANSION_ITEM_NAME_OFFSET: Int = 0x14
+    private const val EXPANSION_ITEM_INLINE_NAME_LEN: Int = 20
+    private const val VANILLA_ITEM_NAME_OFFSET: Int = 0x00
+    private const val VANILLA_ITEM_INLINE_NAME_LEN: Int = 14
+    private const val VANILLA_ITEM_DESC_PTR_OFFSET: Int = 0x14
 
     val SUPPORTED_LAYOUT_REVISIONS: Map<String, TableLayoutVersion> = mapOf(
         "GEN3_VANILLA_BYTE" to TableLayoutVersion.GEN3_VANILLA_BYTE,
-        "EXPANSION_V1_9_BITFIELD" to TableLayoutVersion.EXPANSION_V1_9_BITFIELD
+        "EXPANSION_V1_9_BITFIELD" to TableLayoutVersion.EXPANSION_V1_9_BITFIELD,
+        "EXPANSION_V1_9_INLINE_ITEM" to TableLayoutVersion.EXPANSION_V1_9_BITFIELD,
+        "EXPANSION_V1_10_PTR_ITEM" to TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM
     )
 
     val GEN3_TYPE_MAP: Map<Int, PokemonType> = mapOf(
@@ -306,8 +340,20 @@ object RuntimeRomTableReader {
         }
 
         val effectiveRomBytes = minOf(romBytes.size.toLong(), MAX_GBA_ROM_BYTES)
+        val resolvedTypeMap = resolveTypeMapping(spec.typeMapping, resolvedLayout)
+            ?: return RuntimeRomTableResult.Unavailable(
+                "Layout $resolvedLayout requires EXPANSION_TYPE_MAP"
+            )
         validateSpeciesSpecBounds(sSpec, effectiveRomBytes)?.let { return RuntimeRomTableResult.Unavailable(it) }
-        validateMoveSpecBounds(mSpec, resolvedLayout, effectiveRomBytes)?.let { return RuntimeRomTableResult.Unavailable(it) }
+        val resolvedMoveOffsets = validateAndResolveMoveSpec(mSpec, resolvedLayout, effectiveRomBytes)
+        if (resolvedMoveOffsets.error != null) {
+            return RuntimeRomTableResult.Unavailable(resolvedMoveOffsets.error)
+        }
+        val resolvedItemOffsets = spec.items?.let { iSpec ->
+            val res = validateAndResolveItemSpec(iSpec, resolvedLayout, effectiveRomBytes)
+            if (res.error != null) return RuntimeRomTableResult.Unavailable(res.error)
+            res
+        }
 
         val speciesBaseOffset = sSpec.baseStatsAddress - ROM_BASE
         val speciesNamesOffset = sSpec.namesAddress?.let { it - ROM_BASE }
@@ -337,18 +383,18 @@ object RuntimeRomTableReader {
             }
 
             val type1 = if (allZeroStats) {
-                spec.typeMapping[t1Raw] ?: PokemonType.NORMAL
+                resolvedTypeMap[t1Raw] ?: PokemonType.NORMAL
             } else {
-                spec.typeMapping[t1Raw]
+                resolvedTypeMap[t1Raw]
                     ?: return RuntimeRomTableResult.Unavailable("Species $id has unmapped type1 ID $t1Raw")
             }
             val type2 = if (allZeroStats) {
-                if (t2Raw == t1Raw) null else spec.typeMapping[t2Raw]
-            } else if (t2Raw == 0 && 0 !in spec.typeMapping) {
+                if (t2Raw == t1Raw) null else resolvedTypeMap[t2Raw]
+            } else if (t2Raw == 0 && 0 !in resolvedTypeMap) {
                 // pokeemerald-expansion represents monotype second slots with TYPE_NONE (0) or repeated type1.
                 null
             } else {
-                val mapped2 = spec.typeMapping[t2Raw]
+                val mapped2 = resolvedTypeMap[t2Raw]
                     ?: return RuntimeRomTableResult.Unavailable("Species $id has unmapped type2 ID $t2Raw")
                 if (t2Raw == t1Raw) null else mapped2
             }
@@ -421,8 +467,9 @@ object RuntimeRomTableReader {
         val movesMap = LinkedHashMap<Int, MoveInfo>(mSpec.count)
         var validMoveNames = 0
         val moveNamesConfigured = mSpec.namesAddress != null || mSpec.inlineNameOffset != null
-        val combatWordOff = mSpec.packedCombatWordOffset ?: EXPANSION_MOVE_COMBAT_WORD_OFFSET
-        val accWordOff = mSpec.packedAccuracyWordOffset ?: EXPANSION_MOVE_ACCURACY_WORD_OFFSET
+        val combatWordOff = resolvedMoveOffsets.combatWordOffset
+        val accWordOff = resolvedMoveOffsets.accWordOffset
+        val movePpOff = resolvedMoveOffsets.ppOffset
 
         for (id in 0 until mSpec.count) {
             val rowOffL = movesBaseOffset + id.toLong() * mSpec.movesStride.toLong()
@@ -434,20 +481,21 @@ object RuntimeRomTableReader {
             val packedCategoryRaw: Int?
 
             when (resolvedLayout) {
-                TableLayoutVersion.EXPANSION_V1_9_BITFIELD -> {
+                TableLayoutVersion.EXPANSION_V1_9_BITFIELD,
+                TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM -> {
                     val combatWord = u16(romBytes, rowOff + combatWordOff)
                     typeRaw = combatWord and 0x1F
                     packedCategoryRaw = (combatWord ushr 5) and 0x03
                     power = (combatWord ushr 7) and 0x1FF
                     val accWord = u16(romBytes, rowOff + accWordOff)
                     accuracy = accWord and 0x7F
-                    pp = u8(romBytes, rowOff + mSpec.ppOffset)
+                    pp = u8(romBytes, rowOff + movePpOff)
                 }
                 TableLayoutVersion.GEN3_VANILLA_BYTE -> {
                     power = u8(romBytes, rowOff + mSpec.powerOffset)
                     typeRaw = u8(romBytes, rowOff + mSpec.typeOffset)
                     accuracy = u8(romBytes, rowOff + mSpec.accuracyOffset)
-                    pp = u8(romBytes, rowOff + mSpec.ppOffset)
+                    pp = u8(romBytes, rowOff + movePpOff)
                     packedCategoryRaw = null
                 }
             }
@@ -457,9 +505,9 @@ object RuntimeRomTableReader {
             }
 
             val moveType = if (id == 0) {
-                spec.typeMapping[typeRaw] ?: PokemonType.NORMAL
+                resolvedTypeMap[typeRaw] ?: PokemonType.NORMAL
             } else {
-                spec.typeMapping[typeRaw]
+                resolvedTypeMap[typeRaw]
                     ?: return RuntimeRomTableResult.Unavailable("Move $id has unmapped type ID $typeRaw")
             }
 
@@ -538,15 +586,68 @@ object RuntimeRomTableReader {
             }
         }
 
+        val resolvedItems = if (spec.items != null && resolvedItemOffsets != null) {
+            when (val itemsRes = readItemsTable(
+                romBytes = romBytes,
+                effectiveRomBytes = effectiveRomBytes,
+                iSpec = spec.items,
+                offsets = resolvedItemOffsets,
+                minValidDecodedNameRatio = sanity.minValidDecodedNameRatio
+            )) {
+                is ItemReadResult.Failure -> return RuntimeRomTableResult.Unavailable(itemsRes.reason)
+                is ItemReadResult.Success -> itemsRes.items
+            }
+        } else {
+            emptyMap()
+        }
+
         return RuntimeRomTableResult.Success(
             RuntimeRomTableSnapshot(
                 specId = spec.id,
                 species = speciesMap,
                 moves = movesMap,
                 speciesCount = speciesMap.size,
-                moveCount = movesMap.size
+                moveCount = movesMap.size,
+                items = resolvedItems
             )
         )
+    }
+
+    private fun TableLayoutVersion.isPackedExpansion(): Boolean =
+        this == TableLayoutVersion.EXPANSION_V1_9_BITFIELD ||
+            this == TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM
+
+    private fun resolveTypeMapping(
+        specTypeMapping: Map<Int, PokemonType>?,
+        layoutVersion: TableLayoutVersion
+    ): Map<Int, PokemonType>? {
+        if (layoutVersion.isPackedExpansion()) {
+            if (specTypeMapping != null && specTypeMapping != EXPANSION_TYPE_MAP) {
+                return null
+            }
+            return EXPANSION_TYPE_MAP
+        }
+        return specTypeMapping ?: GEN3_TYPE_MAP
+    }
+
+    private data class ResolvedMoveOffsets(
+        val combatWordOffset: Int = EXPANSION_MOVE_COMBAT_WORD_OFFSET,
+        val accWordOffset: Int = EXPANSION_MOVE_ACCURACY_WORD_OFFSET,
+        val ppOffset: Int = VANILLA_MOVE_PP_OFFSET,
+        val error: String? = null
+    )
+
+    private data class ResolvedItemOffsets(
+        val nameOffset: Int = 0,
+        val nameMaxLength: Int = 0,
+        val nameIsPointer: Boolean = false,
+        val descPtrOffset: Int = 0,
+        val error: String? = null
+    )
+
+    private sealed class ItemReadResult {
+        data class Success(val items: Map<Int, String>) : ItemReadResult()
+        data class Failure(val reason: String) : ItemReadResult()
     }
 
     private fun isFieldInStride(offset: Int, width: Int, stride: Int): Boolean {
@@ -554,6 +655,18 @@ object RuntimeRomTableReader {
         val widthL = width.toLong()
         val strideL = stride.toLong()
         return offL >= 0L && widthL > 0L && strideL > 0L && offL <= strideL - widthL
+    }
+
+    private fun validateAlignedPointerField(
+        tableAddress: Long,
+        stride: Int,
+        fieldOffset: Int,
+        label: String
+    ): String? {
+        if (((tableAddress - ROM_BASE) and 3L) != 0L || (stride and 3) != 0 || (fieldOffset and 3) != 0) {
+            return "$label pointer field requires 4-byte aligned table base, stride, and offset"
+        }
+        return null
     }
 
     private fun validateSpeciesSpecBounds(spec: SpeciesTableSpec, effectiveRomBytes: Long): String? {
@@ -578,64 +691,250 @@ object RuntimeRomTableReader {
             if (!isFieldInStride(off, width, spec.baseStatsStride)) {
                 return "Species inline name field outside stride ${spec.baseStatsStride}"
             }
+            if (spec.inlineNameIsPointer) {
+                validateAlignedPointerField(spec.baseStatsAddress, spec.baseStatsStride, off, "Species name")
+                    ?.let { return it }
+            }
         }
         return null
     }
 
-    private fun validateMoveSpecBounds(
+    private fun validateAndResolveMoveSpec(
         spec: MoveTableSpec,
         layoutVersion: TableLayoutVersion,
         effectiveRomBytes: Long
-    ): String? {
-        when (layoutVersion) {
-            TableLayoutVersion.GEN3_VANILLA_BYTE -> {
-                if (spec.movesStride < 5) return "Move stride ${spec.movesStride} is too small"
+    ): ResolvedMoveOffsets {
+        val resolvedPpOffset: Int
+        val resolvedCombatWordOff: Int
+        val resolvedAccWordOff: Int
+        when {
+            layoutVersion == TableLayoutVersion.GEN3_VANILLA_BYTE -> {
+                if (spec.movesStride < 5) {
+                    return ResolvedMoveOffsets(error = "Move stride ${spec.movesStride} is too small")
+                }
                 if (spec.categoryRule == MoveCategoryRule.PACKED_BITFIELD) {
-                    return "PACKED_BITFIELD category rule requires EXPANSION_V1_9_BITFIELD layout"
+                    return ResolvedMoveOffsets(error = "PACKED_BITFIELD category rule requires EXPANSION_V1_9_BITFIELD layout")
                 }
                 if (spec.packedCombatWordOffset != null || spec.packedAccuracyWordOffset != null) {
-                    return "Packed bitfield offsets require EXPANSION_V1_9_BITFIELD layout"
+                    return ResolvedMoveOffsets(error = "Packed bitfield offsets require EXPANSION_V1_9_BITFIELD layout")
                 }
-                val offsets = mutableListOf(spec.powerOffset, spec.typeOffset, spec.accuracyOffset, spec.ppOffset)
+                resolvedPpOffset = spec.ppOffset ?: VANILLA_MOVE_PP_OFFSET
+                resolvedCombatWordOff = EXPANSION_MOVE_COMBAT_WORD_OFFSET
+                resolvedAccWordOff = EXPANSION_MOVE_ACCURACY_WORD_OFFSET
+                val offsets = mutableListOf(spec.powerOffset, spec.typeOffset, spec.accuracyOffset, resolvedPpOffset)
                 if (spec.categoryRule == MoveCategoryRule.BYTE_FIELD) {
-                    val split = spec.splitOffset ?: return "BYTE_FIELD category rule requires splitOffset"
+                    val split = spec.splitOffset
+                        ?: return ResolvedMoveOffsets(error = "BYTE_FIELD category rule requires splitOffset")
                     offsets.add(split)
                 }
                 if (offsets.any { !isFieldInStride(it, 1, spec.movesStride) }) {
-                    return "Move field offset outside stride ${spec.movesStride}"
+                    return ResolvedMoveOffsets(error = "Move field offset outside stride ${spec.movesStride}")
                 }
             }
-            TableLayoutVersion.EXPANSION_V1_9_BITFIELD -> {
+            layoutVersion.isPackedExpansion() -> {
                 if (spec.movesStride < 16) {
-                    return "Move stride ${spec.movesStride} is too small for EXPANSION_V1_9_BITFIELD"
+                    return ResolvedMoveOffsets(error = "Move stride ${spec.movesStride} is too small for $layoutVersion")
                 }
                 if (spec.categoryRule != MoveCategoryRule.PACKED_BITFIELD) {
-                    return "EXPANSION_V1_9_BITFIELD layout requires PACKED_BITFIELD category rule"
+                    return ResolvedMoveOffsets(error = "$layoutVersion layout requires PACKED_BITFIELD category rule")
                 }
-                val combatWordOff = spec.packedCombatWordOffset ?: EXPANSION_MOVE_COMBAT_WORD_OFFSET
-                val accWordOff = spec.packedAccuracyWordOffset ?: EXPANSION_MOVE_ACCURACY_WORD_OFFSET
-                if (!isFieldInStride(combatWordOff, 2, spec.movesStride) ||
-                    !isFieldInStride(accWordOff, 2, spec.movesStride) ||
-                    !isFieldInStride(spec.ppOffset, 1, spec.movesStride)
+                if (spec.ppOffset != null && spec.ppOffset != EXPANSION_MOVE_PP_OFFSET) {
+                    return ResolvedMoveOffsets(
+                        error = "$layoutVersion layout requires ppOffset 0x${EXPANSION_MOVE_PP_OFFSET.toString(16)}, got ${spec.ppOffset}"
+                    )
+                }
+                if (spec.packedCombatWordOffset != null && spec.packedCombatWordOffset != EXPANSION_MOVE_COMBAT_WORD_OFFSET) {
+                    return ResolvedMoveOffsets(
+                        error = "$layoutVersion layout requires packedCombatWordOffset 0x${EXPANSION_MOVE_COMBAT_WORD_OFFSET.toString(16)}"
+                    )
+                }
+                if (spec.packedAccuracyWordOffset != null && spec.packedAccuracyWordOffset != EXPANSION_MOVE_ACCURACY_WORD_OFFSET) {
+                    return ResolvedMoveOffsets(
+                        error = "$layoutVersion layout requires packedAccuracyWordOffset 0x${EXPANSION_MOVE_ACCURACY_WORD_OFFSET.toString(16)}"
+                    )
+                }
+                resolvedCombatWordOff = EXPANSION_MOVE_COMBAT_WORD_OFFSET
+                resolvedAccWordOff = EXPANSION_MOVE_ACCURACY_WORD_OFFSET
+                resolvedPpOffset = EXPANSION_MOVE_PP_OFFSET
+                if (!isFieldInStride(resolvedCombatWordOff, 2, spec.movesStride) ||
+                    !isFieldInStride(resolvedAccWordOff, 2, spec.movesStride) ||
+                    !isFieldInStride(resolvedPpOffset, 1, spec.movesStride)
                 ) {
-                    return "Move bitfield/pp offset outside stride ${spec.movesStride}"
+                    return ResolvedMoveOffsets(error = "Move bitfield/pp offset outside stride ${spec.movesStride}")
                 }
             }
+            else -> return ResolvedMoveOffsets(error = "Unsupported layout version $layoutVersion")
         }
         validateTableSpan(spec.movesAddress, spec.count, spec.movesStride, effectiveRomBytes, "moves")
-            ?.let { return it }
+            ?.let { return ResolvedMoveOffsets(error = it) }
 
         spec.namesAddress?.let { addr ->
-            if (spec.namesStride <= 0) return "Move names stride must be positive"
-            validateTableSpan(addr, spec.count, spec.namesStride, effectiveRomBytes, "move names")?.let { return it }
+            if (spec.namesStride <= 0) return ResolvedMoveOffsets(error = "Move names stride must be positive")
+            validateTableSpan(addr, spec.count, spec.namesStride, effectiveRomBytes, "move names")
+                ?.let { return ResolvedMoveOffsets(error = it) }
         }
         spec.inlineNameOffset?.let { off ->
             val width = if (spec.inlineNameIsPointer) 4 else spec.inlineNameMaxLength
             if (!isFieldInStride(off, width, spec.movesStride)) {
-                return "Move inline name field outside stride ${spec.movesStride}"
+                return ResolvedMoveOffsets(error = "Move inline name field outside stride ${spec.movesStride}")
+            }
+            if (spec.inlineNameIsPointer) {
+                validateAlignedPointerField(spec.movesAddress, spec.movesStride, off, "Move name")
+                    ?.let { return ResolvedMoveOffsets(error = it) }
             }
         }
-        return null
+        return ResolvedMoveOffsets(
+            combatWordOffset = resolvedCombatWordOff,
+            accWordOffset = resolvedAccWordOff,
+            ppOffset = resolvedPpOffset
+        )
+    }
+
+    private fun validateAndResolveItemSpec(
+        spec: ItemTableSpec,
+        layoutVersion: TableLayoutVersion,
+        effectiveRomBytes: Long
+    ): ResolvedItemOffsets {
+        val resolvedNameOff: Int
+        val resolvedNameLen: Int
+        val resolvedIsPtr: Boolean
+        val resolvedDescOff: Int
+        val minStride: Int
+        when (layoutVersion) {
+            TableLayoutVersion.EXPANSION_V1_9_BITFIELD -> {
+                minStride = 44
+                if (spec.nameOffset != null && spec.nameOffset != EXPANSION_ITEM_NAME_OFFSET) {
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_9_BITFIELD requires item nameOffset 0x14")
+                }
+                if (spec.nameIsPointer != null && spec.nameIsPointer != false) {
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_9_BITFIELD requires inline item names (nameIsPointer=false)")
+                }
+                if (spec.nameMaxLength != null && spec.nameMaxLength != EXPANSION_ITEM_INLINE_NAME_LEN) {
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_9_BITFIELD requires item nameMaxLength 20")
+                }
+                if (spec.descPtrOffset != null && spec.descPtrOffset != EXPANSION_ITEM_DESC_PTR_OFFSET) {
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_9_BITFIELD requires item descPtrOffset 0x0C")
+                }
+                resolvedNameOff = EXPANSION_ITEM_NAME_OFFSET
+                resolvedIsPtr = false
+                resolvedNameLen = EXPANSION_ITEM_INLINE_NAME_LEN
+                resolvedDescOff = EXPANSION_ITEM_DESC_PTR_OFFSET
+            }
+            TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM -> {
+                minStride = 44
+                if (spec.nameOffset != null && spec.nameOffset != EXPANSION_ITEM_NAME_OFFSET) {
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_10_PTR_ITEM requires item nameOffset 0x14")
+                }
+                if (spec.nameIsPointer != null && spec.nameIsPointer != true) {
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_10_PTR_ITEM requires pointer-backed item names (nameIsPointer=true)")
+                }
+                if (spec.descPtrOffset != null && spec.descPtrOffset != EXPANSION_ITEM_DESC_PTR_OFFSET) {
+                    return ResolvedItemOffsets(error = "EXPANSION_V1_10_PTR_ITEM requires item descPtrOffset 0x0C")
+                }
+                resolvedNameOff = EXPANSION_ITEM_NAME_OFFSET
+                resolvedIsPtr = true
+                resolvedNameLen = MAX_POINTER_NAME_LEN
+                resolvedDescOff = EXPANSION_ITEM_DESC_PTR_OFFSET
+            }
+            TableLayoutVersion.GEN3_VANILLA_BYTE -> {
+                minStride = 24
+                resolvedNameOff = spec.nameOffset ?: VANILLA_ITEM_NAME_OFFSET
+                resolvedIsPtr = spec.nameIsPointer ?: false
+                resolvedNameLen = spec.nameMaxLength ?: VANILLA_ITEM_INLINE_NAME_LEN
+                resolvedDescOff = spec.descPtrOffset ?: VANILLA_ITEM_DESC_PTR_OFFSET
+            }
+        }
+        if (spec.itemsStride < minStride) {
+            return ResolvedItemOffsets(error = "Item stride ${spec.itemsStride} is too small for $layoutVersion")
+        }
+        validateTableSpan(spec.itemsAddress, spec.count, spec.itemsStride, effectiveRomBytes, "items")
+            ?.let { return ResolvedItemOffsets(error = it) }
+        val nameWidth = if (resolvedIsPtr) 4 else resolvedNameLen
+        if (!isFieldInStride(resolvedNameOff, nameWidth, spec.itemsStride) ||
+            !isFieldInStride(resolvedDescOff, 4, spec.itemsStride)
+        ) {
+            return ResolvedItemOffsets(error = "Item field offset outside stride ${spec.itemsStride}")
+        }
+        validateAlignedPointerField(spec.itemsAddress, spec.itemsStride, resolvedDescOff, "Item description")
+            ?.let { return ResolvedItemOffsets(error = it) }
+        if (resolvedIsPtr) {
+            validateAlignedPointerField(spec.itemsAddress, spec.itemsStride, resolvedNameOff, "Item name")
+                ?.let { return ResolvedItemOffsets(error = it) }
+        }
+        return ResolvedItemOffsets(
+            nameOffset = resolvedNameOff,
+            nameMaxLength = resolvedNameLen,
+            nameIsPointer = resolvedIsPtr,
+            descPtrOffset = resolvedDescOff
+        )
+    }
+
+    private fun readItemsTable(
+        romBytes: ByteArray,
+        effectiveRomBytes: Long,
+        iSpec: ItemTableSpec,
+        offsets: ResolvedItemOffsets,
+        minValidDecodedNameRatio: Double
+    ): ItemReadResult {
+        val itemsBaseOffset = iSpec.itemsAddress - ROM_BASE
+        val itemsMap = LinkedHashMap<Int, String>(iSpec.count)
+        var validItemNames = 0
+
+        for (id in 0 until iSpec.count) {
+            val rowOffL = itemsBaseOffset + id.toLong() * iSpec.itemsStride.toLong()
+            val descFieldOffL = rowOffL + offsets.descPtrOffset.toLong()
+            when (val descPtrRes = readAlignedRomPointer(romBytes, effectiveRomBytes, descFieldOffL, "Item $id description")) {
+                is RomPointerResult.BadPointer -> return ItemReadResult.Failure(descPtrRes.reason)
+                RomPointerResult.Null -> {
+                    if (id > 0) {
+                        return ItemReadResult.Failure("Item $id has null description pointer")
+                    }
+                }
+                is RomPointerResult.TargetOffset -> {
+                    val maxDescLen = minOf(MAX_POINTER_DESC_LEN.toLong(), effectiveRomBytes - descPtrRes.offset).toInt()
+                    val descText = Gen3TextDecoder.decode(
+                        romBytes,
+                        descPtrRes.offset.toInt(),
+                        maxDescLen,
+                        allowNewline = true
+                    ) ?: return ItemReadResult.Failure("Item $id has malformed description text")
+                    if (id > 0 && descText.isEmpty()) {
+                        return ItemReadResult.Failure("Item $id has empty description text")
+                    }
+                }
+            }
+
+            val decodedName = readEntryName(
+                romBytes = romBytes,
+                effectiveRomBytes = effectiveRomBytes,
+                id = id,
+                rowOffset = rowOffL,
+                separateNamesOffset = null,
+                separateNamesStride = 0,
+                inlineNameOffset = offsets.nameOffset,
+                inlineNameMaxLength = offsets.nameMaxLength,
+                inlineNameIsPointer = offsets.nameIsPointer
+            )
+            if (decodedName is NameReadResult.BadPointer) {
+                return ItemReadResult.Failure("Item $id ${decodedName.reason}")
+            }
+            val nameStr = (decodedName as? NameReadResult.Ok)?.text
+            if (id > 0 && !nameStr.isNullOrBlank()) {
+                validItemNames++
+            }
+            if (id > 0) {
+                itemsMap[id] = nameStr?.takeIf { it.isNotBlank() } ?: "Item #$id"
+            }
+        }
+
+        val activeItemSlots = (iSpec.count - 1).coerceAtLeast(1)
+        val nameRatio = validItemNames.toDouble() / activeItemSlots
+        if (nameRatio < minValidDecodedNameRatio) {
+            return ItemReadResult.Failure(
+                "Decoded item name ratio $nameRatio below threshold $minValidDecodedNameRatio"
+            )
+        }
+        return ItemReadResult.Success(itemsMap)
     }
 
     private fun validateTableSpan(
@@ -660,6 +959,43 @@ object RuntimeRomTableReader {
             return "Truncated ROM: $label span [$offset, ${offset + byteLen}) exceeds ROM window $effectiveRomBytes"
         }
         return null
+    }
+
+    private sealed class RomPointerResult {
+        data class TargetOffset(val offset: Long) : RomPointerResult()
+        object Null : RomPointerResult()
+        data class BadPointer(val reason: String) : RomPointerResult()
+    }
+
+    private fun readAlignedRomPointer(
+        romBytes: ByteArray,
+        effectiveRomBytes: Long,
+        fieldOffL: Long,
+        label: String
+    ): RomPointerResult {
+        if (fieldOffL < 0L || fieldOffL > effectiveRomBytes - 4L) {
+            return RomPointerResult.BadPointer("$label pointer field offset $fieldOffL out of ROM bounds")
+        }
+        if ((fieldOffL and 3L) != 0L) {
+            return RomPointerResult.BadPointer(
+                "$label pointer field offset 0x${fieldOffL.toString(16)} is not 4-byte aligned"
+            )
+        }
+        val ptr = u32(romBytes, fieldOffL.toInt())
+        if (ptr == 0L) {
+            return RomPointerResult.Null
+        }
+        if ((ptr and 3L) != 0L) {
+            return RomPointerResult.BadPointer("$label pointer 0x${ptr.toString(16)} is not 4-byte aligned")
+        }
+        if (ptr < ROM_BASE || ptr >= ROM_END_CAP) {
+            return RomPointerResult.BadPointer("$label pointer 0x${ptr.toString(16)} out of GBA ROM range")
+        }
+        val targetOffsetL = ptr - ROM_BASE
+        if (targetOffsetL < 0L || targetOffsetL >= effectiveRomBytes) {
+            return RomPointerResult.BadPointer("$label pointer 0x${ptr.toString(16)} out of ROM bounds")
+        }
+        return RomPointerResult.TargetOffset(targetOffsetL)
     }
 
     private sealed class NameReadResult {
@@ -695,26 +1031,15 @@ object RuntimeRomTableReader {
                 val text = Gen3TextDecoder.decode(romBytes, fieldOffL.toInt(), inlineNameMaxLength)
                 return NameReadResult.Ok(text)
             }
-            if (fieldOffL < 0L || fieldOffL > effectiveRomBytes - 4L) {
-                return NameReadResult.BadPointer("name pointer field offset $fieldOffL out of ROM bounds")
+            return when (val ptrRes = readAlignedRomPointer(romBytes, effectiveRomBytes, fieldOffL, "name")) {
+                is RomPointerResult.BadPointer -> NameReadResult.BadPointer(ptrRes.reason)
+                RomPointerResult.Null -> NameReadResult.Ok(null)
+                is RomPointerResult.TargetOffset -> {
+                    val maxLen = minOf(MAX_POINTER_NAME_LEN.toLong(), effectiveRomBytes - ptrRes.offset).toInt()
+                    val text = Gen3TextDecoder.decode(romBytes, ptrRes.offset.toInt(), maxLen)
+                    NameReadResult.Ok(text)
+                }
             }
-            val ptr = u32(romBytes, fieldOffL.toInt())
-            if (ptr == 0L) {
-                return NameReadResult.Ok(null)
-            }
-            if ((ptr and 3L) != 0L) {
-                return NameReadResult.BadPointer("name pointer 0x${ptr.toString(16)} is not 4-byte aligned")
-            }
-            if (ptr < ROM_BASE || ptr >= ROM_END_CAP) {
-                return NameReadResult.BadPointer("name pointer 0x${ptr.toString(16)} out of GBA ROM range")
-            }
-            val targetOffsetL = ptr - ROM_BASE
-            if (targetOffsetL < 0L || targetOffsetL >= effectiveRomBytes) {
-                return NameReadResult.BadPointer("name pointer 0x${ptr.toString(16)} out of ROM bounds")
-            }
-            val maxLen = minOf(MAX_POINTER_NAME_LEN.toLong(), effectiveRomBytes - targetOffsetL).toInt()
-            val text = Gen3TextDecoder.decode(romBytes, targetOffsetL.toInt(), maxLen)
-            return NameReadResult.Ok(text)
         }
         return NameReadResult.Ok(null)
     }

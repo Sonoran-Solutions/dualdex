@@ -358,21 +358,60 @@ def _validate_type_effectiveness(rom: bytes, offset: int) -> tuple[bool, int, in
     # 2. Check vanilla-style 3-byte triple table terminated by (0xFF, ...).
     stride = 3
     avail = (len(rom) - offset) // stride
-    if avail >= 30:
+    required_anchors = (
+        # Immunities (0)
+        (0, 7, 0),    # Normal -> Ghost
+        (1, 7, 0),    # Fighting -> Ghost
+        (4, 2, 0),    # Ground -> Flying
+        (7, 0, 0),    # Ghost -> Normal
+        (13, 4, 0),   # Electric -> Ground
+        (14, 17, 0),  # Psychic -> Dark
+        # Super effective (20)
+        (1, 0, 20),   # Fighting -> Normal
+        (10, 12, 20), # Fire -> Grass
+        (11, 10, 20), # Water -> Fire
+        (12, 11, 20), # Grass -> Water
+        (13, 11, 20), # Electric -> Water
+        # Not very effective (5)
+        (0, 5, 5),    # Normal -> Rock
+        (10, 10, 5),  # Fire -> Fire
+        (10, 11, 5),  # Fire -> Water
+        (11, 11, 5),  # Water -> Water
+        (11, 12, 5),  # Water -> Grass
+        (12, 10, 5),  # Grass -> Fire
+        (12, 12, 5),  # Grass -> Grass
+    )
+    if avail >= 21:
         count = 0
+        section_pairs: dict[tuple[int, int], int] = {}
+        all_pairs: dict[tuple[int, int], int] = {}
         seen_mults: set[int] = set()
-        saw_normal_ghost_zero = False
-        for i in range(min(avail, 256)):
+        for i in range(min(avail, 512)):
             atk, dfn, mult = rom[offset + i * 3:offset + i * 3 + 3]
             if atk == 0xFF:
-                if count >= 20 and saw_normal_ghost_zero and {0, 5, 20} <= seen_mults:
+                if (
+                    len(all_pairs) >= 20
+                    and {0, 5, 20} <= seen_mults
+                    and all(all_pairs.get((a, d)) == m for a, d, m in required_anchors)
+                ):
                     return True, stride, count, None
                 break
-            if (atk >= 32 and atk != 0xFE) or (dfn >= 32 and dfn != 0xFE) or mult not in (0, 5, 10, 20):
+            if atk == 0xFE:
+                if dfn != 0xFE or mult != 0:
+                    break
+                section_pairs.clear()
+                count += 1
+                continue
+            if atk >= 32 or dfn >= 32 or mult not in (0, 5, 10, 20):
                 break
+            pair = (atk, dfn)
+            if pair in section_pairs and section_pairs[pair] != mult:
+                return False, 0, 0, "conflicting_type_effectiveness"
+            if pair in all_pairs and all_pairs[pair] != mult:
+                return False, 0, 0, "conflicting_type_effectiveness"
+            section_pairs[pair] = mult
+            all_pairs[pair] = mult
             seen_mults.add(mult)
-            if atk == 0 and dfn == 7 and mult == 0:
-                saw_normal_ghost_zero = True
             count += 1
     return False, 0, 0, "invalid_type_effectiveness"
 

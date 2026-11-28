@@ -12,6 +12,7 @@ class RuntimeRomTableReaderTest {
     private fun encodeGen3(text: String): ByteArray {
         val map = mutableMapOf(
             ' ' to 0x00,
+            '\n' to 0xFE,
             'é' to 0x1B,
             '!' to 0xAB,
             '?' to 0xAC,
@@ -247,6 +248,8 @@ class RuntimeRomTableReaderTest {
         val speciesStride = 88
         val movesOff = 0x30000
         val movesStride = 36
+        val itemsOff = 0x40000
+        val itemsStride = 64
         var stringPool = 0x50000
 
         fun allocAlignedString(text: String): Long {
@@ -257,8 +260,12 @@ class RuntimeRomTableReaderTest {
             return addr
         }
 
-        for (i in 0 until 25) {
-            if (i == 0) continue
+        // Species row 0 (SPECIES_NONE): zero base stats + non-zero metadata
+        rom[speciesOff + 6] = 1.toByte()
+        rom[speciesOff + 7] = 1.toByte()
+        writeU32(rom, speciesOff + 16, allocAlignedString("??????????"))
+
+        for (i in 1 until 25) {
             val r = speciesOff + i * speciesStride
             rom[r + 0] = 60.toByte()
             rom[r + 1] = 62.toByte()
@@ -290,8 +297,14 @@ class RuntimeRomTableReaderTest {
             writeU32(rom, r + 16, namePtr)
         }
 
-        for (i in 0 until 36) {
-            if (i == 0) continue
+        // Move row 0 (MOVE_NONE): empty description pointer, name "-", power=0, pp=0
+        writeU32(rom, movesOff + 0x00, allocAlignedString("-"))
+        writeU32(rom, movesOff + 0x04, allocAlignedString(""))
+        writeU16(rom, movesOff + 0x0A, packExpansionCombatWord(0, 2, 0))
+        writeU16(rom, movesOff + 0x0C, packExpansionAccuracyWord(0, target = 0))
+        rom[movesOff + 0x0E] = 0.toByte()
+
+        for (i in 1 until 36) {
             val r = movesOff + i * movesStride
             val namePtr = allocAlignedString(
                 when (i) {
@@ -302,7 +315,9 @@ class RuntimeRomTableReaderTest {
                 }
             )
             writeU32(rom, r + 0x00, namePtr)
-            writeU32(rom, r + 0x04, allocAlignedString("Move desc $i"))
+            // Byte +4 is the description pointer (non-20 low byte, so reading ppOffset=4 would return wrong PP)
+            val descPtr = allocAlignedString("Move desc $i")
+            writeU32(rom, r + 0x04, descPtr)
             val (typeId, category, power) = when (i) {
                 14 -> Triple(1, 2, 0)    // Normal, Status, power 0
                 33 -> Triple(1, 0, 40)   // Normal, Physical, power 40
@@ -314,6 +329,17 @@ class RuntimeRomTableReaderTest {
             rom[r + 0x0E] = 20.toByte()
         }
 
+        // Items table (v1.9.0 inline name[20] at +0x14 + description pointer at +0x0C)
+        writeU32(rom, itemsOff + 0x0C, allocAlignedString(""))
+        encodeGen3("????????").copyInto(rom, itemsOff + 0x14)
+        for (i in 1 until 20) {
+            val r = itemsOff + i * itemsStride
+            writeU32(rom, r + 0x0C, allocAlignedString("Item desc\n$i"))
+            val nameEnc = encodeGen3(if (i == 1) "Master Ball" else "Item$i")
+            nameEnc.copyInto(rom, r + 0x14, 0, minOf(nameEnc.size, 20))
+        }
+
+        // Omit ppOffset and typeMapping to verify both are derived from EXPANSION_V1_9_BITFIELD
         val expSpec = RuntimeRomTableSpec(
             id = "expansion_v1_9_test",
             species = SpeciesTableSpec(
@@ -327,14 +353,10 @@ class RuntimeRomTableReaderTest {
                 movesAddress = RuntimeRomTableReader.ROM_BASE + movesOff,
                 movesStride = movesStride,
                 count = 36,
-                ppOffset = 0x0E,
                 categoryRule = MoveCategoryRule.PACKED_BITFIELD,
                 inlineNameOffset = 0,
-                inlineNameIsPointer = true,
-                packedCombatWordOffset = 0x0A,
-                packedAccuracyWordOffset = 0x0C
+                inlineNameIsPointer = true
             ),
-            typeMapping = RuntimeRomTableReader.EXPANSION_TYPE_MAP,
             sanity = SanityProbeSpec(
                 expectedMoveAnchors = mapOf(33 to 40, 35 to 300),
                 expectedSpeciesAnchors = mapOf(
@@ -343,7 +365,12 @@ class RuntimeRomTableReaderTest {
                 )
             ),
             layoutVersion = TableLayoutVersion.EXPANSION_V1_9_BITFIELD,
-            layoutRevisionId = "EXPANSION_V1_9_BITFIELD"
+            layoutRevisionId = "EXPANSION_V1_9_BITFIELD",
+            items = ItemTableSpec(
+                itemsAddress = RuntimeRomTableReader.ROM_BASE + itemsOff,
+                itemsStride = itemsStride,
+                count = 20
+            )
         )
 
         val result = RuntimeRomTableReader.read(rom, expSpec)
@@ -362,15 +389,75 @@ class RuntimeRomTableReaderTest {
         assertEquals("Tackle", m33.name)
         assertEquals(PokemonType.NORMAL, m33.type)
         assertEquals(40, m33.power)
+        assertEquals(20, m33.pp)
         assertEquals(MoveCategory.PHYSICAL, m33.category)
 
         val m35 = snapshot.moves[35]!!
         assertEquals("Light Of Ruin", m35.name)
         assertEquals(PokemonType.FAIRY, m35.type)
         assertEquals(300, m35.power)
+        assertEquals(20, m35.pp)
         assertEquals(MoveCategory.SPECIAL, m35.category)
 
         assertEquals(MoveCategory.STATUS, snapshot.moves[14]!!.category)
+        assertEquals("Master Ball", snapshot.items[1])
+        assertEquals("Item19", snapshot.items[19])
+
+        // Pointer-name item layout (EXPANSION_V1_10_PTR_ITEM) reads pointer at +0x14 and rejects inline items
+        assertTrue(
+            RuntimeRomTableReader.read(
+                rom,
+                expSpec.copy(
+                    layoutVersion = TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM,
+                    layoutRevisionId = "EXPANSION_V1_10_PTR_ITEM"
+                )
+            ) is RuntimeRomTableResult.Unavailable
+        )
+
+        val ptrItemsOff = 0x48000
+        val ptrItemsStride = 44
+        writeU32(rom, ptrItemsOff + 0x0C, allocAlignedString(""))
+        writeU32(rom, ptrItemsOff + 0x14, allocAlignedString("????????"))
+        for (i in 1 until 20) {
+            val r = ptrItemsOff + i * ptrItemsStride
+            writeU32(rom, r + 0x0C, allocAlignedString("Ptr Item desc $i"))
+            writeU32(rom, r + 0x14, allocAlignedString(if (i == 1) "Ultra Ball" else "PtrItem$i"))
+        }
+        val ptrItemSpec = expSpec.copy(
+            layoutVersion = TableLayoutVersion.EXPANSION_V1_10_PTR_ITEM,
+            layoutRevisionId = "EXPANSION_V1_10_PTR_ITEM",
+            items = ItemTableSpec(
+                itemsAddress = RuntimeRomTableReader.ROM_BASE + ptrItemsOff,
+                itemsStride = ptrItemsStride,
+                count = 20
+            )
+        )
+        val ptrItemRes = RuntimeRomTableReader.read(rom, ptrItemSpec)
+        assertTrue(ptrItemRes is RuntimeRomTableResult.Success)
+        assertEquals("Ultra Ball", (ptrItemRes as RuntimeRomTableResult.Success).snapshot.items[1])
+
+        // Inconsistent specs with EXPANSION_V1_9_BITFIELD must fail closed:
+        // (a) Explicit vanilla ppOffset = 4
+        assertTrue(
+            RuntimeRomTableReader.read(
+                rom,
+                expSpec.copy(moves = expSpec.moves.copy(ppOffset = 4))
+            ) is RuntimeRomTableResult.Unavailable
+        )
+        // (b) Explicit vanilla GEN3_TYPE_MAP
+        assertTrue(
+            RuntimeRomTableReader.read(
+                rom,
+                expSpec.copy(typeMapping = RuntimeRomTableReader.GEN3_TYPE_MAP)
+            ) is RuntimeRomTableResult.Unavailable
+        )
+        // (c) Inline item layout paired with nameIsPointer = true
+        assertTrue(
+            RuntimeRomTableReader.read(
+                rom,
+                expSpec.copy(items = expSpec.items!!.copy(nameIsPointer = true))
+            ) is RuntimeRomTableResult.Unavailable
+        )
     }
 
     @Test
@@ -459,6 +546,78 @@ class RuntimeRomTableReaderTest {
         val unalignedRes = RuntimeRomTableReader.read(unalignedPtrRom, unalignedSpec)
         assertTrue(unalignedRes is RuntimeRomTableResult.Unavailable)
         assertTrue((unalignedRes as RuntimeRomTableResult.Unavailable).reason.contains("aligned"))
+
+        // (c2) Unaligned pointer-field address containing a 4-byte-aligned target pointer returns Unavailable
+        val unalignedFieldRom = buildVanillaLayoutRom()
+        val alignedName = encodeGen3("AlignedMon")
+        alignedName.copyInto(unalignedFieldRom, 0x50000) // 4-byte aligned target!
+        for (i in 1 until 20) {
+            val r = 0x18000 + i * 32
+            for (s in 0..5) unalignedFieldRom[r + s] = 50
+            unalignedFieldRom[r + 6] = 0
+            unalignedFieldRom[r + 7] = 0
+            writeU32(unalignedFieldRom, r + 17, RuntimeRomTableReader.ROM_BASE + 0x50000L)
+        }
+        val unalignedFieldSpec = vanillaSpec().copy(
+            species = SpeciesTableSpec(
+                baseStatsAddress = RuntimeRomTableReader.ROM_BASE + 0x18000L,
+                baseStatsStride = 32,
+                count = 20,
+                inlineNameOffset = 17, // fieldOffset % 4 != 0
+                inlineNameIsPointer = true
+            )
+        )
+        val unalignedFieldRes = RuntimeRomTableReader.read(unalignedFieldRom, unalignedFieldSpec)
+        assertTrue(unalignedFieldRes is RuntimeRomTableResult.Unavailable)
+        assertTrue((unalignedFieldRes as RuntimeRomTableResult.Unavailable).reason.contains("aligned"))
+
+        // Also test unaligned table base address with an aligned target pointer
+        val unalignedBaseRom = buildVanillaLayoutRom()
+        alignedName.copyInto(unalignedBaseRom, 0x50000)
+        for (i in 1 until 20) {
+            val r = 0x18001 + i * 32
+            for (s in 0..5) unalignedBaseRom[r + s] = 50
+            unalignedBaseRom[r + 6] = 0
+            unalignedBaseRom[r + 7] = 0
+            writeU32(unalignedBaseRom, r + 16, RuntimeRomTableReader.ROM_BASE + 0x50000L)
+        }
+        val unalignedBaseSpec = vanillaSpec().copy(
+            species = SpeciesTableSpec(
+                baseStatsAddress = RuntimeRomTableReader.ROM_BASE + 0x18001L, // tableBase % 4 != 0
+                baseStatsStride = 32,
+                count = 20,
+                inlineNameOffset = 16,
+                inlineNameIsPointer = true
+            )
+        )
+        val unalignedBaseRes = RuntimeRomTableReader.read(unalignedBaseRom, unalignedBaseSpec)
+        assertTrue(unalignedBaseRes is RuntimeRomTableResult.Unavailable)
+        assertTrue((unalignedBaseRes as RuntimeRomTableResult.Unavailable).reason.contains("aligned"))
+
+        // Also test unaligned row stride (row 0 aligned, row 1 unaligned) with an aligned target pointer
+        val unalignedStrideRom = buildVanillaLayoutRom()
+        alignedName.copyInto(unalignedStrideRom, 0x50000)
+        for (i in 0 until 20) {
+            val r = 0x18000 + i * 34
+            if (i > 0) {
+                for (s in 0..5) unalignedStrideRom[r + s] = 50
+                unalignedStrideRom[r + 6] = 0
+                unalignedStrideRom[r + 7] = 0
+            }
+            writeU32(unalignedStrideRom, r + 16, RuntimeRomTableReader.ROM_BASE + 0x50000L)
+        }
+        val unalignedStrideSpec = vanillaSpec().copy(
+            species = SpeciesTableSpec(
+                baseStatsAddress = RuntimeRomTableReader.ROM_BASE + 0x18000L,
+                baseStatsStride = 34, // stride % 4 != 0
+                count = 20,
+                inlineNameOffset = 16,
+                inlineNameIsPointer = true
+            )
+        )
+        val unalignedStrideRes = RuntimeRomTableReader.read(unalignedStrideRom, unalignedStrideSpec)
+        assertTrue(unalignedStrideRes is RuntimeRomTableResult.Unavailable)
+        assertTrue((unalignedStrideRes as RuntimeRomTableResult.Unavailable).reason.contains("aligned"))
 
         // (d) Oversized count independent of caller SanityProbeSpec limits returns Unavailable
         val oversizedCountSpec = vanillaSpec(

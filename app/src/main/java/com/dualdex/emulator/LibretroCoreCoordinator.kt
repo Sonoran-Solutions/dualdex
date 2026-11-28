@@ -95,11 +95,10 @@ open class LibretroCoreCoordinator(
             if (active) {
                 // Cancel any outstanding injected press before a reset starts a protected run.
                 advanceGeneration()
-                if (bridge == null) {
-                    try {
-                        LibretroHost.nativeSetInputButtons(0)
-                    } catch (_: UnsatisfiedLinkError) {}
-                }
+                val physical = ControllerInputRouter.clearAutomatedMaskFor(this)
+                try {
+                    setInputButtons(physical)
+                } catch (_: UnsatisfiedLinkError) {}
             }
         }
         syncRaHardcoreProtectedNative(isPolicyProtected(policy))
@@ -139,6 +138,7 @@ open class LibretroCoreCoordinator(
     private fun advanceGeneration() {
         stateGeneration++
         _stateGenerationFlow.value = stateGeneration
+        ControllerInputRouter.clearAutomatedMaskFor(this)
     }
 
     /** Must be called under [lock]; arbitrary display/profile code cannot assert provenance. */
@@ -467,6 +467,29 @@ open class LibretroCoreCoordinator(
         }
         setInputButtons(buttonMask)
         return true
+    }
+
+    /**
+     * Writes combined physical + automated button bits under the core lock.
+     * Physical input and unconditional release (`automatedMask == 0`) are always preserved;
+     * non-zero automated bits are included only when [expectedGeneration] matches
+     * [stateGeneration] and [RaHardcorePolicy.mayUseInteractiveBattleControls] allows automation.
+     */
+    internal fun setCombinedInputLocked(
+        physicalMask: Int,
+        automatedMask: Int,
+        expectedGeneration: Long?
+    ): Boolean {
+        check(lock.isHeldByCurrentThread)
+        if (automatedMask == 0) {
+            setInputButtons(physicalMask)
+            return true
+        }
+        val allowed = expectedGeneration != null &&
+            raHardcorePolicy.mayUseInteractiveBattleControls &&
+            stateGeneration == expectedGeneration
+        setInputButtons(if (allowed) physicalMask or automatedMask else physicalMask)
+        return allowed
     }
 
     open fun setAuthorizedAutomatedInput(

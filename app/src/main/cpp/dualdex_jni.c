@@ -1591,13 +1591,12 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaGame(JNIEnv* env, jobject thiz) {
     char presence[512];
     ra_bridge_rich_presence(bridge, presence, sizeof(presence));
     rc_client_leaderboard_list_t* list = ra_bridge_leaderboards(bridge);
+    if (!list) return NULL;
     jsize size = 2;
-    if (list) {
-        for (uint32_t i = 0; i < list->num_buckets; ++i) {
-            const rc_client_leaderboard_bucket_t* bucket = &list->buckets[i];
-            if (bucket->bucket_type == RC_CLIENT_LEADERBOARD_BUCKET_ACTIVE)
-                size += (jsize)(2 * bucket->num_leaderboards);
-        }
+    for (uint32_t i = 0; i < list->num_buckets; ++i) {
+        const rc_client_leaderboard_bucket_t* bucket = &list->buckets[i];
+        if (bucket->bucket_type == RC_CLIENT_LEADERBOARD_BUCKET_ACTIVE)
+            size += (jsize)(2 * bucket->num_leaderboards);
     }
     jobjectArray result = ra_new_object_array(env, size, "java/lang/String");
     bool ok = result != NULL;
@@ -1605,19 +1604,17 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaGame(JNIEnv* env, jobject thiz) {
         ok = ra_set_text(env, result, 0, ra_bridge_game_title(bridge)) &&
              ra_set_text(env, result, 1, presence);
         jsize index = 2;
-        if (list) {
-            for (uint32_t i = 0; ok && i < list->num_buckets; ++i) {
-                const rc_client_leaderboard_bucket_t* bucket = &list->buckets[i];
-                if (bucket->bucket_type != RC_CLIENT_LEADERBOARD_BUCKET_ACTIVE) continue;
-                for (uint32_t j = 0; ok && j < bucket->num_leaderboards; ++j) {
-                    const rc_client_leaderboard_t* entry = bucket->leaderboards[j];
-                    ok = ra_set_text(env, result, index++, entry->title) &&
-                         ra_set_text(env, result, index++, entry->tracker_value);
-                }
+        for (uint32_t i = 0; ok && i < list->num_buckets; ++i) {
+            const rc_client_leaderboard_bucket_t* bucket = &list->buckets[i];
+            if (bucket->bucket_type != RC_CLIENT_LEADERBOARD_BUCKET_ACTIVE) continue;
+            for (uint32_t j = 0; ok && j < bucket->num_leaderboards; ++j) {
+                const rc_client_leaderboard_t* entry = bucket->leaderboards[j];
+                ok = ra_set_text(env, result, index++, entry->title) &&
+                     ra_set_text(env, result, index++, entry->tracker_value);
             }
         }
     }
-    rc_client_destroy_leaderboard_list(list);
+    if (list != NULL) rc_client_destroy_leaderboard_list(list);
     if (!ok || (*env)->ExceptionCheck(env)) {
         if (result) (*env)->DeleteLocalRef(env, result);
         return NULL;
@@ -1660,7 +1657,7 @@ Java_com_dualdex_emulator_LibretroHost_nativeRaAchievements(JNIEnv* env, jobject
             }
         }
     }
-    rc_client_destroy_achievement_list(list);
+    if (list != NULL) rc_client_destroy_achievement_list(list);
     if (!ok || (*env)->ExceptionCheck(env)) {
         if (result) (*env)->DeleteLocalRef(env, result);
         return NULL;

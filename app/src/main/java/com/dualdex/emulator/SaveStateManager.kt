@@ -114,6 +114,7 @@ open class SaveStateManager(
             if (identity.isValid) {
                 migrateOldBranchDirIfPresent(identity)
                 recordMetadata(identity, profileId)
+                restoreDurablePreservedAutoResumeLocked(identity)
             }
         }
     }
@@ -319,7 +320,12 @@ open class SaveStateManager(
         profileId: String? = null
     ): Boolean = synchronized(globalSaveLock) {
         if (refuse("loadSlot", identity)) return false
-        return loadStateFile(identity, SaveStateFiles.slotState(slotIndex), snapshotUndo = true)
+        val fileName = SaveStateFiles.slotState(slotIndex)
+        val loaded = loadStateFile(identity, fileName, snapshotUndo = true)
+        if (loaded && preservedAutoResumeFor(identity)?.resumeFileName == fileName) {
+            clearPreservedAutoResumeLocked(identity)
+        }
+        return loaded
     }
 
     /** Reverts the most recent slot/quick load by restoring the state captured just before it. */
@@ -374,7 +380,63 @@ open class SaveStateManager(
         profileId: String? = null
     ): Boolean = synchronized(globalSaveLock) {
         if (refuse("quickLoad", identity)) return false
-        return loadStateFile(identity, SaveStateFiles.QUICK_SAVE, snapshotUndo = true)
+        val loaded = loadStateFile(identity, SaveStateFiles.QUICK_SAVE, snapshotUndo = true)
+        if (loaded && preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.QUICK_SAVE) {
+            clearPreservedAutoResumeLocked(identity)
+        }
+        return loaded
+    }
+
+    private fun deleteDurablePreservedMarkerLocked(identity: RomIdentity) {
+        val dir = getCanonicalRomDir(identity)
+        File(dir, SaveStateFiles.PRESERVED_AUTO_RESUME).delete()
+        File(dir, "${SaveStateFiles.PRESERVED_AUTO_RESUME}.bak").delete()
+        File(dir, "${SaveStateFiles.PRESERVED_AUTO_RESUME}.tmp").delete()
+    }
+
+    private fun clearPreservedAutoResumeLocked(identity: RomIdentity) {
+        if (_preservedAutoResume.value?.romSha256?.equals(identity.sha256, ignoreCase = true) == true) {
+            _preservedAutoResume.value = null
+        }
+        if (identity.isValid) {
+            deleteDurablePreservedMarkerLocked(identity)
+        }
+    }
+
+    private fun readDurablePreservedFileNameLocked(identity: RomIdentity): String? {
+        if (!identity.isValid) return null
+        val dir = getCanonicalRomDir(identity)
+        val markerFile = File(dir, SaveStateFiles.PRESERVED_AUTO_RESUME)
+        AtomicSaveFile.recoverInterrupted(markerFile)
+        if (!markerFile.isFile || markerFile.length() == 0L) return null
+        val fileName = runCatching { markerFile.readText(Charsets.UTF_8).trim() }.getOrNull()
+        if (fileName.isNullOrEmpty() || !SaveStateFiles.isResumeStateName(fileName)) {
+            deleteDurablePreservedMarkerLocked(identity)
+            return null
+        }
+        val target = File(dir, fileName)
+        val expectedSize = if (isLoadedRom(identity)) nativeGetSaveStateSize().takeIf { it > 0 } else null
+        AtomicSaveFile.recoverInterrupted(target, expectedSize)
+        val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified()
+        if (!target.isFile || target.length() == 0L || (barrier > 0L && target.lastModified() <= barrier)) {
+            deleteDurablePreservedMarkerLocked(identity)
+            return null
+        }
+        return fileName
+    }
+
+    private fun restoreDurablePreservedAutoResumeLocked(identity: RomIdentity): PreservedAutoResume? {
+        val fileName = readDurablePreservedFileNameLocked(identity) ?: run {
+            _preservedAutoResume.value = null
+            return null
+        }
+        val record = PreservedAutoResume(
+            romSha256 = identity.sha256.lowercase(),
+            sessionGeneration = romSessionGeneration,
+            resumeFileName = fileName
+        )
+        _preservedAutoResume.value = record
+        return record
     }
 
     fun preservedAutoResumeFor(identity: RomIdentity): PreservedAutoResume? = synchronized(globalSaveLock) {
@@ -391,11 +453,22 @@ open class SaveStateManager(
     /**
      * Records that boot-time auto-resume was skipped for the active ROM session (e.g. while
      * RetroAchievements Hardcore mode or set lookup is active), when an eligible resume state
-     * exists on disk. While preserved, automatic [saveAutoResume] writes will not overwrite the
-     * preserved auto-resume slot until the player explicitly resolves it.
+     * or an already-preserved durable reference exists on disk. While preserved, automatic
+     * [saveAutoResume] writes will not overwrite the preserved auto-resume slot until the player
+     * explicitly resolves it.
      */
     fun preserveSkippedAutoResume(identity: RomIdentity): PreservedAutoResume? = synchronized(globalSaveLock) {
         if (refuse("preserveSkippedAutoResume", identity)) return null
+        val existingDurable = readDurablePreservedFileNameLocked(identity)
+        if (existingDurable != null) {
+            val record = PreservedAutoResume(
+                romSha256 = identity.sha256.lowercase(),
+                sessionGeneration = romSessionGeneration,
+                resumeFileName = existingDurable
+            )
+            _preservedAutoResume.value = record
+            return record
+        }
         val dir = getCanonicalRomDir(identity)
         val expectedSize = nativeGetSaveStateSize().takeIf { it > 0 }
         AtomicSaveFile.recoverInterrupted(File(dir, SaveStateFiles.AUTO_RESUME), expectedSize)
@@ -404,6 +477,10 @@ open class SaveStateManager(
         if (newest == null) {
             _preservedAutoResume.value = null
             return null
+        }
+        val markerFile = File(dir, SaveStateFiles.PRESERVED_AUTO_RESUME)
+        if (!AtomicSaveFile.writeBytes(markerFile, newest.name.toByteArray(Charsets.UTF_8))) {
+            Log.w(TAG, "Failed to persist preserved auto-resume marker for ${identity.storageKey}")
         }
         val record = PreservedAutoResume(
             romSha256 = identity.sha256.lowercase(),
@@ -416,27 +493,38 @@ open class SaveStateManager(
 
     /**
      * Explicitly restores the preserved boot-resume state once state loading is permitted (e.g.
-     * after RetroAchievements lookup resolves to Softcore / no achievement set). Fails closed
-     * while Hardcore mode blocks state loading, leaving the preserved state protected.
+     * after RetroAchievements lookup resolves to Softcore / no achievement set). Bound to
+     * [expected] under [globalSaveLock] so a stale UI click from an earlier session generation
+     * of the same ROM cannot restore a newer session's record. Fails closed while Hardcore mode
+     * blocks state loading, leaving the preserved state protected.
      */
-    fun restorePreservedAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+    fun restorePreservedAutoResume(
+        identity: RomIdentity,
+        expected: PreservedAutoResume
+    ): Boolean = synchronized(globalSaveLock) {
         if (refuse("restorePreservedAutoResume", identity)) return false
         val record = preservedAutoResumeFor(identity) ?: return false
+        if (record != expected) return false
         val loaded = loadStateFile(identity, record.resumeFileName, snapshotUndo = true)
         if (loaded) {
-            _preservedAutoResume.value = null
+            clearPreservedAutoResumeLocked(identity)
         }
         return loaded
     }
 
     /**
      * Explicitly discards preservation so the player keeps the current session and re-enables
-     * automatic [saveAutoResume] writes for this session.
+     * automatic [saveAutoResume] writes for this session. Bound to [expected] under
+     * [globalSaveLock] so a stale UI click cannot dismiss a newer session's record.
      */
-    fun keepCurrentSessionOverPreservedAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
+    fun keepCurrentSessionOverPreservedAutoResume(
+        identity: RomIdentity,
+        expected: PreservedAutoResume
+    ): Boolean = synchronized(globalSaveLock) {
         if (refuse("keepCurrentSessionOverPreservedAutoResume", identity)) return false
-        if (preservedAutoResumeFor(identity) == null) return false
-        _preservedAutoResume.value = null
+        val record = preservedAutoResumeFor(identity) ?: return false
+        if (record != expected) return false
+        clearPreservedAutoResumeLocked(identity)
         return true
     }
 
@@ -453,7 +541,7 @@ open class SaveStateManager(
         if (refuse("loadAutoResume", identity)) return false
         val loaded = loadStateFile(identity, SaveStateFiles.AUTO_RESUME, snapshotUndo = false)
         if (loaded && preservedAutoResumeFor(identity)?.resumeFileName == SaveStateFiles.AUTO_RESUME) {
-            _preservedAutoResume.value = null
+            clearPreservedAutoResumeLocked(identity)
         }
         return loaded
     }
@@ -469,8 +557,8 @@ open class SaveStateManager(
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER).lastModified() // 0 when absent
         val newest = SaveStateFiles.newestResumeState(dir, barrier) ?: return null
         val loadedName = newest.name.takeIf { loadStateFile(identity, it, snapshotUndo = false) }
-        if (loadedName != null && preservedAutoResumeFor(identity) != null) {
-            _preservedAutoResume.value = null
+        if (loadedName != null && preservedAutoResumeFor(identity)?.resumeFileName == loadedName) {
+            clearPreservedAutoResumeLocked(identity)
         }
         return loadedName
     }
@@ -482,9 +570,7 @@ open class SaveStateManager(
      */
     fun clearAutoResume(identity: RomIdentity): Boolean = synchronized(globalSaveLock) {
         if (!identity.isValid) return false
-        if (_preservedAutoResume.value?.romSha256?.equals(identity.sha256, ignoreCase = true) == true) {
-            _preservedAutoResume.value = null
-        }
+        clearPreservedAutoResumeLocked(identity)
         val dir = getCanonicalRomDir(identity)
         File(dir, SaveStateFiles.AUTO_RESUME).delete()
         val barrier = File(dir, SaveStateFiles.RESUME_BARRIER)

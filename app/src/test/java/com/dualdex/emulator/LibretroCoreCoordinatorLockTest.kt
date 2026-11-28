@@ -582,4 +582,73 @@ class LibretroCoreCoordinatorLockTest {
         assertTrue("only lock acquisition failure has the retryable type",
             error is LibretroCoreCoordinator.LockTimeoutException)
     }
+
+    @Test fun physicalInputAfterHardcoreDuringTimedPressNeverReassertsAutomatedButton() = runBlocking {
+        val previousProvider = ControllerInputRouter.coordinatorProvider
+        ControllerInputRouter.reset()
+        try {
+            val pressLanded = CountDownLatch(1)
+            val writes = java.util.Collections.synchronizedList(mutableListOf<Int>())
+            val core = object : LibretroCoreCoordinator(bridge = syntheticRomBridge()) {
+                override fun setInputButtons(buttonMask: Int) {
+                    writes += buttonMask
+                    if (buttonMask == InputManager.BTN_DOWN) {
+                        pressLanded.countDown()
+                    }
+                }
+            }
+            ControllerInputRouter.coordinatorProvider = { core }
+            assertTrue(core.loadRom("synthetic.gba"))
+            val generation = core.stateGeneration
+            val dispatcher = DefaultBattleInputDispatcher { core }
+
+            val timedPress = async(Dispatchers.Default) {
+                dispatcher.sendAuthorizedButton(
+                    buttonMask = InputManager.BTN_DOWN,
+                    durationMs = 200L,
+                    delayMs = 0L,
+                    expectedGeneration = generation
+                )
+            }
+            assertTrue("Automated press did not land", pressLanded.await(5, TimeUnit.SECONDS))
+
+            // Hardcore activates mid-press and clears the native mask + router automated bits.
+            val writesBeforeHardcore = writes.size
+            core.executeExclusive { core.setRaHardcoreLocked(true) }
+
+            // Physical input change before the timed press finishes must write ONLY the physical mask.
+            ControllerInputRouter.setPhysicalMask(InputManager.BTN_RIGHT)
+            assertEquals(InputManager.BTN_RIGHT, ControllerInputRouter.getEffectiveMask())
+            ControllerInputRouter.setPhysicalMask(0)
+            assertEquals(0, ControllerInputRouter.getEffectiveMask())
+
+            timedPress.await()
+
+            val postHardcoreWrites = writes.subList(writesBeforeHardcore, writes.size)
+            assertTrue(
+                "Physical BTN_RIGHT must still be delivered in Hardcore; got $postHardcoreWrites",
+                postHardcoreWrites.contains(InputManager.BTN_RIGHT)
+            )
+            assertTrue(
+                "Automated BTN_DOWN must never be reasserted after Hardcore; got $postHardcoreWrites",
+                postHardcoreWrites.none { (it and InputManager.BTN_DOWN) != 0 }
+            )
+            assertEquals(0, postHardcoreWrites.last())
+
+            // Direct core-locked boundary check: even if a racing caller held a stale automated mask,
+            // setCombinedInputLocked strips the automated bits and preserves physical input + release.
+            writes.clear()
+            assertFalse(core.executeExclusive {
+                core.setCombinedInputLocked(InputManager.BTN_LEFT, InputManager.BTN_A, generation)
+            })
+            assertEquals(listOf(InputManager.BTN_LEFT), writes)
+            assertTrue(core.executeExclusive {
+                core.setCombinedInputLocked(0, 0, generation)
+            })
+            assertEquals(listOf(InputManager.BTN_LEFT, 0), writes)
+        } finally {
+            ControllerInputRouter.coordinatorProvider = previousProvider
+            ControllerInputRouter.reset()
+        }
+    }
 }

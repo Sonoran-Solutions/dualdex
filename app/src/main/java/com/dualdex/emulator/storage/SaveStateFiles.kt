@@ -15,8 +15,14 @@ object SaveStateFiles {
     /** Touched when a resume must not restore anything older (e.g. after loading a shared save). */
     const val RESUME_BARRIER = "resume_barrier"
 
+    /** Durable per-ROM marker storing the filename of a skipped boot-resume state awaiting explicit choice. */
+    const val PRESERVED_AUTO_RESUME = "preserved_auto_resume.meta"
+
     fun slotState(slot: Int) = "slot_$slot.state"
     fun slotThumbnail(slot: Int) = "slot_$slot.png"
+
+    fun isResumeStateName(fileName: String): Boolean =
+        fileName == AUTO_RESUME || fileName == QUICK_SAVE || (1..SLOT_COUNT).any { slotState(it) == fileName }
 
     /**
      * The state to boot into: the newest of the auto-resume state and every manual state

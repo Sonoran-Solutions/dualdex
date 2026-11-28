@@ -917,7 +917,7 @@ data class CalcCapabilityVerdict(
             CalcLimitation.UNBOUND_CFRU_SOURCE_APPROXIMATE ->
                 "Unbound CFRU uses source-approximate damage for ordinary hits in Singles"
             CalcLimitation.UNBOUND_PARTY_OPERANDS_ASSUMED ->
-                "party forecasts use catalogue typing and assume neutral effects for unobserved abilities"
+                "party forecasts use catalogue typing and out-of-battle party stats"
             CalcLimitation.UNBOUND_ROM_NOT_EXACT_VERIFIED ->
                 "the running ROM must match the pinned Unbound SHA-256"
             CalcLimitation.UNBOUND_MOVE_NOT_MODELLED ->
@@ -1347,10 +1347,7 @@ object CalcCapabilityPolicy {
 
         if (capability.ruleset == CalcRuleset.UNBOUND_CFRU) {
             val limitations = LinkedHashSet(capability.alwaysLimitations)
-            limitations += request.preparationLimitations.filterNot {
-                it == CalcLimitation.LIVE_PARTICIPANT_STATE_UNKNOWN &&
-                    UnboundCalcInputs.hasOnlyAssumedPartyAbilities(request)
-            }
+            limitations += request.preparationLimitations
             val exact = profile.isVerified && profile.memoryLayoutVerified &&
                 isExactRuntimeVerified(profile, trust) &&
                 UnboundSpeciesTable.ROM_SHA256.equals(trust?.activeRomSha256, ignoreCase = true)

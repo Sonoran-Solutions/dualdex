@@ -2,6 +2,10 @@
 
 This checklist tracks work recommended before a wider public beta, followed by longer-term work for broader Android support and possible Play Store distribution.
 
+> **Planning source of truth:** [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md) holds the `0.9.0-beta.1` scope decision, the Tier A/B compatibility model, and the parallel differentiator matrix. This checklist holds the gates.
+>
+> **`0.9.0-beta.1` has not been cut or shipped.** Boxes below are checked only when the work is genuinely merged and verified on `main`; unrun AYN Thor hardware checks, human-only signing steps, and tester rings stay open even where related code exists.
+
 ## Release Readiness Principles
 
 Before working down the individual tasks, keep the following release-level rules in place. The goal for `0.9.0-beta.1` is not to make DualDex feature-complete; it is to make a narrow set of core promises trustworthy enough for other people to use with real save data.
@@ -15,8 +19,8 @@ Before working down the individual tasks, keep the following release-level rules
   - Only the project owner may lift the freeze, and only after the public beta release.
 - [ ] **Feature-freeze major additions until the beta blockers are complete.**
   - Do not add new major companion features, broad single-screen work, ads, cloud saves, or speculative emulator features during hardening.
-  - Complete Heart & Soul 2.0.5 and the general pre-beta blockers before beginning another ROM integration.
-  - After that hardening pass, the only planned compatibility additions before the beta cut are R.O.W.E. followed by Unbound, in that order.
+  - H&S 2.0.5 is complete (calculator frozen at an `ESTIMATED` live-session ceiling); Unbound production calculator `ESTIMATED` mode (Singles ordinary-hit, exact-hash gated, `battleStateReadVerified = false`) is enabled, and remaining compatibility work is either keeping that scoped `ESTIMATED` / live-battle-disabled beta posture documented or completing exact-ROM verification.
+  - **Owner decision:** R.O.W.E. (#59) and quota-aware cloud backup (#186/#194) are deferred to post-beta; they are no longer beta prerequisites.
   - Put other good new ideas into issues/backlog instead of expanding the beta scope.
 - [ ] Keep the initial beta promise narrow:
   - Reliable GBA Pokémon emulation on AYN Thor.
@@ -31,29 +35,41 @@ Before working down the individual tasks, keep the following release-level rules
 
 ### Pre-beta ROM Integration Sequence
 
-New ROM support is **not** parallel work during the current hardening pass. The compatibility sequence before the first public beta is:
+Owner-approved sequence for `0.9.0-beta.1` (see [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md)):
+
+- **Included:** exact Vanilla FireRed (rev 0/1), exact Vanilla Emerald, exact Heart & Soul 2.0.5, exact Pokémon Unbound 2.1.1.1.
+- **Deferred to post-beta:** R.O.W.E. (#59) and quota-aware cloud backup (#186/#194).
+- **Not claimed:** Ghost Grey remains unverified pending the author's opt-out confirmation.
+
+Steps:
 
 1. [x] **Finish exact Heart & Soul 2.0.5 completely.**
    - Close its remaining calculator/ruleset, exact-trust, battle, location, and capability-evidence gaps.
    - Do not start another ROM integration while H&S still has unresolved first-class support blockers.
-   - **Complete as of the #40 closure audit** ([docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md)): exact `Release-v2.0.5` / SHA-256 `edf76ecf…7679b` is intentionally trusted; #1, #9 and #11 are closed; every **core** live companion capability H&S exposes — party/data, battle lifecycle, location/map and the bounded calculator — is evidence-backed at the level the UI promises, and every unsupported capability **within those core surfaces** fails closed.
+   - **Complete as of the #40 closure audit** ([docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md)): exact `Release-v2.0.5` / SHA-256 `edf76ecf…7679b` is intentionally trusted; #1, #9 and #11 are closed; every **core** live companion capability H&S exposes — party/data, battle lifecycle, location/map and the bounded calculator — is evidence-backed at the level the UI promises, and every unsupported capability **within those core surfaces** fails closed. Note that H&S 2.0.5 has verified arithmetic/oracle evidence across its 422 admitted move IDs and 2,523-scenario oracle corpus while its production calculator ceiling remains `ESTIMATED` ([docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md)).
    - This step certifies the core H&S live-companion/battle/map/calculator integration only. It does **not** certify optional **Cheats**: the #17 implementation now denies built-in cheats without exact-target code approval (the production catalog is empty; see [cheat compatibility](docs/CHEAT_COMPATIBILITY.md)). The Assistant has since been removed from the build, so its offline fallback issue (#13) is no longer in scope. Custom cheats remain user-supplied/unverified. Review and hardware acceptance remain part of step 2.
-   - The AYN Thor RC matrix in that issue is **not** claimed complete — it moves into step 2 below, which is where this checklist always placed it.
+   - The AYN Thor RC matrix remains **HOLD** per [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md) (outstanding §5 matrix rows/subchecks and the `>= 60`-minute continuous soak `F1` remain open) — it moves into step 2 below, which is where this checklist always placed it.
 2. [ ] **Finish the remaining general pre-beta product/release blockers using H&S as the primary complex validation ROM.**
-   - Keep exact vanilla FireRed/Emerald as regression baselines.
-   - Exercise H&S through save safety and recovery, ROM switching, process death/reboot, suspend/resume, fast-forward, save states, cheat gating, backup policy, controller shortcuts, second-display reconnect, and extended Thor soak testing.
-   - Fix general product defects before adding another compatibility target rather than discovering them independently in every future hack.
-   - **This is the active phase.** Hardware soak is required before beta but was never a prerequisite for declaring the H&S software integration complete. Carried-in items are listed as R1-R7 in the closure audit; R.O.W.E. (step 3) does not begin until this pass is sufficiently complete.
-3. [ ] **Add one exact R.O.W.E. release next.**
-   - Pin the exact version/hash before authoritative live-memory claims.
-   - Use it as the first deliberate validation that the source-driven data pack, ABI probing, exact-ROM trust, battle-state, runtime-rule, and calculator-override work developed for H&S can be reused by another pokeemerald-expansion-family hack.
-   - Refactor only the H&S-specific seams that R.O.W.E. proves need to become reusable; do not start a speculative generic-hack rewrite.
-4. [ ] **Add one exact Pokémon Unbound release after R.O.W.E.**
-   - Treat Unbound as a CFRU/FireRed-derived integration with its own evidence, layout, data, rules, and exact trust contract.
-   - Reuse common trust/capability/testing infrastructure, but do not assume the H&S/R.O.W.E. Emerald-expansion memory layout applies.
+   - Keep exact vanilla FireRed/Emerald as regression baselines (noting their shipped profiles keep `battleStateReadVerified = false` / `mayReadBattleState = false`, disabling live battle-state reads in the app).
+   - Exercise H&S through save safety and recovery, ROM switching, process death/reboot, suspend/resume, fast-forward, save states, cheat gating, backup policy, controller shortcuts, second-display reconnect, and close the remaining [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md) **HOLD** items (outstanding §5 matrix rows/subchecks and the continuous `>= 60`-minute soak `F1`).
+   - **This is the active phase.** Hardware soak is required before beta but was never a prerequisite for declaring the H&S software integration complete. Carried-in items are listed as R1-R7 in the closure audit.
+3. [x] **Native Pokémon Unbound 2.1.1.1 integration (party, location, map names; native battle-layout evidence with `battleStateReadVerified = false` on shipped profile).**
+   - Exact candidate SHA-256 `7aa25bbf…739f7` is bound in `app/src/main/assets/profiles/unbound.json`; readers are behind the exact-hash runtime trust gate and fail closed otherwise. Shipped `unbound.json` leaves `battleStateReadVerified = false` (`mayReadBattleState = false`), so live battle-state reads remain disabled in the app.
+   - `UnboundDataPack` and the generated exact-ROM species/name tables are merged (PRs #207-#213).
+   - Host CFRU damage oracle + 579-case × 16-roll golden corpus and the dependency-free JS core (`tools/calc-bundler/unbound-cfru.js`) are merged with host parity.
+4. [ ] **Finalize Unbound's beta calculator posture (`ESTIMATED` mode enabled; exact-ROM verification open).**
+   - Production calculator **`ESTIMATED` mode** (`CalcRuleset.UNBOUND_CFRU`, Singles ordinary-hit, capped at `CalcSupport.ESTIMATED` with `UNBOUND_CFRU_SOURCE_APPROXIMATE`) is **enabled** behind the exact candidate SHA-256 gate (`7aa25bbf…`), while shipped `unbound.json` keeps `battleStateReadVerified = false` (so active-battle live-state requests fail closed with `UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE`, and Doubles/items/unmodelled moves refuse fail-closed).
+   - Either keep `0.9.0-beta.1` scoped explicitly to `ESTIMATED` Singles forecasts (with live battle-state reads disabled) in release notes, or complete exact-ROM verification before enabling battle-state reads / promoting beyond `ESTIMATED`.
+   - Exact-ROM type-chart, move/item table correspondence, and exact-ROM Thumb oracle execution remain **UNVERIFIED** ([docs/UNBOUND_DAMAGE_ORACLE.md](docs/UNBOUND_DAMAGE_ORACLE.md)).
 5. [ ] **Only after the compatibility sequence above, cut the release candidate and proceed through the beta rings.**
 
-This sequence is the intentional exception to the general feature freeze: **new ROM support resumes only after H&S and the general pre-beta blockers are complete.** R.O.W.E. and Unbound are compatibility validation milestones, not permission to add unrelated features before beta.
+**Deferred to post-beta (owner decision):**
+
+- **R.O.W.E. (#59).** Bespoke unencrypted 76-byte party layout; host decoder, startup-guard, and identity research are merged under [#59](https://github.com/Sonoran-Solutions/dualdex/issues/59), but no production profile, JNI/Kotlin integration, or calculator capability exists. Not a beta blocker.
+- **Quota-aware cloud backup (#186/#194).** [docs/ANDROID_CLOUD_BACKUP_DESIGN.md](docs/ANDROID_CLOUD_BACKUP_DESIGN.md) is a design spike only; PR #185 allowlists, local atomic saves, and save sharing cover sideloaded Early Access.
+- **Ghost Grey** stays unverified (`ghost_grey.json` has `isVerified: false` and no hashes) pending the author's opt-out confirmation. Do not claim support.
+
+Compatibility scales through the **Tier A / Tier B** model in [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md): Tier A is verified live memory + exact calculator, Tier B is verified live memory + estimated calculator. Tier B lets CFRU and pokeemerald-expansion hacks onboard without a full 17-slice oracle campaign, and is not part of the `0.9.0-beta.1` blocker set.
 
 ### Lock Permanent App Identity Before Distribution
 
@@ -98,9 +114,9 @@ For every beta candidate:
 
 ### Hardware Soak Testing
 
-Before promoting a release candidate:
+Before promoting a release candidate (AYN Thor gate currently **HOLD** per [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md)):
 
-- [ ] Run at least one extended real-play session on AYN Thor rather than only short smoke tests.
+- [ ] Run a continuous `>= 60`-minute real-play soak on AYN Thor (`F1` in [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md)) and close all remaining §5 matrix rows/subchecks (`A2`, `A4`/`E3`, `B2`, `B3`, `C1`/`C4`/X-Y `C5`, `D1`–`D5`, `E5`, `G1`, `O1`, and vanilla FireRed/Emerald baselines) rather than relying on short or mixed sessions.
 - [ ] Exercise normal speed and fast-forward.
 - [ ] Exercise save/load state repeatedly.
 - [ ] Suspend/resume the app multiple times.
@@ -134,15 +150,15 @@ Before promoting a release candidate:
 - [ ] If a blocker is found, fix only the blocker and cut `rc2`/later rather than silently changing the tested artifact.
 - [ ] Promote the same tested commit/artifact lineage to `0.9.0-beta.1` once the RC passes the tester rings and soak tests.
 
-> **Target beta promise:** DualDex runs GBA Pokémon games reliably on the AYN Thor, protects the user's saves, and provides trustworthy live companion information for a small documented list of exact ROM versions. The planned compatibility path to that beta is FireRed/Emerald baselines → complete H&S 2.0.5 → general pre-beta hardening on H&S → exact R.O.W.E. → exact Unbound → RC/beta.
+> **Target beta promise:** DualDex runs GBA Pokémon games reliably on the AYN Thor, protects the user's saves, and provides trustworthy live companion information for a small documented list of exact ROM versions. The `0.9.0-beta.1` ROM list is exact FireRed (rev 0/1) + exact Emerald + exact H&S 2.0.5 + exact Unbound 2.1.1.1, followed by RC/cut and the beta rings. R.O.W.E. and cloud backup moved to post-beta. Full plan: [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md).
 
 ## Phase 1 — Release Blockers
 
 ### Save Safety and ROM Switching
 
-- [ ] Change save identity from detected profile name to a unique ROM identity.
-  - Prefer SHA-256 or another stable ROM-specific identifier.
-  - Prevent multiple FireRed-based hacks from sharing the same `.sav`, quicksave, or save-state files.
+- [x] Change save identity from detected profile name to a unique ROM identity.
+  - SHA-256 ROM identity is the save/state key; two FireRed-based hacks no longer share a `.sav`, quicksave, or save-state file (PRs #204-#205, `RomHackDetector`).
+  - The loaded ROM's identity is bound to the session and stale companion observations are rejected.
 - [ ] Store friendly metadata alongside the ROM-specific save ID.
   - ROM display name
   - Detected hack/profile
@@ -158,11 +174,11 @@ Before promoting a release candidate:
   7. Load the correct battery save.
   8. Resume emulation.
 - [ ] Explicitly call the Libretro unload-game path before loading another ROM.
-- [ ] Make battery save writes atomic.
-  - Write to a temporary file first.
-  - Verify successful write.
-  - Replace main `.sav` only afterward.
-- [ ] Keep at least one automatic `.sav.bak` backup.
+- [x] Make battery save writes atomic.
+  - Write to a temporary file first, verify, then replace the main `.sav`.
+- [x] Keep at least one automatic `.sav.bak` backup.
+  - A mirror is also written through SAF where available.
+- [ ] Test battery-save recovery from a backup end to end on hardware (covered by the hardware soak section; not yet run on the exact beta build).
 - [ ] Safely handle failed save imports.
   - Do not overwrite the existing save until the imported save has been validated successfully.
 - [ ] Test intentionally switching rapidly between several ROMs.
@@ -276,13 +292,15 @@ Should define:
 
 ### Controller Functionality
 
-- [ ] Wire L2 to actual quick-save behavior.
-- [ ] Wire R2 to actual quick-load behavior.
-- [ ] Wire the advertised X/Y shortcuts to their actual functions.
-- [ ] Wire the fast-forward shortcut to the emulator speed toggle.
-- [ ] Ensure shortcut buttons do not accidentally get passed to the GBA core when they are meant to trigger DualDex functions.
-- [ ] Add optional button remapping later if practical. Hotkey chords, analog L2/R2 as hold fast-forward / slow motion, and an AYN/Retroid A/B default are post-beta in [#153](https://github.com/Sonoran-Solutions/dualdex/issues/153).
-- [ ] Verify every controller feature advertised in README and Settings actually works.
+- [x] Wire L2 to actual quick-save behavior. **PR #170**; stale-ROM quick saves are refused (PR #170 review follow-up).
+- [x] Wire R2 to actual quick-load behavior. **PR #170**, same stale-ROM guard.
+- [x] Wire the fast-forward shortcut to the emulator speed toggle. Persistent speed is restored at startup (PR #170).
+- [x] Ensure shortcut buttons are not passed through to the GBA core. Trigger chords are consumed by DualDex.
+- [x] Hotkey chords and optional analog-trigger fast-forward/slow motion are selectable in Settings ("L2 / R2 Behavior", PR #172 / #170).
+- [ ] Reconcile the Settings controller map with the implementation.
+  - Settings still lists `Button X / Y` as "Turbo / Menu Shortcut", but `X`/`Y` currently map only to the unused `BTN_X`/`BTN_Y` GBA bits and no app shortcut handler exists for them. Either wire them or correct the Settings copy before the beta.
+- [ ] Add optional per-game button remapping later if practical ([#153](https://github.com/Sonoran-Solutions/dualdex/issues/153), post-beta).
+- [ ] Verify every controller feature advertised in README and Settings actually works on the exact beta build (hardware gate; not yet run).
 
 ## Phase 2 — Public Beta Infrastructure
 
@@ -313,23 +331,23 @@ Should define:
 
 ### CI
 
-- [ ] Add GitHub Actions or equivalent CI.
-- [ ] Run Kotlin unit tests on every PR/push.
-- [ ] Run native C parser tests.
-- [ ] Run native calculator tests.
-- [ ] Build a debug APK to catch integration failures.
+- [x] Add GitHub Actions or equivalent CI. **`.github/workflows/ci.yml` runs the canonical `./ci.sh` targets.**
+- [x] Run Kotlin unit tests on every PR/push. **`Native & Unit Tests` job.**
+- [x] Run native C parser tests. **Same job (native reader runner + H&S tracker selftests).**
+- [x] Run native calculator tests. **Same job (host QuickJS damage calculator suite).**
+- [x] Build a debug APK to catch integration failures. **`Build Debug APK` job.**
 - [ ] Eventually automate signed release builds after the signing process is mature.
 
 ### Documentation Cleanup
 
-- [ ] Fix incorrect Git clone URL.
-- [ ] Fix `gameId` documentation inconsistency.
-- [ ] Audit tests for stale hard-coded `gameId` assumptions.
-- [ ] Update supported-ROM list to match reality.
-- [ ] Document specific supported hack versions rather than only hack names.
-- [ ] Mark experimental/unverified support clearly.
-- [ ] Remove outdated feature claims.
-- [ ] Verify README controller mappings.
+- [x] Fix incorrect Git clone URL. **README clone block now uses `https://github.com/Sonoran-Solutions/dualdex.git`.**
+- [x] Fix `gameId` documentation inconsistency. **Profile validation committed (PR #184, `fix/issue-15-game-id-drift`).**
+- [x] Audit tests for stale hard-coded `gameId` assumptions. **Covered by the same PR; `RomHackDetector`/profile tests own game identity.**
+- [x] Update supported-ROM list to match reality. **README now lists exact supported builds and marks Ghost Grey/Radical Red unverified.**
+- [x] Document specific supported hack versions rather than only hack names. **Exact hashes are in the profile JSON and [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md).**
+- [x] Mark experimental/unverified support clearly. **Three-state runtime model plus the Tier A/B model.**
+- [x] Remove outdated feature claims. **README status/roadmap/controls sections reconciled with `main`.**
+- [ ] Verify README controller mappings against the shipped Settings UI (see the `X`/`Y` reconcile item above).
 - [ ] Add installation instructions for sideloading.
 - [ ] Add an FAQ.
 - [ ] Add troubleshooting instructions.
@@ -454,16 +472,14 @@ Should define:
 
 Do not block beta indefinitely for this. Aim for roughly **5–8 highly tested games/hacks** rather than dozens of partially working ones.
 
-### Initial Beta Target
+### `0.9.0-beta.1` ROM Target (owner-approved)
 
-- [ ] Vanilla FireRed
-- [ ] Vanilla Emerald
-- [ ] Radical Red
-- [ ] Ghost Grey
-- [ ] Heart & Soul
-- [ ] Pokémon Unbound
-- [ ] Select another high-demand FireRed/CFRU hack
-- [ ] Select another popular Emerald/pokeemerald-expansion hack
+- [ ] Exact Vanilla FireRed (rev 0/1)
+- [ ] Exact Vanilla Emerald
+- [ ] Exact Heart & Soul 2.0.5
+- [ ] Exact Pokémon Unbound 2.1.1.1
+
+Not in `0.9.0-beta.1`: **Radical Red** and **Ghost Grey** remain recognized/unverified (emulation only); **R.O.W.E.** is deferred to post-beta. Tier B is the intended path for onboarding additional CFRU/pokeemerald-expansion hacks in later waves rather than in this beta.
 
 ### For Every Supported Hack
 
@@ -686,8 +702,8 @@ Before moving from bug fixing back to ROM-hack expansion:
 7. **Clean up documentation and supported-version tables.**
 8. **Set up permanent signing, CI, and GitHub release process.**
 9. **Finish privacy policy and general network disclosure work.**
-10. **Finish Unbound + a few other high-value hacks only after profile architecture is stable.**
-11. **Run the complete per-ROM beta compatibility matrix.**
+10. **Finalize Unbound beta scope (`ESTIMATED` Singles mode enabled with `battleStateReadVerified = false`; exact-ROM verification open).**
+11. **Run the complete per-ROM beta compatibility matrix for FireRed, Emerald, H&S 2.0.5 and Unbound.**
 12. **Release free AYN Thor beta.**
 13. **Use actual beta feedback to determine priorities.**
 14. **Build first-class single-screen layouts.**

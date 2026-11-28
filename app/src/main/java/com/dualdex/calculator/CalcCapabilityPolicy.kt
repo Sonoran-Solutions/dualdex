@@ -4,6 +4,8 @@ import com.dualdex.pokemon.GameDataPack
 import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.hasMoveByName
 import com.dualdex.pokemon.hasSpeciesByName
+import com.dualdex.pokemon.unbound.UnboundDataPack
+import com.dualdex.pokemon.unbound.UnboundSpeciesTable
 import com.dualdex.romhack.RomHackProfile
 import com.dualdex.romhack.RuntimeRomTrust
 
@@ -24,7 +26,7 @@ enum class CalcSupport {
      * evidence for this exact build (or the running ROM is not exact-verified). The number must be
      * presented as an approximation, never as a verified result.
      *
-     * This is the ceiling for Heart & Soul 2.0.5.
+     * This is the ceiling for Heart & Soul 2.0.5 and Unbound CFRU.
      */
     ESTIMATED,
 
@@ -43,6 +45,24 @@ enum class CalcSupport {
  * confidence limits, named mechanics that can be ignored, and hard refusals.
  */
 enum class CalcLimitation {
+    /** Unbound CFRU arithmetic is source-approximate and covers ordinary single hits in Singles. */
+    UNBOUND_CFRU_SOURCE_APPROXIMATE,
+
+    /** A party forecast uses catalogue typing and assumes neutral unobserved abilities. */
+    UNBOUND_PARTY_OPERANDS_ASSUMED,
+
+    /** Unbound calculator authorization requires the pinned exact runtime SHA-256. */
+    UNBOUND_ROM_NOT_EXACT_VERIFIED,
+
+    /** The mapped move has not been admitted to the bounded ordinary-hit implementation. */
+    UNBOUND_MOVE_NOT_MODELLED,
+
+    /** The active Unbound battle's format and effective inputs are unavailable to the calculator. */
+    UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE,
+
+    /** A supplied ability or held item is outside the production Unbound bridge's supported domain. */
+    UNBOUND_MODIFIER_NOT_MODELLED,
+
     /** The running ROM bytes are not the exact build this profile was verified against. */
     ROM_NOT_EXACT_VERIFIED,
 
@@ -580,6 +600,8 @@ enum class CalcLimitation {
      */
     val disposition: CalcLimitationDisposition
         get() = when (this) {
+            UNBOUND_CFRU_SOURCE_APPROXIMATE,
+            UNBOUND_PARTY_OPERANDS_ASSUMED,
             ROM_NOT_EXACT_VERIFIED,
             BUILDS_NOT_HASH_VERIFIED,
             ABILITY_NOT_MODELLED,
@@ -591,6 +613,10 @@ enum class CalcLimitation {
             HNS_ITEM_EFFECT_NOT_MODELLED,
             HNS_FIELD_STATUS_NOT_MODELLED -> CalcLimitationDisposition.SOFT_IGNORED_MECHANIC
 
+            UNBOUND_ROM_NOT_EXACT_VERIFIED,
+            UNBOUND_MOVE_NOT_MODELLED,
+            UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE,
+            UNBOUND_MODIFIER_NOT_MODELLED,
             CHALLENGE_SETTINGS_UNREADABLE,
             HELD_ITEM_DATA_NOT_AUTHORITATIVE,
             CATEGORY_SPLIT_TOGGLE_UNREADABLE,
@@ -748,7 +774,10 @@ enum class CalcRuleset {
     VANILLA_GEN3,
 
     /** Pokemon Heart & Soul 2.0.5 at commit 1f42b74dff0e9fe942419845d040663dd829a973. */
-    HNS_2_0_5
+    HNS_2_0_5,
+
+    /** Source-approximate CFRU calculator for the pinned Pokémon Unbound candidate. */
+    UNBOUND_CFRU
 }
 
 /**
@@ -885,6 +914,18 @@ data class CalcCapabilityVerdict(
 
     companion object {
         fun describe(limitation: CalcLimitation): String = when (limitation) {
+            CalcLimitation.UNBOUND_CFRU_SOURCE_APPROXIMATE ->
+                "Unbound CFRU uses source-approximate damage for ordinary hits in Singles"
+            CalcLimitation.UNBOUND_PARTY_OPERANDS_ASSUMED ->
+                "party forecasts use catalogue typing and out-of-battle party stats"
+            CalcLimitation.UNBOUND_ROM_NOT_EXACT_VERIFIED ->
+                "the running ROM must match the pinned Unbound SHA-256"
+            CalcLimitation.UNBOUND_MOVE_NOT_MODELLED ->
+                "the move is outside the supported Unbound ordinary-hit set"
+            CalcLimitation.UNBOUND_LIVE_BATTLE_STATE_UNAVAILABLE ->
+                "the active Unbound battle's format and effective battler state are unavailable"
+            CalcLimitation.UNBOUND_MODIFIER_NOT_MODELLED ->
+                "the ability or held item is outside the supported Unbound calculator inputs"
             CalcLimitation.ROM_NOT_EXACT_VERIFIED ->
                 "the running ROM is not the exact verified build"
             CalcLimitation.BUILDS_NOT_HASH_VERIFIED ->
@@ -1234,6 +1275,19 @@ object CalcCapabilityPolicy {
         val packId = profile.gameDataPackId?.trim()?.lowercase()
         val expansionEngine = profile.engine.trim().equals(HNS_ENGINE, ignoreCase = true)
 
+        if (profile.id == "unbound" && profile.gameDataPackId == UnboundDataPack.id &&
+            profile.engine.equals("CFRU", ignoreCase = true) && profile.hasPhysSpecSplit
+        ) {
+            return CalcCapability(
+                ruleset = CalcRuleset.UNBOUND_CFRU,
+                mechanicsGeneration = UnboundDataPack.generation,
+                contentSource = UnboundDataPack.id,
+                ceiling = CalcSupport.ESTIMATED,
+                alwaysLimitations = listOf(CalcLimitation.UNBOUND_CFRU_SOURCE_APPROXIMATE),
+                label = "Pokémon Unbound (CFRU)"
+            )
+        }
+
         if (packId == HNS_DATA_PACK_ID && expansionEngine && profile.hasPhysSpecSplit) {
             return CalcCapability(
                 ruleset = CalcRuleset.HNS_2_0_5,
@@ -1290,6 +1344,34 @@ object CalcCapabilityPolicy {
         request: DamageCalculationRequest
     ): CalcCapabilityVerdict {
         val capability = capabilityFor(profile) ?: return unsupported(profile)
+
+        if (capability.ruleset == CalcRuleset.UNBOUND_CFRU) {
+            val limitations = LinkedHashSet(capability.alwaysLimitations)
+            limitations += request.preparationLimitations
+            val exact = profile.isVerified && profile.memoryLayoutVerified &&
+                isExactRuntimeVerified(profile, trust) &&
+                UnboundSpeciesTable.ROM_SHA256.equals(trust?.activeRomSha256, ignoreCase = true)
+            if (!exact) limitations += CalcLimitation.UNBOUND_ROM_NOT_EXACT_VERIFIED
+            val operands = if (limitations.any { it.blocksCalculation }) null
+                else UnboundCalcInputs.prepare(request, limitations)
+            return CalcCapabilityVerdict(
+                support = if (operands == null) CalcSupport.UNSUPPORTED else CalcSupport.ESTIMATED,
+                capability = capability,
+                limitations = limitations.toList(),
+                request = operands?.let {
+                    request.copy(
+                        gen = capability.mechanicsGeneration,
+                        typeSystem = UnboundCalcInputs.TYPE_SYSTEM,
+                        attackerOverride = null,
+                        defenderOverride = null,
+                        moveOverride = null,
+                        hnsRuntimeRules = null,
+                        hnsLiveBattleState = null,
+                        unboundOperands = it
+                    )
+                }
+            )
+        }
 
         val limitations = LinkedHashSet(capability.alwaysLimitations)
         val abilityDecisions = mutableListOf<HnsAbilityRequestDecision>()
@@ -1661,6 +1743,7 @@ object CalcCapabilityPolicy {
             canonicalAbility(ability) != null
         CalcRuleset.HNS_2_0_5 ->
             com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(ability).category.isSupportedForDamage
+        CalcRuleset.UNBOUND_CFRU -> UnboundCalcInputs.abilityId(ability) != null
     }
 
     /**
@@ -1671,6 +1754,7 @@ object CalcCapabilityPolicy {
         CalcRuleset.HNS_2_0_5 ->
             abilityId in 0..com.dualdex.pokemon.hns.HnsBattlerRuntimeStateIds.ABILITY_ID_MAX &&
                 com.dualdex.pokemon.hns.HnsAbilityRegistry.classify(abilityId).category.isSupportedForDamage
+        CalcRuleset.UNBOUND_CFRU -> UnboundCalcInputs.isSupportedAbilityId(abilityId)
     }
 
     /**
@@ -1708,6 +1792,8 @@ object CalcCapabilityPolicy {
         }
         CalcRuleset.VANILLA_GEN3 ->
             if (canonicalItem(item) != null) null else CalcLimitation.ITEM_NOT_MODELLED
+        CalcRuleset.UNBOUND_CFRU ->
+            if (UnboundCalcInputs.isNoItem(item)) null else CalcLimitation.UNBOUND_MODIFIER_NOT_MODELLED
     }
 
     /**
@@ -2198,6 +2284,7 @@ object CalcCapabilityPolicy {
                 // authorized request. See that gate for the interaction audit.
                 item = com.dualdex.pokemon.hns.HnsItemRegistry.engineItemName(input.itemId)
             )
+            CalcRuleset.UNBOUND_CFRU -> input
         }
         return request.copy(
             attacker = fix(request.attacker),

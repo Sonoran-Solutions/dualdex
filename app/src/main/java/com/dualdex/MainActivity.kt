@@ -8,6 +8,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Display
 import android.view.Gravity
@@ -73,6 +74,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     private var restoreBottomScreenBtn: TextView? = null
     private var loadedProfiles: List<RomHackProfile> = emptyList()
     private val audioDriver = AudioDriver(32768)
+    private var romScanJob: kotlinx.coroutines.Job? = null
 
     private fun dpToPx(dp: Int): Int = (dp * resources.displayMetrics.density).toInt()
 
@@ -138,7 +140,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 Log.w("DualDex", "Could not take persistable URI permission: ${e.message}")
             }
             settingsManager.romsFolderUri = uri.toString()
-            scanRomsDirectory(uri)
+            scanCurrentLibrary()
         }
     }
 
@@ -229,8 +231,12 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
-    private fun scanRomsDirectory(folderUri: Uri) {
-        CoroutineScope(Dispatchers.IO).launch {
+    private fun scanCurrentLibrary() {
+        val folderUri = settingsManager.romsFolderUri
+            ?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { Uri.parse(it) }.getOrNull() }
+        romScanJob?.cancel()
+        romScanJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val romList = com.dualdex.library.LibraryScanner.scan(applicationContext, folderUri, loadedProfiles)
                 withContext(Dispatchers.Main) {
@@ -238,8 +244,10 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                     companionPresentation?.refreshHomeScreen()
                     currentCompanionScreenView?.refreshHomeScreen()
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Log.e("DualDex", "Error scanning ROMs directory: ${e.message}", e)
+                Log.e("DualDex", "Error scanning ROMs library: ${e.message}", e)
             }
         }
     }
@@ -248,10 +256,14 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         val sha = pendingCoverSha ?: return@registerForActivityResult
         pendingCoverSha = null
         if (uri != null && com.dualdex.library.CoverArt.setFromUri(this, sha, uri)) {
-            settingsManager.romsFolderUri?.let { scanRomsDirectory(Uri.parse(it)) }
+            scanCurrentLibrary()
         }
     }
     private var pendingCoverSha: String? = null
+
+    private val pickPatchLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        com.dualdex.library.PatchFlow.onPatchPicked(this, uri)
+    }
 
     /** True after a [FrontendLaunchActivity] hand-off: Back then returns to the frontend. */
     private val backToFrontend = object : androidx.activity.OnBackPressedCallback(false) {
@@ -326,6 +338,12 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 pendingCoverSha = sha
                 pickCoverLauncher.launch(arrayOf("image/*"))
             }
+            com.dualdex.library.PatchFlow.pickPatchRequest = {
+                runOnUiThread { pickPatchLauncher.launch(arrayOf("*/*")) }
+            }
+            viewModel.attachNuzlockeStore(
+                com.dualdex.nuzlocke.NuzlockeStore(File(filesDir, "nuzlocke"))
+            )
             com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = { initial ->
                 runOnUiThread { chooseShareSavesFolderLauncher.launch(initial) }
             }
@@ -340,15 +358,24 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                     emulatorView?.setSpeedMultiplier(settingsManager.romSpeed(id?.takeIf { it.isValid }?.storageKey))
                 }
             }
-
-            // 7. Scan saved ROMs folder if available
-            val savedFolder = settingsManager.romsFolderUri
-            if (!savedFolder.isNullOrBlank()) {
-                try {
-                    scanRomsDirectory(Uri.parse(savedFolder))
-                } catch (e: Exception) {
-                    Log.w("DualDex", "Failed to scan saved ROMs folder: ${e.message}")
+            val patchRefreshTracker = com.dualdex.library.PatchRefreshTracker(
+                com.dualdex.library.PatchFlow.status.value as? com.dualdex.library.PatchFlow.Status.Saved
+            )
+            lifecycleScope.launch {
+                com.dualdex.library.PatchFlow.status.collect { st ->
+                    patchRefreshTracker.onPatchStatus(
+                        status = st,
+                        currentFolderUri = { settingsManager.romsFolderUri },
+                        triggerScan = { scanCurrentLibrary() }
+                    )
                 }
+            }
+
+            // 7. Scan saved ROMs folder and private patched ROMs
+            try {
+                scanCurrentLibrary()
+            } catch (e: Exception) {
+                Log.w("DualDex", "Failed to scan ROM library: ${e.message}")
             }
 
             // 7.5 Check and migrate legacy saves from previous app version on first open
@@ -552,21 +579,84 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         }
     }
 
+    private fun currentHostDisplayId(): Int {
+        val hostDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            runCatching { display }.getOrNull()
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching { windowManager?.defaultDisplay }.getOrNull()
+        }
+        return hostDisplay?.displayId ?: Display.DEFAULT_DISPLAY
+    }
+
+    private fun readDisplaySizePx(display: Display): Pair<Int, Int> {
+        val mode = runCatching { display.mode }.getOrNull()
+        if (mode != null && mode.physicalWidth > 0 && mode.physicalHeight > 0) {
+            return mode.physicalWidth to mode.physicalHeight
+        }
+        val metrics = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        runCatching { display.getRealMetrics(metrics) }
+        return metrics.widthPixels to metrics.heightPixels
+    }
+
+    private fun resolveCompanionDisplay(dm: DisplayManager?): Display? {
+        if (dm == null) return null
+
+        val presentationDisplays = try {
+            dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+        val presentationIds = presentationDisplays.map { it.displayId }.toSet()
+
+        val displaysById = LinkedHashMap<Int, Display>()
+        val rawAllDisplays = try {
+            dm.displays ?: emptyArray()
+        } catch (_: Throwable) {
+            emptyArray()
+        }
+        for (d in rawAllDisplays) {
+            displaysById[d.displayId] = d
+        }
+        for (d in presentationDisplays) {
+            displaysById.putIfAbsent(d.displayId, d)
+        }
+        if (displaysById.isEmpty()) return null
+
+        val descriptors = displaysById.values.map { d ->
+            val (widthPx, heightPx) = readDisplaySizePx(d)
+            DisplayDescriptor(
+                displayId = d.displayId,
+                isPresentationCategory = d.displayId in presentationIds,
+                isDefaultDisplay = d.displayId == Display.DEFAULT_DISPLAY,
+                widthPx = widthPx,
+                heightPx = heightPx
+            )
+        }
+
+        val selected = DisplaySelectionPolicy.selectCompanionDisplay(
+            hostDisplayId = currentHostDisplayId(),
+            allDisplays = descriptors
+        ) ?: return null
+
+        return displaysById[selected.displayId]
+    }
+
     private fun setupDisplays() {
         val dm = displayManager ?: run {
             setupSplitScreen()
             return
         }
 
-        val presentationDisplays = try {
-            dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-        } catch (e: Throwable) {
-            emptyArray()
-        }
+        val companionDisplay = resolveCompanionDisplay(dm)
 
-        if (presentationDisplays.isNotEmpty()) {
-            // Dual-screen mode (AYN Thor detected)
-            Log.i("DualDex", "AYN Thor dual-screen detected. Attaching CompanionPresentation to Display 1.")
+        if (companionDisplay != null) {
+            // Dual-screen mode (AYN Thor, AYANEO Pocket DS, or other multi-display handheld)
+            Log.i(
+                "DualDex",
+                "Dual-screen detected (host display=${currentHostDisplayId()}). Attaching CompanionPresentation to display ${companionDisplay.displayId}."
+            )
 
             val topRoot = FrameLayout(this).apply {
                 layoutParams = ViewGroup.LayoutParams(
@@ -603,11 +693,9 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 }
                 layoutParams = lp
                 setOnClickListener {
-                    val displays = try {
-                        displayManager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-                    } catch (e: Throwable) { emptyArray() }
-                    if (!displays.isNullOrEmpty()) {
-                        showPresentation(displays[0])
+                    val targetDisplay = resolveCompanionDisplay(displayManager)
+                    if (targetDisplay != null) {
+                        showPresentation(targetDisplay)
                         Toast.makeText(this@MainActivity, "Restored companion screen", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(this@MainActivity, "Secondary display not found", Toast.LENGTH_SHORT).show()
@@ -619,7 +707,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
 
             setContentView(topRoot)
 
-            showPresentation(presentationDisplays[0])
+            showPresentation(companionDisplay)
         } else {
             setupSplitScreen()
         }
@@ -665,9 +753,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
             onChooseRomsFolderRequested = { chooseFolderLauncher.launch(null) },
             onRefreshRomsRequested = {
                 val folder = settingsManager.romsFolderUri
-                if (!folder.isNullOrBlank()) {
-                    scanRomsDirectory(Uri.parse(folder))
-                } else {
+                scanCurrentLibrary()
+                if (folder.isNullOrBlank()) {
                     chooseFolderLauncher.launch(null)
                 }
             },
@@ -710,9 +797,8 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
                 onChooseRomsFolderRequested = { chooseFolderLauncher.launch(null) },
                 onRefreshRomsRequested = {
                     val folder = settingsManager.romsFolderUri
-                    if (!folder.isNullOrBlank()) {
-                        scanRomsDirectory(Uri.parse(folder))
-                    } else {
+                    scanCurrentLibrary()
+                    if (folder.isNullOrBlank()) {
                         chooseFolderLauncher.launch(null)
                     }
                 },
@@ -753,10 +839,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     }
 
     override fun onDisplayChanged(displayId: Int) {
-        val presentationDisplays = try {
-            displayManager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-        } catch (e: Throwable) { emptyArray() }
-        if (!presentationDisplays.isNullOrEmpty()) {
+        if (resolveCompanionDisplay(displayManager) != null) {
             if (companionPresentation?.isShowing != true) {
                 runOnUiThread {
                     restoreBottomScreenBtn?.visibility = View.VISIBLE
@@ -786,10 +869,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
         audioDriver.start()
         com.dualdex.library.AppUpdater.onHostResume(this)
 
-        val presentationDisplays = try {
-            displayManager?.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)
-        } catch (e: Throwable) { emptyArray() }
-        if (!presentationDisplays.isNullOrEmpty()) {
+        if (resolveCompanionDisplay(displayManager) != null) {
             if (companionPresentation?.isShowing != true) {
                 restoreBottomScreenBtn?.visibility = View.VISIBLE
             } else {
@@ -807,6 +887,7 @@ class MainActivity : AppCompatActivity(), DisplayManager.DisplayListener {
     override fun onDestroy() {
         settingsManager.unregisterChangeListener(inputPrefsListener)
         currentCompanionScreenView?.release()
+        com.dualdex.library.PatchFlow.pickPatchRequest = null
         com.dualdex.emulator.storage.SaveShareStore.requestFolderPicker = null
         super.onDestroy()
         val owner = CoreOwner.process.release(this)

@@ -13,7 +13,8 @@
 #                    # + Unbound species-table integrity (ROM-free)
 #                    # + H&S census source-reader tests + Kotlin unit tests
 #                    # (which include the committed issue #84 census artifact check)
-#   ./ci.sh fixture-test # ROM-free production replay + isolated ROWE raw decoder + identity adapter
+#   ./ci.sh fixture-test # gamedata config generator check/tests + ROM-free production replay
+#                    # + isolated ROWE raw decoder + identity adapter
 #   ./ci.sh rowe-test # host-only raw decoder + identity adapter synthetic tests
 #   ./ci.sh rowe-sanitize # same focused suite with ASan + UBSan (compiler required)
 #   ./ci.sh coverage-test # focused H&S debug coverage tests + structural release proof
@@ -65,6 +66,11 @@ init_submodules() {
 # Host-only snapshots through the production memory map and readers. No emulator,
 # ROM, upstream checkout, Android SDK, or QuickJS required for the focused target.
 fixture_test() {
+  # The reader's GameMemoryConfig initializers are generated from gamedata/gen3/*.json; the
+  # committed header must match byte-for-byte before it is compiled into the replay below.
+  echo "== gamedata/gen3 configs: generated header is current + generator tests =="
+  python3 tools/gamedata/generate_gamedata.py --check
+  python3 -m unittest discover -s tools/gamedata -p 'test_*.py' -v
   echo "== ROM-free native memory fixture replay =="
   local cc
   cc="$(find_cc)"

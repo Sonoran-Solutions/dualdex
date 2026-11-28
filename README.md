@@ -6,9 +6,20 @@ The project started from a pretty simple idea: if the Thor already has a second 
 
 DualDex reads game state directly from the emulator for supported ROM profiles, so information like your party or current opponent can be pulled into the companion without having to enter everything by hand.
 
-> **Project status:** DualDex is currently being prepared for its first public beta. **Exact Pokémon Heart & Soul 2.0.5 core integration is complete**: the exact supported release is `Release-v2.0.5` (upstream commit `1f42b74dff0e9fe942419845d040663dd829a973`) at ROM SHA-256 `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b`, which is the only H&S build trusted for live memory reads. The project is now in the **general pre-beta hardening phase**, using H&S as the primary complex validation ROM alongside the vanilla FireRed/Emerald regression baselines. Only then will new ROM integrations resume: R.O.W.E. (#59) first, followed by Pokémon Unbound (#60), before the release-candidate/beta cut. R.O.W.E. does not begin until that hardening pass is sufficiently complete.
+> **Project status:** DualDex is preparing its first Early Access build, **`0.9.0-beta.1`**, which has **not shipped yet** (the development identity is still `0.9.0-dev`).
 >
-> See [docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md) for exactly what is verified for H&S 2.0.5, what is deliberately bounded or unverified, and what moved into the hardening phase. That audit certifies the **core** H&S live-companion, battle, map and calculator integration only. The Assistant has since been removed from the build; the project decided not to use it for now, and its source remains under `disabled/assistant/`. The [#17 cheat policy](docs/CHEAT_COMPATIBILITY.md) offers no built-ins without exact-target evidence; custom cheats remain user-supplied/unverified, and no AYN Thor hardware run is claimed.
+> **Already on `main`:**
+> - **Heart & Soul 2.0.5** is complete — exact `Release-v2.0.5` (upstream commit `1f42b74dff…`) at ROM SHA-256 `edf76ecf2a1c23a65c62ab63b1c0e775965978c81baeed20e249e96b3417679b` is the only H&S build trusted for live memory reads. Its core live-companion, battle, map and bounded calculator integration is frozen behind a correctness-only freeze, with verified arithmetic/oracle evidence across its admitted set and an `ESTIMATED` live-session calculator ceiling ([docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md)).
+> - **Navigator** companion shell with in-game-style Party slots and a DS-style 2×2 battle move grid with tap-to-select moves.
+> - **Save safety:** SHA-256 ROM identity, atomic battery saves, SAF mirror, session identity binding with stale-observation rejection, and save-only Android backup/device-transfer allowlists.
+> - **Quick wins:** smart fast-forward, hotkey chords, frontend launch, save sharing, GitHub Releases updater, ten save-state slots with thumbnails, status bar, touch overlay, foe-team panel, L2/R2 quick save/load.
+> - **Pokémon Unbound 2.1.1.1:** native party/location/map-name reading, a 579-case host CFRU damage oracle corpus, and production calculator **`ESTIMATED` mode** (Singles ordinary-hit, capped at `ESTIMATED` with `UNBOUND_CFRU_SOURCE_APPROXIMATE` behind the exact candidate SHA-256 gate) are enabled; live battle-state reads remain disabled on the shipped `unbound.json` profile (`battleStateReadVerified = false` / `mayReadBattleState = false`, so active-battle live-state requests fail closed) and exact-ROM table/oracle parity remains unverified.
+>
+> **`0.9.0-beta.1` ROM list (owner-approved):** exact Vanilla FireRed (rev 0/1), exact Vanilla Emerald, exact Heart & Soul 2.0.5, and exact Pokémon Unbound 2.1.1.1. **R.O.W.E. (#59)** and **quota-aware cloud backup (#186/#194)** are deliberately deferred to post-beta. Compatibility tiers are **Tier A** (verified live memory + `VERIFIED` calculator) and **Tier B** (verified live memory + `ESTIMATED` calculator), so new CFRU and pokeemerald-expansion hacks can onboard safely without waiting for a full oracle campaign.
+>
+> Remaining beta gates are hardware/release work, not feature work: AYN Thor hardware acceptance remains at **HOLD** per [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md) (outstanding §5 matrix rows/subchecks and the continuous `>= 60`-minute soak `F1` remain open, alongside the unrun disposable-device cloud/device-transfer restore checks), and no build has been signed with the permanent production key. The Assistant has been removed from the build (source kept under `disabled/assistant/`), and the [#17 cheat policy](docs/CHEAT_COMPATIBILITY.md) ships no built-in cheats without exact-target evidence.
+>
+> See [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md) for the roadmap and parallel execution matrix, and [docs/HNS_ISSUE_40_CLOSURE_AUDIT.md](docs/HNS_ISSUE_40_CLOSURE_AUDIT.md) for exactly what is verified for H&S 2.0.5.
 
 See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the current release plan and the [open issues](https://github.com/Sonoran-Solutions/dualdex/issues) for known bugs and engineering work.
 
@@ -55,7 +66,7 @@ The calculator can use live party and opponent data when that information is ava
 
 ROM hacks can change a lot more than species names, so calculator behavior is being moved toward explicit per-game/version rules rather than assuming every GBA Pokémon game follows vanilla Gen 3 mechanics.
 
-**H&S calculator status:** The H&S calculator has completed its planned pre-beta feature development. New mechanic coverage is deferred until after the first public beta. Only correctness and beta-blocking fixes are allowed during the freeze. The freeze takes effect when the reviewed final-calculator PR is merged into `main`, and it lasts until after the first public `0.9.0-beta.1` release. See [docs/CALCULATOR_BETA_FREEZE.md](docs/CALCULATOR_BETA_FREEZE.md) and [docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md).
+**H&S calculator status:** The H&S calculator has completed its planned pre-beta feature development with verified arithmetic/oracle evidence across its 422 admitted move IDs and 2,523-scenario oracle corpus, while its live-session production ceiling remains **`ESTIMATED`**. New mechanic coverage is deferred until after the first public beta. Only correctness and beta-blocking fixes are allowed during the freeze. The freeze takes effect when the reviewed final-calculator PR is merged into `main`, and it lasts until after the first public `0.9.0-beta.1` release. See [docs/CALCULATOR_BETA_FREEZE.md](docs/CALCULATOR_BETA_FREEZE.md) and [docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md](docs/HNS_CALCULATOR_FINAL_PREBETA_ACCEPTANCE.md).
 
 ### Companion tools
 
@@ -75,36 +86,45 @@ The bottom-screen companion currently includes tools for things such as:
 
 DualDex currently includes profiles for:
 
-- Pokémon FireRed
-- Pokémon Emerald
-- Pokémon Ghost Grey
-- Pokémon Radical Red
-- Pokémon Heart & Soul
-- Pokémon Unbound
+- Pokémon FireRed (exact rev 0/1)
+- Pokémon Emerald (exact)
+- Pokémon Heart & Soul (exact 2.0.5)
+- Pokémon Unbound (exact 2.1.1.1 candidate)
+- Pokémon Ghost Grey (recognized, **unverified** — no support claimed)
+- Pokémon Radical Red (recognized, **unverified**)
 
-Profile presence does **not** currently mean every release of that game or hack is fully verified. Exact-version detection, memory-layout validation, and per-hack calculator accuracy are required before a profile can make authoritative companion claims.
+Profile presence does **not** mean every release of that game or hack is verified. Exact-version detection, memory-layout validation, and calculator accuracy are required before a profile can make authoritative companion claims.
 
-The planned pre-beta compatibility sequence is intentionally serial:
+For `0.9.0-beta.1` the owner-approved ROM list is **exact Vanilla FireRed, exact Vanilla Emerald, exact Heart & Soul 2.0.5, and exact Pokémon Unbound 2.1.1.1**.
 
-1. finish exact **Heart & Soul 2.0.5** completely;
-2. finish the remaining general pre-beta safety/UX/release blockers, using H&S as the main complex real-game validation target while keeping FireRed/Emerald green;
-3. add one exact **R.O.W.E.** release as the next pokeemerald-expansion-family integration and use it to validate that the H&S source/ABI/data-pack/capability work is actually reusable;
-4. add one exact **Pokémon Unbound** release after R.O.W.E., treating its CFRU/FireRed-derived architecture as a separate integration rather than assuming Emerald-expansion compatibility;
-5. only then cut and validate the first release candidate/public beta.
+- **R.O.W.E. (#59)** is deferred to post-beta. It uses a bespoke unencrypted 76-byte party layout; host research and a decoder exist, but no production support is claimed.
+- **Quota-aware cloud backup (#186/#194)** is deferred to post-beta; local atomic saves, device-to-device allowlists, and save sharing cover Early Access needs.
 
-R.O.W.E. and Unbound must still be pinned to exact versions/hashes before any verified live-memory or calculator claim is enabled.
+Compatibility is organised in tiers so new hacks can onboard without a full calculator-oracle campaign first:
 
-The long-term goal is to clearly distinguish between:
+- **Tier A — Verified Live + Exact Calc.** Verified memory layout and a source/oracle-verified `VERIFIED` damage calculator (or an explicit, fail-closed calculator refusal). Currently FireRed and Emerald hold `VERIFIED` Gen 3 calculator capability for manual/party inputs (noting their shipped profiles keep live battle-state reads disabled: `battleStateReadVerified = false` / `mayReadBattleState = false`, separate from native layout evidence); Unbound would require exact-ROM table/oracle verification and battle-state verification before promotion.
+- **Tier B — Verified Live + Estimated Calc.** Verified memory layout plus damage numbers capped at an `ESTIMATED` ceiling. Currently Heart & Soul 2.0.5 (live party/battle/map and battle-state reads enabled; verified arithmetic/oracle evidence across the admitted set, production ceiling `ESTIMATED`) and Pokémon Unbound 2.1.1.1 (exact-hash-gated Singles ordinary-hit `ESTIMATED` mode enabled; live battle-state reads disabled on the shipped profile with `battleStateReadVerified = false`).
 
-- **Verified** — exact game/version is tested and supported
-- **Recognized / Unverified** — DualDex recognizes the game, but the exact build is not confirmed
+Runtime trust still uses three explicit states:
+
+- **Verified** — exact game/version SHA-256 is tested and supported
+- **Recognized / Unverified** — DualDex recognizes the game, but the exact build is not confirmed (emulation only)
 - **Unsupported** — emulation works, but live companion features are disabled
+
+See [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md) for the full roadmap and execution matrix.
 
 ## Controls
 
 Standard GBA controls are mapped to the AYN Thor's physical controls, including the D-pad/sticks, A/B, L/R, Start, and Select.
 
-DualDex also has plans for app-level controller shortcuts such as quick save, quick load, fast-forward, and companion navigation. Those shortcuts are still part of the current beta-hardening work and should not be considered final until the first public release.
+App-level shortcuts are implemented on `main` and configurable in Settings:
+
+- **L2 / R2** — behaviour follows the Settings "L2 / R2 Behavior" mode; the default quick-save/quick-load mode refuses stale-ROM saves
+- **Fast-forward** — hotkey chord that toggles emulator speed, with Smart fast-forward dropping to 1× in menus and on the region map
+- **Hold-to-slow / hold-to-fast-forward** — optional analog-trigger behaviour
+- Shortcut inputs are consumed by DualDex and never passed through to the GBA core
+
+Further remapping and per-game binding options remain post-beta backlog. Shortcut behaviour is still subject to the remaining hardware soak before `0.9.0-beta.1`.
 
 The companion itself can be controlled through the Thor's bottom touchscreen.
 
@@ -186,29 +206,42 @@ Android's save-only backup and device-transfer policy, including its cloud-backu
 
 ## Project roadmap
 
-The immediate goal is a stable **AYN Thor GBA beta**, but new ROM support is deliberately sequenced behind correctness work rather than developed in parallel.
+The immediate goal is **`0.9.0-beta.1` Early Access on the AYN Thor**, with the owner-approved ROM list above. The full plan lives in [docs/EARLY_ACCESS_PLAN.md](docs/EARLY_ACCESS_PLAN.md).
 
-### Current pre-beta order
+### What is done
 
-1. **Finish Heart & Soul 2.0.5 to the full supported beta contract.** Complete calculator/ruleset work, exact trust promotion, battle/location acceptance, and remaining H&S-specific capability evidence.
-2. **Finish the remaining general pre-beta blockers using H&S as the primary stress-test ROM.** Save safety, ROM switching, cheat gating, backup security, controller shortcuts, hardware soak, and release behavior should all be exercised against H&S in addition to the vanilla baselines.
-3. **Integrate R.O.W.E. next.** Treat one exact release as the first deliberate reuse test for the pokeemerald-expansion-oriented tooling and abstractions built during H&S. Reuse must be proven; H&S-specific assumptions should not simply be copied.
-4. **Integrate Pokémon Unbound after R.O.W.E.** Pin one exact release and build a separate evidence-backed CFRU/FireRed-derived compatibility contract.
-5. **Cut the release candidate and public beta only after those steps are complete.**
+1. **Heart & Soul 2.0.5 core integration** — exact trust, live party/battle/map, bounded calculator (`ESTIMATED` ceiling, frozen).
+2. **Navigator + in-game-style Party slots.**
+3. **Save safety foundations** — SHA-256 ROM identity, atomic saves, SAF mirror, save-only backup/device-transfer allowlists, stale-observation rejection.
+4. **`#153` quick wins** — smart fast-forward, hotkey chords, frontend launch, save sharing, GitHub Releases updater, ten save-state slots, status bar, touch overlay, foe-team panel, L2/R2 quick save/load.
+5. **Unbound 2.1.1.1 baseline** — exact candidate SHA-256 trust, native party/location/map-name reads (`battleStateReadVerified = false`), and `ESTIMATED` Singles ordinary-hit calculator enabled (`UNBOUND_CFRU_SOURCE_APPROXIMATE`).
 
-This ordering intentionally prevents a new ROM integration from distracting from the current hardening pass, while also using R.O.W.E. and Unbound to validate that DualDex's compatibility architecture can scale beyond H&S before the first wider beta.
+### What `0.9.0-beta.1` still requires
+
+1. **Finalize Unbound beta posture** — document the current `ESTIMATED` Singles scope (with `battleStateReadVerified = false` / live battle-state reads disabled on the shipped profile) for beta, or complete exact-ROM table/oracle verification.
+2. **Complete the general release blockers** — signing, diagnostics, tester rings, upgrade-path testing, and the remaining save-recovery edge cases.
+3. **Clear the AYN Thor hardware `HOLD` and restore gates** — close outstanding §5 matrix rows/subchecks and the continuous `>= 60`-minute soak (`F1`) in [docs/THOR_HARDWARE_ACCEPTANCE.md](docs/THOR_HARDWARE_ACCEPTANCE.md), plus disposable-device cloud/device-transfer restore (`not run`).
+4. **Cut `0.9.0-beta.1-rc1` and promote the exact tested artifact** to `0.9.0-beta.1`.
+
+### Deferred to post-beta
+
+- **R.O.W.E. (#59)** — next new integration after the beta, keeping the beta honest.
+- **Quota-aware cloud backup (#186/#194)** — design spike only today.
+
+The compatibility architecture intentionally scales in parallel: the declarative `gamedata/` reader ([#8](https://github.com/Sonoran-Solutions/dualdex/issues/8)), Tier B estimated-calculator onboarding, and the Nuzlocke / best-switch / auto-patcher / diagnostics tracks run alongside the release gates and land in `0.9.0-beta.1` only if green and Thor-verified, otherwise in `0.9.0-beta.2` without delaying the beta.
 
 ### Post-beta roadmap
 
-These issues record the longer-term backlog and retain their individual priorities and prerequisites; the one-line summaries below are not a schedule. New feature work does not interrupt the serial pre-beta sequence above or enter the frozen release candidate. Existing beta fixes referenced by [#153](https://github.com/Sonoran-Solutions/dualdex/issues/153) remain governed by their current blocker issues ([#14](https://github.com/Sonoran-Solutions/dualdex/issues/14), [#75](https://github.com/Sonoran-Solutions/dualdex/issues/75)); its other additions are post-beta. [#155](https://github.com/Sonoran-Solutions/dualdex/issues/155) remains post-1.0 research after the medium-effort work in [#154](https://github.com/Sonoran-Solutions/dualdex/issues/154). They came out of an October 2026 review of [PokeDaisey](https://github.com/lidor30/pokedaisey), a comparable dual-screen GBA companion; that project is GPLv3 with an attribution clause, so DualDex re-implements the ideas and transcribes only factual data (addresses, struct offsets) with citation.
+These issues record the longer-term backlog and retain their individual priorities and prerequisites; the one-line summaries below are not a schedule. New feature work does not enter the frozen release candidate. Most of [#153](https://github.com/Sonoran-Solutions/dualdex/issues/153) is now implemented on `main`; remaining polish and any gaps stay governed by [#14](https://github.com/Sonoran-Solutions/dualdex/issues/14) and [#75](https://github.com/Sonoran-Solutions/dualdex/issues/75). [#155](https://github.com/Sonoran-Solutions/dualdex/issues/155) remains post-1.0 research after the medium-effort work in [#154](https://github.com/Sonoran-Solutions/dualdex/issues/154). They came out of an October 2026 review of [PokeDaisey](https://github.com/lidor30/pokedaisey), a comparable dual-screen GBA companion; that project is GPLv3 with an attribution clause, so DualDex re-implements the ideas and transcribes only factual data (addresses, struct offsets) with citation.
 
 - [#150](https://github.com/Sonoran-Solutions/dualdex/issues/150) **RetroAchievements.** The full achievement list, progress, rich presence and unlock popups live on the companion screen instead of covering the game. Hardcore mode has to disable state loading, cheats and interactive battle controls.
 - [#151](https://github.com/Sonoran-Solutions/dualdex/issues/151) **Party tab in the game's own party-menu style.** Slot frames, backdrop, status icons, mini sprites and small font drawn on the GBA pixel grid at an integer scale; Heart & Soul first because its pinned source already supplies every asset, subject to confirming the H&S authors' licence for any bundled art, otherwise extracted from the player's ROM at runtime as vanilla FireRed/Emerald must be. This is the Party gate for the Navigator shell in [#133](https://github.com/Sonoran-Solutions/dualdex/issues/133).
 - [#152](https://github.com/Sonoran-Solutions/dualdex/issues/152) **Bootstrap additional games.** Make the profile JSON drive the native reader ([#8](https://github.com/Sonoran-Solutions/dualdex/issues/8)), add headless RAM-fixture capture tooling, and use transcribed address data as a head start for [#59](https://github.com/Sonoran-Solutions/dualdex/issues/59) and [#60](https://github.com/Sonoran-Solutions/dualdex/issues/60). Verification stays fixture-backed and exact-hash gated.
-- [#153](https://github.com/Sonoran-Solutions/dualdex/issues/153) **Quick wins.** Smart fast-forward, hotkey chords, touch overlay, auto-resume, save-state thumbnails and undo, status bar, frontend launch intents, save sharing with other emulators, a GitHub Releases updater, and a foe-team panel.
+- [#153](https://github.com/Sonoran-Solutions/dualdex/issues/153) **Quick wins — largely shipped on `main`.** Smart fast-forward, hotkey chords, touch overlay, save-state thumbnails, status bar, frontend launch intents, save sharing with other emulators, a GitHub Releases updater, a foe-team panel, and L2/R2 quick save/load. Remaining items (unscoped undo, auto-resume edge cases) stay in the issue rather than on the beta critical path.
 - [#154](https://github.com/Sonoran-Solutions/dualdex/issues/154) **Medium-effort additions.** Touch battle controls without cursor reads, a hint-first spoiler-safe guide, a Pokédex tab, the game's own region map, pixel-style chrome, bag and trainer-card data.
 - [#155](https://github.com/Sonoran-Solutions/dualdex/issues/155) **Ambitious or research, post-1.0.** Normal-tempo music during fast-forward, a pixel-exact trainer card, a ROM-side telemetry struct, rewind, and calculator-based switch suggestions.
 
+- [Early Access plan and execution matrix](docs/EARLY_ACCESS_PLAN.md)
 - [Public beta release checklist](RELEASE_CHECKLIST.md)
 - [UI design audit](UI_DESIGN_AUDIT.md)
 - [Future platform roadmap](FUTURE_PLATFORM_ROADMAP.md)

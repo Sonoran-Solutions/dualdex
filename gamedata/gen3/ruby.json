@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "ruby",
+  "cSymbol": "CONFIG_RUBY",
+  "gameId": "GAME_RUBY",
+  "gameName": "Pokemon Ruby",
+  "evidence": [
+    "Values migrated unchanged from native/src/pokemon_reader.c CONFIG_RUBY at 3d0a0e4; no symbol or runtime evidence recorded."
+  ],
+  "notes": [
+    "Root of the Ruby/Sapphire family. No gBattleMons or battle lifecycle symbols are declared, so",
+    "battle readers fail closed; party discovery is heuristic."
+  ],
+  "waivers": {
+    "party-count-inside-party": "Legacy unverified value preserved bit-for-bit: 0x246E4 is the last word of the 600-byte window starting at player_party_offset 0x24490. No Ruby/Sapphire symbol audit exists; resolve with symbol evidence before promoting this layout."
+  },
+  "fields": {
+    "player_party_offset": {"ewram": "0x24490"},
+    "player_party_count_offset": {"ewram": "0x2448C"},
+    "enemy_party_offset": {"ewram": "0x246E8"},
+    "enemy_party_count_offset": {"ewram": "0x246E4"},
+    "player_party_policy": "PARTY_DISCOVERY_HEURISTIC",
+    "has_evs": true,
+    "has_ivs": true
+  }
+}

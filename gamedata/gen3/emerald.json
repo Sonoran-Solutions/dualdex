@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "emerald",
+  "cSymbol": "CONFIG_EMERALD",
+  "gameId": "GAME_EMERALD",
+  "gameName": "Pokemon Emerald",
+  "evidence": [
+    "pret/pokeemerald src/pokemon.c + sym_ewram.txt: gPlayerPartyCount 0x020244E9, gPlayerParty 0x020244EC.",
+    "pokeemerald src/pokemon.c:76-77 declares gPlayerPartyCount then gEnemyPartyCount as the first two EWRAM objects.",
+    "PR #70 layout audit: docs/VANILLA_CALCULATOR_EVIDENCE.md section 7; tools/calc-goldens/audit_vanilla_layout.py."
+  ],
+  "notes": [
+    "Policy audit: PARTY_DISCOVERY_AUTHORITATIVE_STATIC. While SaveBlock1 is allocated on the heap,",
+    "live player party memory is a fixed EWRAM global and never shifts at runtime.",
+    "Enemy count: always the byte immediately after the player count, never a separate",
+    "gEnemyParty - 4. The previous value 0x24740 named the byte after the enemy party array, not the",
+    "symbol; it was latent because pokemon_read_enemy_party_gba returns before reading a count for",
+    "any layout that does not declare the full battle lifecycle gate (every vanilla title today)."
+  ],
+  "fields": {
+    "player_party_offset": {"ewram": "0x244EC"},
+    "player_party_count_offset": {"ewram": "0x244E9"},
+    "enemy_party_offset": {"ewram": "0x24744"},
+    "enemy_party_count_offset": {"ewram": "0x244EA"},
+    "battle_mons_offset": {"ewram": "0x24064"},
+    "battle_mons_size": 88,
+    "battle_mons_hp_offset": 40,
+    "battle_mons_stat_stages_offset": "0x18",
+    "player_party_policy": "PARTY_DISCOVERY_AUTHORITATIVE_STATIC",
+    "has_evs": true,
+    "has_ivs": true
+  }
+}

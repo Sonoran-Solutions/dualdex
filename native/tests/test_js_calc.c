@@ -58,6 +58,7 @@
 #define ANSI_RESET "\033[0m"
 
 #define BUNDLE_PATH "app/src/main/assets/calc_bundle.js"
+#define UNBOUND_ADDON_PATH "app/src/main/assets/unbound_calc_bundle.js"
 
 static int g_checks_passed = 0;
 static int g_checks_failed = 0;
@@ -1745,9 +1746,30 @@ static int load_bundle(void) {
                BUNDLE_PATH);
         return 1;
     }
-    printf("Initializing QuickJS with %s (%zu bytes)...\n", BUNDLE_PATH, strlen(bundle_js));
-    bool ok = js_calc_init(bundle_js);
+    char* addon_js = read_file_to_string(UNBOUND_ADDON_PATH);
+    if (!addon_js) {
+        printf(ANSI_RED "Failed to read %s - the shipped Unbound addon bundle must be present\n" ANSI_RESET,
+               UNBOUND_ADDON_PATH);
+        free(bundle_js);
+        return 1;
+    }
+    size_t base_len = strlen(bundle_js);
+    size_t addon_len = strlen(addon_js);
+    char* combined = (char*)malloc(base_len + addon_len + 3);
+    if (!combined) {
+        free(bundle_js);
+        free(addon_js);
+        return 1;
+    }
+    memcpy(combined, bundle_js, base_len);
+    combined[base_len] = '\n';
+    combined[base_len + 1] = ';';
+    memcpy(combined + base_len + 2, addon_js, addon_len + 1);
     free(bundle_js);
+    free(addon_js);
+    printf("Initializing QuickJS with %s + %s (%zu bytes)...\n", BUNDLE_PATH, UNBOUND_ADDON_PATH, base_len + addon_len + 2);
+    bool ok = js_calc_init(combined);
+    free(combined);
     if (!ok) {
         printf(ANSI_RED "js_calc_init failed: the shipped bundle did not evaluate\n" ANSI_RESET);
         return 1;
@@ -4368,6 +4390,51 @@ static void check_hns_fixed_two_production_vectors(void) {
     jl_free(vectors); free(text);
 }
 
+static void check_unbound_cfru(void) {
+    /* SOURCE_APPROXIMATE: case 1 of tools/unbound-damage-oracle/corpus.json. */
+    static const int rolls[ROLL_COUNT] =
+        {56, 56, 57, 58, 58, 59, 60, 60, 61, 62, 62, 63, 64, 64, 65, 66};
+#define UNBOUND_REQUEST(FORMAT, CATEGORY, POWER) \
+    "{\"typeSystem\":\"unbound_cfru\",\"field\":{\"gameType\":\"" FORMAT "\"}," \
+    "\"display\":{\"attackerName\":\"Snorlax\",\"defenderName\":\"Chansey\",\"moveName\":\"Mega Punch\",\"defenderMaxHP\":220}," \
+    "\"unbound\":{\"attack\":123,\"attack_stage\":6,\"attacker_ability\":0,\"attacker_hold_effect\":0," \
+    "\"attacker_status\":0,\"attacker_type_1\":0,\"attacker_type_2\":0,\"category\":" CATEGORY "," \
+    "\"critical\":0,\"defender_ability\":0,\"defender_hold_effect\":0,\"defender_type_1\":0,\"defender_type_2\":0," \
+    "\"defense\":101,\"defense_stage\":6,\"level\":50,\"move_type\":0,\"power\":" POWER "," \
+    "\"screens\":0,\"sp_attack\":137,\"sp_attack_stage\":6,\"sp_defense\":119,\"sp_defense_stage\":6,\"weather\":0}}"
+    const calc_fixture fixtures[] = {
+        {
+            .name = "unbound_cfru_oracle_case_1",
+            .request = UNBOUND_REQUEST("Singles", "0", "80"),
+            .expect_success = 1, .expect_rolls = rolls, .expect_move_type = "Normal",
+            .expect_move_category = "Physical", .expect_move_power = 80, .expect_defender_hp = 220
+        },
+        {
+            .name = "unbound_cfru_doubles_refused",
+            .request = UNBOUND_REQUEST("Doubles", "0", "80"),
+            .expect_error_contains = "Singles"
+        },
+        {
+            .name = "unbound_cfru_status_refused",
+            .request = UNBOUND_REQUEST("Singles", "2", "80"),
+            .expect_error_contains = "category"
+        },
+        {
+            .name = "unbound_cfru_out_of_range_power_refused",
+            .request = UNBOUND_REQUEST("Singles", "0", "151"),
+            .expect_error_contains = "power"
+        },
+        {
+            .name = "unbound_cfru_no_generic_fallback",
+            .request = "{\"typeSystem\":\"unbound_cfru\",\"gen\":3,\"attacker\":{\"species\":\"Machamp\"},"
+                       "\"defender\":{\"species\":\"Snorlax\"},\"move\":{\"name\":\"Rock Slide\"}}",
+            .expect_error_contains = "Unbound CFRU"
+        }
+    };
+#undef UNBOUND_REQUEST
+    for (size_t i = 0; i < sizeof(fixtures) / sizeof(fixtures[0]); ++i) run_fixture(&fixtures[i]);
+}
+
 int main(void) {
     printf("===================================================\n");
     printf("  DualDex QuickJS damage calculator suite (host)\n");
@@ -4387,6 +4454,9 @@ int main(void) {
 
     printf("-- battle-format (field.gameType) contract, Gen III mechanics, error paths --\n");
     for (int i = 0; i < FIXTURE_COUNT; i++) run_fixture(&FIXTURES[i]);
+
+    printf("-- Unbound CFRU ordinary-hit Singles and refusal paths --\n");
+    check_unbound_cfru();
 
     printf("-- equivalent singles inputs --\n");
     check_singles_equivalence();

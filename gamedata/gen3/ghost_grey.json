@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "ghost_grey",
+  "base": "firered_rev0",
+  "cSymbol": "CONFIG_GHOST_GREY",
+  "gameId": "GAME_GHOST_GREY",
+  "gameName": "Pokemon Ghost Grey",
+  "evidence": [
+    "Values migrated unchanged from native/src/pokemon_reader.c CONFIG_GHOST_GREY at 3d0a0e4; no symbol or runtime evidence recorded.",
+    "app/src/main/assets/profiles/ghost_grey.json declares a HexManiacAdvance FireRed binary hack with no exact hash."
+  ],
+  "notes": [
+    "In-place FireRed binary hack: inherits the FireRed party addresses but declares no gBattleMons,",
+    "so battle readers fail closed. The enemy count keeps the legacy 0x24028 value: the PR #70",
+    "correction to 0x2402A was applied only to layouts with symbol evidence."
+  ],
+  "fields": {
+    "enemy_party_count_offset": {"ewram": "0x24028"},
+    "battle_mons_offset": null,
+    "battle_mons_size": null,
+    "battle_mons_hp_offset": null,
+    "battle_mons_stat_stages_offset": null,
+    "player_party_policy": "PARTY_DISCOVERY_HEURISTIC",
+    "has_evs": {"value": false, "note": "Ghost Grey removes EVs"},
+    "has_ivs": {"value": false, "note": "Ghost Grey removes IVs"}
+  }
+}

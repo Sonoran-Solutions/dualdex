@@ -3541,6 +3541,40 @@ static void test_hns_battle_pokemon_layout_fields(void) {
     printf(ANSI_GREEN "  [PASS] test_hns_battle_pokemon_layout_fields" ANSI_RESET "\n");
 }
 
+// The CONFIG_* tables are generated from gamedata/gen3/*.json (tools/gamedata/generate_gamedata.py).
+// The lookup must hand every supported id its own config and keep failing closed for anything else.
+static void test_generated_game_configs_are_wired_to_lookup(void) {
+    printf("Running test_generated_game_configs_are_wired_to_lookup...\n");
+    static const GbaGameId SUPPORTED[] = {
+        GAME_EMERALD, GAME_FIRERED, GAME_LEAFGREEN, GAME_RUBY, GAME_SAPPHIRE,
+        GAME_GHOST_GREY, GAME_RADICAL_RED, GAME_HEART_AND_SOUL, GAME_UNBOUND
+    };
+    const size_t count = sizeof(SUPPORTED) / sizeof(SUPPORTED[0]);
+    for (size_t i = 0; i < count; i++) {
+        const GameMemoryConfig* cfg = pokemon_get_game_config(SUPPORTED[i]);
+        TEST_ASSERT(cfg != NULL, "every supported game id must have a generated config");
+        TEST_ASSERT(cfg->game_id == SUPPORTED[i], "a config must carry the id it was looked up by");
+        TEST_ASSERT(cfg->game_name != NULL && cfg->game_name[0] != '\0', "a config must be named");
+        TEST_ASSERT(cfg->player_party_offset != 0 && cfg->player_party_offset < 0x40000,
+                    "the required EWRAM-relative player party offset must be declared inside EWRAM");
+        for (size_t j = 0; j < i; j++) {
+            TEST_ASSERT(pokemon_get_game_config(SUPPORTED[j]) != cfg, "configs must not be shared");
+        }
+    }
+    TEST_ASSERT(GAME_UNBOUND == (GbaGameId)count, "a new GbaGameId needs a gamedata config and this list");
+    TEST_ASSERT(pokemon_get_game_config(GAME_UNKNOWN) == NULL, "GAME_UNKNOWN must fail closed");
+    TEST_ASSERT(pokemon_get_game_config((GbaGameId)(count + 1)) == NULL, "an out-of-range id must fail closed");
+    // Spot-check one inherited and one overridden member through the generated table.
+    TEST_ASSERT(pokemon_get_game_config(GAME_UNBOUND)->player_party_offset ==
+                pokemon_get_game_config(GAME_FIRERED)->player_party_offset,
+                "Unbound inherits the FireRed party base through gamedata base inheritance");
+    TEST_ASSERT(pokemon_get_game_config(GAME_LEAFGREEN)->player_party_policy == PARTY_DISCOVERY_HEURISTIC &&
+                pokemon_get_game_config(GAME_FIRERED)->player_party_policy == PARTY_DISCOVERY_AUTHORITATIVE_STATIC,
+                "LeafGreen overrides only the discovery policy of its FireRed base");
+    g_tests_passed++;
+    printf(ANSI_GREEN "  [PASS] test_generated_game_configs_are_wired_to_lookup" ANSI_RESET "\n");
+}
+
 static void test_unknown_game_still_fails_closed(void) {
     printf("Running test_unknown_game_still_fails_closed...\n");
 
@@ -7215,6 +7249,7 @@ int main(void) {
     test_hns_saveblock1_invalid_pointer_fails_closed();
     test_hns_saveblock1_aslr_window_is_not_fixed();
     test_hns_battle_pokemon_layout_fields();
+    test_generated_game_configs_are_wired_to_lookup();
     test_unknown_game_still_fails_closed();
     test_heart_and_soul_party_and_battle_hp_sync();
 

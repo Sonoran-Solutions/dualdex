@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "leafgreen",
+  "base": "firered_rev0",
+  "cSymbol": "CONFIG_LEAFGREEN",
+  "gameId": "GAME_LEAFGREEN",
+  "gameName": "Pokemon LeafGreen",
+  "evidence": [
+    "Same FireRed/LeafGreen engine layout as firered_rev0 (pokefirered builds both from one source, src/pokemon.c:59-60).",
+    "Values migrated unchanged from native/src/pokemon_reader.c CONFIG_LEAFGREEN at 3d0a0e4."
+  ],
+  "notes": [
+    "No exact LeafGreen symbol or runtime evidence is recorded, so party discovery stays heuristic."
+  ],
+  "fields": {
+    "player_party_policy": "PARTY_DISCOVERY_HEURISTIC"
+  }
+}

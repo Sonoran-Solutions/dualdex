@@ -1,6 +1,9 @@
 package com.dualdex.romhack
 
 import com.dualdex.calculator.CalcCapabilityPolicy
+import com.dualdex.calculator.CalcLimitation
+import com.dualdex.calculator.CalcRuleset
+import com.dualdex.calculator.CalcSupport
 import com.dualdex.pokemon.GameDataPackRegistry
 import com.dualdex.pokemon.GbaGame
 import com.dualdex.pokemon.unbound.UnboundDataPack
@@ -344,8 +347,19 @@ class RomHackProfileTest {
         assertEquals(RomCompatibilityStatus.RECOGNIZED_UNVERIFIED, result.status)
         assertFalse(result.isVerified)
         assertFalse(result.mayReadLiveMemory)
-        assertFalse(RuntimeRomTrust.from(result, result.sha256).mayReadLiveMemory)
-        assertNull("no calculator row, in particular not VANILLA_GEN3", CalcCapabilityPolicy.capabilityFor(result.profile))
+        val trust = RuntimeRomTrust.from(result, result.sha256)
+        assertFalse(trust.mayReadLiveMemory)
+        val capability = CalcCapabilityPolicy.capabilityFor(result.profile)
+        if (result.profile.id == "unbound") {
+            assertEquals(CalcRuleset.UNBOUND_CFRU, capability?.ruleset)
+            assertEquals(CalcSupport.ESTIMATED, capability?.ceiling)
+            assertFalse(
+                "unverified Unbound ROM must never satisfy exact calculator verification",
+                CalcCapabilityPolicy.isExactRuntimeVerified(result.profile, trust)
+            )
+        } else {
+            assertNull("no calculator row, in particular not VANILLA_GEN3", capability)
+        }
     }
 
     @Test
@@ -366,7 +380,12 @@ class RomHackProfileTest {
                     assertTrue(trust.mayReadLiveMemory)
                     assertFalse(trust.mayReadBattleState)
                     assertSame(UnboundDataPack, GameDataPackRegistry.getForProfile(result.profile, sha))
-                    assertNull(CalcCapabilityPolicy.capabilityFor(result.profile))
+                    val capability = CalcCapabilityPolicy.capabilityFor(result.profile)
+                    assertNotNull(capability)
+                    assertEquals(CalcRuleset.UNBOUND_CFRU, capability?.ruleset)
+                    assertEquals(CalcSupport.ESTIMATED, capability?.ceiling)
+                    assertTrue(CalcLimitation.UNBOUND_CFRU_SOURCE_APPROXIMATE in capability!!.alwaysLimitations)
+                    assertTrue(CalcCapabilityPolicy.isExactRuntimeVerified(result.profile, trust))
                     assertFalse(result.profile.battleUiVerified)
                     assertFalse(result.profile.interactiveControlsVerified)
                 }

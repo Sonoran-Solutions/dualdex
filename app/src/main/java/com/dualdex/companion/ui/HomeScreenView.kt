@@ -18,6 +18,7 @@ import com.dualdex.emulator.SaveStateManager
 import com.dualdex.library.AppUpdater
 import com.dualdex.library.CoverArt
 import com.dualdex.library.LibraryPrefs
+import com.dualdex.library.PatchFlow
 import com.dualdex.library.RomInfo
 import com.dualdex.romhack.RomCompatibilityMessages
 import com.dualdex.romhack.RomCompatibilityStatus
@@ -50,6 +51,10 @@ class HomeScreenView(
     private val resumeCard: LinearLayout
     private val resumeGameLabel: TextView
     private val searchInput: EditText
+    private val patchButton: TextView
+    private val patchBanner: LinearLayout
+    private val patchMessage: TextView
+    private val playPatchedButton: TextView
     private var allRoms: List<RomItem> = emptyList()
     private val libraryPrefs = LibraryPrefs(context)
     private var showHidden = false
@@ -142,6 +147,31 @@ class HomeScreenView(
             LayoutParams.WRAP_CONTENT
         ).apply { topMargin = context.dp(DualDexTheme.Spacing.compact) })
 
+        patchButton = DualDexComponents.secondaryButton(context, "Patch ROM (.bps/.ups)") {
+            PatchFlow.pickPatchRequest?.invoke()
+        }.apply { visibility = View.GONE }
+        content.addView(patchButton, LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            context.dp(DualDexTheme.Spacing.touchTarget)
+        ).apply { topMargin = context.dp(DualDexTheme.Spacing.compact) })
+
+        patchMessage = TextView(context).apply {
+            setTextColor(DualDexTheme.Color.textPrimary)
+            textSize = DualDexTheme.Type.meta
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            setTextIsSelectable(true)
+        }
+        playPatchedButton = DualDexComponents.ghostControl(context, "Play patched ROM")
+        patchBanner = DualDexComponents.surfaceCard(context).apply {
+            visibility = View.GONE
+            addView(patchMessage)
+            addView(playPatchedButton, LayoutParams(LayoutParams.MATCH_PARENT, context.dp(DualDexTheme.Spacing.touchTarget)))
+        }
+        content.addView(patchBanner, LayoutParams(
+            LayoutParams.MATCH_PARENT,
+            LayoutParams.WRAP_CONTENT
+        ).apply { topMargin = context.dp(DualDexTheme.Spacing.compact) })
+
         folderStatusText = TextView(context).apply {
             setTextColor(DualDexTheme.Color.textSecondary)
             textSize = DualDexTheme.Type.meta
@@ -189,10 +219,42 @@ class HomeScreenView(
     }
 
     fun updateFolderStatus() {
-        folderStatusText.text = if (settingsManager.romsFolderUri != null) {
-            "ROM folder configured · ${allRoms.size} game${if (allRoms.size == 1) "" else "s"} found"
-        } else {
-            "Choose a ROM folder to add games to your library."
+        folderStatusText.text = when {
+            settingsManager.romsFolderUri != null ->
+                "ROM folder configured · ${allRoms.size} game${if (allRoms.size == 1) "" else "s"} found"
+            allRoms.isNotEmpty() ->
+                "${allRoms.size} patched game${if (allRoms.size == 1) "" else "s"} in DualDex storage"
+            else ->
+                "Choose a ROM folder to add games to your library."
+        }
+    }
+
+    private fun renderPatchStatus(status: PatchFlow.Status) {
+        patchButton.visibility = if (PatchFlow.pickPatchRequest != null) View.VISIBLE else View.GONE
+        patchButton.isEnabled = status != PatchFlow.Status.Patching
+        patchBanner.visibility = if (status == PatchFlow.Status.Idle) View.GONE else View.VISIBLE
+        playPatchedButton.visibility = View.GONE
+        playPatchedButton.setOnClickListener(null)
+        patchMessage.text = when (status) {
+            PatchFlow.Status.Idle -> ""
+            PatchFlow.Status.Patching -> "Matching the base ROM and verifying the patch…"
+            is PatchFlow.Status.Failed -> status.reason
+            is PatchFlow.Status.Saved -> {
+                if (onPlayRomRequested != null) {
+                    playPatchedButton.visibility = View.VISIBLE
+                    val unsupported = status.compatibility.status == RomCompatibilityStatus.UNSUPPORTED
+                    playPatchedButton.text = if (unsupported) "Play anyway" else "Play patched ROM"
+                    playPatchedButton.setOnClickListener {
+                        if (unsupported) libraryPrefs.acceptUnsupported(status.compatibility.sha256)
+                        onPlayRomRequested.invoke(status.uri, status.fileName.substringBeforeLast('.'))
+                    }
+                }
+                val location = if (status.linkedFolder == null) "DualDex storage" else "the ROM folder"
+                val compatibility = status.compatibility
+                val badge = RomCompatibilityMessages.badge(compatibility.status)
+                val profile = compatibility.detectedProfile?.name?.let { " · $it" }.orEmpty()
+                "Saved ${status.fileName} in $location\n$badge$profile\nSHA-256 ${compatibility.sha256}"
+            }
         }
     }
 
@@ -384,6 +446,9 @@ class HomeScreenView(
         viewScope?.cancel()
         viewScope = CoroutineScope(Dispatchers.Main + SupervisorJob()).also { scope ->
             AppUpdater.onLibraryOpened(context, this)
+            scope.launch {
+                PatchFlow.status.collectLatest(::renderPatchStatus)
+            }
             scope.launch {
                 viewModel.scannedRoms.collectLatest { roms ->
                     allRoms = roms
